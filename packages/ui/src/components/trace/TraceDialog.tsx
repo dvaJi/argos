@@ -5,8 +5,7 @@ import { Spinner } from "#shadcn/components/ui/spinner";
 import { Icon } from "@iconify/react";
 import { createDeviceClient } from "#api/DeviceClient";
 import { createSessionClient } from "#api/SessionClient";
-import { useMonaco } from "stream-monaco";
-import { useUiSettingsStore, getFormattedCodeFontFamily } from "#/stores/uiSettingsStore";
+import { DiffsCodePane } from "#/components/sidepanel/viewer/DiffsCodePane";
 import type { MessageTraceRecord } from "@argos/shared/types/agent-interface";
 import type { ArgosTapeViewManifestRecord } from "@argos/shared/types/tape-view-manifest";
 import ManifestPanel from "./ManifestPanel";
@@ -65,34 +64,12 @@ interface TraceDialogProps {
 }
 
 export default function TraceDialog({ messageId, sessionId, onClose }: TraceDialogProps) {
-  const uiSettingsStore = useUiSettingsStore();
-  const jsonEditorRef = useRef<HTMLDivElement | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
   const requestIdRef = useRef(0);
-  const [editorInitialized, setEditorInitialized] = useState(false);
   const [loadState, dispatch] = useReducer(loadReducer, initialLoadState);
   const { loading, error, traces: traceList, selectedTraceId, manifests } = loadState;
   const [selectedManifestId, setSelectedManifestId] = useState<string | null>(null);
-
-  const { cleanupEditor, getEditorView } = useMonaco({
-    readOnly: true,
-    wordWrap: "off",
-    wrappingIndent: "same",
-    fontFamily: getFormattedCodeFontFamily(),
-    minimap: { enabled: false },
-    scrollBeyondLastLine: true,
-    fontSize: 12,
-    lineNumbers: "on",
-    folding: true,
-    automaticLayout: true,
-    scrollbar: {
-      horizontal: "visible",
-      vertical: "visible",
-      horizontalScrollbarSize: 10,
-      verticalScrollbarSize: 10,
-    },
-  });
 
   const selectedTrace = useMemo(() => {
     if (!traceList.length) return null;
@@ -168,21 +145,6 @@ export default function TraceDialog({ messageId, sessionId, onClose }: TraceDial
     }
   }, [isOpen]);
 
-  useEffect(() => {
-    const applyFontFamily = (fontFamily: string) => {
-      const editor = getEditorView();
-      if (editor) editor.updateOptions({ fontFamily });
-    };
-    applyFontFamily(getFormattedCodeFontFamily());
-  }, [getFormattedCodeFontFamily()]);
-
-  useEffect(() => {
-    return () => {
-      cleanupEditor();
-      setEditorInitialized(false);
-    };
-  }, []);
-
   const loadTraces = async (msgId: string) => {
     requestIdRef.current += 1;
     const currentRequestId = requestIdRef.current;
@@ -227,8 +189,6 @@ export default function TraceDialog({ messageId, sessionId, onClose }: TraceDial
   const resetState = useCallback(() => {
     dispatch({ type: "reset" });
     setCopySuccess(false);
-    cleanupEditor();
-    setEditorInitialized(false);
   }, []);
 
   const close = useCallback(() => {
@@ -333,15 +293,8 @@ export default function TraceDialog({ messageId, sessionId, onClose }: TraceDial
                   {copySuccess ? "Copied!" : "Copy JSON"}
                 </Button>
               </div>
-              <div className="flex-1 min-h-0 bg-muted/30 relative">
-                <div ref={jsonEditorRef} className="absolute inset-0" />
-                {formattedJson && !editorInitialized && (
-                  <div className="absolute inset-0 p-4 overflow-auto">
-                    <pre className="text-xs whitespace-pre-wrap break-words">
-                      <code>{formattedJson}</code>
-                    </pre>
-                  </div>
-                )}
+              <div className="flex-1 min-h-0 bg-muted/30">
+                <DiffsCodePane source={{ id: "trace-body", content: formattedJson, name: "trace.json" }} />
               </div>
             </div>
           </div>

@@ -2,8 +2,16 @@ import { useCallback, useMemo } from "react";
 import { createBrowserClient } from "#api/BrowserClient";
 import { createWorkspaceClient } from "#api/WorkspaceClient";
 import { sessionStore, getActiveSession } from "#/stores/ui/session";
-import { openBrowser, selectFile } from "#/stores/ui/sidepanel";
+import { openBrowser, openDiffs, selectFile, setDiffsSelection } from "#/stores/ui/sidepanel";
 import { classifyMarkdownLink, type MarkdownLinkContext } from "./linkTypes";
+
+const isPathWithinWorkspace = (filePath: string, workspacePath: string | null): boolean => {
+  if (!workspacePath) return false;
+  const normalize = (value: string) => value.replace(/[\\/]+$/, "").toLowerCase();
+  const target = normalize(filePath);
+  const root = normalize(workspacePath);
+  return target === root || target.startsWith(`${root}/`) || target.startsWith(`${root}\\`);
+};
 
 interface UseMarkdownLinkNavigationOptions {
   linkContext?: MarkdownLinkContext | undefined;
@@ -17,6 +25,19 @@ type SessionContext = {
 
 function buildSafeAttributeSelector(value: string): string {
   return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
+/**
+ * Normalize a local-file href from chat markdown so it resolves on disk:
+ * - strip a leading "/" before a Windows drive letter (`/C:/...` -> `C:/...`)
+ * - strip a trailing editor-style line/column suffix (`path:18` / `path:18:5`)
+ * The line number is dropped (the file opens at the top); line-scrolling is future work.
+ */
+function normalizeLocalFilePathHref(rawHref: string): string {
+  let href = rawHref.trim();
+  href = href.replace(/^\/([a-zA-Z]:[\\/])/, "$1");
+  href = href.replace(/:[0-9]+(?::[0-9]+)?$/, "");
+  return href;
 }
 
 export function useMarkdownLinkNavigation(options: UseMarkdownLinkNavigationOptions = {}) {
@@ -95,9 +116,10 @@ export function useMarkdownLinkNavigation(options: UseMarkdownLinkNavigationOpti
 
       const openLocalFile = async (fileHref: string): Promise<boolean> => {
         const { sessionId: ctxSessionId, workspacePath, sourceFilePath: ctxSourceFilePath } = getSessionContext();
+        const normalizedHref = normalizeLocalFilePathHref(fileHref);
         const resolution = await workspaceClient.resolveMarkdownLinkedFile({
           workspacePath,
-          href: fileHref,
+          href: normalizedHref,
           sourceFilePath: ctxSourceFilePath,
         });
 
@@ -107,10 +129,18 @@ export function useMarkdownLinkNavigation(options: UseMarkdownLinkNavigationOpti
         }
 
         if (ctxSessionId) {
-          selectFile(ctxSessionId, resolution.path, {
-            open: true,
-            viewMode: "preview",
-          });
+          // In-workspace files open in the Diffs tab (the diff is usually what
+          // you want from a chat link); files outside the workspace fall back to
+          // the workspace file viewer (no diff available for other projects).
+          if (isPathWithinWorkspace(resolution.path, workspacePath)) {
+            setDiffsSelection(resolution.path);
+            openDiffs();
+          } else {
+            selectFile(ctxSessionId, resolution.path, {
+              open: true,
+              viewMode: "preview",
+            });
+          }
           return true;
         }
 

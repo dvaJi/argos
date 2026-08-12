@@ -3,7 +3,7 @@ import { Reveal } from "~/components/Reveal";
 
 const DETAILS = [
   { icon: Article, label: "Markdown & rich rendering" },
-  { icon: Code, label: "CodeMirror code blocks" },
+  { icon: Code, label: "Syntax-highlighted code" },
   { icon: PaintBrush, label: "Mermaid & Artifacts" },
   { icon: Browsers, label: "Multi-window & tabs" },
   { icon: ArrowsClockwise, label: "Retry & regenerate" },

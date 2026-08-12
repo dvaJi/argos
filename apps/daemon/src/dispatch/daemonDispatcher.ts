@@ -94,6 +94,22 @@ import {
   modelsSetBatchStatusRoute,
   toolsListDefinitionsRoute,
   workspaceBrowseDirectoryRoute,
+  workspaceRegisterRoute,
+  workspaceUnregisterRoute,
+  workspaceWatchRoute,
+  workspaceUnwatchRoute,
+  workspaceReadDirectoryRoute,
+  workspaceExpandDirectoryRoute,
+  workspaceReadFilePreviewRoute,
+  workspaceReadFileTextRoute,
+  workspaceWriteFileRoute,
+  workspaceCreateEntryRoute,
+  workspaceDeletePathRoute,
+  workspaceRenameOrMovePathRoute,
+  workspaceResolveMarkdownLinkedFileRoute,
+  workspaceGetGitStatusRoute,
+  workspaceGetGitDiffRoute,
+  workspaceSearchFilesRoute,
   fileIsDirectoryRoute,
   filePrepareDirectoryRoute,
   fileReadFileRoute,
@@ -791,6 +807,26 @@ export function createDaemonDispatcher(
   orchestrationRuntime?: {
     definitions(): unknown[];
   },
+  workspacePresenter?: {
+    registerWorkspace(workspacePath: string): Promise<void>;
+    registerWorkdir(workdir: string): Promise<void>;
+    unregisterWorkspace(workspacePath: string): Promise<void>;
+    unregisterWorkdir(workdir: string): Promise<void>;
+    watchWorkspace(workspacePath: string): Promise<void>;
+    unwatchWorkspace(workspacePath: string): Promise<void>;
+    readDirectory(dirPath: string): Promise<unknown[]>;
+    expandDirectory(dirPath: string): Promise<unknown[]>;
+    readFilePreview(filePath: string): Promise<unknown>;
+    readFileText(filePath: string): Promise<{ content: string | null; exists: boolean }>;
+    writeFile(filePath: string, content: string): Promise<void>;
+    createEntry(parentDir: string, name: string, isDirectory: boolean): Promise<string>;
+    deletePath(targetPath: string): Promise<void>;
+    renameOrMovePath(fromPath: string, toPath: string): Promise<string>;
+    resolveMarkdownLinkedFile(input: unknown): Promise<unknown>;
+    getGitStatus(workspacePath: string): Promise<unknown>;
+    getGitDiff(workspacePath: string, filePath?: string): Promise<unknown>;
+    searchFiles(workspacePath: string, query: string): Promise<unknown[]>;
+  },
 ): RouteDispatcher {
   const settingsHandler = new SettingsRouteHandler(createSettingsRouteAdapter(configPresenter));
   const runtime: {
@@ -1481,6 +1517,110 @@ export function createDaemonDispatcher(
         home,
         separator: sep === "\\" ? "\\" : "/",
         entries,
+      });
+    }
+
+    if (workspacePresenter && route === workspaceRegisterRoute.name) {
+      const input = workspaceRegisterRoute.input.parse(rawInput);
+      if (input.mode === "workdir") await workspacePresenter.registerWorkdir(input.workspacePath);
+      else await workspacePresenter.registerWorkspace(input.workspacePath);
+      return workspaceRegisterRoute.output.parse({ registered: true });
+    }
+
+    if (workspacePresenter && route === workspaceUnregisterRoute.name) {
+      const input = workspaceUnregisterRoute.input.parse(rawInput);
+      if (input.mode === "workdir") await workspacePresenter.unregisterWorkdir(input.workspacePath);
+      else await workspacePresenter.unregisterWorkspace(input.workspacePath);
+      return workspaceUnregisterRoute.output.parse({ unregistered: true });
+    }
+
+    if (workspacePresenter && route === workspaceWatchRoute.name) {
+      const input = workspaceWatchRoute.input.parse(rawInput);
+      await workspacePresenter.watchWorkspace(input.workspacePath);
+      return workspaceWatchRoute.output.parse({ watching: true });
+    }
+
+    if (workspacePresenter && route === workspaceUnwatchRoute.name) {
+      const input = workspaceUnwatchRoute.input.parse(rawInput);
+      await workspacePresenter.unwatchWorkspace(input.workspacePath);
+      return workspaceUnwatchRoute.output.parse({ watching: false });
+    }
+
+    if (workspacePresenter && route === workspaceReadDirectoryRoute.name) {
+      const input = workspaceReadDirectoryRoute.input.parse(rawInput);
+      return workspaceReadDirectoryRoute.output.parse({ nodes: await workspacePresenter.readDirectory(input.path) });
+    }
+
+    if (workspacePresenter && route === workspaceExpandDirectoryRoute.name) {
+      const input = workspaceExpandDirectoryRoute.input.parse(rawInput);
+      return workspaceExpandDirectoryRoute.output.parse({
+        nodes: await workspacePresenter.expandDirectory(input.path),
+      });
+    }
+
+    if (workspacePresenter && route === workspaceReadFilePreviewRoute.name) {
+      const input = workspaceReadFilePreviewRoute.input.parse(rawInput);
+      return workspaceReadFilePreviewRoute.output.parse({
+        preview: await workspacePresenter.readFilePreview(input.path),
+      });
+    }
+
+    if (workspacePresenter && route === workspaceReadFileTextRoute.name) {
+      const input = workspaceReadFileTextRoute.input.parse(rawInput);
+      return workspaceReadFileTextRoute.output.parse(await workspacePresenter.readFileText(input.path));
+    }
+
+    if (workspacePresenter && route === workspaceWriteFileRoute.name) {
+      const input = workspaceWriteFileRoute.input.parse(rawInput);
+      await workspacePresenter.writeFile(input.path, input.content);
+      return workspaceWriteFileRoute.output.parse({ written: true });
+    }
+
+    if (workspacePresenter && route === workspaceCreateEntryRoute.name) {
+      const input = workspaceCreateEntryRoute.input.parse(rawInput);
+      return workspaceCreateEntryRoute.output.parse({
+        path: await workspacePresenter.createEntry(input.parentDir, input.name, input.isDirectory),
+      });
+    }
+
+    if (workspacePresenter && route === workspaceDeletePathRoute.name) {
+      const input = workspaceDeletePathRoute.input.parse(rawInput);
+      await workspacePresenter.deletePath(input.path);
+      return workspaceDeletePathRoute.output.parse({ deleted: true });
+    }
+
+    if (workspacePresenter && route === workspaceRenameOrMovePathRoute.name) {
+      const input = workspaceRenameOrMovePathRoute.input.parse(rawInput);
+      return workspaceRenameOrMovePathRoute.output.parse({
+        path: await workspacePresenter.renameOrMovePath(input.fromPath, input.toPath),
+      });
+    }
+
+    if (workspacePresenter && route === workspaceResolveMarkdownLinkedFileRoute.name) {
+      const input = workspaceResolveMarkdownLinkedFileRoute.input.parse(rawInput);
+      return workspaceResolveMarkdownLinkedFileRoute.output.parse({
+        resolution: await workspacePresenter.resolveMarkdownLinkedFile(input),
+      });
+    }
+
+    if (workspacePresenter && route === workspaceGetGitStatusRoute.name) {
+      const input = workspaceGetGitStatusRoute.input.parse(rawInput);
+      return workspaceGetGitStatusRoute.output.parse({
+        state: await workspacePresenter.getGitStatus(input.workspacePath),
+      });
+    }
+
+    if (workspacePresenter && route === workspaceGetGitDiffRoute.name) {
+      const input = workspaceGetGitDiffRoute.input.parse(rawInput);
+      return workspaceGetGitDiffRoute.output.parse({
+        diff: await workspacePresenter.getGitDiff(input.workspacePath, input.filePath),
+      });
+    }
+
+    if (workspacePresenter && route === workspaceSearchFilesRoute.name) {
+      const input = workspaceSearchFilesRoute.input.parse(rawInput);
+      return workspaceSearchFilesRoute.output.parse({
+        nodes: await workspacePresenter.searchFiles(input.workspacePath, input.query),
       });
     }
 

@@ -587,3 +587,117 @@ describe("workspacePreviewProtocol helpers", () => {
     expect(resolveWorkspacePreviewRequest(previewUrl)).toBeNull();
   });
 });
+
+describe("WorkspacePresenter file editing", () => {
+  let workspacePath: string;
+  let outsidePath: string;
+  let presenter: WorkspacePresenter;
+
+  beforeEach(() => {
+    workspacePath = fs.mkdtempSync(path.join(os.tmpdir(), "argos-workspace-edit-"));
+    outsidePath = fs.mkdtempSync(path.join(os.tmpdir(), "argos-outside-edit-"));
+    presenter = new WorkspacePresenter({
+      prepareFileCompletely: vi.fn<(...args: any[]) => any>(),
+    } as any);
+  });
+
+  afterEach(async () => {
+    presenter?.destroy();
+    fs.rmSync(workspacePath, { recursive: true, force: true });
+    fs.rmSync(outsidePath, { recursive: true, force: true });
+  });
+
+  it("reads text file content via readFileText", async () => {
+    await presenter.registerWorkspace(workspacePath);
+    const file = path.join(workspacePath, "note.txt");
+    fs.writeFileSync(file, "hello world");
+
+    const result = await presenter.readFileText(file);
+    expect(result).toEqual({ content: "hello world", exists: true });
+  });
+
+  it("returns null content for binary files", async () => {
+    await presenter.registerWorkspace(workspacePath);
+    const file = path.join(workspacePath, "blob.bin");
+    fs.writeFileSync(file, Buffer.from([0, 1, 2, 0, 3]));
+
+    const result = await presenter.readFileText(file);
+    expect(result.exists).toBe(true);
+    expect(result.content).toBeNull();
+  });
+
+  it("returns exists:false for missing files", async () => {
+    await presenter.registerWorkspace(workspacePath);
+    const result = await presenter.readFileText(path.join(workspacePath, "missing.txt"));
+    expect(result).toEqual({ content: null, exists: false });
+  });
+
+  it("writes file content via writeFile", async () => {
+    await presenter.registerWorkspace(workspacePath);
+    const file = path.join(workspacePath, "out.txt");
+
+    await presenter.writeFile(file, "written");
+    expect(fs.readFileSync(file, "utf8")).toBe("written");
+  });
+
+  it("does not write outside an allowed workspace", async () => {
+    const file = path.join(outsidePath, "nope.txt");
+    await expect(presenter.writeFile(file, "x")).rejects.toThrow();
+    expect(fs.existsSync(file)).toBe(false);
+  });
+
+  it("creates a file and a directory via createEntry", async () => {
+    await presenter.registerWorkspace(workspacePath);
+    const filePath = await presenter.createEntry(workspacePath, "new.txt", false);
+    const dirPath = await presenter.createEntry(workspacePath, "sub", true);
+
+    expect(fs.existsSync(filePath)).toBe(true);
+    expect(fs.statSync(dirPath).isDirectory()).toBe(true);
+  });
+
+  it("rejects path traversal names in createEntry", async () => {
+    await presenter.registerWorkspace(workspacePath);
+    await expect(presenter.createEntry(workspacePath, "../escape", false)).rejects.toThrow();
+  });
+
+  it("deletes files and directories via deletePath", async () => {
+    await presenter.registerWorkspace(workspacePath);
+    const file = path.join(workspacePath, "doomed.txt");
+    const dir = path.join(workspacePath, "folder");
+    fs.writeFileSync(file, "x");
+    fs.mkdirSync(path.join(dir, "nested"), { recursive: true });
+
+    await presenter.deletePath(file);
+    await presenter.deletePath(dir);
+    expect(fs.existsSync(file)).toBe(false);
+    expect(fs.existsSync(dir)).toBe(false);
+  });
+
+  it("refuses to delete paths outside the workspace", async () => {
+    await presenter.registerWorkspace(workspacePath);
+    await expect(presenter.deletePath(outsidePath)).rejects.toThrow();
+    expect(fs.existsSync(outsidePath)).toBe(true);
+  });
+
+  it("renames and moves files via renameOrMovePath", async () => {
+    await presenter.registerWorkspace(workspacePath);
+    const from = path.join(workspacePath, "a.txt");
+    const to = path.join(workspacePath, "b.txt");
+    fs.writeFileSync(from, "data");
+
+    const resolved = await presenter.renameOrMovePath(from, to);
+    expect(resolved).toBe(path.resolve(to));
+    expect(fs.existsSync(from)).toBe(false);
+    expect(fs.readFileSync(to, "utf8")).toBe("data");
+  });
+
+  it("refuses to move into a path outside the workspace", async () => {
+    await presenter.registerWorkspace(workspacePath);
+    const from = path.join(workspacePath, "a.txt");
+    const to = path.join(outsidePath, "a.txt");
+    fs.writeFileSync(from, "data");
+
+    await expect(presenter.renameOrMovePath(from, to)).rejects.toThrow();
+    expect(fs.existsSync(from)).toBe(true);
+  });
+});

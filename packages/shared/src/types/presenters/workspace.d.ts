@@ -3,7 +3,7 @@
  * Types for the unified right sidepanel workspace experience.
  */
 
-export type SidePanelTab = "workspace" | "browser";
+export type SidePanelTab = "workspace" | "browser" | "diffs";
 
 export type WorkspaceNavSection = "artifacts" | "files" | "git" | "subagents";
 
@@ -206,4 +206,41 @@ export interface IWorkspacePresenter {
    * @param query Search query (plain string)
    */
   searchFiles(workspacePath: string, query: string): Promise<WorkspaceFileNode[]>;
+
+  /**
+   * Read raw UTF-8 text of a file for editing. Returns null content for binary,
+   * non-text, or oversized files.
+   * @param filePath Absolute file path
+   */
+  readFileText(filePath: string): Promise<{ content: string | null; exists: boolean }>;
+
+  /**
+   * Write file content to disk (overwrites existing content).
+   * @param filePath Absolute file path
+   * @param content File content
+   */
+  writeFile(filePath: string, content: string): Promise<void>;
+
+  /**
+   * Create a new file (empty) or directory.
+   * @param parentDir Absolute parent directory path
+   * @param name Entry name
+   * @param isDirectory Whether to create a directory
+   * @returns The created absolute path
+   */
+  createEntry(parentDir: string, name: string, isDirectory: boolean): Promise<string>;
+
+  /**
+   * Delete a file or directory (recursive).
+   * @param targetPath Absolute path to delete
+   */
+  deletePath(targetPath: string): Promise<void>;
+
+  /**
+   * Rename or move a file/directory.
+   * @param fromPath Absolute source path
+   * @param toPath Absolute destination path
+   * @returns The resolved destination path
+   */
+  renameOrMovePath(fromPath: string, toPath: string): Promise<string>;
 }

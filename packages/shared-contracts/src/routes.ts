@@ -373,20 +373,25 @@ import {
   windowToggleMaximizeCurrentRoute,
 } from "./routes/window.routes";
 import {
+  workspaceBrowseDirectoryRoute,
+  workspaceCreateEntryRoute,
+  workspaceDeletePathRoute,
   workspaceExpandDirectoryRoute,
   workspaceGetGitDiffRoute,
   workspaceGetGitStatusRoute,
   workspaceOpenFileRoute,
   workspaceReadDirectoryRoute,
   workspaceReadFilePreviewRoute,
+  workspaceReadFileTextRoute,
   workspaceRegisterRoute,
+  workspaceRenameOrMovePathRoute,
   workspaceResolveMarkdownLinkedFileRoute,
   workspaceRevealFileInFolderRoute,
   workspaceSearchFilesRoute,
-  workspaceBrowseDirectoryRoute,
   workspaceUnregisterRoute,
   workspaceUnwatchRoute,
   workspaceWatchRoute,
+  workspaceWriteFileRoute,
 } from "./routes/workspace.routes";
 
 export * from "./routes/browser.routes";
@@ -474,6 +479,11 @@ export const ARGOS_ROUTE_CATALOG = {
   [workspaceGetGitDiffRoute.name]: workspaceGetGitDiffRoute,
   [workspaceSearchFilesRoute.name]: workspaceSearchFilesRoute,
   [workspaceBrowseDirectoryRoute.name]: workspaceBrowseDirectoryRoute,
+  [workspaceReadFileTextRoute.name]: workspaceReadFileTextRoute,
+  [workspaceWriteFileRoute.name]: workspaceWriteFileRoute,
+  [workspaceCreateEntryRoute.name]: workspaceCreateEntryRoute,
+  [workspaceDeletePathRoute.name]: workspaceDeletePathRoute,
+  [workspaceRenameOrMovePathRoute.name]: workspaceRenameOrMovePathRoute,
   [browserGetStatusRoute.name]: browserGetStatusRoute,
   [browserLoadUrlRoute.name]: browserLoadUrlRoute,
   [browserAttachCurrentWindowRoute.name]: browserAttachCurrentWindowRoute,

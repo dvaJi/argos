@@ -6,14 +6,14 @@ import { createFileClient } from "#api/FileClient";
 import { createProjectClient } from "#api/ProjectClient";
 import { createWorkspaceClient } from "#api/WorkspaceClient";
 import { extractArtifactsFromContent } from "#/composables/useArtifacts";
-import WorkspaceFileNode from "#/components/workspace/WorkspaceFileNode";
+import { TreesFileTree } from "./TreesFileTree";
 import { WorkspaceViewer } from "./WorkspaceViewer";
 import { useWorkspaceSync } from "./composables/useWorkspaceSync";
 import { useArtifactStore } from "#/stores/artifact";
 import { useMessageStore, getMessages } from "#/stores/ui/message";
 import { useSidepanelStore, getSessionState, type WorkspaceArtifactContext } from "#/stores/ui/sidepanel";
 import { useSessionStore } from "#/stores/ui/session";
-import type { WorkspaceGitFileChange, WorkspaceNavSection } from "@argos/shared/presenter";
+import type { WorkspaceNavSection } from "@argos/shared/presenter";
 
 interface WorkspacePanelProps {
   sessionId: string;
@@ -36,8 +36,6 @@ type ArtifactItem = WorkspaceArtifactContext & {
 };
 
 const NAV_COLLAPSED_WIDTH = 38;
-
-const formatGitFlag = (change: WorkspaceGitFileChange) => change.stagedStatus || change.unstagedStatus || "M";
 
 const getArtifactIcon = (type: string) => {
   switch (type) {
@@ -74,19 +72,12 @@ export function WorkspacePanel({
   const projectClient = useMemo(() => createProjectClient(), []);
   const fileClient = useMemo(() => createFileClient(), []);
 
-  const sessionState = useMemo(() => getSessionState(sessionId), [sessionId]);
+  // Read reactively from the store (NOT memoized by sessionId) so selection /
+  // section state changes propagate to useWorkspaceSync immediately.
+  const sessionState = getSessionState(sessionId);
   const navCollapsed = sidepanelStore.navCollapsed;
 
-  const {
-    fileTree,
-    selectedFilePreview,
-    selectedGitDiff,
-    gitState,
-    loadingFiles,
-    loadingFilePreview,
-    loadingGitDiff,
-    toggleNode,
-  } = useWorkspaceSync({
+  const { selectedFilePreview, selectedGitDiff, loadingFilePreview, loadingGitDiff } = useWorkspaceSync({
     sessionId: useMemo(() => sessionId, [sessionId]),
     workspacePath: useMemo(() => workspacePath, [workspacePath]),
     active: useMemo(() => sidepanelStore.open, [sidepanelStore.open]),
@@ -231,20 +222,6 @@ export function WorkspacePanel({
     return () => stopNavResize();
   }, []);
 
-  const handleFileSelect = useCallback(
-    (filePath: string) => {
-      sidepanelStore.selectFile(sessionId, filePath, { open: false, viewMode: "preview" });
-    },
-    [sidepanelStore, sessionId],
-  );
-
-  const handleDiffSelect = useCallback(
-    (filePath: string) => {
-      sidepanelStore.selectDiff(sessionId, filePath, { open: false });
-    },
-    [sidepanelStore, sessionId],
-  );
-
   const handleArtifactSelect = useCallback(
     (item: ArtifactItem) => {
       artifactStore.showArtifact(
@@ -362,8 +339,8 @@ export function WorkspacePanel({
               className="h-3.5 w-3.5 shrink-0"
             />
           </button>
-          <div className="min-h-0 flex-1 overflow-auto pb-2">
-            <section>
+          <div className="flex min-h-0 flex-1 flex-col overflow-auto pb-2">
+            <section className="flex min-h-0 flex-1 flex-col">
               <button
                 className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium"
                 type="button"
@@ -379,7 +356,7 @@ export function WorkspacePanel({
                 )}
               </button>
               {!navCollapsed && sessionState.sections.files && (
-                <div className="pb-2">
+                <div className="flex min-h-0 flex-1 flex-col pb-2">
                   {!workspacePath ? (
                     <div
                       className={`mx-2 rounded-lg border border-dashed border-muted-foreground/30 px-3 py-4 text-center ${
@@ -401,70 +378,19 @@ export function WorkspacePanel({
                         Select Folder
                       </Button>
                     </div>
-                  ) : loadingFiles ? (
-                    <div className="px-3 py-2 text-[11px] text-muted-foreground/70">Loading...</div>
                   ) : (
-                    fileTree.map((node) => (
-                      <WorkspaceFileNode
-                        key={node.path}
-                        node={node}
-                        depth={0}
-                        onToggle={toggleNode}
-                        onAppendPath={handleFileSelect}
-                        onInsertPath={onInsertFileReference}
-                      />
-                    ))
+                    <TreesFileTree
+                      workspacePath={workspacePath}
+                      sessionId={sessionId}
+                      onInsertFileReference={onInsertFileReference}
+                    />
                   )}
                 </div>
               )}
             </section>
 
-            {gitState && (
-              <section>
-                <button
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium"
-                  type="button"
-                  onClick={() => handleSectionClick("git")}
-                >
-                  <Icon icon="lucide:git-branch" className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                  {!navCollapsed && <span className="flex-1 truncate">Git</span>}
-                  {!navCollapsed && (
-                    <span className="text-[11px] text-muted-foreground">{gitState.changes.length}</span>
-                  )}
-                  {!navCollapsed && (
-                    <Icon
-                      icon={sessionState.sections.git ? "lucide:chevron-down" : "lucide:chevron-right"}
-                      className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
-                    />
-                  )}
-                </button>
-                {!navCollapsed && sessionState.sections.git && (
-                  <div className="pb-2">
-                    {gitState.changes.map((change) => (
-                      <button
-                        key={change.path}
-                        className={`flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors ${
-                          sessionState.selectedDiffPath === change.path
-                            ? "bg-accent text-accent-foreground"
-                            : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
-                        }`}
-                        type="button"
-                        onClick={() => handleDiffSelect(change.path)}
-                      >
-                        <span className="w-4 shrink-0 text-center font-mono text-[11px]">{formatGitFlag(change)}</span>
-                        <span className="min-w-0 flex-1 truncate">{change.relativePath}</span>
-                      </button>
-                    ))}
-                    {gitState.changes.length === 0 && (
-                      <div className="px-3 py-2 text-[11px] text-muted-foreground/70">No changes</div>
-                    )}
-                  </div>
-                )}
-              </section>
-            )}
-
             {artifactItems.length > 0 && (
-              <section>
+              <section className="shrink-0">
                 <button
                   className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium"
                   type="button"

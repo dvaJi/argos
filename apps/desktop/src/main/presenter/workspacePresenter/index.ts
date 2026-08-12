@@ -69,6 +69,11 @@ const WATCH_DEBOUNCE_MS = 120;
 const WATCH_STABILITY_THRESHOLD_MS = 250;
 const WATCH_POLL_INTERVAL_MS = 100;
 
+/** Max file size for `readFileText` (editing). Larger files are not loaded into the editor. */
+const READ_TEXT_MAX_BYTES = 2 * 1024 * 1024;
+/** Number of leading bytes scanned for a NUL to detect binary files cheaply. */
+const BINARY_SNIFF_BYTES = 8192;
+
 type WorkspaceWatchRuntime = {
   workspacePath: string;
   refCount: number;
@@ -403,12 +408,22 @@ export class WorkspacePresenter implements IWorkspacePresenter {
    * Uses realpathSync when possible and falls back to resolved paths for deleted files.
    */
   private isPathAllowed(targetPath: string): boolean {
+    return (
+      this.isPathWithinRegisteredWorkspace(targetPath) ||
+      this.allowedExactPaths.has(this.normalizePathForAccess(targetPath))
+    );
+  }
+
+  /**
+   * Stricter check for mutations (write/delete/rename/create): the target must
+   * live inside a *registered workspace*. Exact-file authorization (granted to
+   * external files resolved from markdown links, for read/preview only) does NOT
+   * grant mutation access — otherwise a resolved external file could be
+   * overwritten/deleted.
+   */
+  private isPathWithinRegisteredWorkspace(targetPath: string): boolean {
     const normalizedTarget = this.normalizePathForAccess(targetPath);
     const targetWithSep = normalizedTarget.endsWith(path.sep) ? normalizedTarget : `${normalizedTarget}${path.sep}`;
-
-    if (this.allowedExactPaths.has(normalizedTarget)) {
-      return true;
-    }
 
     for (const workspace of this.allowedPaths) {
       const normalizedWorkspace = this.normalizePathForAccess(workspace);
@@ -937,5 +952,139 @@ export class WorkspacePresenter implements IWorkspacePresenter {
       return [];
     }
     return await searchWorkspaceFiles(workspacePath, query);
+  }
+
+  async readFileText(filePath: string): Promise<{ content: string | null; exists: boolean }> {
+    if (!this.isPathAllowed(filePath)) {
+      console.warn(`[Workspace] Blocked read-text attempt for unauthorized path: ${filePath}`);
+      return { content: null, exists: false };
+    }
+
+    let stats: fs.Stats;
+    try {
+      stats = fs.statSync(filePath);
+    } catch {
+      return { content: null, exists: false };
+    }
+
+    if (!stats.isFile()) {
+      return { content: null, exists: true };
+    }
+
+    if (stats.size > READ_TEXT_MAX_BYTES) {
+      return { content: null, exists: true };
+    }
+
+    try {
+      const buffer = await fs.promises.readFile(filePath);
+      if (this.looksBinary(buffer)) {
+        return { content: null, exists: true };
+      }
+      return { content: buffer.toString("utf8"), exists: true };
+    } catch (error) {
+      console.error(`[Workspace] Failed to read file text: ${filePath}`, error);
+      return { content: null, exists: true };
+    }
+  }
+
+  async writeFile(filePath: string, content: string): Promise<void> {
+    if (!this.isPathWithinRegisteredWorkspace(filePath)) {
+      throw new Error(`[Workspace] Unauthorized write: ${filePath}`);
+    }
+
+    const normalizedPath = path.resolve(filePath);
+    try {
+      await fs.promises.mkdir(path.dirname(normalizedPath), { recursive: true });
+      await fs.promises.writeFile(normalizedPath, content, "utf8");
+    } catch (error) {
+      console.error(`[Workspace] Failed to write file: ${normalizedPath}`, error);
+      throw error;
+    }
+  }
+
+  async createEntry(parentDir: string, name: string, isDirectory: boolean): Promise<string> {
+    if (!this.isSafeEntryName(name)) {
+      throw new Error(`[Workspace] Invalid entry name: ${name}`);
+    }
+
+    if (!this.isPathWithinRegisteredWorkspace(parentDir)) {
+      throw new Error(`[Workspace] Unauthorized parent directory: ${parentDir}`);
+    }
+
+    const resolvedParent = path.resolve(parentDir);
+    const targetPath = path.join(resolvedParent, name);
+    if (!this.isPathWithinRegisteredWorkspace(targetPath)) {
+      throw new Error(`[Workspace] Resolved entry path is not allowed: ${targetPath}`);
+    }
+
+    try {
+      if (isDirectory) {
+        await fs.promises.mkdir(targetPath, { recursive: false });
+      } else {
+        await fs.promises.writeFile(targetPath, "", "utf8");
+      }
+      return targetPath;
+    } catch (error) {
+      console.error(`[Workspace] Failed to create entry: ${targetPath}`, error);
+      throw error;
+    }
+  }
+
+  async deletePath(targetPath: string): Promise<void> {
+    if (!this.isPathWithinRegisteredWorkspace(targetPath)) {
+      throw new Error(`[Workspace] Unauthorized path: ${targetPath}`);
+    }
+
+    const normalizedPath = path.resolve(targetPath);
+    try {
+      await fs.promises.rm(normalizedPath, { recursive: true, force: false });
+    } catch (error) {
+      console.error(`[Workspace] Failed to delete path: ${normalizedPath}`, error);
+      throw error;
+    }
+  }
+
+  async renameOrMovePath(fromPath: string, toPath: string): Promise<string> {
+    if (!this.isPathWithinRegisteredWorkspace(fromPath)) {
+      throw new Error(`[Workspace] Unauthorized source path: ${fromPath}`);
+    }
+    if (!this.isPathWithinRegisteredWorkspace(toPath)) {
+      throw new Error(`[Workspace] Unauthorized target path: ${toPath}`);
+    }
+
+    const resolvedFrom = path.resolve(fromPath);
+    const resolvedTo = path.resolve(toPath);
+    try {
+      await fs.promises.mkdir(path.dirname(resolvedTo), { recursive: true });
+      await fs.promises.rename(resolvedFrom, resolvedTo);
+      return resolvedTo;
+    } catch (error) {
+      console.error(`[Workspace] Failed to rename/move ${resolvedFrom} -> ${resolvedTo}`, error);
+      throw error;
+    }
+  }
+
+  private looksBinary(buffer: Buffer): boolean {
+    const scanLength = Math.min(buffer.length, BINARY_SNIFF_BYTES);
+    for (let index = 0; index < scanLength; index += 1) {
+      if (buffer[index] === 0) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private isSafeEntryName(name: string): boolean {
+    const trimmed = name.trim();
+    if (!trimmed || trimmed === "." || trimmed === "..") {
+      return false;
+    }
+    if (trimmed.includes("/") || trimmed.includes("\\") || trimmed.includes(path.sep)) {
+      return false;
+    }
+    if (trimmed.includes("\0")) {
+      return false;
+    }
+    return true;
   }
 }

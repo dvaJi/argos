@@ -66,6 +66,11 @@ export const sidepanelStore = new Store({
   navCollapsed: loadFromStorage(NAV_COLLAPSED_KEY, false),
   navWidthStorage: loadFromStorage(NAV_WIDTH_KEY, NAV_DEFAULT_WIDTH),
   sessionStates: {} as Record<string, WorkspaceSessionState>,
+  // Diffs-tab selection (shared so chat links can open a file's diff directly).
+  // `diffsSelectionReady` gates the patch load so the tab never loads the slow
+  // full-workspace diff until a real selection exists (auto first-file or user click).
+  diffsSelectedPath: null as string | null,
+  diffsSelectionReady: false,
 });
 
 const getNormalizedWidth = () => {
@@ -166,6 +171,20 @@ const openWorkspace = (sessionId?: string | null) => {
 
 export const openBrowser = () => {
   sidepanelStore.setState((prev) => ({ ...prev, open: true, activeTab: "browser" }));
+};
+
+export const openDiffs = () => {
+  sidepanelStore.setState((prev) => ({ ...prev, open: true, activeTab: "diffs" }));
+};
+
+/** Set the Diffs-tab selection (a file path, or null for "All changes") and mark it ready. */
+export const setDiffsSelection = (selectedPath: string | null) => {
+  sidepanelStore.setState((prev) => ({ ...prev, diffsSelectedPath: selectedPath, diffsSelectionReady: true }));
+};
+
+/** Clear the Diffs-tab selection (used when the workspace changes). */
+export const resetDiffsSelection = () => {
+  sidepanelStore.setState((prev) => ({ ...prev, diffsSelectedPath: null, diffsSelectionReady: false }));
 };
 
 const closePanel = () => {
@@ -332,6 +351,7 @@ export function useSidepanelStore() {
     setWidth,
     openWorkspace,
     openBrowser,
+    openDiffs,
     closePanel,
     toggleWorkspace,
     setViewMode,

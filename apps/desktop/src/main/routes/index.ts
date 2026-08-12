@@ -239,13 +239,18 @@ import {
   workspaceOpenFileRoute,
   workspaceReadDirectoryRoute,
   workspaceReadFilePreviewRoute,
+  workspaceReadFileTextRoute,
   workspaceRegisterRoute,
+  workspaceRenameOrMovePathRoute,
   workspaceResolveMarkdownLinkedFileRoute,
   workspaceRevealFileInFolderRoute,
   workspaceSearchFilesRoute,
   workspaceUnregisterRoute,
   workspaceUnwatchRoute,
   workspaceWatchRoute,
+  workspaceWriteFileRoute,
+  workspaceCreateEntryRoute,
+  workspaceDeletePathRoute,
   type SettingsActivityInput,
 } from "@argos/shared-contracts/routes";
 import { ChatService } from "./chat/chatService";
@@ -1301,6 +1306,38 @@ export async function dispatchArgosRoute(
       const input = workspaceSearchFilesRoute.input.parse(rawInput);
       return workspaceSearchFilesRoute.output.parse({
         nodes: await runtime.workspacePresenter.searchFiles(input.workspacePath, input.query),
+      });
+    }
+
+    case workspaceReadFileTextRoute.name: {
+      const input = workspaceReadFileTextRoute.input.parse(rawInput);
+      const result = await runtime.workspacePresenter.readFileText(input.path);
+      return workspaceReadFileTextRoute.output.parse(result);
+    }
+
+    case workspaceWriteFileRoute.name: {
+      const input = workspaceWriteFileRoute.input.parse(rawInput);
+      await runtime.workspacePresenter.writeFile(input.path, input.content);
+      return workspaceWriteFileRoute.output.parse({ written: true });
+    }
+
+    case workspaceCreateEntryRoute.name: {
+      const input = workspaceCreateEntryRoute.input.parse(rawInput);
+      return workspaceCreateEntryRoute.output.parse({
+        path: await runtime.workspacePresenter.createEntry(input.parentDir, input.name, input.isDirectory),
+      });
+    }
+
+    case workspaceDeletePathRoute.name: {
+      const input = workspaceDeletePathRoute.input.parse(rawInput);
+      await runtime.workspacePresenter.deletePath(input.path);
+      return workspaceDeletePathRoute.output.parse({ deleted: true });
+    }
+
+    case workspaceRenameOrMovePathRoute.name: {
+      const input = workspaceRenameOrMovePathRoute.input.parse(rawInput);
+      return workspaceRenameOrMovePathRoute.output.parse({
+        path: await runtime.workspacePresenter.renameOrMovePath(input.fromPath, input.toPath),
       });
     }
 

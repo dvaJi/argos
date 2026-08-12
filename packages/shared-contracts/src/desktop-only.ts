@@ -22,6 +22,9 @@ export const DESKTOP_ONLY_ROUTE_PREFIXES = [
   "project.selectDirectory",
   "file.saveImage",
   "file.copyImage",
+  // `revealFileInFolder`/`openFile` use the Electron `shell` module and stay
+  // desktop-only. All other workspace routes (tree, git, file edit, preview) are
+  // implemented in the daemon so they work in web/headless mode too.
   "workspace.revealFileInFolder",
   "workspace.openFile",
   "sync.openFolder",
