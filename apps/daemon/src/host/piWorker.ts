@@ -263,6 +263,7 @@ function handleSessionEvent(event: AgentSessionEvent): void {
         sessionFile: session?.sessionFile,
         messageTimestamp: lastAssistantTimestamp,
       });
+      lastAssistantTimestamp = undefined;
       activeCommandId = undefined;
       break;
     }
@@ -375,12 +376,14 @@ async function handle(command: PiWorkerCommand): Promise<void> {
     return;
   }
   activeCommandId = command.id;
+  lastAssistantTimestamp = undefined; // reset per command; only current command's message_end may set it
   emit({ type: "accepted", id: command.id, sessionFile: session.sessionFile });
   if (command.type === "steer") return session.steer(command.text);
   if (command.type === "followUp") return session.followUp(command.text);
   if (command.type === "compact") {
     await session.compact(command.instructions);
     emit({ type: "settled", id: command.id, sessionFile: session.sessionFile });
+    lastAssistantTimestamp = undefined;
     activeCommandId = undefined;
     return;
   }

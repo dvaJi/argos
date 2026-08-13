@@ -138,20 +138,26 @@ describe("DaemonConfigPresenter", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "argos-daemon-config-"));
     roots.push(root);
     const { DaemonConfigPresenter } = await import("../src/host/daemonConfigPresenter");
-    const presenter = new DaemonConfigPresenter(path.join(root, "config"), path.join(root, "data"));
+    const configPath = path.join(root, "config");
+    const dataPath = path.join(root, "data");
+    const presenter = new DaemonConfigPresenter(configPath, dataPath);
 
     const saved = presenter.setModelConfig("my-model", "openai", {
       samplingParams: { temperature: 0.3, top_p: 0.9, frequency_penalty: 0.2 },
     } as never);
 
     expect(saved.samplingParams).toEqual({ temperature: 0.3, top_p: 0.9, frequency_penalty: 0.2 });
-    expect(presenter.getModelConfig("my-model", "openai").samplingParams).toEqual({
+
+    // Reload a fresh presenter from the same paths to verify disk persistence
+    // (the setter updates the in-memory store before save()).
+    const reloadedPresenter = new DaemonConfigPresenter(configPath, dataPath);
+    expect(reloadedPresenter.getModelConfig("my-model", "openai").samplingParams).toEqual({
       temperature: 0.3,
       top_p: 0.9,
       frequency_penalty: 0.2,
     });
 
     // Absent configs default to undefined.
-    expect(presenter.getModelConfig("other-model", "openai").samplingParams).toBeUndefined();
+    expect(reloadedPresenter.getModelConfig("other-model", "openai").samplingParams).toBeUndefined();
   });
 });

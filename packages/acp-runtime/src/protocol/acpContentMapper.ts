@@ -15,12 +15,8 @@ export interface MappedContent {
   blocks: AssistantMessageBlock[];
   /** Structured plan entries from the agent (optional) */
   planEntries?: PlanEntry[];
-  /** Timestamp (ms) when the first reasoning/thought chunk arrived (optional) */
+  /** Timestamp (ms) of the reasoning/thought chunk that produced this mapping (optional) */
   reasoningStartTime?: number;
-  /** True once any reasoning/thought chunk has been seen (optional) */
-  reasoningStarted?: boolean;
-  /** True when the reasoning stream has ended (set by the daemon run loop) (optional) */
-  reasoningEnded?: boolean;
   /** Current mode ID from mode change notification (optional) */
   currentModeId?: string;
   /** Available slash commands from ACP session (optional) */
@@ -71,11 +67,7 @@ export class AcpContentMapper {
         this.pushContent(update.content, "text", payload);
         break;
       case "agent_thought_chunk": {
-        const firstChunk = !payload.reasoningStarted;
-        payload.reasoningStarted = true;
-        if (firstChunk) {
-          payload.reasoningStartTime = now();
-        }
+        payload.reasoningStartTime = now();
         this.pushContent(update.content, "reasoning", payload);
         break;
       }

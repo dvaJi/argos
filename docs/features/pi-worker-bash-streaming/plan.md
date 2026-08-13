@@ -10,7 +10,7 @@ Three small, additive changes along the existing event path:
 
 ## Data Flow
 
-```
+```text
 bash tool emits chunk -> session emits bash_execution_update { id, delta }
   -> piWorker emits bashUpdate { toolCallId: id, delta }
   -> daemon appends delta to tool block.tool_call.response (status loading)
@@ -30,5 +30,6 @@ bash tool emits chunk -> session emits bash_execution_update { id, delta }
 
 ## Test Strategy
 
+- Add daemon regression coverage asserting that `bashUpdate` deltas target the correct tool block (by `toolCallId`, or the most recent loading tool block) and are appended and published in order.
 - Extend `apps/daemon/test/piWorker.test.ts` or add a focused daemon test asserting `bashUpdate` is emitted for a `bash_execution_update` session event and that the daemon appends the delta to the tool block.
 - Run the full daemon suite.

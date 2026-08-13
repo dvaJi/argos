@@ -119,9 +119,7 @@ export default function ModelConfigDialog({
       setConfig({ ...createDefaultConfig(), ...modelConfig });
       setTopPDraft(typeof modelConfig.topP === "number" ? String(modelConfig.topP) : "");
       setSamplingParamsDraft(
-        modelConfig.samplingParams && Object.keys(modelConfig.samplingParams).length > 0
-          ? JSON.stringify(modelConfig.samplingParams, null, 2)
-          : "",
+        modelConfig.samplingParams !== undefined ? JSON.stringify(modelConfig.samplingParams, null, 2) : "",
       );
       setSamplingParamsError("");
     } catch (error) {
@@ -165,24 +163,35 @@ export default function ModelConfigDialog({
     }
     if (samplingParamsDraft.trim()) {
       try {
-        JSON.parse(samplingParamsDraft);
+        const parsed = JSON.parse(samplingParamsDraft);
+        if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+          newErrors.samplingParams = "Must be a JSON object";
+        }
       } catch {
         newErrors.samplingParams = "Must be valid JSON";
       }
     }
+    setSamplingParamsError(newErrors.samplingParams ?? "");
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   }, [canEditModelIdentity, modelNameField, modelIdField, config, samplingParamsDraft]);
+
+  const parseSamplingParams = useCallback((): Record<string, unknown> | undefined => {
+    if (!samplingParamsDraft.trim()) return undefined;
+    const parsed = JSON.parse(samplingParamsDraft) as unknown;
+    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new Error("Sampling parameters must be a JSON object");
+    }
+    return parsed as Record<string, unknown>;
+  }, [samplingParamsDraft]);
 
   const handleSave = useCallback(async () => {
     if (!validateForm()) return;
 
     try {
       const finalTopP = topPDraft.trim() ? Number(topPDraft) : undefined;
-      const parsedSamplingParams = samplingParamsDraft.trim()
-        ? (JSON.parse(samplingParamsDraft) as Record<string, unknown>)
-        : undefined;
+      const parsedSamplingParams = parseSamplingParams();
       const payload = {
         ...config,
         topP: finalTopP !== undefined && Number.isFinite(finalTopP) ? finalTopP : undefined,
@@ -209,6 +218,7 @@ export default function ModelConfigDialog({
     config,
     topPDraft,
     samplingParamsDraft,
+    parseSamplingParams,
     isCreateMode,
     providerId,
     modelIdField,
@@ -387,13 +397,16 @@ export default function ModelConfigDialog({
                   value={samplingParamsDraft}
                   rows={5}
                   placeholder={'{\n  "temperature": 0.7,\n  "top_p": 0.9\n}'}
-                  className={samplingParamsError ? "border-destructive" : ""}
-                  onChange={(e) => setSamplingParamsDraft(e.target.value)}
+                  className={errors.samplingParams ? "border-destructive" : ""}
+                  onChange={(e) => {
+                    setSamplingParamsDraft(e.target.value);
+                    setSamplingParamsError("");
+                  }}
                 />
                 <p className="text-xs text-muted-foreground">
                   Arbitrary OpenAI-compatible sampling parameters sent as-is to the provider.
                 </p>
-                {samplingParamsError && <p className="text-xs text-destructive">{samplingParamsError}</p>}
+                {errors.samplingParams && <p className="text-xs text-destructive">{errors.samplingParams}</p>}
               </div>
 
               <div className="space-y-2">

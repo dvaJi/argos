@@ -6,7 +6,7 @@ Single edit in `apps/daemon/src/host/piWorker.ts` (`createHostExtension`): when 
 
 ## Data Flow
 
-```
+```text
 User denies -> permissionRequest -> daemon sends permissionResponse(granted=false)
   -> piWorker createHostExtension returns { block: true, reason, terminate: true }
   -> Pi agent skips the follow-up model call for a fully-blocked batch
@@ -23,4 +23,5 @@ User denies -> permissionRequest -> daemon sends permissionResponse(granted=fals
 
 ## Test Strategy
 
-- Existing `apps/daemon/test/piWorker.test.ts` covers worker startup and the permission round-trip path (exercised through the host extension). No new test file; rely on typecheck + daemon suite.
+- Add a daemon regression test asserting that a denied `permissionRequest` makes `createHostExtension` return `{ block: true, reason, terminate: true }` and that a fully-denied batch suppresses the follow-up model call.
+- Existing `apps/daemon/test/piWorker.test.ts` covers worker startup and the permission round-trip path (exercised through the host extension). Rely on typecheck + daemon suite.
