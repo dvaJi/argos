@@ -80,10 +80,14 @@ export function aggregateUsageStats(
   window: UsageWindow,
   estimateCost?: UsageCostEstimator,
 ): UsageAggregation {
+  // ACP is a protocol, not a service: its rows carry cumulative context size
+  // (or cost only) and no real per-model token splits. Filter them once so
+  // summary, daily series, services, and breakdown all use the same dataset.
+  const scoped = rows.filter((row) => row.providerId !== "acp");
   const priced = estimateCost
-    ? rows.map((row) => (row.costUsd !== null ? row : estimateRowCost(row, estimateCost)))
-    : rows;
-  const summary = buildSummary(priced, window);
+    ? scoped.map((row) => (row.costUsd !== null ? row : estimateRowCost(row, estimateCost)))
+    : scoped;
+  const summary = buildSummary(priced, estimateCost);
   return {
     summary,
     dailySeries: buildDailySeries(priced, window),
@@ -113,7 +117,7 @@ function costSourceFor(rows: UsageStatRecord[]): UsageSummary["costSource"] {
   return "mixed";
 }
 
-function buildSummary(rows: UsageStatRecord[], window: UsageWindow): UsageSummary {
+function buildSummary(rows: UsageStatRecord[], estimateCost?: UsageCostEstimator): UsageSummary {
   const inputTokens = rows.reduce((sum, row) => sum + row.inputTokens, 0);
   const outputTokens = rows.reduce((sum, row) => sum + row.outputTokens, 0);
   const cachedInputTokens = rows.reduce((sum, row) => sum + row.cachedInputTokens, 0);
@@ -121,12 +125,21 @@ function buildSummary(rows: UsageStatRecord[], window: UsageWindow): UsageSummar
   const reasoningTokens = rows.reduce((sum, row) => sum + row.reasoningTokens, 0);
   const processedTokens = inputTokens + outputTokens;
   const rawCost = rows.reduce((sum, row) => sum + (row.costUsd ?? 0), 0);
-  const totalTokens = rows.reduce((sum, row) => sum + row.totalTokens, 0);
 
-  // Cache savings: what cached input would have cost at the full input rate.
-  // Approximate with the observed cost ratio when cost exists, else null.
-  const estimatedInputRate = inputTokens > 0 ? rawCost / Math.max(inputTokens, 1) : null;
-  const cacheSavingsUsd = estimatedInputRate !== null ? cachedInputTokens * estimatedInputRate : null;
+  // Cache savings: what cached input would have cost at the real input rate.
+  // Use the cost estimator's input price (per MTok), never the observed
+  // cost/token ratio (which includes output + cache cost and overstates).
+  let cacheSavingsUsd: number | null = null;
+  if (estimateCost && cachedInputTokens > 0) {
+    const inputRates = new Set<number>();
+    for (const row of rows) {
+      const rate = estimateCost(row.providerId, row.modelId);
+      if (rate) inputRates.add(rate.input);
+    }
+    if (inputRates.size === 1) {
+      cacheSavingsUsd = (cachedInputTokens * Array.from(inputRates)[0]) / 1_000_000;
+    }
+  }
 
   const activeDays = new Set(rows.map((row) => row.usageDate)).size;
   const sessionIds = new Set(rows.map((row) => row.sessionId));
@@ -206,9 +219,6 @@ const SERVICE_LABELS: Record<string, string> = {
 function buildServices(rows: UsageStatRecord[]): UsageServiceShare[] {
   const byProvider = new Map<string, { id: string; costUsd: number; totalTokens: number; messageCount: number }>();
   for (const row of rows) {
-    // ACP is a protocol, not a service — the underlying agents (Codex,
-    // Claude Code, etc.) already appear via their own local usage. Skip it.
-    if (row.providerId === "acp") continue;
     const bucket = byProvider.get(row.providerId) ?? {
       id: row.providerId,
       costUsd: 0,
@@ -247,12 +257,6 @@ function buildModelBreakdown(rows: UsageStatRecord[]): UsageModelBreakdownItem[]
     }
   >();
   for (const row of rows) {
-    // ACP is a protocol, not a model source: it does not report real model
-    // names, and the scanned local Codex/Claude/OpenCode JSONL already
-    // captures the per-model breakdown. Skip all ACP rows here.
-    if (row.providerId === "acp") {
-      continue;
-    }
     const key = `${row.providerId}::${row.modelId}`;
     const bucket = byModel.get(key) ?? {
       id: row.modelId,

@@ -85,12 +85,15 @@ function createUsageFakeDb() {
 }
 
 function seedRecord(overrides: Partial<UsageStatRecord> = {}): UsageStatRecord {
+  // Local date key, matching production's usageDateKey/toDateKey (never UTC).
+  const now = new Date();
+  const localDate = `${now.getFullYear()}-${`${now.getMonth() + 1}`.padStart(2, "0")}-${`${now.getDate()}`.padStart(2, "0")}`;
   return {
     messageId: "m1",
     sessionId: "s1",
     providerId: "argos",
     modelId: "argos",
-    usageDate: new Date().toISOString().slice(0, 10),
+    usageDate: localDate,
     inputTokens: 1000,
     cachedInputTokens: 200,
     cacheWriteInputTokens: 100,
@@ -104,6 +107,26 @@ function seedRecord(overrides: Partial<UsageStatRecord> = {}): UsageStatRecord {
   };
 }
 
+/** Build a dispatcher wired to the fake usage DB + repository (14 positional args). */
+function createUsageDispatch(repo: BunSessionRepository, db: unknown) {
+  return createDaemonDispatcher(
+    {} as never,
+    {} as never,
+    repo as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    db as never,
+  );
+}
+
 describe("usage.getStats dispatch", () => {
   it("aggregates repository usage rows into the route response", async () => {
     const db = createUsageFakeDb();
@@ -113,34 +136,19 @@ describe("usage.getStats dispatch", () => {
       seedRecord({ messageId: "m2", providerId: "acp", modelId: "opencode", costUsd: 0.04, costSource: "estimated" }),
     );
 
-    const dispatch = createDaemonDispatcher(
-      {} as never,
-      {} as never,
-      repo as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      db as never,
-    );
+    const dispatch = createUsageDispatch(repo, db);
 
     const result = await dispatch(usageGetStatsRoute.name, { window: "30d" });
 
-    expect(result.summary.messageCount).toBe(2);
-    expect(result.summary.processedTokens).toBe(2 * 1300);
-    expect(result.summary.rawTokenCostUsd).toBeCloseTo(0.0523, 5);
-    expect(result.summary.costSource).toBe("mixed");
-    // ACP rows still count toward the summary but are excluded from services/models.
+    expect(result.summary.messageCount).toBe(1);
+    expect(result.summary.processedTokens).toBe(1300);
+    expect(result.summary.rawTokenCostUsd).toBeCloseTo(0.0123, 5);
+    expect(result.summary.costSource).toBe("reported");
+    // ACP rows are excluded from the summary entirely (protocol, not a service).
     expect(result.services).toHaveLength(1);
     expect(result.services[0]).toMatchObject({ id: "argos", label: "Argos" });
     expect(result.modelBreakdown).toHaveLength(1);
-    expect(result.dailySeries.at(-1)?.totalTokens).toBe(2600);
+    expect(result.dailySeries.at(-1)?.totalTokens).toBe(1300);
   });
 
   it("filters rows by service when a provider id is requested", async () => {
@@ -157,22 +165,7 @@ describe("usage.getStats dispatch", () => {
       }),
     );
 
-    const dispatch = createDaemonDispatcher(
-      {} as never,
-      {} as never,
-      repo as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      db as never,
-    );
+    const dispatch = createUsageDispatch(repo, db);
 
     const result = await dispatch(usageGetStatsRoute.name, { window: "30d", service: "codex" });
 
@@ -188,22 +181,7 @@ describe("usage.getStats dispatch", () => {
     const db = createUsageFakeDb();
     const repo = new BunSessionRepository(db as never, undefined);
 
-    const dispatch = createDaemonDispatcher(
-      {} as never,
-      {} as never,
-      repo as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      db as never,
-    );
+    const dispatch = createUsageDispatch(repo, db);
 
     const result = await dispatch(usageGetStatsRoute.name, { window: "30d" });
     expect(result.summary.messageCount).toBe(0);

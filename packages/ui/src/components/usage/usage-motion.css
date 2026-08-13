@@ -54,7 +54,7 @@
   position: absolute;
   inset: -3px;
   border-radius: 9999px;
-  border: 1px solid currentColor;
+  border: 1px solid currentcolor;
   opacity: 0;
   animation: usage-fresh-ping 2.4s var(--dc-ease-out-soft) infinite;
 }

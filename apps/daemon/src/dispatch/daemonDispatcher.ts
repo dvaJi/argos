@@ -29,6 +29,7 @@ import { resolveDaemonVersion } from "../version";
 import { diagnoseDaemonSchema, repairDaemonSchema } from "../host/daemonSchemaDiagnostics";
 import { getPiToolDefinitions } from "../host/piToolCatalog";
 import { aggregateUsageStats, resolveBuiltinModelPrice } from "../host/usageStatsAggregator";
+import { resolveModelCost } from "../host/modelCost";
 import type { UsageStatRecord, UsageWindow } from "../host/bun-session-repository";
 import { usageWindowCutoffMs } from "../host/bun-session-repository";
 import { scanLocalUsage } from "../host/localUsageScanner";
@@ -1871,7 +1872,7 @@ export function createDaemonDispatcher(
 
     if (route === settingsActivityRecordRoute.name) {
       const input = settingsActivityRecordRoute.input.parse(rawInput);
-      const id = crypto.randomUUID();
+      const id = randomUUID();
       const now = Date.now();
       settingsActivityDb
         .prepare(
@@ -2423,9 +2424,13 @@ export function createDaemonDispatcher(
       const input = usageGetStatsRoute.input.parse(rawInput);
       const dbRows = runtime.sessionRepository!.getUsageStatsRows(input.window);
       // Merge local Codex/Claude Code session history (t3code-style) so agents
-      // that don't report ACP usage still show up.
+      // that don't report ACP usage still show up. The scanner takes a
+      // duration, not an absolute cutoff: `usageWindowCutoffMs` returns
+      // `now - USAGE_WINDOW_MS[window]`, so derive the duration from it.
+      const now = Date.now();
       const localRows = scanLocalUsage({
-        windowMs: usageWindowCutoffMs(input.window, Date.now()),
+        windowMs: now - usageWindowCutoffMs(input.window, now),
+        now,
       });
       const rows = [...dbRows, ...localRows].filter(
         (row) => input.service === undefined || row.providerId === input.service,
@@ -2433,27 +2438,8 @@ export function createDaemonDispatcher(
       return usageGetStatsRoute.output.parse({
         window: input.window,
         ...aggregateUsageStats(rows, input.window, (providerId, modelId) => {
-          const catalog = (
-            configPresenter as unknown as { getDaemonProviderDb?: () => { catalog: ProviderAggregate | null } }
-          ).getDaemonProviderDb?.()?.catalog;
-          const provider = catalog?.providers?.[providerId] ?? catalog?.providers?.[modelId];
-          const model = provider?.models?.find((item) => item.id === modelId);
-          if (model?.cost) {
-            const num = (v: unknown): number | undefined =>
-              typeof v === "number" && Number.isFinite(v) ? v : typeof v === "string" ? Number(v) : undefined;
-            const input = num(model.cost["input"]);
-            const output = num(model.cost["output"]);
-            if (input !== undefined && output !== undefined) {
-              return {
-                input,
-                output,
-                cacheRead: num(model.cost["cache_read"]) ?? input,
-                cacheWrite: num(model.cost["cache_write"]) ?? input,
-              };
-            }
-          }
-          // Fallback to the built-in pricing table (Codex/Claude etc.).
-          return resolveBuiltinModelPrice(modelId);
+          // Provider DB pricing first, then the built-in table (Codex/Claude etc.).
+          return resolveModelCost(configPresenter, providerId, modelId) ?? resolveBuiltinModelPrice(modelId);
         }),
       });
     }

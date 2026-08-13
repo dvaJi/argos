@@ -12,12 +12,12 @@ import type {
   ToolInteractionResult,
 } from "@argos/shared/types/agent-interface";
 import type { MCPToolCall, MCPToolDefinition, MCPToolResponse } from "@argos/shared/types/core/mcp";
-import type { ProviderAggregate } from "@argos/shared/types/model-db";
 import type { LLM_PROVIDER, MODEL_META } from "@argos/shared/presenter";
 import type { BunSessionRepository } from "./bun-session-repository";
 import { usageDateKey } from "./bun-session-repository";
 import type { DaemonConfigPresenter } from "./daemonConfigPresenter";
 import { LlmUtilityExecution } from "./llmUtilityExecution";
+import { resolveModelCost as sharedResolveModelCost } from "./modelCost";
 import { PiAgentProfileManager } from "./piAgentProfileManager";
 import type { PiWorkerCommand, PiWorkerEvent, PiWorkerInit, PiWorkerProvider } from "./piWorkerProtocol";
 
@@ -43,6 +43,8 @@ interface PiWorkerHandle {
   ready: Promise<void>;
   turn?: ActiveTurn;
   sessionFile?: string;
+  /** Resolved at build time; avoids a per-usage-event DB read. */
+  modelId?: string;
   lastUsage?: { input: number; output: number; cacheRead: number; cacheWrite: number; total: number; cost: number };
 }
 
@@ -68,35 +70,8 @@ function modelFor(provider: LLM_PROVIDER, modelId: string): MODEL_META {
   return model ?? { id: modelId, name: modelId, group: provider.name, providerId: provider.id };
 }
 
-function costNumber(value: unknown): number | undefined {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    if (Number.isFinite(parsed)) return parsed;
-  }
-  return undefined;
-}
-
 function resolveModelCost(configPresenter: DaemonConfigPresenter, providerId: string, modelId: string) {
-  try {
-    const catalog = (
-      configPresenter as unknown as { getDaemonProviderDb?: () => { catalog: ProviderAggregate | null } }
-    ).getDaemonProviderDb?.()?.catalog;
-    const provider = catalog?.providers?.[providerId];
-    const model = provider?.models?.find((item) => item.id === modelId);
-    if (!model?.cost) return undefined;
-    const input = costNumber(model.cost["input"]);
-    const output = costNumber(model.cost["output"]);
-    if (input === undefined || output === undefined) return undefined;
-    return {
-      input,
-      output,
-      cacheRead: costNumber(model.cost["cache_read"]) ?? input,
-      cacheWrite: costNumber(model.cost["cache_write"]) ?? input,
-    };
-  } catch {
-    return undefined;
-  }
+  return sharedResolveModelCost(configPresenter, providerId, modelId);
 }
 
 function workerProvider(
@@ -310,7 +285,7 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
       resolveReady = resolve;
       rejectReady = reject;
     });
-    const handle: PiWorkerHandle = { process: child, signature, ready };
+    const handle: PiWorkerHandle = { process: child, signature, ready, modelId: config.provider.model.id };
     this.workers.set(sessionId, handle);
     readline.createInterface({ input: child.stdout, crlfDelay: Infinity }).on("line", (line) => {
       try {
@@ -440,14 +415,13 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
       const turn = worker.turn;
       if (turn) {
         const usage = worker.lastUsage;
-        const session = await this.sessionRepository.get(sessionId);
         this.sessionRepository.upsertUsageStat({
           messageId: turn.messageId,
           sessionId,
           // The Argos (Pi) agent is its own service in the usage view; the
           // underlying configured provider stays visible via the model id.
           providerId: "argos",
-          modelId: session?.modelId || "argos",
+          modelId: worker.modelId || "argos",
           usageDate: usageDateKey(Date.now()),
           inputTokens: usage.input,
           cachedInputTokens: usage.cacheRead,

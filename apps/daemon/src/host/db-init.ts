@@ -468,28 +468,37 @@ export function runMigrations(db: BunDatabase, currentVersion: number): void {
           .all()
           .find((col) => col.name === "id")?.type;
         if (idType && idType.toUpperCase().includes("INT")) {
-          db.exec("ALTER TABLE settings_activity RENAME TO settings_activity_v3");
-          db.exec(`CREATE TABLE settings_activity (
-            id TEXT PRIMARY KEY,
-            category TEXT NOT NULL DEFAULT 'system',
-            action TEXT NOT NULL DEFAULT 'updated',
-            target_type TEXT NOT NULL DEFAULT '',
-            target_id TEXT,
-            target_label TEXT NOT NULL DEFAULT '',
-            route_name TEXT,
-            route_params_json TEXT NOT NULL DEFAULT '{}',
-            summary_key TEXT NOT NULL DEFAULT '',
-            summary_params_json TEXT NOT NULL DEFAULT '{}',
-            created_at INTEGER NOT NULL
-          )`);
-          db.exec(`INSERT INTO settings_activity (
-            id, category, action, target_type, target_id, target_label,
-            route_name, route_params_json, summary_key, summary_params_json, created_at
-          )
-          SELECT CAST(id AS TEXT), category, action, target_type, target_id, target_label,
-            route_name, route_params_json, summary_key, summary_params_json, created_at
-          FROM settings_activity_v3`);
-          db.exec("DROP TABLE settings_activity_v3");
+          // Transactional rebuild: a failure mid-way must not leave the table
+          // renamed away with rows stranded.
+          db.exec("BEGIN IMMEDIATE");
+          try {
+            db.exec("ALTER TABLE settings_activity RENAME TO settings_activity_v3");
+            db.exec(`CREATE TABLE settings_activity (
+              id TEXT PRIMARY KEY,
+              category TEXT NOT NULL DEFAULT 'system',
+              action TEXT NOT NULL DEFAULT 'updated',
+              target_type TEXT NOT NULL DEFAULT '',
+              target_id TEXT,
+              target_label TEXT NOT NULL DEFAULT '',
+              route_name TEXT,
+              route_params_json TEXT NOT NULL DEFAULT '{}',
+              summary_key TEXT NOT NULL DEFAULT '',
+              summary_params_json TEXT NOT NULL DEFAULT '{}',
+              created_at INTEGER NOT NULL
+            )`);
+            db.exec(`INSERT INTO settings_activity (
+              id, category, action, target_type, target_id, target_label,
+              route_name, route_params_json, summary_key, summary_params_json, created_at
+            )
+            SELECT CAST(id AS TEXT), category, action, target_type, target_id, target_label,
+              route_name, route_params_json, summary_key, summary_params_json, created_at
+            FROM settings_activity_v3`);
+            db.exec("DROP TABLE settings_activity_v3");
+            db.exec("COMMIT");
+          } catch (error) {
+            db.exec("ROLLBACK");
+            console.error("[db-init] Failed to rebuild settings_activity (v4):", error);
+          }
         }
       } catch {
         // non-fatal: fresh installs already have the TEXT id

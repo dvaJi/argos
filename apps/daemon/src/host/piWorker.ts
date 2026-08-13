@@ -27,6 +27,13 @@ let session: AgentSession | undefined;
 let init: PiWorkerInit | undefined;
 let activeCommandId: string | undefined;
 const pending = new Map<string, { resolve: (value: any) => void; reject: (error: Error) => void }>();
+// `getSessionStats()` returns CUMULATIVE totals for the whole session. To store
+// per-turn usage we emit the delta since the last settled turn (keyed by
+// session file so a resumed session doesn't double-count).
+const lastEmittedTotals = new Map<
+  string,
+  { input: number; output: number; cacheRead: number; cacheWrite: number; cost: number }
+>();
 
 function emit(event: PiWorkerEvent): void {
   process.stdout.write(`${JSON.stringify(event)}\n`);
@@ -203,18 +210,35 @@ function handleSessionEvent(event: AgentSessionEvent): void {
       if (session) {
         try {
           const stats = session.getSessionStats();
-          emit({
-            type: "usage",
-            id: activeCommandId,
-            usage: {
-              input: stats.tokens.input,
-              output: stats.tokens.output,
-              cacheRead: stats.tokens.cacheRead,
-              cacheWrite: stats.tokens.cacheWrite,
-              total: stats.tokens.total,
-              cost: stats.cost,
-            },
+          const key = session.sessionFile ?? activeCommandId ?? "default";
+          const previous = lastEmittedTotals.get(key);
+          const input = stats.tokens.input - (previous?.input ?? 0);
+          const output = stats.tokens.output - (previous?.output ?? 0);
+          const cacheRead = stats.tokens.cacheRead - (previous?.cacheRead ?? 0);
+          const cacheWrite = stats.tokens.cacheWrite - (previous?.cacheWrite ?? 0);
+          const cost = (stats.cost ?? 0) - (previous?.cost ?? 0);
+          lastEmittedTotals.set(key, {
+            input: stats.tokens.input,
+            output: stats.tokens.output,
+            cacheRead: stats.tokens.cacheRead,
+            cacheWrite: stats.tokens.cacheWrite,
+            cost: stats.cost ?? 0,
           });
+          // A resumed session may reset counters; only emit meaningful deltas.
+          if (input + output + cacheRead + cacheWrite + cost > 0) {
+            emit({
+              type: "usage",
+              id: activeCommandId,
+              usage: {
+                input: Math.max(0, input),
+                output: Math.max(0, output),
+                cacheRead: Math.max(0, cacheRead),
+                cacheWrite: Math.max(0, cacheWrite),
+                total: Math.max(0, input + output + cacheRead + cacheWrite),
+                cost: Math.max(0, cost),
+              },
+            });
+          }
         } catch (error) {
           diagnostic(error, "usage");
         }

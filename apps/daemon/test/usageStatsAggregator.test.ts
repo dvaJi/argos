@@ -62,14 +62,20 @@ describe("aggregateUsageStats", () => {
       record({ messageId: "a", providerId: "argos", modelId: "deepseek-chat", costUsd: 0.02, totalTokens: 100 }),
       record({ messageId: "b", providerId: "acp", modelId: "opencode", costUsd: 0.06, totalTokens: 300 }),
     ];
-    const { services, modelBreakdown } = aggregateUsageStats(rows, "30d");
+    const { summary, services, modelBreakdown } = aggregateUsageStats(rows, "30d");
 
-    // ACP is a protocol, not a service — excluded from both lists.
+    // ACP is a protocol, not a service — excluded from every panel, including
+    // the summary (so totals never disagree with the breakdown lists).
     expect(services).toHaveLength(1);
     expect(services[0]).toMatchObject({ id: "argos", label: "Argos", costUsd: 0.02, costShare: 1 });
 
     expect(modelBreakdown).toHaveLength(1);
     expect(modelBreakdown[0]).toMatchObject({ id: "deepseek-chat" });
+
+    expect(summary.messageCount).toBe(1);
+    expect(summary.processedTokens).toBe(1000 + 300);
+    expect(summary.rawTokenCostUsd).toBeCloseTo(0.02, 5);
+    expect(summary.costSource).toBe("estimated");
   });
 
   it("builds a daily series covering the window", () => {

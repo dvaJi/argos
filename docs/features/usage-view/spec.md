@@ -1,6 +1,6 @@
 # Usage View + Repair Usage Dashboard / Recent Activity
 
-Status: in-progress
+Status: complete
 Owner: usage-view
 Created: 2026-08-12
 
@@ -30,7 +30,7 @@ Establish daemon-side usage capture + aggregation as the single source of truth,
 - **AC-1** ACP turns persist usage: `usage_update` (used/size/cost/meta) is recorded per turn into `daemon_messages.metadata` (assistant message) and aggregated into a new `daemon_usage_stats` table (per message: provider, model, date, input/output/cached/cache-write tokens, cost).
 - **AC-2** Pi turns persist usage: the worker emits a new usage event on turn settle with token counts (input, cached input, cache-write, output, reasoning) + model; daemon writes the same `daemon_usage_stats` row. Cost is derived locally from the model cost table (`input/output/cache_read/cache_write` per MTok), or null when unknown.
 - **AC-3** A new daemon route `usage.getStats` returns: summary (processed/cached/uncached input, output, cache savings, raw token cost, active days), daily series, per-provider share, per-model breakdown, and service list — for a requested window (past24h / 7d / 30d / 90d).
-- **AC-4** A new UI route `/_main/usage` renders the t3code-style page: window filters, raw-token-cost headline with the "* if billed at full API rate" note, daily cost/token toggle chart, provider share, metric cards (processed tokens, cached input, uncached input, output, cache savings), and a Model/Day breakdown table.
+- **AC-4** A new UI route `/usage` renders the t3code-style page: window filters, raw-token-cost headline with the "* if billed at full API rate" note, daily cost/token toggle chart, provider share, metric cards (processed tokens, cached input, uncached input, output, cache savings), and a Model/Day breakdown table.
 - **AC-5** The existing settings **Usage Dashboard** section is repointed to the same daemon aggregation (reads `usage.getStats` via typed `UsageClient`), so it no longer shows the empty state when usage exists.
 - **AC-6** **Recent Activity** is fixed: the daemon records `settings_activity` rows for the same mutating settings/providers/skills operations the desktop previously logged (writes now go to the daemon table the settings renderer reads), or the renderer reads the desktop table — single source of truth, no split-brain. The activity list renders non-empty after user actions.
 - **AC-7** All new renderer↔main capabilities use typed routes (`shared-contracts/routes` + `ARGOS_ROUTE_CATALOG`) and a `UsageClient`; no new `window.api`/legacy paths.
@@ -55,7 +55,7 @@ Establish daemon-side usage capture + aggregation as the single source of truth,
 
 ## Open Questions
 
-- **Q1:** Should the Usage page be a top-level tab or live under Settings? **A (initial):** top-level `/_main/usage` route, peer of chat/welcome; the settings Usage Dashboard section stays but reads the same data.
+- **Q1:** Should the Usage page be a top-level tab or live under Settings? **A (initial):** top-level `/usage` route, peer of chat/welcome; the settings Usage Dashboard section stays but reads the same data.
 - **Q2:** For ACP agents that report `cost` in `usage_update`, do we trust it over our estimate? **A (initial):** yes — use agent-reported cost when present, else estimate; mark estimate vs reported.
 - **Q3:** Which model cost table drives Pi estimates? **A (initial):** reuse `providerDbLoader` model cost fields (`input/output/cache_read/cache_write` per MTok) already used by `usageStats.ts`.
 - **Q4:** Recent Activity: migrate desktop `recordSettingsActivity` calls to daemon writes, or keep desktop writes and have the renderer read desktop? **A (initial):** migrate writes to the daemon table (single source of truth); desktop call sites forward through the daemon route.

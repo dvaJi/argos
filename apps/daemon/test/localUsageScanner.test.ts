@@ -272,7 +272,7 @@ describe("scanLocalUsage", () => {
         timestamp: new Date(now - 10 * 24 * 60 * 60 * 1000).toISOString(),
       }),
     );
-    // touch the stale file's mtime to now so it passes the mtime filter
+    // age the stale file's mtime past the window so it fails the mtime filter
     const past = new Date(now - 10 * 24 * 60 * 60 * 1000);
     fs.utimesSync(stale, past, past);
 

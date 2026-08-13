@@ -18,6 +18,7 @@ export default function DashboardSettings({ hideNostalgia = false, onDashboardLo
   const [dashboard, setDashboard] = useState<UsageStatsOutput | null>(null);
   const isDashboardMountedRef = useRef(true);
   const refreshTimerRef = useRef<number | null>(null);
+  const emptyRetryCountRef = useRef(0);
   const loadDashboardRef = useRef<() => Promise<void>>(async () => {});
 
   const clearRefreshTimer = useCallback(() => {
@@ -52,9 +53,15 @@ export default function DashboardSettings({ hideNostalgia = false, onDashboardLo
       setDashboard(nextDashboard);
       onDashboardLoaded?.(nextDashboard);
 
-      const shouldRetryEmptyDashboard = nextDashboard.summary.messageCount === 0;
+      // A zero messageCount is a valid result for users with no usage data.
+      // Retry a bounded number of times (covers a just-started session), then
+      // stop — never poll forever while the settings view stays open.
+      const shouldRetryEmptyDashboard = nextDashboard.summary.messageCount === 0 && emptyRetryCountRef.current < 5;
       if (shouldRetryEmptyDashboard) {
+        emptyRetryCountRef.current += 1;
         scheduleDashboardRefresh();
+      } else {
+        emptyRetryCountRef.current = 0;
       }
 
       shouldFinalize = true;

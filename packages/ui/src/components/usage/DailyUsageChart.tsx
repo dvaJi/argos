@@ -193,8 +193,8 @@ export function DailyUsageChart({ points, mode }: DailyUsageChartProps) {
             {title ? <span className="font-medium">{title}</span> : null}
             {rows.length > 0 && (
               <div className="flex flex-col gap-0.5">
-                {rows.map((row, index) => (
-                  <div key={index} className="flex items-center justify-between gap-4">
+                {rows.map((row) => (
+                  <div key={row.label} className="flex items-center justify-between gap-4">
                     <span className="flex items-center gap-1.5 text-muted-foreground">
                       {row.color ? (
                         <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: row.color }} />

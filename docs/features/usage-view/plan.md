@@ -1,6 +1,6 @@
 # Implementation Plan — Usage View + Repair Usage Dashboard / Recent Activity
 
-Status: in-progress
+Status: complete
 Owner: usage-view
 Created: 2026-08-12
 
@@ -16,13 +16,12 @@ All sessions (Pi + ACP) already persist through the daemon (`PiProviderExecution
 
 ### AD-2: New `daemon_usage_stats` table (additive)
 
-Managed in `bun-session-repository.ts` (the daemon's SQLite). Columns:
+Managed in `bun-session-repository.ts` (the daemon's SQLite). `upsertUsageStat` conflicts on `message_id` (the PK). No foreign keys: rows may reference daemon sessions/messages OR external scanned sessions (Codex/Claude Code/OpenCode/Gemini local history) that don't exist in `daemon_sessions`. Columns:
 
 | column | type | notes |
 | --- | --- | --- |
-| id | TEXT PK | uuid |
-| session_id | TEXT | FK daemon_sessions |
-| message_id | TEXT | FK daemon_messages |
+| message_id | TEXT PK | upsert conflict key |
+| session_id | TEXT | no FK — supports external sessions |
 | provider_id | TEXT | |
 | model_id | TEXT | |
 | usage_date | TEXT | local `YYYY-MM-DD` |
@@ -36,7 +35,7 @@ Managed in `bun-session-repository.ts` (the daemon's SQLite). Columns:
 | cost_source | TEXT | `reported` \| `estimated` \| `none` |
 | created_at | INTEGER | |
 
-Index on `(usage_date)`, `(provider_id, model_id)`, `(session_id)`. Additive; no migration of existing rows.
+Index on `(usage_date, created_at)`, `(session_id)`, `(created_at)`. A v1 rebuild migration drops the original `daemon_sessions` FK so scanned external sessions can be stored; the rebuild is transactional (BEGIN IMMEDIATE/COMMIT/ROLLBACK).
 
 ### AD-3: Typed route `usage.getStats` + `UsageClient`
 
@@ -46,9 +45,9 @@ Index on `(usage_date)`, `(provider_id, model_id)`, `(session_id)`. Additive; no
 - Dispatch in `apps/daemon/src/dispatch/daemonDispatcher.ts` (daemon-owned; works in desktop + web).
 - Client: `packages/ui/api/UsageClient.ts` (`createUsageClient`).
 
-### AD-4: New `/_main/usage` page (t3code-style)
+### AD-4: New top-level `/usage` page (t3code-style)
 
-- Route file `packages/ui/src/routes/_main/usage.tsx` (peer of `chat`/`welcome`).
+- Route file `packages/ui/src/routes/usage.tsx` (top-level, own full-screen title bar with back button — peer of settings, not inside `_main`).
 - Components in `packages/ui/src/components/usage/`:
   - `UsageHeader` (window filter pills: Past 24h / 7d / 30d / 90d + refresh)
   - `RawTokenCostHeadline` (with "* if billed at full API rate" footnote)
@@ -71,15 +70,15 @@ Index on `(usage_date)`, `(provider_id, model_id)`, `(session_id)`. Additive; no
 
 ## Event Flow
 
-```
-Pi worker (turn settle) ──usage event──▶ PiProviderExecutionPort ─┐
+```text
+Pi worker (turn settle) ──usage event (per-turn delta)──▶ PiProviderExecutionPort ─┐
 ACP agent (usage_update) ─▶ AcpContentMapper ─▶ AcpProviderExecutionPort.runTurn ─┴▶ BunSessionRepository.upsertUsageStat
-                                                                                          │
-                                                                                          ▼
-                                                                              daemon_usage_stats
-                                                                                          │
-UI Usage page ─▶ UsageClient.getStats ─▶ daemonDispatcher usage.getStats ──▶ aggregate (SQL)
-                                                                                          │
+                                                                                           │
+                                                                                           ▼
+                                                                               daemon_usage_stats
+                                                                                           │
+UI Usage page ─▶ UsageClient.getStats ─▶ daemonDispatcher usage.getStats ──▶ aggregate (local scan cache + SQL rows)
+                                                                                           │
 Settings overview DashboardSettings ─▶ UsageClient.getStats ───────────────────────────────┘
 ```
 
@@ -88,6 +87,7 @@ Settings overview DashboardSettings ─▶ UsageClient.getStats ─────�
 - Additive table; no schema version bump needed (create-if-not-exists in `BunSessionRepository.ensureTable`).
 - `daemon_messages.metadata` gains an optional `usage` object (ACP) — additive, backward compatible.
 - No breaking changes to existing session/message persistence.
+- `settings_activity` id column migrated INTEGER→TEXT (schema v4, transactional rebuild) to match the UUID contract.
 
 ## Test Strategy
 

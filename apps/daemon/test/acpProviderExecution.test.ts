@@ -170,8 +170,10 @@ describe("AcpProviderExecutionPort", () => {
         sessionId: "conversation-1",
         providerId: "acp",
         modelId: "opencode",
-        inputTokens: 5000,
-        totalTokens: 5000,
+        // ACP usage_update is cumulative context, not per-turn tokens: token
+        // fields stay 0 and only the reported cost is persisted.
+        inputTokens: 0,
+        totalTokens: 0,
         costUsd: 0.42,
         costSource: "reported",
       }),

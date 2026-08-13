@@ -1,6 +1,6 @@
 # Tasks — Usage View + Repair Usage Dashboard / Recent Activity
 
-Status: in-progress
+Status: complete
 Owner: usage-view
 Created: 2026-08-12
 

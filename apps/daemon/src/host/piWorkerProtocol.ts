@@ -73,7 +73,6 @@ export type PiWorkerEvent =
         output: number;
         cacheRead: number;
         cacheWrite: number;
-        reasoning?: number;
         total: number;
         cost: number;
       };

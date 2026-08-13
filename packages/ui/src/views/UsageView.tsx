@@ -77,75 +77,85 @@ export default function UsageView() {
   // changes are visible without page-load theater.
   const [dataKey, setDataKey] = useState(0);
 
-  const load = useCallback(async () => {
-    setIsLoading(true);
-    setError("");
-    try {
-      // Fetch the full 90d window once; window + service filters are derived
-      // client-side so clicking a filter is instant (no slow local rescan).
-      const result = await usageClient.getStats("90d");
-      setData(result);
-      setDataKey((key) => key + 1);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load usage");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [usageClient]);
+  const load = useCallback(
+    async (targetWindow: UsageWindow) => {
+      setIsLoading(true);
+      setError("");
+      try {
+        // The daemon caches local scans (10s TTL), so per-window fetches are
+        // cheap and the response's summary/services/breakdown are already
+        // window-correct. Only the service filter is derived client-side.
+        const result = await usageClient.getStats(targetWindow);
+        setData(result);
+        setDataKey((key) => key + 1);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load usage");
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [usageClient],
+  );
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    void load(window);
+  }, [window, load]);
 
-  // ---- Client-side derivation: window slice + service filter ----
-  const WINDOW_DAYS: Record<UsageWindow, number> = { past24h: 1, "7d": 7, "30d": 30, "90d": 90 };
-
+  // ---- Client-side derivation: service filter only (window is server-side) ----
   const filtered = useMemo(() => {
     if (!data) return null;
-    const days = WINDOW_DAYS[window];
-    const cutoff = new Date();
-    cutoff.setHours(0, 0, 0, 0);
-    cutoff.setDate(cutoff.getDate() - (days - 1));
-    const cutoffKey = `${cutoff.getFullYear()}-${`${cutoff.getMonth() + 1}`.padStart(2, "0")}-${`${cutoff.getDate()}`.padStart(2, "0")}`;
-    const inWindow = (date: string) => date >= cutoffKey;
-
-    const dailySeries = data.dailySeries.filter((point) => inWindow(point.date));
     // Chart data: per-service series when a harness is selected, else the
-    // aggregate series (both window-sliced).
+    // aggregate series (both already window-scoped by the server).
     const chartSeries = selectedService
-      ? (data.serviceDailySeries.find((series) => series.serviceId === selectedService)?.points ?? []).filter((point) =>
-          inWindow(point.date),
-        )
-      : dailySeries;
+      ? (data.serviceDailySeries.find((series) => series.serviceId === selectedService)?.points ?? [])
+      : data.dailySeries;
 
-    // Summary + services + breakdown derive from the window-sliced aggregate.
-    const services = data.services.filter((service) => {
-      const series = data.serviceDailySeries.find((item) => item.serviceId === service.id);
-      return (series?.points ?? []).some((point) => inWindow(point.date) && point.totalTokens > 0);
-    });
+    // Service-filtered summary: derive from the services list when a harness
+    // is selected; otherwise use the server's window-correct summary.
+    const services =
+      selectedService === undefined ? data.services : data.services.filter((service) => service.id === selectedService);
     const totalCost = services.reduce((sum, service) => sum + (service.costUsd ?? 0), 0);
-    const totalTokens = dailySeries.reduce((sum, point) => sum + point.totalTokens, 0);
-    const inputTokens = dailySeries.reduce((sum, point) => sum + point.inputTokens, 0);
-    const outputTokens = dailySeries.reduce((sum, point) => sum + point.outputTokens, 0);
-    const cachedInputTokens = dailySeries.reduce((sum, point) => sum + point.cachedInputTokens, 0);
-    const activeDays = new Set(dailySeries.filter((point) => point.totalTokens > 0).map((point) => point.date)).size;
+    const totalTokens = services.reduce((sum, service) => sum + service.totalTokens, 0);
+    const messageCount = services.reduce((sum, service) => sum + service.messageCount, 0);
+    const serviceDaily = services.map((service) => {
+      const series = data.serviceDailySeries.find((item) => item.serviceId === service.id);
+      return series?.points ?? [];
+    });
+    const inputTokens = serviceDaily.reduce((sum, points) => sum + points.reduce((s, p) => s + p.inputTokens, 0), 0);
+    const outputTokens = serviceDaily.reduce((sum, points) => sum + points.reduce((s, p) => s + p.outputTokens, 0), 0);
+    const cachedInputTokens = serviceDaily.reduce(
+      (sum, points) => sum + points.reduce((s, p) => s + p.cachedInputTokens, 0),
+      0,
+    );
+
+    const summary =
+      selectedService === undefined
+        ? data.summary
+        : ({
+            rawTokenCostUsd: totalCost > 0 ? totalCost : null,
+            processedTokens: totalTokens,
+            cachedInputTokens,
+            uncachedInputTokens: Math.max(inputTokens - cachedInputTokens, 0),
+            outputTokens,
+            reasoningTokens: 0,
+            cacheSavingsUsd: null,
+            activeDays: new Set(
+              serviceDaily
+                .flat()
+                .filter((p) => p.totalTokens > 0)
+                .map((p) => p.date),
+            ).size,
+            messageCount,
+            // Session count is not derivable client-side per service; use the
+            // service count as a lower bound and let the full summary show the
+            // real value when no filter is active.
+            sessionCount: services.length,
+            costSource: data.summary.costSource,
+          } satisfies UsageStatsOutput["summary"]);
 
     return {
-      dailySeries,
       chartSeries,
-      summary: {
-        rawTokenCostUsd: totalCost > 0 ? totalCost : null,
-        processedTokens: totalTokens,
-        cachedInputTokens,
-        uncachedInputTokens: Math.max(inputTokens - cachedInputTokens, 0),
-        outputTokens,
-        reasoningTokens: 0,
-        cacheSavingsUsd: null,
-        activeDays,
-        messageCount: services.reduce((sum, service) => sum + service.messageCount, 0),
-        sessionCount: services.length,
-        costSource: data.summary.costSource,
-      } satisfies UsageStatsOutput["summary"],
+      summary,
       services: services.map((service) => ({
         ...service,
         costShare: totalCost > 0 ? (service.costUsd ?? 0) / totalCost : 0,
@@ -154,7 +164,7 @@ export default function UsageView() {
         .filter((item) => item.providerId === selectedService || selectedService === undefined)
         .sort((a, b) => (b.costUsd ?? 0) - (a.costUsd ?? 0)),
     };
-  }, [data, window, selectedService]);
+  }, [data, selectedService]);
 
   const hasData = (filtered?.services.length ?? 0) > 0;
   const hasChartActivity = (filtered?.chartSeries ?? []).some(
@@ -181,6 +191,7 @@ export default function UsageView() {
               <button
                 key={item.id}
                 type="button"
+                aria-pressed={window === item.id}
                 onClick={() => setWindow(item.id)}
                 className={`usage-press rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                   window === item.id ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground"
@@ -199,7 +210,7 @@ export default function UsageView() {
                 <p className="font-medium text-destructive">Could not load usage</p>
                 <p className="mt-1 text-sm text-muted-foreground">{error}</p>
               </div>
-              <Button variant="outline" size="sm" onClick={() => void load()} disabled={isLoading}>
+              <Button variant="outline" size="sm" onClick={() => void load(window)} disabled={isLoading}>
                 <RefreshIcon className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
                 Try again
               </Button>
@@ -250,7 +261,7 @@ export default function UsageView() {
                   </div>
                   <div className="flex items-center gap-2">
                     <CostSourceBadge source={summary.costSource} />
-                    <Button variant="outline" size="sm" onClick={() => void load()} disabled={isLoading}>
+                    <Button variant="outline" size="sm" onClick={() => void load(window)} disabled={isLoading}>
                       <RefreshIcon className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
                       Refresh
                     </Button>

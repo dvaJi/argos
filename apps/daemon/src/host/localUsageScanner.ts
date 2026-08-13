@@ -27,6 +27,17 @@ export interface LocalUsageSource {
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
+/** Short-TTL cache so repeated `usage.getStats` calls don't rescan local
+ * session files synchronously (the scan reads many JSONL files). Keyed by
+ * home dir + window duration; invalidated by time bucket. */
+const SCAN_CACHE_TTL_MS = 10_000;
+const scanCache = new Map<string, { expiresAt: number; records: UsageStatRecord[] }>();
+
+function scanCacheKey(home: string, windowMs: number, now: number): string {
+  const bucket = Math.floor(now / SCAN_CACHE_TTL_MS) * SCAN_CACHE_TTL_MS;
+  return `${home}|${windowMs}|${bucket}`;
+}
+
 function toDateKey(timestampMs: number): string {
   const d = new Date(timestampMs);
   return `${d.getFullYear()}-${`${d.getMonth() + 1}`.padStart(2, "0")}-${`${d.getDate()}`.padStart(2, "0")}`;
@@ -34,6 +45,11 @@ function toDateKey(timestampMs: number): string {
 
 function tokenNumber(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
+}
+
+/** Currency-safe number: preserves decimals (costs are not token counts). */
+function costNumber(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) ? Math.max(0, value) : 0;
 }
 
 /**
@@ -325,7 +341,7 @@ export function parseOpencodeDb(dbPath: string, sourceId: string): UsageStatReco
       typeof cost === "number"
         ? cost
         : typeof cost === "object" && cost !== null
-          ? tokenNumber((cost as Record<string, unknown>)["total"])
+          ? costNumber((cost as Record<string, unknown>)["total"])
           : 0;
     if (costValue > 0) reportedCost += costValue;
   }
@@ -531,6 +547,15 @@ export function scanLocalUsage(
   const now = options.now ?? Date.now();
   const windowMs = options.windowMs ?? 30 * MS_PER_DAY;
   const maxFiles = options.maxFiles ?? 5000;
+
+  // Serve recent scans from the TTL cache so the usage route doesn't block the
+  // event loop re-reading every session file on each request.
+  const cacheKey = scanCacheKey(home, windowMs, now);
+  const cached = scanCache.get(cacheKey);
+  if (cached && cached.expiresAt > now) {
+    return cached.records;
+  }
+
   const records: UsageStatRecord[] = [];
 
   for (const source of LOCAL_USAGE_SOURCES) {
@@ -548,12 +573,15 @@ export function scanLocalUsage(
       continue;
     }
 
-    // JSONL sources: scan the session dir recursively.
+    // JSONL sources: scan the session dir recursively. Filter by mtime BEFORE
+    // capping so recent sessions are never dropped by directory order.
     const dir = source.sessionDir(home);
-    const files = listJsonlFiles(dir);
-    for (const filePath of files.slice(0, maxFiles)) {
-      const mtime = fileMtimeMs(filePath);
-      if (now - mtime > windowMs) continue;
+    const files = listJsonlFiles(dir)
+      .map((filePath) => ({ filePath, mtime: fileMtimeMs(filePath) }))
+      .filter((entry) => now - entry.mtime <= windowMs)
+      .sort((a, b) => b.mtime - a.mtime)
+      .slice(0, maxFiles);
+    for (const { filePath } of files) {
       try {
         records.push(...source.parseFile!(filePath, source.id));
       } catch {
@@ -563,5 +591,6 @@ export function scanLocalUsage(
   }
 
   records.sort((a, b) => b.createdAt - a.createdAt);
+  scanCache.set(cacheKey, { expiresAt: now + SCAN_CACHE_TTL_MS, records });
   return records;
 }

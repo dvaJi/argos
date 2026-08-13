@@ -411,6 +411,10 @@ export class BunSessionRepository implements SessionRepository {
       CREATE INDEX IF NOT EXISTS idx_daemon_usage_stats_session
         ON daemon_usage_stats(session_id)
     `);
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_daemon_usage_stats_created_at
+        ON daemon_usage_stats(created_at)
+    `);
     // Migration: the first version of this table carried a FK to
     // daemon_sessions, which rejects rows for sessions Argos doesn't own
     // (external Codex/Claude Code sessions scanned from local JSONL). Rebuild
@@ -418,38 +422,47 @@ export class BunSessionRepository implements SessionRepository {
     try {
       const usageFks = this.db.prepare("PRAGMA foreign_key_list(daemon_usage_stats)").all() as Array<{ table: string }>;
       if (usageFks.some((fk) => fk.table === "daemon_sessions")) {
-        this.db.exec("ALTER TABLE daemon_usage_stats RENAME TO daemon_usage_stats_legacy");
-        this.db.exec(`
-          CREATE TABLE daemon_usage_stats (
-            message_id TEXT PRIMARY KEY,
-            session_id TEXT NOT NULL,
-            provider_id TEXT NOT NULL,
-            model_id TEXT NOT NULL,
-            usage_date TEXT NOT NULL,
-            input_tokens INTEGER NOT NULL DEFAULT 0,
-            cached_input_tokens INTEGER NOT NULL DEFAULT 0,
-            cache_write_input_tokens INTEGER NOT NULL DEFAULT 0,
-            output_tokens INTEGER NOT NULL DEFAULT 0,
-            reasoning_tokens INTEGER NOT NULL DEFAULT 0,
-            total_tokens INTEGER NOT NULL DEFAULT 0,
-            cost_usd REAL,
-            cost_source TEXT NOT NULL DEFAULT 'none',
-            created_at INTEGER NOT NULL
-          )
-        `);
-        this.db.exec(
-          `INSERT INTO daemon_usage_stats
-             (message_id, session_id, provider_id, model_id, usage_date,
-              input_tokens, cached_input_tokens, cache_write_input_tokens,
-              output_tokens, reasoning_tokens, total_tokens,
-              cost_usd, cost_source, created_at)
-           SELECT message_id, session_id, provider_id, model_id, usage_date,
-              input_tokens, cached_input_tokens, cache_write_input_tokens,
-              output_tokens, reasoning_tokens, total_tokens,
-              cost_usd, cost_source, created_at
-           FROM daemon_usage_stats_legacy`,
-        );
-        this.db.exec("DROP TABLE daemon_usage_stats_legacy");
+        // Transactional rebuild: a mid-way failure must not strand rows in the
+        // renamed legacy table with the new table missing.
+        this.db.exec("BEGIN IMMEDIATE");
+        try {
+          this.db.exec("ALTER TABLE daemon_usage_stats RENAME TO daemon_usage_stats_legacy");
+          this.db.exec(`
+            CREATE TABLE daemon_usage_stats (
+              message_id TEXT PRIMARY KEY,
+              session_id TEXT NOT NULL,
+              provider_id TEXT NOT NULL,
+              model_id TEXT NOT NULL,
+              usage_date TEXT NOT NULL,
+              input_tokens INTEGER NOT NULL DEFAULT 0,
+              cached_input_tokens INTEGER NOT NULL DEFAULT 0,
+              cache_write_input_tokens INTEGER NOT NULL DEFAULT 0,
+              output_tokens INTEGER NOT NULL DEFAULT 0,
+              reasoning_tokens INTEGER NOT NULL DEFAULT 0,
+              total_tokens INTEGER NOT NULL DEFAULT 0,
+              cost_usd REAL,
+              cost_source TEXT NOT NULL DEFAULT 'none',
+              created_at INTEGER NOT NULL
+            )
+          `);
+          this.db.exec(
+            `INSERT INTO daemon_usage_stats
+               (message_id, session_id, provider_id, model_id, usage_date,
+                input_tokens, cached_input_tokens, cache_write_input_tokens,
+                output_tokens, reasoning_tokens, total_tokens,
+                cost_usd, cost_source, created_at)
+             SELECT message_id, session_id, provider_id, model_id, usage_date,
+                input_tokens, cached_input_tokens, cache_write_input_tokens,
+                output_tokens, reasoning_tokens, total_tokens,
+                cost_usd, cost_source, created_at
+             FROM daemon_usage_stats_legacy`,
+          );
+          this.db.exec("DROP TABLE daemon_usage_stats_legacy");
+          this.db.exec("COMMIT");
+        } catch (error) {
+          this.db.exec("ROLLBACK");
+          console.error("[bun-session-repository] Failed to rebuild daemon_usage_stats:", error);
+        }
       }
     } catch {
       // non-fatal: schema migration is best-effort

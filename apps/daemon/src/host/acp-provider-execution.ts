@@ -482,14 +482,16 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
           providerId: "acp",
           modelId: agent.id,
           usageDate: usageDateKey(Date.now()),
-          // ACP reports cumulative context used/size — record size as observed input,
-          // and keep token-level fields at 0 (agent did not provide per-turn split).
-          inputTokens: typeof lastUsage.size === "number" ? lastUsage.size : 0,
+          // ACP `usage_update` carries cumulative context `used`/`size`, not
+          // per-turn token splits. Token fields stay 0 (the aggregator excludes
+          // ACP rows from services/breakdown anyway); the reported cost is the
+          // only value that is meaningful to persist.
+          inputTokens: 0,
           cachedInputTokens: 0,
           cacheWriteInputTokens: 0,
           outputTokens: 0,
           reasoningTokens: 0,
-          totalTokens: typeof lastUsage.size === "number" ? lastUsage.size : 0,
+          totalTokens: 0,
           costUsd: costAmount,
           costSource: costAmount !== null ? "reported" : "none",
           createdAt: Date.now(),
