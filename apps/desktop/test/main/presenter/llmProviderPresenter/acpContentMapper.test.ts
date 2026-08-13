@@ -219,6 +219,30 @@ describe("AcpContentMapper mode handling", () => {
   });
 });
 
+describe("AcpContentMapper reasoning handling", () => {
+  it("tags every agent_thought_chunk with a reasoningStartTime", () => {
+    const mapper = new AcpContentMapper();
+
+    const first = mapper.map(
+      createNotification("session-1", {
+        sessionUpdate: "agent_thought_chunk",
+        content: { type: "text", text: "first" },
+      }),
+    );
+    const second = mapper.map(
+      createNotification("session-1", {
+        sessionUpdate: "agent_thought_chunk",
+        content: { type: "text", text: "second" },
+      }),
+    );
+
+    expect(first.reasoningStartTime).toEqual(expect.any(Number));
+    expect(second.reasoningStartTime).toEqual(expect.any(Number));
+    expect(first.blocks.filter((b) => b.type === "reasoning_content")).toHaveLength(1);
+    expect(second.blocks.filter((b) => b.type === "reasoning_content")).toHaveLength(1);
+  });
+});
+
 describe("AcpContentMapper available commands handling", () => {
   it("normalizes available commands from ACP updates", () => {
     const mapper = new AcpContentMapper();

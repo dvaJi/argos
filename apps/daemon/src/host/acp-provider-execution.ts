@@ -167,6 +167,16 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
       doneResolve,
     });
 
+    // Persist + publish "generating" BEFORE launching the turn so a fast turn
+    // cannot finish first and have its final "idle" overwritten by this write.
+    await this.sessionRepository.setSessionStatus?.(sessionId, "generating");
+    this.eventPublisher.publish(sessionsStatusChangedEvent.name, {
+      sessionId,
+      status: "generating",
+      reason: "generation-started",
+      version: 1,
+    });
+
     void this.runTurn(
       runtime,
       sessionId,
@@ -182,14 +192,6 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
         this.activeTurns.delete(sessionId);
       }
       doneResolve();
-    });
-
-    await this.sessionRepository.setSessionStatus?.(sessionId, "generating");
-    this.eventPublisher.publish(sessionsStatusChangedEvent.name, {
-      sessionId,
-      status: "generating",
-      reason: "generation-started",
-      version: 1,
     });
 
     return { requestId, messageId: assistantMessageId };
@@ -477,6 +479,7 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
           if (lastReasoning && typeof lastReasoning.reasoning_time !== "object") {
             lastReasoning.reasoning_time = { start: reasoningStartTime, end: now };
           }
+          reasoningStartTime = undefined;
         }
 
         this.eventPublisher.publish("chat.stream.updated", {

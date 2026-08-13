@@ -54,7 +54,7 @@ Triage and API-diffing are only fast because Argos uses a small, stable slice of
 
 Fetch the upstream changelog:
 
-```
+```text
 https://github.com/earendil-works/pi/blob/main/packages/coding-agent/CHANGELOG.md
 ```
 

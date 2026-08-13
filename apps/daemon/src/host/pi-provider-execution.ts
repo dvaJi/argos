@@ -520,7 +520,7 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
     } else if (event.type === "bashUpdate") {
       const target =
         (event.toolCallId ? turn.blocks.find((item) => item.id === event.toolCallId) : undefined) ??
-        [...turn.blocks].reverse().find((item) => item.type === "tool_call");
+        [...turn.blocks].reverse().find((item) => item.type === "tool_call" && item.status === "loading");
       if (target && target.status === "loading") {
         target.tool_call = {
           ...target.tool_call!,
@@ -543,19 +543,23 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
         turn.thinkingStart = undefined;
       }
       worker.turn = undefined;
-      await this.sessionRepository.finalizeAssistantMessage(
-        turn.messageId,
-        turn.blocks,
-        JSON.stringify({ runtime: "pi" }),
-      );
-      this.eventPublisher.publish("chat.stream.completed", {
-        requestId: turn.requestId,
-        sessionId,
-        messageId: turn.messageId,
-        completedAt: Date.now(),
-      });
-      turn.resolve();
-      if (event.sessionFile) this.sessionRepository.setPiSessionFile(sessionId, event.sessionFile);
+      try {
+        await this.sessionRepository.finalizeAssistantMessage(
+          turn.messageId,
+          turn.blocks,
+          JSON.stringify({ runtime: "pi" }),
+        );
+        this.eventPublisher.publish("chat.stream.completed", {
+          requestId: turn.requestId,
+          sessionId,
+          messageId: turn.messageId,
+          completedAt: Date.now(),
+        });
+        turn.resolve();
+        if (event.sessionFile) this.sessionRepository.setPiSessionFile(sessionId, event.sessionFile);
+      } catch (error) {
+        turn.reject(error instanceof Error ? error : new Error(String(error)));
+      }
     }
   }
 

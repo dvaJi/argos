@@ -14,7 +14,7 @@ Add an optional `Record<string, unknown>` field at each layer of the existing mo
 
 ## Data Flow
 
-```
+```text
 ModelConfigDialog (Sampling Parameters JSON)
   -> setModelConfig -> daemonConfigPresenter.setModelConfig -> modelConfigs store (persisted)
   -> workerProvider() reads getModelConfig().samplingParams (overrides MODEL_META.samplingParams)
