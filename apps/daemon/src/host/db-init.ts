@@ -146,7 +146,7 @@ export const CORE_TABLES = [
   )`,
 
   `CREATE TABLE IF NOT EXISTS settings_activity (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id TEXT PRIMARY KEY,
     category TEXT NOT NULL DEFAULT 'system',
     action TEXT NOT NULL DEFAULT 'updated',
     target_type TEXT NOT NULL DEFAULT '',
@@ -248,7 +248,7 @@ export const INDEXES = [
   `CREATE INDEX IF NOT EXISTS idx_auth_sessions_expires ON auth_sessions(expires_at)`,
 ];
 
-export const CURRENT_SCHEMA_VERSION = 3;
+export const CURRENT_SCHEMA_VERSION = 4;
 
 export async function initializeDatabase(dbPath: string): Promise<any> {
   logger.info(`[db] Opening database at ${dbPath}`);
@@ -444,6 +444,65 @@ export function runMigrations(db: BunDatabase, currentVersion: number): void {
       db.exec("DROP INDEX IF EXISTS idx_settings_activity_key");
     } catch {
       // ignore
+    }
+  }
+
+  // v4: rebuild `settings_activity` with `id TEXT PRIMARY KEY`. The v3 table used
+  // `id INTEGER PRIMARY KEY AUTOINCREMENT`, but the activity contract and the
+  // desktop schema use string UUIDs — inserting a UUID into the integer column
+  // raised SQLITE_MISMATCH and broke `settings.activity.record`. Rebuild and
+  // carry rows across (integer ids become their string form).
+  if (currentVersion < 4) {
+    const activityColumns = new Set(
+      db
+        .query<{ name: string }>("PRAGMA table_info(settings_activity)")
+        .all()
+        .map((row) => row.name),
+    );
+    const idIsText = activityColumns.has("id") && activityColumns.has("created_at");
+    if (idIsText) {
+      // If the table already has the rich TEXT schema (fresh install), nothing to do.
+      try {
+        const idType = db
+          .query<{ name: string; type: string }>("PRAGMA table_info(settings_activity)")
+          .all()
+          .find((col) => col.name === "id")?.type;
+        if (idType && idType.toUpperCase().includes("INT")) {
+          // Transactional rebuild: a failure mid-way must not leave the table
+          // renamed away with rows stranded.
+          db.exec("BEGIN IMMEDIATE");
+          try {
+            db.exec("ALTER TABLE settings_activity RENAME TO settings_activity_v3");
+            db.exec(`CREATE TABLE settings_activity (
+              id TEXT PRIMARY KEY,
+              category TEXT NOT NULL DEFAULT 'system',
+              action TEXT NOT NULL DEFAULT 'updated',
+              target_type TEXT NOT NULL DEFAULT '',
+              target_id TEXT,
+              target_label TEXT NOT NULL DEFAULT '',
+              route_name TEXT,
+              route_params_json TEXT NOT NULL DEFAULT '{}',
+              summary_key TEXT NOT NULL DEFAULT '',
+              summary_params_json TEXT NOT NULL DEFAULT '{}',
+              created_at INTEGER NOT NULL
+            )`);
+            db.exec(`INSERT INTO settings_activity (
+              id, category, action, target_type, target_id, target_label,
+              route_name, route_params_json, summary_key, summary_params_json, created_at
+            )
+            SELECT CAST(id AS TEXT), category, action, target_type, target_id, target_label,
+              route_name, route_params_json, summary_key, summary_params_json, created_at
+            FROM settings_activity_v3`);
+            db.exec("DROP TABLE settings_activity_v3");
+            db.exec("COMMIT");
+          } catch (error) {
+            db.exec("ROLLBACK");
+            console.error("[db-init] Failed to rebuild settings_activity (v4):", error);
+          }
+        }
+      } catch {
+        // non-fatal: fresh installs already have the TEXT id
+      }
     }
   }
 }

@@ -232,6 +232,7 @@ import {
 } from "./routes/plugins.routes";
 import {
   settingsActivityListRoute,
+  settingsActivityRecordRoute,
   settingsGetSnapshotRoute,
   settingsListSystemFontsRoute,
   settingsUpdateRoute,
@@ -364,6 +365,7 @@ import {
   upgradeRestartToUpdateRoute,
   upgradeStartDownloadRoute,
 } from "./routes/upgrade.routes";
+import { usageGetStatsRoute } from "./routes/usage.routes";
 import {
   windowCloseCurrentRoute,
   windowCloseFloatingCurrentRoute,
@@ -422,6 +424,7 @@ export * from "./routes/tab.routes";
 export * from "./routes/tools.routes";
 export * from "./routes/memory.routes";
 export * from "./routes/upgrade.routes";
+export * from "./routes/usage.routes";
 export * from "./routes/window.routes";
 export * from "./routes/workspace.routes";
 
@@ -565,6 +568,7 @@ export const ARGOS_ROUTE_CATALOG = {
   [settingsListSystemFontsRoute.name]: settingsListSystemFontsRoute,
   [settingsUpdateRoute.name]: settingsUpdateRoute,
   [settingsActivityListRoute.name]: settingsActivityListRoute,
+  [settingsActivityRecordRoute.name]: settingsActivityRecordRoute,
   [startupGetBootstrapRoute.name]: startupGetBootstrapRoute,
   [sessionsCreateRoute.name]: sessionsCreateRoute,
   [sessionsRestoreRoute.name]: sessionsRestoreRoute,
@@ -741,6 +745,7 @@ export const ARGOS_ROUTE_CATALOG = {
   [upgradeMockDownloadedRoute.name]: upgradeMockDownloadedRoute,
   [upgradeClearMockRoute.name]: upgradeClearMockRoute,
   [upgradeRestartToUpdateRoute.name]: upgradeRestartToUpdateRoute,
+  [usageGetStatsRoute.name]: usageGetStatsRoute,
   [dialogRespondRoute.name]: dialogRespondRoute,
   [dialogErrorRoute.name]: dialogErrorRoute,
   [toolsListDefinitionsRoute.name]: toolsListDefinitionsRoute,

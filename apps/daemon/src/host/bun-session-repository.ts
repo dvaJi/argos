@@ -76,6 +76,46 @@ interface TapeEntryRow {
   created_at: number;
 }
 
+/** Per-message usage stat captured at the daemon execution layer (Pi + ACP). */
+export interface UsageStatRecord {
+  messageId: string;
+  sessionId: string;
+  providerId: string;
+  modelId: string;
+  usageDate: string;
+  inputTokens: number;
+  cachedInputTokens: number;
+  cacheWriteInputTokens: number;
+  outputTokens: number;
+  reasoningTokens: number;
+  totalTokens: number;
+  costUsd: number | null;
+  costSource: "reported" | "estimated" | "none";
+  createdAt: number;
+}
+
+export type UsageWindow = "past24h" | "7d" | "30d" | "90d";
+
+const USAGE_WINDOW_MS: Record<UsageWindow, number> = {
+  past24h: 24 * 60 * 60 * 1000,
+  "7d": 7 * 24 * 60 * 60 * 1000,
+  "30d": 30 * 24 * 60 * 60 * 1000,
+  "90d": 90 * 24 * 60 * 60 * 1000,
+};
+
+export function usageWindowCutoffMs(window: UsageWindow, now = Date.now()): number {
+  return now - USAGE_WINDOW_MS[window];
+}
+
+/** Local `YYYY-MM-DD` key for a timestamp. */
+export function usageDateKey(timestamp: number): string {
+  const date = new Date(timestamp);
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 const MAX_ACTIVE_PENDING_INPUTS = 5;
 
 /**
@@ -345,6 +385,88 @@ export class BunSessionRepository implements SessionRepository {
       CREATE INDEX IF NOT EXISTS idx_daemon_tape_entries_session_name
         ON daemon_tape_entries(session_id, name, entry_id)
     `);
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS daemon_usage_stats (
+        message_id TEXT PRIMARY KEY,
+        session_id TEXT NOT NULL,
+        provider_id TEXT NOT NULL,
+        model_id TEXT NOT NULL,
+        usage_date TEXT NOT NULL,
+        input_tokens INTEGER NOT NULL DEFAULT 0,
+        cached_input_tokens INTEGER NOT NULL DEFAULT 0,
+        cache_write_input_tokens INTEGER NOT NULL DEFAULT 0,
+        output_tokens INTEGER NOT NULL DEFAULT 0,
+        reasoning_tokens INTEGER NOT NULL DEFAULT 0,
+        total_tokens INTEGER NOT NULL DEFAULT 0,
+        cost_usd REAL,
+        cost_source TEXT NOT NULL DEFAULT 'none',
+        created_at INTEGER NOT NULL
+      )
+    `);
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_daemon_usage_stats_date
+        ON daemon_usage_stats(usage_date, created_at)
+    `);
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_daemon_usage_stats_session
+        ON daemon_usage_stats(session_id)
+    `);
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_daemon_usage_stats_created_at
+        ON daemon_usage_stats(created_at)
+    `);
+    // Migration: the first version of this table carried a FK to
+    // daemon_sessions, which rejects rows for sessions Argos doesn't own
+    // (external Codex/Claude Code sessions scanned from local JSONL). Rebuild
+    // the table without the FK when present.
+    try {
+      const usageFks = this.db.prepare("PRAGMA foreign_key_list(daemon_usage_stats)").all() as Array<{ table: string }>;
+      if (usageFks.some((fk) => fk.table === "daemon_sessions")) {
+        // Transactional rebuild: a mid-way failure must not strand rows in the
+        // renamed legacy table with the new table missing.
+        this.db.exec("BEGIN IMMEDIATE");
+        try {
+          this.db.exec("ALTER TABLE daemon_usage_stats RENAME TO daemon_usage_stats_legacy");
+          this.db.exec(`
+            CREATE TABLE daemon_usage_stats (
+              message_id TEXT PRIMARY KEY,
+              session_id TEXT NOT NULL,
+              provider_id TEXT NOT NULL,
+              model_id TEXT NOT NULL,
+              usage_date TEXT NOT NULL,
+              input_tokens INTEGER NOT NULL DEFAULT 0,
+              cached_input_tokens INTEGER NOT NULL DEFAULT 0,
+              cache_write_input_tokens INTEGER NOT NULL DEFAULT 0,
+              output_tokens INTEGER NOT NULL DEFAULT 0,
+              reasoning_tokens INTEGER NOT NULL DEFAULT 0,
+              total_tokens INTEGER NOT NULL DEFAULT 0,
+              cost_usd REAL,
+              cost_source TEXT NOT NULL DEFAULT 'none',
+              created_at INTEGER NOT NULL
+            )
+          `);
+          this.db.exec(
+            `INSERT INTO daemon_usage_stats
+               (message_id, session_id, provider_id, model_id, usage_date,
+                input_tokens, cached_input_tokens, cache_write_input_tokens,
+                output_tokens, reasoning_tokens, total_tokens,
+                cost_usd, cost_source, created_at)
+             SELECT message_id, session_id, provider_id, model_id, usage_date,
+                input_tokens, cached_input_tokens, cache_write_input_tokens,
+                output_tokens, reasoning_tokens, total_tokens,
+                cost_usd, cost_source, created_at
+             FROM daemon_usage_stats_legacy`,
+          );
+          this.db.exec("DROP TABLE daemon_usage_stats_legacy");
+          this.db.exec("COMMIT");
+        } catch (error) {
+          this.db.exec("ROLLBACK");
+          console.error("[bun-session-repository] Failed to rebuild daemon_usage_stats:", error);
+        }
+      }
+    } catch {
+      // non-fatal: schema migration is best-effort
+    }
     const sessionColumns = new Set(
       (this.db.prepare("PRAGMA table_info(daemon_sessions)").all() as Array<{ name: string }>).map((row) => row.name),
     );
@@ -1221,6 +1343,99 @@ export class BunSessionRepository implements SessionRepository {
       )
       .run(JSON.stringify(blocks), metadataJson, Date.now(), messageId);
     this.emitSessionUpdated(this.sessionIdsForMessage(messageId), "updated");
+  }
+
+  /**
+   * Upsert a per-message usage stat. One row per assistant message; re-running
+   * (e.g. ACP `usage_update` arriving multiple times per turn) overwrites.
+   */
+  upsertUsageStat(record: UsageStatRecord): void {
+    this.db
+      .prepare(
+        `
+        INSERT INTO daemon_usage_stats (
+          message_id, session_id, provider_id, model_id, usage_date,
+          input_tokens, cached_input_tokens, cache_write_input_tokens,
+          output_tokens, reasoning_tokens, total_tokens,
+          cost_usd, cost_source, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(message_id) DO UPDATE SET
+          provider_id = excluded.provider_id,
+          model_id = excluded.model_id,
+          usage_date = excluded.usage_date,
+          input_tokens = excluded.input_tokens,
+          cached_input_tokens = excluded.cached_input_tokens,
+          cache_write_input_tokens = excluded.cache_write_input_tokens,
+          output_tokens = excluded.output_tokens,
+          reasoning_tokens = excluded.reasoning_tokens,
+          total_tokens = excluded.total_tokens,
+          cost_usd = excluded.cost_usd,
+          cost_source = excluded.cost_source,
+          created_at = excluded.created_at
+      `,
+      )
+      .run(
+        record.messageId,
+        record.sessionId,
+        record.providerId,
+        record.modelId,
+        record.usageDate,
+        record.inputTokens,
+        record.cachedInputTokens,
+        record.cacheWriteInputTokens,
+        record.outputTokens,
+        record.reasoningTokens,
+        record.totalTokens,
+        record.costUsd,
+        record.costSource,
+        record.createdAt,
+      );
+  }
+
+  /** Raw rows within a window (for aggregation). `window` selects the date cutoff. */
+  getUsageStatsRows(window: UsageWindow): UsageStatRecord[] {
+    const cutoff = usageWindowCutoffMs(window);
+    const rows = this.db
+      .prepare(
+        `
+        SELECT *
+        FROM daemon_usage_stats
+        WHERE created_at >= ?
+        ORDER BY created_at ASC
+      `,
+      )
+      .all(cutoff) as Array<{
+      message_id: string;
+      session_id: string;
+      provider_id: string;
+      model_id: string;
+      usage_date: string;
+      input_tokens: number;
+      cached_input_tokens: number;
+      cache_write_input_tokens: number;
+      output_tokens: number;
+      reasoning_tokens: number;
+      total_tokens: number;
+      cost_usd: number | null;
+      cost_source: string;
+      created_at: number;
+    }>;
+    return rows.map((row) => ({
+      messageId: row.message_id,
+      sessionId: row.session_id,
+      providerId: row.provider_id,
+      modelId: row.model_id,
+      usageDate: row.usage_date,
+      inputTokens: row.input_tokens,
+      cachedInputTokens: row.cached_input_tokens,
+      cacheWriteInputTokens: row.cache_write_input_tokens,
+      outputTokens: row.output_tokens,
+      reasoningTokens: row.reasoning_tokens,
+      totalTokens: row.total_tokens,
+      costUsd: row.cost_usd,
+      costSource: row.cost_source as UsageStatRecord["costSource"],
+      createdAt: row.created_at,
+    }));
   }
 
   async setMessageError(messageId: string, blocks: unknown[], metadataJson: string): Promise<void> {

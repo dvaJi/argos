@@ -183,10 +183,12 @@ import {
   sessionsUpdateGenerationSettingsRoute,
   sessionsUpdateQueuedInputRoute,
   settingsActivityListRoute,
+  settingsActivityRecordRoute,
   settingsGetSnapshotRoute,
   settingsListSystemFontsRoute,
   settingsUpdateRoute,
   startupGetBootstrapRoute,
+  usageGetStatsRoute,
   skillsGetActiveRoute,
   skillsGetDirectoryRoute,
   skillsGetExtensionRoute,
@@ -461,8 +463,11 @@ function readCurrentWindowState(runtime: MainKernelRouteRuntime, context: RouteC
   };
 }
 
-function recordSettingsActivity(runtime: MainKernelRouteRuntime, activity: SettingsActivityInput): void {
-  void runtime.sqlitePresenter.recordSettingsActivity(activity).catch((error) => {
+function recordSettingsActivity(_runtime: MainKernelRouteRuntime, activity: SettingsActivityInput): void {
+  // Forward to the daemon's `settings_activity` table — the single source of
+  // truth the settings renderer reads. The desktop SQLite table is no longer
+  // written (would create a split-brain with an empty activity feed).
+  void invokeDaemonRoute(settingsActivityRecordRoute.name, activity).catch((error) => {
     console.warn("[SettingsActivity] Failed to record settings activity:", error);
   });
 }
@@ -1502,8 +1507,8 @@ export async function dispatchArgosRoute(
 
     case settingsActivityListRoute.name: {
       const input = settingsActivityListRoute.input.parse(rawInput);
-      const activities = await runtime.sqlitePresenter.listSettingsActivity(input.limit);
-      return settingsActivityListRoute.output.parse({ activities });
+      const result = await invokeDaemonRoute(settingsActivityListRoute.name, { limit: input.limit });
+      return settingsActivityListRoute.output.parse(result);
     }
 
     case onboardingGetStateRoute.name: {
@@ -2594,6 +2599,16 @@ export async function dispatchArgosRoute(
       const input = systemSetPendingProviderInstallRoute.input.parse(rawInput);
       runtime.windowPresenter.setPendingSettingsProviderInstall(input.preview);
       return systemSetPendingProviderInstallRoute.output.parse({ success: true });
+    }
+
+    case usageGetStatsRoute.name: {
+      const input = usageGetStatsRoute.input.parse(rawInput);
+      return usageGetStatsRoute.output.parse(await invokeDaemonRoute(usageGetStatsRoute.name, input));
+    }
+
+    case settingsActivityRecordRoute.name: {
+      const input = settingsActivityRecordRoute.input.parse(rawInput);
+      return settingsActivityRecordRoute.output.parse(await invokeDaemonRoute(settingsActivityRecordRoute.name, input));
     }
   }
 

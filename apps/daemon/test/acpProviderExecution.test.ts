@@ -118,6 +118,71 @@ describe("AcpProviderExecutionPort", () => {
     expect(setMessageError).not.toHaveBeenCalled();
   });
 
+  it("persists usage_update data into usage stats and message metadata", async () => {
+    const finalizeAssistantMessage = vi.fn(async () => undefined);
+    const setMessageError = vi.fn(async () => undefined);
+    const upsertUsageStat = vi.fn();
+    const publish = vi.fn();
+    const port = new AcpProviderExecutionPort(
+      {} as never,
+      { finalizeAssistantMessage, setMessageError, upsertUsageStat } as never,
+      { publish } as never,
+      {
+        dataDir: "/tmp",
+        appVersion: "1.0.0",
+        db: { prepare: vi.fn() },
+      },
+    );
+    const runtime = {
+      async *runPromptTurn() {
+        yield {
+          sessionId: "acp-session",
+          update: {
+            sessionUpdate: "usage_update",
+            used: 1000,
+            size: 5000,
+            cost: { amount: 0.42, currency: "USD" },
+          },
+        };
+        yield {
+          sessionId: "acp-session",
+          update: {
+            sessionUpdate: "agent_message_chunk",
+            content: { type: "text", text: "done" },
+          },
+        };
+      },
+    };
+
+    await (port as any).runTurn(
+      runtime,
+      "conversation-1",
+      { id: "opencode", name: "OpenCode" },
+      [{ type: "text", text: "hello" }],
+      new AbortController(),
+      "request-1",
+      "assistant-1",
+    );
+
+    expect(upsertUsageStat).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messageId: "assistant-1",
+        sessionId: "conversation-1",
+        providerId: "acp",
+        modelId: "opencode",
+        // ACP usage_update is cumulative context, not per-turn tokens: token
+        // fields stay 0 and only the reported cost is persisted.
+        inputTokens: 0,
+        totalTokens: 0,
+        costUsd: 0.42,
+        costSource: "reported",
+      }),
+    );
+    const metadata = JSON.parse(finalizeAssistantMessage.mock.calls[0][2]);
+    expect(metadata.usage).toEqual({ used: 1000, size: 5000, cost: { amount: 0.42, currency: "USD" }, meta: null });
+    expect(setMessageError).not.toHaveBeenCalled();
+  });
+
   it("routes ACP plan updates to the plan widget and skips inline plan blocks", async () => {
     const finalizeAssistantMessage = vi.fn(async () => undefined);
     const setMessageError = vi.fn(async () => undefined);

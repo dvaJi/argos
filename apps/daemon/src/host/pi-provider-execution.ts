@@ -14,8 +14,10 @@ import type {
 import type { MCPToolCall, MCPToolDefinition, MCPToolResponse } from "@argos/shared/types/core/mcp";
 import type { LLM_PROVIDER, MODEL_META } from "@argos/shared/presenter";
 import type { BunSessionRepository } from "./bun-session-repository";
+import { usageDateKey } from "./bun-session-repository";
 import type { DaemonConfigPresenter } from "./daemonConfigPresenter";
 import { LlmUtilityExecution } from "./llmUtilityExecution";
+import { resolveModelCost as sharedResolveModelCost } from "./modelCost";
 import { PiAgentProfileManager } from "./piAgentProfileManager";
 import type { PiWorkerCommand, PiWorkerEvent, PiWorkerInit, PiWorkerProvider } from "./piWorkerProtocol";
 
@@ -41,6 +43,9 @@ interface PiWorkerHandle {
   ready: Promise<void>;
   turn?: ActiveTurn;
   sessionFile?: string;
+  /** Resolved at build time; avoids a per-usage-event DB read. */
+  modelId?: string;
+  lastUsage?: { input: number; output: number; cacheRead: number; cacheWrite: number; total: number; cost: number };
 }
 
 function resolveWorkerCommand(): { command: string; args: string[] } {
@@ -65,8 +70,17 @@ function modelFor(provider: LLM_PROVIDER, modelId: string): MODEL_META {
   return model ?? { id: modelId, name: modelId, group: provider.name, providerId: provider.id };
 }
 
-function workerProvider(provider: LLM_PROVIDER, modelId: string): PiWorkerProvider {
+function resolveModelCost(configPresenter: DaemonConfigPresenter, providerId: string, modelId: string) {
+  return sharedResolveModelCost(configPresenter, providerId, modelId);
+}
+
+function workerProvider(
+  configPresenter: DaemonConfigPresenter,
+  provider: LLM_PROVIDER,
+  modelId: string,
+): PiWorkerProvider {
   const model = modelFor(provider, modelId);
+  const cost = resolveModelCost(configPresenter, provider.id, modelId);
   return {
     id: provider.id,
     name: provider.name,
@@ -80,6 +94,7 @@ function workerProvider(provider: LLM_PROVIDER, modelId: string): PiWorkerProvid
       input: model.vision ? ["text", "image"] : ["text"],
       contextWindow: model.contextLength || 128_000,
       maxTokens: model.maxTokens || 8_192,
+      ...(cost ? { cost } : {}),
     },
   };
 }
@@ -270,7 +285,7 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
       resolveReady = resolve;
       rejectReady = reject;
     });
-    const handle: PiWorkerHandle = { process: child, signature, ready };
+    const handle: PiWorkerHandle = { process: child, signature, ready, modelId: config.provider.model.id };
     this.workers.set(sessionId, handle);
     readline.createInterface({ input: child.stdout, crlfDelay: Infinity }).on("line", (line) => {
       try {
@@ -316,7 +331,7 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
       sessionDir: this.profiles.getSessionDir(session.agentId),
       sessionFile: this.sessionRepository.getPiSessionFile(sessionId),
       systemPrompt: agent?.systemPrompt,
-      provider: workerProvider(provider, session.modelId),
+      provider: workerProvider(this.configPresenter, provider, session.modelId),
       thinkingLevel: (await this.sessionRepository.getGenerationSettings(sessionId))?.reasoningEffort,
       disabledTools: await this.sessionRepository.getDisabledAgentTools(sessionId),
       tools: availableTools.filter((tool) => tool.server.name !== "argos-orchestration"),
@@ -385,6 +400,40 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
     }
     if (event.type === "permissionRequest" || event.type === "uiRequest") {
       this.addInteraction(sessionId, worker, event);
+      return;
+    }
+
+    if (event.type === "usage") {
+      worker.lastUsage = {
+        input: event.usage.input,
+        output: event.usage.output,
+        cacheRead: event.usage.cacheRead,
+        cacheWrite: event.usage.cacheWrite,
+        total: event.usage.total,
+        cost: event.usage.cost,
+      };
+      const turn = worker.turn;
+      if (turn) {
+        const usage = worker.lastUsage;
+        this.sessionRepository.upsertUsageStat({
+          messageId: turn.messageId,
+          sessionId,
+          // The Argos (Pi) agent is its own service in the usage view; the
+          // underlying configured provider stays visible via the model id.
+          providerId: "argos",
+          modelId: worker.modelId || "argos",
+          usageDate: usageDateKey(Date.now()),
+          inputTokens: usage.input,
+          cachedInputTokens: usage.cacheRead,
+          cacheWriteInputTokens: usage.cacheWrite,
+          outputTokens: usage.output,
+          reasoningTokens: 0,
+          totalTokens: usage.total,
+          costUsd: usage.cost > 0 ? usage.cost : null,
+          costSource: usage.cost > 0 ? "reported" : "none",
+          createdAt: Date.now(),
+        });
+      }
       return;
     }
 

@@ -1,0 +1,108 @@
+/* Motion for the Usage monitor surface.
+ * Product motion: reveals change, keeps state legible, never performs.
+ * All durations/eases come from the app tokens so reduced-motion (global
+ * 1ms kill-switch in style.css) applies automatically.
+ */
+
+.usage-reveal {
+  opacity: 0;
+  transform: translateY(4px);
+  animation: usage-reveal var(--dc-motion-default) var(--dc-ease-out-express) forwards;
+}
+
+.usage-reveal-value {
+  opacity: 0;
+  transform: scale(0.98);
+  animation: usage-reveal-value var(--dc-motion-default) var(--dc-ease-out-express) forwards;
+}
+
+/* Data-change pop: "this changed" without ceremony. */
+@keyframes usage-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes usage-reveal-value {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Stale-data pulse: shows freshness without stealing attention. */
+.usage-fresh-dot {
+  position: relative;
+  display: inline-flex;
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--color-chart-2, currentColor);
+}
+
+.usage-fresh-dot::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 9999px;
+  border: 1px solid currentcolor;
+  opacity: 0;
+  animation: usage-fresh-ping 2.4s var(--dc-ease-out-soft) infinite;
+}
+
+@keyframes usage-fresh-ping {
+  0% {
+    opacity: 0.5;
+    transform: scale(0.6);
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(1.4);
+  }
+}
+
+/* Press feedback: scale on active, hover lift on interactive controls. */
+.usage-press {
+  transition:
+    transform var(--dc-motion-fast) var(--dc-ease-out-soft),
+    background-color var(--dc-motion-fast) var(--dc-ease-out-soft),
+    color var(--dc-motion-fast) var(--dc-ease-out-soft);
+}
+
+.usage-press:hover {
+  transform: translateY(-1px);
+}
+
+.usage-press:active {
+  transform: scale(0.97);
+}
+
+.usage-press:focus-visible {
+  outline: 2px solid var(--color-ring, currentColor);
+  outline-offset: 2px;
+}
+
+/* Flush the TanStack Charts tooltip host frame so the themed card inside is
+ * the only surface. The host sets its chrome via --ts-chart-tooltip-* vars,
+ * so we zero them on the flush class (applied via the tooltip `className`
+ * option). */
+.ts-chart-tooltip--flush {
+  --ts-chart-tooltip-padding: 0 !important;
+  --ts-chart-tooltip-border: none !important;
+  --ts-chart-tooltip-border-radius: 0 !important;
+  --ts-chart-tooltip-background: transparent !important;
+  --ts-chart-tooltip-color: inherit !important;
+  --ts-chart-tooltip-shadow: none !important;
+  --ts-chart-tooltip-font: inherit !important;
+  --ts-chart-tooltip-max-width: none !important;
+}

@@ -52,6 +52,7 @@ import moonshotColorIcon from "#/assets/llm-icons/moonshot.svg";
 import openrouterColorIcon from "#/assets/llm-icons/openrouter.svg";
 import poeColorIcon from "#/assets/llm-icons/poe-color.svg";
 import geminiColorIcon from "#/assets/llm-icons/gemini-color.svg";
+import opencodeIcon from "#/assets/llm-icons/opencode.svg";
 import githubColorIcon from "#/assets/llm-icons/github.svg";
 import azureOpenaiColorIcon from "#/assets/llm-icons/azure-color.svg";
 import claudeColorIcon from "#/assets/llm-icons/claude-color.svg";
@@ -80,9 +81,13 @@ import astraflowIcon from "#/assets/llm-icons/astraflow.png";
 const icons: Record<string, string> = {
   kimi: moonshotColorIcon,
   "kimi-cli": moonshotColorIcon,
-  "claude-acp": claudeColorIcon,
-  "claude-code-acp": claudeColorIcon,
+  codex: openaiColorIcon,
   "codex-acp": openaiColorIcon,
+  "claude-code": claudeColorIcon,
+  "claude-code-acp": claudeColorIcon,
+  claude: claudeColorIcon,
+  "claude-acp": claudeColorIcon,
+  opencode: opencodeIcon,
   dimcode: dimcodeColorIcon,
   "dimcode-acp": dimcodeColorIcon,
   o3fan: o3fanColorIcon,
@@ -97,7 +102,6 @@ const icons: Record<string, string> = {
   groq: groqColorIcon,
   qiniu: qiniuIcon,
   gemma: googleColorIcon,
-  claude: claudeColorIcon,
   azure: azureOpenaiColorIcon,
   deepseek: deepseekColorIcon,
   lmstudio: lmstudioColorIcon,
@@ -195,6 +199,7 @@ const monoIconUrls = new Set([
   awsBedrockIcon,
   voiceAiColorIcon,
   novitaAiIcon,
+  opencodeIcon,
 ]);
 
 interface ModelIconProps {
