@@ -932,7 +932,7 @@ describe("DaemonDispatcher Tier 2 routes no longer return Coming soon", () => {
           audioBase64: "abc",
           mimeType: "audio/mp3",
         }),
-      ).rejects.toSatisfy(expectNoComingSoonError);
+      ).rejects.toThrow(/not available|transcrib/i);
     });
   });
 
@@ -1022,18 +1022,18 @@ describe("DaemonDispatcher Tier 2 routes no longer return Coming soon", () => {
 
     it("plugins.enable throws a specific headless-only error", async () => {
       const { dispatcher } = createTestDispatcher();
-      await expect(dispatcher("plugins.enable", { pluginId: "p1" })).rejects.toSatisfy(expectNoComingSoonError);
+      await expect(dispatcher("plugins.enable", { pluginId: "p1" })).rejects.toThrow(/not available|daemon mode/i);
     });
 
     it("plugins.disable throws a specific headless-only error", async () => {
       const { dispatcher } = createTestDispatcher();
-      await expect(dispatcher("plugins.disable", { pluginId: "p1" })).rejects.toSatisfy(expectNoComingSoonError);
+      await expect(dispatcher("plugins.disable", { pluginId: "p1" })).rejects.toThrow(/not available|daemon mode/i);
     });
 
     it("plugins.invokeAction throws a specific headless-only error", async () => {
       const { dispatcher } = createTestDispatcher();
-      await expect(dispatcher("plugins.invokeAction", { pluginId: "p1", actionId: "a1" })).rejects.toSatisfy(
-        expectNoComingSoonError,
+      await expect(dispatcher("plugins.invokeAction", { pluginId: "p1", actionId: "a1" })).rejects.toThrow(
+        /not available|daemon mode/i,
       );
     });
   });

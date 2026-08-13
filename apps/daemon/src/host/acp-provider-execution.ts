@@ -22,6 +22,7 @@ import type { AcpSessionRecord } from "@argos/acp-runtime/session/acpSessionMana
 import type { AcpProcessHandle } from "@argos/acp-runtime/process/acpProcessManager";
 import type { DaemonConfigPresenter } from "./daemonConfigPresenter";
 import type { BunSessionRepository } from "./bun-session-repository";
+import { usageDateKey } from "./bun-session-repository";
 import { createDaemonAcpPorts } from "./acpPorts";
 import { createDaemonAcpSqlitePresenter } from "./daemonAcpSqlite";
 import { methods as acpMethods, PROTOCOL_VERSION } from "@agentclientprotocol/sdk";
@@ -400,6 +401,12 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
   ): Promise<void> {
     const blocks: Array<Record<string, unknown>> = [];
     let planRevision = 0;
+    let lastUsage: {
+      used: number;
+      size: number;
+      cost?: schema.Cost | null;
+      meta?: Record<string, unknown> | null;
+    } | null = null;
     try {
       for await (const notification of runtime.runPromptTurn({
         conversationId: sessionId,
@@ -411,6 +418,9 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
         if (controller.signal.aborted) break;
 
         const mapped = this.contentMapper.map(notification);
+        if (mapped.usage) {
+          lastUsage = mapped.usage;
+        }
 
         if (mapped.planEntries && mapped.planEntries.length > 0) {
           planRevision += 1;
@@ -454,11 +464,37 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
       }
 
       const replyBlocks = blocks.map((b) => (b.type === "content" ? { ...b, status: "success" } : b));
+      const usageMetadata = lastUsage ? { usage: lastUsage } : {};
       await this.sessionRepository.finalizeAssistantMessage(
         assistantMessageId,
         replyBlocks,
-        JSON.stringify({ model: agent.id, provider: "acp" }),
+        JSON.stringify({ model: agent.id, provider: "acp", ...usageMetadata }),
       );
+
+      if (lastUsage) {
+        const costAmount =
+          typeof lastUsage.cost?.amount === "number" && Number.isFinite(lastUsage.cost.amount)
+            ? lastUsage.cost.amount
+            : null;
+        this.sessionRepository.upsertUsageStat({
+          messageId: assistantMessageId,
+          sessionId,
+          providerId: "acp",
+          modelId: agent.id,
+          usageDate: usageDateKey(Date.now()),
+          // ACP reports cumulative context used/size — record size as observed input,
+          // and keep token-level fields at 0 (agent did not provide per-turn split).
+          inputTokens: typeof lastUsage.size === "number" ? lastUsage.size : 0,
+          cachedInputTokens: 0,
+          cacheWriteInputTokens: 0,
+          outputTokens: 0,
+          reasoningTokens: 0,
+          totalTokens: typeof lastUsage.size === "number" ? lastUsage.size : 0,
+          costUsd: costAmount,
+          costSource: costAmount !== null ? "reported" : "none",
+          createdAt: Date.now(),
+        });
+      }
 
       this.eventPublisher.publish("chat.stream.updated", {
         kind: "snapshot",

@@ -1,21 +1,21 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Icon } from "@iconify/react";
 import { ScrollArea } from "#shadcn/components/ui/scroll-area";
 import { Button } from "#shadcn/components/ui/button";
-import { usePresenter } from "#api/presenterBridge";
-import type { UsageDashboardData } from "@argos/shared/types/agent-interface";
+import { createUsageClient } from "#api/UsageClient";
+import type { UsageStatsOutput } from "@argos/shared-contracts/routes";
 import UsageNostalgiaCard from "./control-center/UsageNostalgiaCard";
 
 export interface DashboardSettingsProps {
   hideNostalgia?: boolean;
-  onDashboardLoaded?: (dashboard: UsageDashboardData) => void;
+  onDashboardLoaded?: (dashboard: UsageStatsOutput) => void;
 }
 
 export default function DashboardSettings({ hideNostalgia = false, onDashboardLoaded }: DashboardSettingsProps) {
-  const agentSessionPresenter = usePresenter("agentSessionPresenter");
+  const usageClient = useMemo(() => createUsageClient(), []);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
-  const [dashboard, setDashboard] = useState<UsageDashboardData | null>(null);
+  const [dashboard, setDashboard] = useState<UsageStatsOutput | null>(null);
   const isDashboardMountedRef = useRef(true);
   const refreshTimerRef = useRef<number | null>(null);
   const loadDashboardRef = useRef<() => Promise<void>>(async () => {});
@@ -47,16 +47,12 @@ export default function DashboardSettings({ hideNostalgia = false, onDashboardLo
       setIsLoading(true);
       setErrorMessage("");
 
-      await (agentSessionPresenter as { startUsageStatsBackfill?: () => Promise<void> }).startUsageStatsBackfill?.();
-
-      const nextDashboard = await agentSessionPresenter.getUsageDashboard();
+      const nextDashboard = await usageClient.getStats("30d");
       if (!isDashboardMountedRef.current) return;
       setDashboard(nextDashboard);
       onDashboardLoaded?.(nextDashboard);
 
-      const shouldRetryEmptyDashboard =
-        nextDashboard.summary.messageCount === 0 &&
-        (nextDashboard.backfillStatus.status === "idle" || nextDashboard.backfillStatus.status === "running");
+      const shouldRetryEmptyDashboard = nextDashboard.summary.messageCount === 0;
       if (shouldRetryEmptyDashboard) {
         scheduleDashboardRefresh();
       }
@@ -72,7 +68,7 @@ export default function DashboardSettings({ hideNostalgia = false, onDashboardLo
         setIsLoading(false);
       }
     }
-  }, [agentSessionPresenter, clearRefreshTimer, onDashboardLoaded, scheduleDashboardRefresh]);
+  }, [usageClient, clearRefreshTimer, onDashboardLoaded, scheduleDashboardRefresh]);
 
   loadDashboardRef.current = loadDashboard;
 

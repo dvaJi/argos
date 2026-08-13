@@ -197,10 +197,32 @@ function handleSessionEvent(event: AgentSessionEvent): void {
     case "auto_retry_end":
       emit({ type: "retry", phase: "end", attempt: event.attempt, error: event.finalError });
       break;
-    case "agent_settled":
+    case "agent_settled": {
+      // Emit usage BEFORE settled: the daemon persists usage from the settled
+      // handler, which runs synchronously when the settled event arrives.
+      if (session) {
+        try {
+          const stats = session.getSessionStats();
+          emit({
+            type: "usage",
+            id: activeCommandId,
+            usage: {
+              input: stats.tokens.input,
+              output: stats.tokens.output,
+              cacheRead: stats.tokens.cacheRead,
+              cacheWrite: stats.tokens.cacheWrite,
+              total: stats.tokens.total,
+              cost: stats.cost,
+            },
+          });
+        } catch (error) {
+          diagnostic(error, "usage");
+        }
+      }
       emit({ type: "settled", id: activeCommandId, sessionFile: session?.sessionFile });
       activeCommandId = undefined;
       break;
+    }
   }
 }
 
@@ -241,7 +263,7 @@ async function initialize(config: PiWorkerInit): Promise<void> {
       {
         ...config.provider.model,
         api: apiFor(config.provider.api),
-        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+        cost: config.provider.model.cost ?? { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
       },
     ],
   });

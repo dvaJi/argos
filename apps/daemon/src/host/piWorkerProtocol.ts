@@ -14,6 +14,12 @@ export interface PiWorkerProvider {
     input: Array<"text" | "image">;
     contextWindow: number;
     maxTokens: number;
+    cost?: {
+      input: number;
+      output: number;
+      cacheRead: number;
+      cacheWrite: number;
+    };
   };
 }
 
@@ -59,6 +65,19 @@ export type PiWorkerEvent =
   | { type: "retry"; phase: "start" | "end"; attempt: number; error?: string }
   | { type: "settled"; id?: string; sessionFile?: string }
   | { type: "error"; id?: string; message: string; stack?: string }
+  | {
+      type: "usage";
+      id?: string;
+      usage: {
+        input: number;
+        output: number;
+        cacheRead: number;
+        cacheWrite: number;
+        reasoning?: number;
+        total: number;
+        cost: number;
+      };
+    }
   | {
       type: "permissionRequest";
       id: string;

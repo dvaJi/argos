@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as MainRouteImport } from './routes/_main'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as UsageRouteImport } from './routes/usage'
 import { Route as MainIndexRouteImport } from './routes/_main/index'
 import { Route as MainChatRouteImport } from './routes/_main/chat'
 import { Route as MainWelcomeRouteImport } from './routes/_main/welcome'
@@ -44,6 +45,11 @@ const MainRoute = MainRouteImport.update({
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const UsageRoute = UsageRouteImport.update({
+  id: '/usage',
+  path: '/usage',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MainIndexRoute = MainIndexRouteImport.update({
@@ -177,6 +183,7 @@ const SettingsProviderProviderIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof MainIndexRoute
   '/settings': typeof SettingsRouteWithChildren
+  '/usage': typeof UsageRoute
   '/chat': typeof MainChatRoute
   '/welcome': typeof MainWelcomeRoute
   '/settings/about': typeof SettingsAboutRoute
@@ -203,6 +210,7 @@ export interface FileRoutesByFullPath {
   '/settings/provider/': typeof SettingsProviderIndexRoute
 }
 export interface FileRoutesByTo {
+  '/usage': typeof UsageRoute
   '/chat': typeof MainChatRoute
   '/welcome': typeof MainWelcomeRoute
   '/settings/about': typeof SettingsAboutRoute
@@ -232,6 +240,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_main': typeof MainRouteWithChildren
   '/settings': typeof SettingsRouteWithChildren
+  '/usage': typeof UsageRoute
   '/_main/chat': typeof MainChatRoute
   '/_main/welcome': typeof MainWelcomeRoute
   '/settings/about': typeof SettingsAboutRoute
@@ -263,6 +272,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/settings'
+    | '/usage'
     | '/chat'
     | '/welcome'
     | '/settings/about'
@@ -289,6 +299,7 @@ export interface FileRouteTypes {
     | '/settings/provider/'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/usage'
     | '/chat'
     | '/welcome'
     | '/settings/about'
@@ -317,6 +328,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_main'
     | '/settings'
+    | '/usage'
     | '/_main/chat'
     | '/_main/welcome'
     | '/settings/about'
@@ -347,6 +359,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   MainRoute: typeof MainRouteWithChildren
   SettingsRoute: typeof SettingsRouteWithChildren
+  UsageRoute: typeof UsageRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -363,6 +376,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/usage': {
+      id: '/usage'
+      path: '/usage'
+      fullPath: '/usage'
+      preLoaderRoute: typeof UsageRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_main/': {
@@ -623,6 +643,7 @@ const SettingsRouteWithChildren = SettingsRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   MainRoute: MainRouteWithChildren,
   SettingsRoute: SettingsRouteWithChildren,
+  UsageRoute: UsageRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

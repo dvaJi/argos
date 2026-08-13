@@ -1,6 +1,7 @@
 import { arch, cpus, homedir, platform, release, totalmem } from "node:os";
 import { readdirSync, statSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { sep, dirname, resolve, isAbsolute, join, basename, extname } from "node:path";
+import { randomUUID } from "node:crypto";
 import type { ArgosRouteName } from "@argos/shared-contracts/routes";
 import type { ProviderAggregate } from "@argos/shared/types/model-db";
 import { dispatchConfigRoute } from "@argos/backend-core/dispatch/config/configRouteHandler";
@@ -27,6 +28,10 @@ import type { IConfigPresenter } from "@argos/shared/presenter";
 import { resolveDaemonVersion } from "../version";
 import { diagnoseDaemonSchema, repairDaemonSchema } from "../host/daemonSchemaDiagnostics";
 import { getPiToolDefinitions } from "../host/piToolCatalog";
+import { aggregateUsageStats, resolveBuiltinModelPrice } from "../host/usageStatsAggregator";
+import type { UsageStatRecord, UsageWindow } from "../host/bun-session-repository";
+import { usageWindowCutoffMs } from "../host/bun-session-repository";
+import { scanLocalUsage } from "../host/localUsageScanner";
 import type {
   IEventPublisher,
   ProviderExecutionPort,
@@ -41,6 +46,7 @@ import {
   settingsGetSnapshotRoute,
   settingsUpdateRoute,
   settingsActivityListRoute,
+  settingsActivityRecordRoute,
   connectionDescribeEnvironmentRoute,
   ARGOS_CAPABILITIES,
   settingsListSystemFontsRoute,
@@ -269,6 +275,7 @@ import {
   chatSteerActiveTurnRoute,
   chatRespondToolInteractionRoute,
   imageProcessRoute,
+  usageGetStatsRoute,
   pluginsListRoute,
   pluginsGetRoute,
   pluginsEnableRoute,
@@ -428,6 +435,7 @@ type DaemonSessionRepositoryPort = BaseSessionRepository & {
   listMessageTraces(messageId: string): Promise<unknown[]>;
   getViewManifests(sessionId: string): Promise<unknown[]>;
   getViewLineage(sessionId: string): Promise<unknown[]>;
+  getUsageStatsRows(window: UsageWindow): UsageStatRecord[];
 };
 
 function readHeadlessWindowState() {
@@ -801,6 +809,7 @@ export function createDaemonDispatcher(
   settingsActivityDb: {
     prepare(sql: string): {
       all(...p: unknown[]): unknown[];
+      run(...p: unknown[]): { changes: number };
     };
   },
   environmentId = "unknown",
@@ -1860,6 +1869,60 @@ export function createDaemonDispatcher(
       return settingsActivityListRoute.output.parse({ activities });
     }
 
+    if (route === settingsActivityRecordRoute.name) {
+      const input = settingsActivityRecordRoute.input.parse(rawInput);
+      const id = crypto.randomUUID();
+      const now = Date.now();
+      settingsActivityDb
+        .prepare(
+          `
+          INSERT INTO settings_activity (
+            id, category, action, target_type, target_id, target_label,
+            route_name, route_params_json, summary_key, summary_params_json, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+        )
+        .run(
+          id,
+          input.category,
+          input.action,
+          input.targetType,
+          input.targetId ?? null,
+          input.targetLabel ?? "",
+          input.routeName ?? null,
+          JSON.stringify(input.routeParams ?? {}),
+          input.summaryKey,
+          JSON.stringify(input.summaryParams ?? {}),
+          now,
+        );
+      // Keep retention bounded (mirrors the desktop table's 2000-row cap).
+      settingsActivityDb
+        .prepare(
+          `
+          DELETE FROM settings_activity
+          WHERE id NOT IN (
+            SELECT id FROM settings_activity ORDER BY created_at DESC, id DESC LIMIT 2000
+          )
+        `,
+        )
+        .run();
+      return settingsActivityRecordRoute.output.parse({
+        activity: {
+          id,
+          category: input.category,
+          action: input.action,
+          targetType: input.targetType,
+          targetId: input.targetId ?? null,
+          targetLabel: input.targetLabel ?? "",
+          routeName: input.routeName ?? null,
+          routeParams: input.routeParams ?? {},
+          summaryKey: input.summaryKey,
+          summaryParams: input.summaryParams ?? {},
+          createdAt: now,
+        },
+      });
+    }
+
     if (route === databaseSecurityDiagnoseSchemaRoute.name) {
       databaseSecurityDiagnoseSchemaRoute.input.parse(rawInput);
       const diagnosis = diagnoseDaemonSchema(settingsActivityDb as never);
@@ -2242,6 +2305,9 @@ export function createDaemonDispatcher(
 
     if (route === modelsTranscribeAudioRoute.name) {
       const input = modelsTranscribeAudioRoute.input.parse(rawInput);
+      if (typeof runtime.providerExecutionPort.transcribeAudio !== "function") {
+        throw new Error("Audio transcription is not available for this provider runtime.");
+      }
       return modelsTranscribeAudioRoute.output.parse({
         text: await runtime.providerExecutionPort.transcribeAudio(
           input.providerId,
@@ -2351,6 +2417,45 @@ export function createDaemonDispatcher(
         console.warn(`[ACP] Failed to prepare draft session ${session.id}:`, error);
       });
       return sessionsEnsureAcpDraftRoute.output.parse({ session });
+    }
+
+    if (route === usageGetStatsRoute.name) {
+      const input = usageGetStatsRoute.input.parse(rawInput);
+      const dbRows = runtime.sessionRepository!.getUsageStatsRows(input.window);
+      // Merge local Codex/Claude Code session history (t3code-style) so agents
+      // that don't report ACP usage still show up.
+      const localRows = scanLocalUsage({
+        windowMs: usageWindowCutoffMs(input.window, Date.now()),
+      });
+      const rows = [...dbRows, ...localRows].filter(
+        (row) => input.service === undefined || row.providerId === input.service,
+      );
+      return usageGetStatsRoute.output.parse({
+        window: input.window,
+        ...aggregateUsageStats(rows, input.window, (providerId, modelId) => {
+          const catalog = (
+            configPresenter as unknown as { getDaemonProviderDb?: () => { catalog: ProviderAggregate | null } }
+          ).getDaemonProviderDb?.()?.catalog;
+          const provider = catalog?.providers?.[providerId] ?? catalog?.providers?.[modelId];
+          const model = provider?.models?.find((item) => item.id === modelId);
+          if (model?.cost) {
+            const num = (v: unknown): number | undefined =>
+              typeof v === "number" && Number.isFinite(v) ? v : typeof v === "string" ? Number(v) : undefined;
+            const input = num(model.cost["input"]);
+            const output = num(model.cost["output"]);
+            if (input !== undefined && output !== undefined) {
+              return {
+                input,
+                output,
+                cacheRead: num(model.cost["cache_read"]) ?? input,
+                cacheWrite: num(model.cost["cache_write"]) ?? input,
+              };
+            }
+          }
+          // Fallback to the built-in pricing table (Codex/Claude etc.).
+          return resolveBuiltinModelPrice(modelId);
+        }),
+      });
     }
 
     if (route === sessionsListPendingInputsRoute.name) {

@@ -207,6 +207,14 @@ export const settingsActivityListRoute = defineRouteContract({
   }),
 });
 
+export const settingsActivityRecordRoute = defineRouteContract({
+  name: "settings.activity.record",
+  input: SettingsActivityInputSchema,
+  output: zod.object({
+    activity: SettingsActivityRecordSchema,
+  }),
+});
+
 export type SettingsKey = zod.infer<typeof SettingsKeySchema>;
 export type SettingsSnapshotValues = zod.infer<typeof SettingsSnapshotValuesSchema>;
 export type SettingsChange = zod.infer<typeof SettingsChangeSchema>;

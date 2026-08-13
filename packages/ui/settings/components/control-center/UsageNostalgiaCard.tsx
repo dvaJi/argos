@@ -1,7 +1,6 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
-import { useStore } from "@tanstack/react-store";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "#shadcn/components/ui/card";
-import type { UsageDashboardData } from "@argos/shared/types/agent-interface";
+import type { UsageStatsOutput } from "@argos/shared-contracts/routes";
 
 type NostalgiaRotatingStat = {
   id: "days" | "sessions" | "messages";
@@ -12,31 +11,14 @@ type NostalgiaDetailItem = {
   content: string;
 };
 
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const NOSTALGIA_ROTATION_INTERVAL = 4000;
 
 function formatCount(value: number): string {
   return new Intl.NumberFormat("en").format(value);
 }
 
-function formatDateKey(dateKey: string): string {
-  return new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(`${dateKey}T00:00:00`));
-}
-
-function getDaysWithArgos(value: number | null): number | null {
-  if (value === null) {
-    return null;
-  }
-  const startedAt = new Date(value);
-  const today = new Date();
-  const startedAtDay = new Date(startedAt.getFullYear(), startedAt.getMonth(), startedAt.getDate());
-  const todayDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const diffDays = Math.floor((todayDay.getTime() - startedAtDay.getTime()) / MS_PER_DAY) + 1;
-  return Math.max(1, diffDays);
-}
-
 interface UsageNostalgiaCardProps {
-  dashboard: UsageDashboardData | null;
+  dashboard: UsageStatsOutput | null;
 }
 
 export default function UsageNostalgiaCard({ dashboard }: UsageNostalgiaCardProps) {
@@ -49,40 +31,31 @@ export default function UsageNostalgiaCard({ dashboard }: UsageNostalgiaCardProp
       return null;
     }
 
-    const days = getDaysWithArgos(dashboard.recordingStartedAt);
     const summary = dashboard.summary;
-    const formattedDays = days === null ? "N/A" : formatCount(days);
     const formattedSessions = formatCount(summary.sessionCount);
     const formattedMessages = formatCount(summary.messageCount);
-    const mostActiveDayText = summary.mostActiveDay.date
-      ? `${formatDateKey(summary.mostActiveDay.date)} — ${formatCount(summary.mostActiveDay.messageCount)} messages`
+    const activeDaysText = `${formatCount(summary.activeDays)} active day${summary.activeDays === 1 ? "" : "s"}`;
+    const mostActiveDay = dashboard.dailySeries.reduce(
+      (max, point) => (point.totalTokens > max.totalTokens ? point : max),
+      dashboard.dailySeries[0],
+    );
+    const mostActiveDayText = mostActiveDay
+      ? `${mostActiveDay.date} — ${formatCount(mostActiveDay.totalTokens)} tokens`
       : "N/A";
 
     const rotatingStats = [
-      days === null ? null : { id: "days" as const, value: `${formattedDays} days` },
+      { id: "days" as const, value: activeDaysText },
       { id: "sessions" as const, value: `${formattedSessions} sessions` },
       { id: "messages" as const, value: `${formattedMessages} messages` },
-    ].filter((item): item is NostalgiaRotatingStat => item !== null);
+    ];
 
     return {
       rotatingStats,
       details: [
-        {
-          id: "days",
-          content: days === null ? "N/A" : `${formattedDays} days with Argos`,
-        },
-        {
-          id: "sessions",
-          content: `${formattedSessions} total sessions`,
-        },
-        {
-          id: "messages",
-          content: `${formattedMessages} total messages`,
-        },
-        {
-          id: "most-active-day",
-          content: mostActiveDayText,
-        },
+        { id: "days", content: activeDaysText },
+        { id: "sessions", content: `${formattedSessions} total sessions` },
+        { id: "messages", content: `${formattedMessages} total messages` },
+        { id: "most-active-day", content: mostActiveDayText },
       ] satisfies NostalgiaDetailItem[],
     };
   }, [dashboard]);

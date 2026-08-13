@@ -6,12 +6,14 @@ import {
   configUpdateEntriesRoute,
   settingsGetSnapshotRoute,
   settingsActivityListRoute,
+  settingsActivityRecordRoute,
   settingsListSystemFontsRoute,
   settingsUpdateRoute,
   systemOpenSettingsRoute,
   type ConfigEntryChange,
   type ConfigEntryKey,
   type ConfigEntryValues,
+  type SettingsActivityInput,
   type SettingsChange,
   type SettingsKey,
   type SettingsSnapshotValues,
@@ -80,6 +82,11 @@ export function createSettingsClient(bridge: ArgosBridge = getArgosBridge()) {
     return result.activities;
   }
 
+  async function recordActivity(input: SettingsActivityInput) {
+    const result = await bridge.invoke(settingsActivityRecordRoute.name, input);
+    return result.activity;
+  }
+
   async function openSettings(navigation?: SettingsNavigationPayload) {
     return await bridge.invoke(systemOpenSettingsRoute.name, normalizeSettingsNavigationPayload(navigation) ?? {});
   }
@@ -103,6 +110,7 @@ export function createSettingsClient(bridge: ArgosBridge = getArgosBridge()) {
     setConfigEntry,
     update,
     listRecentActivity,
+    recordActivity,
     openSettings,
     onChanged,
   };

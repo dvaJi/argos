@@ -434,6 +434,22 @@ export default function WindowSideBar() {
             </TooltipTrigger>
             <TooltipContent side="right">Settings</TooltipContent>
           </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  data-testid="app-usage-button"
+                  className="flex items-center justify-center w-9 h-9 rounded-xl bg-transparent border-none hover:bg-white/30 dark:hover:bg-white/10 shadow-none"
+                  title="Usage"
+                  onClick={() => void navigate({ to: "/usage" })}
+                />
+              }
+            >
+              <Icon icon="lucide:chart-column" className="w-4 h-4 text-foreground/80" />
+            </TooltipTrigger>
+            <TooltipContent side="right">Usage</TooltipContent>
+          </Tooltip>
         </div>
 
         <div
