@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import readline from "node:readline";
 import type { IEventPublisher, ProviderExecutionPort } from "@argos/backend-core";
+import { sessionsStatusChangedEvent } from "@argos/shared-contracts";
 import type {
   AssistantMessageBlock,
   MessageStartResult,
@@ -35,6 +36,8 @@ interface ActiveTurn {
   blocks: AssistantMessageBlock[];
   resolve: () => void;
   reject: (error: Error) => void;
+  /** Timestamp (ms) when thinking/reasoning started, if any. */
+  thinkingStart?: number;
 }
 
 interface PiWorkerHandle {
@@ -81,6 +84,7 @@ function workerProvider(
 ): PiWorkerProvider {
   const model = modelFor(provider, modelId);
   const cost = resolveModelCost(configPresenter, provider.id, modelId);
+  const samplingParams = configPresenter.getModelConfig(modelId, provider.id).samplingParams ?? model.samplingParams;
   return {
     id: provider.id,
     name: provider.name,
@@ -94,6 +98,7 @@ function workerProvider(
       input: model.vision ? ["text", "image"] : ["text"],
       contextWindow: model.contextLength || 128_000,
       maxTokens: model.maxTokens || 8_192,
+      ...(samplingParams ? { samplingParams } : {}),
       ...(cost ? { cost } : {}),
     },
   };
@@ -147,22 +152,54 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
       activeTurn = { commandId: requestId, requestId, messageId, blocks: [], resolve, reject };
       worker.turn = activeTurn;
     });
+    await this.markGenerating(sessionId);
     this.send(worker.process, { type: "prompt", id: requestId, text });
-    try {
-      await completed;
-      return { requestId, messageId };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      await this.sessionRepository.setMessageError(messageId, activeTurn.blocks, JSON.stringify({ runtime: "pi" }));
-      this.eventPublisher.publish("chat.stream.failed", {
-        requestId,
-        sessionId,
-        messageId,
-        failedAt: Date.now(),
-        error: message,
-      });
-      throw error;
-    }
+
+    // Mirror ACP: the route acks immediately; the turn runs in the worker and
+    // streams via chat.stream.* events. Errors are published as chat.stream.failed.
+    void (async () => {
+      try {
+        await completed;
+        await this.markIdle(sessionId);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        try {
+          await this.sessionRepository.setMessageError(messageId, activeTurn.blocks, JSON.stringify({ runtime: "pi" }));
+        } catch {
+          // Best-effort; the failed event below is the source of truth for the UI.
+        }
+        this.eventPublisher.publish("chat.stream.failed", {
+          requestId,
+          sessionId,
+          messageId,
+          failedAt: Date.now(),
+          error: message,
+        });
+        await this.markIdle(sessionId).catch(() => {});
+      }
+    })();
+
+    return { requestId, messageId };
+  }
+
+  private async markGenerating(sessionId: string): Promise<void> {
+    await this.sessionRepository.setSessionStatus(sessionId, "generating");
+    this.eventPublisher.publish(sessionsStatusChangedEvent.name, {
+      sessionId,
+      status: "generating",
+      reason: "generation-started",
+      version: 1,
+    });
+  }
+
+  private async markIdle(sessionId: string): Promise<void> {
+    await this.sessionRepository.setSessionStatus(sessionId, "idle");
+    this.eventPublisher.publish(sessionsStatusChangedEvent.name, {
+      sessionId,
+      status: "idle",
+      reason: "generation-completed",
+      version: 1,
+    });
   }
 
   getActiveGeneration(sessionId: string): { eventId: string; runId: string } | null {
@@ -227,7 +264,7 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
       this.send(pending.worker, { type: "uiResponse", id: pending.workerRequestId, value });
       if (block) block.status = value === undefined ? "denied" : "success";
     }
-    if (turn) await this.publishSnapshot(sessionId, turn);
+    if (turn) this.publishSnapshot(sessionId, turn);
     return { resumed: true, handledInline: true };
   }
 
@@ -452,7 +489,18 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
       if (previous?.type === type && previous.status === "loading")
         previous.content = `${previous.content ?? ""}${event.text}`;
       else turn.blocks.push({ type, content: event.text, status: "loading", timestamp: Date.now() });
-      await this.publishSnapshot(sessionId, turn);
+      this.publishSnapshot(sessionId, turn);
+    } else if (event.type === "thinkingStart") {
+      if (turn.thinkingStart === undefined) turn.thinkingStart = Date.now();
+    } else if (event.type === "thinkingEnd") {
+      const start = turn.thinkingStart ?? Date.now();
+      const end = Date.now();
+      turn.thinkingStart = undefined;
+      const block = turn.blocks.at(-1);
+      if (block?.type === "reasoning_content" && block.status === "loading") {
+        block.reasoning_time = { start, end };
+      }
+      this.publishSnapshot(sessionId, turn);
     } else if (event.type === "toolStart") {
       turn.blocks.push({
         id: event.toolCallId,
@@ -461,30 +509,57 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
         timestamp: Date.now(),
         tool_call: { id: event.toolCallId, name: event.toolName, params: JSON.stringify(event.input) },
       });
-      await this.publishSnapshot(sessionId, turn);
+      this.publishSnapshot(sessionId, turn);
     } else if (event.type === "toolEnd") {
       const block = turn.blocks.find((item) => item.id === event.toolCallId);
       if (block) {
         block.status = event.isError ? "error" : "success";
         block.tool_call = { ...block.tool_call!, response: stringifyResult(event.result) };
       }
-      await this.publishSnapshot(sessionId, turn);
+      this.publishSnapshot(sessionId, turn);
+    } else if (event.type === "bashUpdate") {
+      const target =
+        (event.toolCallId ? turn.blocks.find((item) => item.id === event.toolCallId) : undefined) ??
+        [...turn.blocks].reverse().find((item) => item.type === "tool_call" && item.status === "loading");
+      if (target && target.status === "loading") {
+        target.tool_call = {
+          ...target.tool_call!,
+          response: `${target.tool_call?.response ?? ""}${event.delta}`,
+        };
+        this.publishSnapshot(sessionId, turn);
+      }
     } else if (event.type === "settled") {
       for (const block of turn.blocks) if (block.status === "loading") block.status = "success";
-      await this.sessionRepository.finalizeAssistantMessage(
-        turn.messageId,
-        turn.blocks,
-        JSON.stringify({ runtime: "pi" }),
-      );
-      this.eventPublisher.publish("chat.stream.completed", {
-        requestId: turn.requestId,
-        sessionId,
-        messageId: turn.messageId,
-        completedAt: Date.now(),
-      });
-      turn.resolve();
+      // If thinking never emitted thinkingEnd (e.g. the run ended mid-thought),
+      // close the window with the assistant message timestamp from the worker.
+      if (turn.thinkingStart !== undefined) {
+        const block = turn.blocks.find((item) => item.type === "reasoning_content" && item.status === "success");
+        if (block) {
+          block.reasoning_time = {
+            start: turn.thinkingStart,
+            end: event.messageTimestamp ?? Date.now(),
+          };
+        }
+        turn.thinkingStart = undefined;
+      }
       worker.turn = undefined;
-      if (event.sessionFile) this.sessionRepository.setPiSessionFile(sessionId, event.sessionFile);
+      try {
+        await this.sessionRepository.finalizeAssistantMessage(
+          turn.messageId,
+          turn.blocks,
+          JSON.stringify({ runtime: "pi" }),
+        );
+        this.eventPublisher.publish("chat.stream.completed", {
+          requestId: turn.requestId,
+          sessionId,
+          messageId: turn.messageId,
+          completedAt: Date.now(),
+        });
+        turn.resolve();
+        if (event.sessionFile) this.sessionRepository.setPiSessionFile(sessionId, event.sessionFile);
+      } catch (error) {
+        turn.reject(error instanceof Error ? error : new Error(String(error)));
+      }
     }
   }
 
@@ -520,11 +595,14 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
       blockId,
       kind: event.type === "permissionRequest" ? "permission" : "ui",
     });
-    void this.publishSnapshot(sessionId, turn);
+    this.publishSnapshot(sessionId, turn);
   }
 
-  private async publishSnapshot(sessionId: string, turn: ActiveTurn): Promise<void> {
-    await this.sessionRepository.updateAssistantContent(turn.messageId, turn.blocks);
+  private publishSnapshot(sessionId: string, turn: ActiveTurn): void {
+    // Persistence is not on the streaming hot path; the final content is
+    // persisted by finalizeAssistantMessage on settled. A failed write here
+    // must not stall or drop the live stream.
+    void this.sessionRepository.updateAssistantContent(turn.messageId, turn.blocks).catch(() => {});
     this.eventPublisher.publish("chat.stream.updated", {
       kind: "snapshot",
       requestId: turn.requestId,

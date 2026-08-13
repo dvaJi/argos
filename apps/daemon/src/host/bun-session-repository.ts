@@ -476,6 +476,9 @@ export class BunSessionRepository implements SessionRepository {
     if (!sessionColumns.has("metadata")) {
       this.db.exec("ALTER TABLE daemon_sessions ADD COLUMN metadata TEXT DEFAULT '{}'");
     }
+    if (!sessionColumns.has("generation_status")) {
+      this.db.exec("ALTER TABLE daemon_sessions ADD COLUMN generation_status TEXT NOT NULL DEFAULT 'idle'");
+    }
     const messageColumns = new Set(
       (this.db.prepare("PRAGMA table_info(daemon_messages)").all() as Array<{ name: string }>).map((row) => row.name),
     );
@@ -744,8 +747,8 @@ export class BunSessionRepository implements SessionRepository {
     };
 
     const stmt = this.db.prepare(`
-      INSERT INTO daemon_sessions (id, agent_id, title, project_dir, permission_mode, is_pinned, is_draft, session_kind, parent_session_id, subagent_enabled, provider_id, model_id, status, created_at, updated_at, metadata)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO daemon_sessions (id, agent_id, title, project_dir, permission_mode, is_pinned, is_draft, session_kind, parent_session_id, subagent_enabled, provider_id, model_id, status, generation_status, created_at, updated_at, metadata)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     stmt.run(
@@ -762,6 +765,7 @@ export class BunSessionRepository implements SessionRepository {
       session.provider_id,
       session.model_id,
       session.status,
+      "idle",
       session.created_at,
       session.updated_at,
       session.metadata,
@@ -1006,6 +1010,18 @@ export class BunSessionRepository implements SessionRepository {
     this.db
       .prepare("UPDATE daemon_sessions SET status = 'idle', updated_at = ? WHERE status = 'active'")
       .run(Date.now());
+  }
+
+  async setSessionStatus(
+    sessionId: string,
+    status: "idle" | "generating" | "blocked" | "done" | "error",
+  ): Promise<void> {
+    this.ensureSessionExists(sessionId);
+    // Generation status lives in its own column so it never clobbers the
+    // `'active'` marker used to track the currently-selected session.
+    this.db
+      .prepare("UPDATE daemon_sessions SET generation_status = ?, updated_at = ? WHERE id = ?")
+      .run(status, Date.now(), sessionId);
   }
 
   async getActive(webContentsId: number): Promise<SessionWithState | null> {
@@ -1612,7 +1628,12 @@ export class BunSessionRepository implements SessionRepository {
       subagentEnabled: Boolean(row.subagent_enabled),
       createdAt: row.created_at,
       updatedAt: row.updated_at,
-      status: coerceSessionStatus(row.status),
+      // `status` doubles as the active-selection marker; expose generation
+      // state from the dedicated column when present.
+      status:
+        row.generation_status !== undefined && row.generation_status !== null && row.generation_status !== ""
+          ? coerceSessionStatus(row.generation_status)
+          : coerceSessionStatus(row.status),
       providerId: row.provider_id || "",
       modelId: row.model_id || "",
     };

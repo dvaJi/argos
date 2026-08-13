@@ -105,14 +105,28 @@ describe("AcpProviderExecutionPort", () => {
         messageId: "assistant-1",
         blocks: expect.arrayContaining([
           expect.objectContaining({ content: "OpenCode", status: "success" }),
-          expect.objectContaining({ type: "reasoning_content", content: "The user" }),
+          expect.objectContaining({
+            type: "reasoning_content",
+            content: "The user",
+            reasoning_time: expect.objectContaining({
+              start: expect.any(Number),
+              end: expect.any(Number),
+            }),
+          }),
           expect.objectContaining({ type: "tool_call", tool_call: expect.objectContaining({ id: "tool-1" }) }),
         ]),
       }),
     );
     expect(finalizeAssistantMessage).toHaveBeenCalledWith(
       "assistant-1",
-      expect.arrayContaining([expect.objectContaining({ content: "OpenCode", status: "success" })]),
+      expect.arrayContaining([
+        expect.objectContaining({ content: "OpenCode", status: "success" }),
+        expect.objectContaining({
+          type: "reasoning_content",
+          content: "The user",
+          reasoning_time: expect.objectContaining({ start: expect.any(Number), end: expect.any(Number) }),
+        }),
+      ]),
       expect.any(String),
     );
     expect(setMessageError).not.toHaveBeenCalled();

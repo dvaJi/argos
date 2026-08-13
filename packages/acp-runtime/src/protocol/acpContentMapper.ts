@@ -15,6 +15,8 @@ export interface MappedContent {
   blocks: AssistantMessageBlock[];
   /** Structured plan entries from the agent (optional) */
   planEntries?: PlanEntry[];
+  /** Timestamp (ms) of the reasoning/thought chunk that produced this mapping (optional) */
+  reasoningStartTime?: number;
   /** Current mode ID from mode change notification (optional) */
   currentModeId?: string;
   /** Available slash commands from ACP session (optional) */
@@ -64,9 +66,11 @@ export class AcpContentMapper {
       case "agent_message_chunk":
         this.pushContent(update.content, "text", payload);
         break;
-      case "agent_thought_chunk":
+      case "agent_thought_chunk": {
+        payload.reasoningStartTime = now();
         this.pushContent(update.content, "reasoning", payload);
         break;
+      }
       case "tool_call":
       case "tool_call_update":
         this.handleToolCallUpdate(sessionId, update, payload);

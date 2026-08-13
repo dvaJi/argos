@@ -133,4 +133,31 @@ describe("DaemonConfigPresenter", () => {
     const all = presenter.getModelStatusMap();
     expect(all["deepseek:deepseek-reasoner"]).toBe(true);
   });
+
+  it("round-trips samplingParams through the model config store", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "argos-daemon-config-"));
+    roots.push(root);
+    const { DaemonConfigPresenter } = await import("../src/host/daemonConfigPresenter");
+    const configPath = path.join(root, "config");
+    const dataPath = path.join(root, "data");
+    const presenter = new DaemonConfigPresenter(configPath, dataPath);
+
+    const saved = presenter.setModelConfig("my-model", "openai", {
+      samplingParams: { temperature: 0.3, top_p: 0.9, frequency_penalty: 0.2 },
+    } as never);
+
+    expect(saved.samplingParams).toEqual({ temperature: 0.3, top_p: 0.9, frequency_penalty: 0.2 });
+
+    // Reload a fresh presenter from the same paths to verify disk persistence
+    // (the setter updates the in-memory store before save()).
+    const reloadedPresenter = new DaemonConfigPresenter(configPath, dataPath);
+    expect(reloadedPresenter.getModelConfig("my-model", "openai").samplingParams).toEqual({
+      temperature: 0.3,
+      top_p: 0.9,
+      frequency_penalty: 0.2,
+    });
+
+    // Absent configs default to undefined.
+    expect(reloadedPresenter.getModelConfig("other-model", "openai").samplingParams).toBeUndefined();
+  });
 });

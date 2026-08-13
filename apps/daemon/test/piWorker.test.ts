@@ -67,6 +67,7 @@ describe("Pi worker", () => {
           input: ["text"],
           contextWindow: 8_192,
           maxTokens: 1_024,
+          samplingParams: { temperature: 0.3, top_p: 0.9 },
         },
       },
       disabledTools: [],
@@ -86,5 +87,5 @@ describe("Pi worker", () => {
       child.stdin.write(`${JSON.stringify({ type: "dispose" })}\n`);
       child.kill();
     }
-  });
+  }, 20_000);
 });

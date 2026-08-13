@@ -26,6 +26,8 @@ if (process.argv.includes("--version")) {
 let session: AgentSession | undefined;
 let init: PiWorkerInit | undefined;
 let activeCommandId: string | undefined;
+/** Timestamp (ms) of the last assistant message that completed streaming; used to compute thinking time. */
+let lastAssistantTimestamp: number | undefined;
 const pending = new Map<string, { resolve: (value: any) => void; reject: (error: Error) => void }>();
 // `getSessionStats()` returns CUMULATIVE totals for the whole session. To store
 // per-turn usage we emit the delta since the last settled turn (keyed by
@@ -85,7 +87,7 @@ function createHostExtension(config: PiWorkerInit): InlineExtension {
           toolName: event.toolName,
           input: event.input,
         });
-        if (!granted) return { block: true, reason: "Denied by the user" };
+        if (!granted) return { block: true, reason: "Denied by the user", terminate: true };
       });
     },
   };
@@ -167,6 +169,8 @@ function handleSessionEvent(event: AgentSessionEvent): void {
       const part = event.assistantMessageEvent;
       if (part.type === "text_delta") emit({ type: "delta", kind: "text", text: part.delta });
       if (part.type === "thinking_delta") emit({ type: "delta", kind: "thinking", text: part.delta });
+      if (part.type === "thinking_start") emit({ type: "thinkingStart" });
+      if (part.type === "thinking_end") emit({ type: "thinkingEnd" });
       break;
     }
     case "tool_execution_start":
@@ -189,6 +193,9 @@ function handleSessionEvent(event: AgentSessionEvent): void {
         isError: event.isError,
       });
       break;
+    case "bash_execution_update":
+      emit({ type: "bashUpdate", toolCallId: event.id, delta: event.delta });
+      break;
     case "queue_update":
       emit({ type: "queue", steering: event.steering, followUp: event.followUp });
       break;
@@ -204,6 +211,13 @@ function handleSessionEvent(event: AgentSessionEvent): void {
     case "auto_retry_end":
       emit({ type: "retry", phase: "end", attempt: event.attempt, error: event.finalError });
       break;
+    case "message_end": {
+      const msg = event.message;
+      if (msg && msg.role === "assistant" && typeof msg.timestamp === "number") {
+        lastAssistantTimestamp = msg.timestamp;
+      }
+      break;
+    }
     case "agent_settled": {
       // Emit usage BEFORE settled: the daemon persists usage from the settled
       // handler, which runs synchronously when the settled event arrives.
@@ -243,7 +257,13 @@ function handleSessionEvent(event: AgentSessionEvent): void {
           diagnostic(error, "usage");
         }
       }
-      emit({ type: "settled", id: activeCommandId, sessionFile: session?.sessionFile });
+      emit({
+        type: "settled",
+        id: activeCommandId,
+        sessionFile: session?.sessionFile,
+        messageTimestamp: lastAssistantTimestamp,
+      });
+      lastAssistantTimestamp = undefined;
       activeCommandId = undefined;
       break;
     }
@@ -356,12 +376,14 @@ async function handle(command: PiWorkerCommand): Promise<void> {
     return;
   }
   activeCommandId = command.id;
+  lastAssistantTimestamp = undefined; // reset per command; only current command's message_end may set it
   emit({ type: "accepted", id: command.id, sessionFile: session.sessionFile });
   if (command.type === "steer") return session.steer(command.text);
   if (command.type === "followUp") return session.followUp(command.text);
   if (command.type === "compact") {
     await session.compact(command.instructions);
     emit({ type: "settled", id: command.id, sessionFile: session.sessionFile });
+    lastAssistantTimestamp = undefined;
     activeCommandId = undefined;
     return;
   }

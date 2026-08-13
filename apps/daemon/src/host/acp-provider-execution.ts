@@ -25,6 +25,7 @@ import type { BunSessionRepository } from "./bun-session-repository";
 import { usageDateKey } from "./bun-session-repository";
 import { createDaemonAcpPorts } from "./acpPorts";
 import { createDaemonAcpSqlitePresenter } from "./daemonAcpSqlite";
+import { sessionsStatusChangedEvent } from "@argos/shared-contracts";
 import { methods as acpMethods, PROTOCOL_VERSION } from "@agentclientprotocol/sdk";
 import type { AcpConfigState, AcpAgentDiagnostics, AcpDebugRequest, AcpDebugRunResult } from "@argos/shared/presenter";
 
@@ -164,6 +165,16 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
       runId: requestId,
       donePromise,
       doneResolve,
+    });
+
+    // Persist + publish "generating" BEFORE launching the turn so a fast turn
+    // cannot finish first and have its final "idle" overwritten by this write.
+    await this.sessionRepository.setSessionStatus?.(sessionId, "generating");
+    this.eventPublisher.publish(sessionsStatusChangedEvent.name, {
+      sessionId,
+      status: "generating",
+      reason: "generation-started",
+      version: 1,
     });
 
     void this.runTurn(
@@ -401,6 +412,7 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
   ): Promise<void> {
     const blocks: Array<Record<string, unknown>> = [];
     let planRevision = 0;
+    let reasoningStartTime: number | undefined;
     let lastUsage: {
       used: number;
       size: number;
@@ -439,6 +451,7 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
         }
 
         const now = Date.now();
+        let reasoningAppeared = false;
         for (const block of mapped.blocks) {
           if (block.type === "plan") continue;
           const last = blocks.at(-1);
@@ -446,11 +459,27 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
             last.content = `${last.content ?? ""}${block.content ?? ""}`;
           } else if (block.type === "reasoning_content" && last?.type === "reasoning_content") {
             last.content = `${last.content ?? ""}${block.content ?? ""}`;
+            reasoningAppeared = true;
+          } else if (block.type === "reasoning_content") {
+            if (reasoningStartTime === undefined) {
+              reasoningStartTime = mapped.reasoningStartTime ?? now;
+            }
+            blocks.push(block);
+            reasoningAppeared = true;
           } else if (block.type === "content") {
             blocks.push({ type: "content", content: block.content ?? "", status: "loading", timestamp: now });
           } else {
             blocks.push(block);
           }
+        }
+        // Close the reasoning window when a chunk that is NOT reasoning arrives
+        // after reasoning started (text/tool/action means the thought stream ended).
+        if (reasoningStartTime !== undefined && !reasoningAppeared && mapped.blocks.some((b) => b.type !== "plan")) {
+          const lastReasoning = [...blocks].reverse().find((b) => b.type === "reasoning_content");
+          if (lastReasoning && typeof lastReasoning.reasoning_time !== "object") {
+            lastReasoning.reasoning_time = { start: reasoningStartTime, end: now };
+          }
+          reasoningStartTime = undefined;
         }
 
         this.eventPublisher.publish("chat.stream.updated", {
@@ -465,12 +494,18 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
 
       const replyBlocks = blocks.map((b) => (b.type === "content" ? { ...b, status: "success" } : b));
       const usageMetadata = lastUsage ? { usage: lastUsage } : {};
+      // Close an unclosed reasoning window (turn ended while still thinking).
+      if (reasoningStartTime !== undefined) {
+        const lastReasoning = [...replyBlocks].reverse().find((b) => b.type === "reasoning_content");
+        if (lastReasoning && typeof lastReasoning.reasoning_time !== "object") {
+          lastReasoning.reasoning_time = { start: reasoningStartTime, end: Date.now() };
+        }
+      }
       await this.sessionRepository.finalizeAssistantMessage(
         assistantMessageId,
         replyBlocks,
         JSON.stringify({ model: agent.id, provider: "acp", ...usageMetadata }),
       );
-
       if (lastUsage) {
         const costAmount =
           typeof lastUsage.cost?.amount === "number" && Number.isFinite(lastUsage.cost.amount)
@@ -512,6 +547,13 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
         messageId: assistantMessageId,
         completedAt: Date.now(),
       });
+      await this.sessionRepository.setSessionStatus?.(sessionId, "idle");
+      this.eventPublisher.publish(sessionsStatusChangedEvent.name, {
+        sessionId,
+        status: "idle",
+        reason: "generation-completed",
+        version: 1,
+      });
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       await this.sessionRepository.setMessageError(
@@ -525,6 +567,13 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
         messageId: assistantMessageId,
         failedAt: Date.now(),
         error: errorMsg,
+      });
+      await this.sessionRepository.setSessionStatus?.(sessionId, "idle");
+      this.eventPublisher.publish(sessionsStatusChangedEvent.name, {
+        sessionId,
+        status: "idle",
+        reason: "generation-completed",
+        version: 1,
       });
     }
   }
