@@ -27,3 +27,5 @@ test-results/
 *.bun-build
 .turbo/cache/*
 .turbo\cache
+
+*.local.json

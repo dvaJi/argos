@@ -889,12 +889,7 @@ function ChatPage({ sessionId }: ChatPageProps) {
     for (const rec of messageStore.getMessages()) {
       msgs.push(toDisplayMessage(rec));
     }
-    if (
-      streamState.isStreaming &&
-      streamState.streamingBlocks.length > 0 &&
-      !hasInlineStreamingTarget &&
-      !ephemeralRateLimitBlock
-    ) {
+    if (streamState.isStreaming && !hasInlineStreamingTarget && !ephemeralRateLimitBlock) {
       msgs.push(toStreamingMessage(streamState.streamingBlocks, streamState.currentStreamMessageId));
     }
     return msgs;

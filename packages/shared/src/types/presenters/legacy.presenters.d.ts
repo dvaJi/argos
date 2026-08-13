@@ -188,6 +188,8 @@ export interface ModelConfig {
   imageGeneration?: ImageGenerationOptions;
   videoGeneration?: VideoGenerationOptions;
   tts?: TtsSettings;
+  // Arbitrary sampling parameters passed through to OpenAI-compatible request bodies (Pi runtime).
+  samplingParams?: Record<string, unknown>;
 }
 
 export interface IModelConfig {

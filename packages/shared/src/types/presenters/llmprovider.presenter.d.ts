@@ -49,6 +49,8 @@ export type MODEL_META = {
   supportedEndpointTypes?: NewApiEndpointType[];
   endpointType?: NewApiEndpointType;
   ownedBy?: string;
+  // Arbitrary sampling parameters passed through to OpenAI-compatible request bodies (Pi runtime).
+  samplingParams?: Record<string, unknown>;
 };
 
 export type LLM_PROVIDER = {

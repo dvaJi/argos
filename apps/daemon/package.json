@@ -25,7 +25,7 @@
     "@argos/shared-contracts": "workspace:*",
     "@argos/skills-runtime": "workspace:*",
     "@duckdb/node-api": "1.5.5-r.3",
-    "@earendil-works/pi-coding-agent": "0.83.0",
+    "@earendil-works/pi-coding-agent": "catalog:",
     "ai": "catalog:",
     "chokidar": "^5.0.0",
     "fflate": "catalog:",

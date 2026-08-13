@@ -23,6 +23,7 @@
       "@ai-sdk/openai": "^4.0.27",
       "@ai-sdk/openai-compatible": "^3.0.20",
       "@aws-sdk/client-bedrock": "^3.1101.0",
+      "@earendil-works/pi-coding-agent": "0.84.1",
       "@modelcontextprotocol/sdk": "^1.30.0",
       "@playwright/test": "^1.62.1",
       "@tanstack/react-query": "^5.101.4",

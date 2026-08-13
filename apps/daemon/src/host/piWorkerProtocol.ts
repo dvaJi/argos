@@ -14,6 +14,7 @@ export interface PiWorkerProvider {
     input: Array<"text" | "image">;
     contextWindow: number;
     maxTokens: number;
+    samplingParams?: Record<string, unknown>;
     cost?: {
       input: number;
       output: number;
@@ -57,13 +58,16 @@ export type PiWorkerEvent =
   | { type: "ready"; sessionFile?: string; diagnostics: PiWorkerDiagnostic[] }
   | { type: "accepted"; id: string; sessionFile?: string }
   | { type: "delta"; kind: "text" | "thinking"; text: string }
+  | { type: "thinkingStart" }
+  | { type: "thinkingEnd" }
   | { type: "toolStart"; toolCallId: string; toolName: string; input: unknown }
   | { type: "toolUpdate"; toolCallId: string; toolName: string; partialResult: unknown }
   | { type: "toolEnd"; toolCallId: string; toolName: string; result: unknown; isError: boolean }
+  | { type: "bashUpdate"; toolCallId?: string; delta: string }
   | { type: "queue"; steering: readonly string[]; followUp: readonly string[] }
   | { type: "compaction"; phase: "start" | "end"; reason: string; error?: string }
   | { type: "retry"; phase: "start" | "end"; attempt: number; error?: string }
-  | { type: "settled"; id?: string; sessionFile?: string }
+  | { type: "settled"; id?: string; sessionFile?: string; messageTimestamp?: number }
   | { type: "error"; id?: string; message: string; stack?: string }
   | {
       type: "usage";

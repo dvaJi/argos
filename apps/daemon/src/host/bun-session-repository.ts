@@ -1008,6 +1008,16 @@ export class BunSessionRepository implements SessionRepository {
       .run(Date.now());
   }
 
+  async setSessionStatus(
+    sessionId: string,
+    status: "idle" | "generating" | "blocked" | "done" | "error",
+  ): Promise<void> {
+    this.ensureSessionExists(sessionId);
+    this.db
+      .prepare("UPDATE daemon_sessions SET status = ?, updated_at = ? WHERE id = ?")
+      .run(status, Date.now(), sessionId);
+  }
+
   async getActive(webContentsId: number): Promise<SessionWithState | null> {
     const row = this.db.prepare("SELECT * FROM daemon_sessions WHERE status = 'active' LIMIT 1").get() as any;
     return row ? this.toSessionWithState(row) : null;

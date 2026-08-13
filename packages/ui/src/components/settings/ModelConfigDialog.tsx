@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
 import { Label } from "#shadcn/components/ui/label";
+import { Textarea } from "#shadcn/components/ui/textarea";
 import { Switch } from "#shadcn/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#shadcn/components/ui/select";
 import { ModelType, ApiEndpointType } from "@argos/shared/model";
@@ -51,6 +52,7 @@ const createDefaultConfig = (): ModelConfig => ({
   reasoningEffort: "medium",
   reasoningVisibility: undefined,
   verbosity: "medium",
+  samplingParams: undefined,
 });
 
 export default function ModelConfigDialog({
@@ -68,6 +70,8 @@ export default function ModelConfigDialog({
 
   const [config, setConfig] = useState<ModelConfig>(createDefaultConfig());
   const [topPDraft, setTopPDraft] = useState("");
+  const [samplingParamsDraft, setSamplingParamsDraft] = useState("");
+  const [samplingParamsError, setSamplingParamsError] = useState("");
   const [modelNameField, setModelNameField] = useState(modelName ?? "");
   const [modelIdField, setModelIdField] = useState(modelId ?? "");
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -103,6 +107,8 @@ export default function ModelConfigDialog({
     if (isCreateMode) {
       setConfig(createDefaultConfig());
       setTopPDraft("");
+      setSamplingParamsDraft("");
+      setSamplingParamsError("");
       return;
     }
 
@@ -112,10 +118,18 @@ export default function ModelConfigDialog({
       const modelConfig = await modelConfigStore.getModelConfig(modelId, providerId);
       setConfig({ ...createDefaultConfig(), ...modelConfig });
       setTopPDraft(typeof modelConfig.topP === "number" ? String(modelConfig.topP) : "");
+      setSamplingParamsDraft(
+        modelConfig.samplingParams && Object.keys(modelConfig.samplingParams).length > 0
+          ? JSON.stringify(modelConfig.samplingParams, null, 2)
+          : "",
+      );
+      setSamplingParamsError("");
     } catch (error) {
       console.error("Failed to load model config:", error);
       setConfig(createDefaultConfig());
       setTopPDraft("");
+      setSamplingParamsDraft("");
+      setSamplingParamsError("");
     }
   }, [modelId, modelName, providerId, isCreateMode, modelConfigStore]);
 
@@ -149,19 +163,30 @@ export default function ModelConfigDialog({
     if (config.temperature !== undefined && (config.temperature < 0 || config.temperature > 2)) {
       newErrors.temperature = "Must be between 0 and 2";
     }
+    if (samplingParamsDraft.trim()) {
+      try {
+        JSON.parse(samplingParamsDraft);
+      } catch {
+        newErrors.samplingParams = "Must be valid JSON";
+      }
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  }, [canEditModelIdentity, modelNameField, modelIdField, config]);
+  }, [canEditModelIdentity, modelNameField, modelIdField, config, samplingParamsDraft]);
 
   const handleSave = useCallback(async () => {
     if (!validateForm()) return;
 
     try {
       const finalTopP = topPDraft.trim() ? Number(topPDraft) : undefined;
+      const parsedSamplingParams = samplingParamsDraft.trim()
+        ? (JSON.parse(samplingParamsDraft) as Record<string, unknown>)
+        : undefined;
       const payload = {
         ...config,
         topP: finalTopP !== undefined && Number.isFinite(finalTopP) ? finalTopP : undefined,
+        samplingParams: parsedSamplingParams,
         imageGeneration: config.imageGeneration ?? undefined,
         videoGeneration: config.videoGeneration ?? undefined,
         tts: config.tts ?? undefined,
@@ -183,6 +208,7 @@ export default function ModelConfigDialog({
     validateForm,
     config,
     topPDraft,
+    samplingParamsDraft,
     isCreateMode,
     providerId,
     modelIdField,
@@ -353,6 +379,22 @@ export default function ModelConfigDialog({
                   {errors.topP && <p className="text-xs text-destructive">{errors.topP}</p>}
                 </div>
               )}
+
+              <div className="space-y-2">
+                <Label htmlFor="samplingParams">Sampling Parameters (JSON)</Label>
+                <Textarea
+                  id="samplingParams"
+                  value={samplingParamsDraft}
+                  rows={5}
+                  placeholder={'{\n  "temperature": 0.7,\n  "top_p": 0.9\n}'}
+                  className={samplingParamsError ? "border-destructive" : ""}
+                  onChange={(e) => setSamplingParamsDraft(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Arbitrary OpenAI-compatible sampling parameters sent as-is to the provider.
+                </p>
+                {samplingParamsError && <p className="text-xs text-destructive">{samplingParamsError}</p>}
+              </div>
 
               <div className="space-y-2">
                 <Label htmlFor="type">Model Type</Label>
