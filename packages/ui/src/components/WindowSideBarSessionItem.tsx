@@ -64,6 +64,8 @@ export default function WindowSideBarSessionItem({
   }, [forcePinDocked, session.isPinned, pinFeedbackMode]);
 
   const statusIcon: SessionStatusIcon = useMemo(() => {
+    if (session.status === "working")
+      return { icon: "lucide:loader-2", className: "text-primary motion-safe:animate-spin" };
     if (session.status === "completed") return { icon: "lucide:check", className: "text-green-500" };
     if (session.status === "error") return { icon: "lucide:alert-circle", className: "text-destructive" };
     if (session.status === "blocked")
@@ -130,9 +132,7 @@ export default function WindowSideBarSessionItem({
           >
             <div className="session-content flex min-w-0 flex-1 items-center gap-1.5">
               <span
-                className={`session-title min-w-0 flex-1 max-h-7 truncate text-sm${
-                  isWorking ? " session-title--loading" : ""
-                }`}
+                className={`session-title min-w-0 flex-1 max-h-7 truncate text-sm${isWorking ? " session-title--loading" : ""}`}
               >
                 <span className="session-title__label">
                   {titleSegments.map((segment, index) =>
@@ -145,11 +145,6 @@ export default function WindowSideBarSessionItem({
                     ),
                   )}
                 </span>
-                {isWorking && (
-                  <span aria-hidden="true" className="session-title__sheen">
-                    {session.title}
-                  </span>
-                )}
               </span>
 
               {statusIcon && (

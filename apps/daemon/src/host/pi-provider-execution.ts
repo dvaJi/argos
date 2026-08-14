@@ -160,7 +160,7 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
     void (async () => {
       try {
         await completed;
-        await this.markIdle(sessionId);
+        await this.markDone(sessionId);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         try {
@@ -175,7 +175,7 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
           failedAt: Date.now(),
           error: message,
         });
-        await this.markIdle(sessionId).catch(() => {});
+        await this.markError(sessionId).catch(() => {});
       }
     })();
 
@@ -192,12 +192,22 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
     });
   }
 
-  private async markIdle(sessionId: string): Promise<void> {
-    await this.sessionRepository.setSessionStatus(sessionId, "idle");
+  private async markDone(sessionId: string): Promise<void> {
+    await this.sessionRepository.setSessionStatus(sessionId, "done");
     this.eventPublisher.publish(sessionsStatusChangedEvent.name, {
       sessionId,
-      status: "idle",
+      status: "done",
       reason: "generation-completed",
+      version: 1,
+    });
+  }
+
+  private async markError(sessionId: string): Promise<void> {
+    await this.sessionRepository.setSessionStatus(sessionId, "error");
+    this.eventPublisher.publish(sessionsStatusChangedEvent.name, {
+      sessionId,
+      status: "error",
+      reason: "generation-failed",
       version: 1,
     });
   }
