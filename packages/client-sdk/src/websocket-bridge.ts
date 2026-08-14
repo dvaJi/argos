@@ -74,10 +74,12 @@ export class WebSocketBridge implements ArgosBridge {
   private connectionStateListeners = new Set<ConnectionStateListener>();
   private requestCallbacks = new Map<string, PendingRequest>();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private probeTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 10;
   private reconnectDelayMs = 1000;
   private maxReconnectDelayMs = 30000;
+  private probing = false;
   private closed = false;
   private pendingMessages: string[] = [];
   private connected = false;
@@ -148,6 +150,11 @@ export class WebSocketBridge implements ArgosBridge {
 
       this.ws.onopen = () => {
         this.reconnectAttempts = 0;
+        this.probing = false;
+        if (this.probeTimer) {
+          clearTimeout(this.probeTimer);
+          this.probeTimer = null;
+        }
         this.emitConnectionState({ connected: true, lastError: null });
         this.flushPendingMessages();
         this.resubscribeAll();
@@ -206,9 +213,14 @@ export class WebSocketBridge implements ArgosBridge {
 
   close(): void {
     this.closed = true;
+    this.probing = false;
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
+    }
+    if (this.probeTimer) {
+      clearTimeout(this.probeTimer);
+      this.probeTimer = null;
     }
     this.rejectPending(new Error("WebSocket closed"));
     this.ws?.close();
@@ -420,7 +432,7 @@ export class WebSocketBridge implements ArgosBridge {
   private scheduleReconnect(): void {
     if (this.closed) return;
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      this.emitConnectionState({ connected: false, lastError: RECONNECT_EXHAUSTED_ERROR });
+      this.scheduleProbe();
       return;
     }
 
@@ -433,5 +445,40 @@ export class WebSocketBridge implements ArgosBridge {
         // will retry via onclose
       });
     }, delay);
+  }
+
+  /** Slow, unbounded probe loop so a bridge that exhausted fast backoff never permanently gives up. */
+  private scheduleProbe(): void {
+    if (this.closed || this.probing) return;
+    this.probing = true;
+    this.emitConnectionState({ connected: false, lastError: RECONNECT_EXHAUSTED_ERROR });
+
+    this.probeTimer = setTimeout(() => {
+      this.probeTimer = null;
+      this.probing = false;
+      this.connect().catch(() => {
+        // will retry via onclose
+      });
+    }, this.maxReconnectDelayMs);
+  }
+
+  /** Manual retry: cancel any pending timers and attempt a fresh connection immediately. */
+  async forceReconnect(): Promise<void> {
+    if (this.closed) return;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    if (this.probeTimer) {
+      clearTimeout(this.probeTimer);
+      this.probeTimer = null;
+    }
+    this.probing = false;
+    this.reconnectAttempts = 0;
+    try {
+      await this.connect();
+    } catch {
+      // A failed manual attempt falls back to the normal onclose/onerror retry path.
+    }
   }
 }

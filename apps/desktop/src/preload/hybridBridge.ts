@@ -28,9 +28,14 @@ export class HybridBridge implements ArgosBridge {
   private unsubscribeFns = new Map<string, () => void>();
   private connectionState: ConnectionState = { ...CONNECTION_STATE_DEFAULT };
   private connectionStateListeners = new Set<ConnectionStateListener>();
+  private retryHandler: (() => void | Promise<void>) | null = null;
 
   constructor(ipcBridge: ArgosBridge) {
     this.ipcBridge = ipcBridge;
+  }
+
+  setRetryHandler(handler: (() => void | Promise<void>) | null): void {
+    this.retryHandler = handler;
   }
 
   setWsBridge(wsBridge: WebSocketBridge | null, mode: ConnectionState["mode"] = "local"): void {
@@ -76,6 +81,17 @@ export class HybridBridge implements ArgosBridge {
 
   setPendingBridgeConnection(pendingBridgeConnection: Promise<WebSocketBridge | null> | null): void {
     this.pendingBridgeConnection = pendingBridgeConnection;
+  }
+
+  /** Manual retry: re-drive a fresh connection via the installed bridge or the preload retry handler. */
+  async retryConnection(): Promise<void> {
+    if (this.wsBridge) {
+      await this.wsBridge.forceReconnect();
+      return;
+    }
+    if (this.retryHandler) {
+      await this.retryHandler();
+    }
   }
 
   getConnectionState(): ConnectionState {
