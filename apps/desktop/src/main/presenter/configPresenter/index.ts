@@ -2456,6 +2456,11 @@ export class ConfigPresenter implements IConfigPresenter {
       const installedState = await this.acpLaunchSpecService.ensureRegistryAgentInstalled(registryAgent, currentState, {
         repair: true,
       });
+      if (installedState.status === "error") {
+        // ensureRegistryAgentInstalled catches download/extract failures internally
+        // and returns an error state instead of throwing; surface it as a failure.
+        throw new Error(installedState.error ?? "Agent update failed");
+      }
       agentRepository.setAgentInstallState(registryAgent.id, installedState);
       this.handleAcpAgentsMutated([registryAgent.id]);
       return installedState;
