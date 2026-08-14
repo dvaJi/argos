@@ -41,6 +41,8 @@ Make the agent memory feature fully functional in the daemon runtime and surface
   exposed.
 - **Background maintenance:** The daemon starts `MemoryPresenter.startBackgroundMaintenance()`
   so consolidation sweep runs for registered memory agents.
+- **Shutdown lifecycle:** Both daemon shutdown paths (`close()` and graceful signal shutdown)
+  stop background maintenance and dispose the memory presenter before the database is closed.
 - **Chat UI:** The main chat top bar has a memory button that opens a memory manager for the
   active session's agent (add / list / search / delete / clear).
 - **Settings UI:** The Memory dialog passes `memoryEnabled` and `hasEmbeddingConfigured`, so the

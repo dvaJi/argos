@@ -340,6 +340,10 @@ export async function startDaemon(options?: {
           if (!session?.agentId) {
             throw new Error("Memory tool requires an active session with an agent.");
           }
+          const agentConfig = await configPresenter.resolveArgosAgentConfig(session.agentId);
+          if (agentConfig?.memoryEnabled !== true) {
+            throw new Error("Memory tools are disabled for this agent.");
+          }
           return memoryRuntime.callMemoryTool(request as any, session.agentId);
         }
         return mcpRuntime.callApprovedTool(request);
@@ -1021,6 +1025,13 @@ export async function startDaemon(options?: {
       await piProviderExecutionPort.dispose();
     } catch {
       logger.warn("[daemon] Failed to shut down Pi workers cleanly");
+    }
+    try {
+      memoryRuntime.presenter.stopBackgroundMaintenance();
+      await memoryRuntime.presenter.dispose();
+      logger.info("[daemon] Memory runtime stopped");
+    } catch {
+      logger.warn("[daemon] Failed to stop memory runtime cleanly");
     }
     try {
       db.close();

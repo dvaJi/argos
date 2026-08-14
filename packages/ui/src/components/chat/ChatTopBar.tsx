@@ -27,6 +27,7 @@ import {
 } from "#shadcn/components/ui/dialog";
 import AgentTransferDialog from "#/components/agent/AgentTransferDialog";
 import { MemoryManagerDialog } from "#settings/components/MemoryManagerDialog";
+import { createConfigClient } from "#api/ConfigClient";
 import { useAgentStore } from "#/stores/ui/agent";
 import { useSessionStore, getNewConversationTargetAgentId } from "#/stores/ui/session";
 import { useSidepanelStore } from "#/stores/ui/sidepanel";
@@ -60,6 +61,10 @@ const ChatTopBar: FC<ChatTopBarProps> = ({
   const [moveDialogBusy, setMoveDialogBusy] = useState(false);
   const [moveDialogError, setMoveDialogError] = useState<string | null>(null);
   const [memoryDialogOpen, setMemoryDialogOpen] = useState(false);
+  const [memoryCapabilities, setMemoryCapabilities] = useState<{
+    memoryEnabled?: boolean;
+    hasEmbeddingConfigured?: boolean;
+  }>({});
   const [renameValue, setRenameValue] = useState("");
   const renameInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -105,6 +110,25 @@ const ChatTopBar: FC<ChatTopBarProps> = ({
     () => !isReadOnly && Boolean(currentSession?.agentId) && currentAgent?.type === "argos",
     [isReadOnly, currentSession?.agentId, currentAgent?.type],
   );
+
+  const openMemoryDialog = useCallback(async () => {
+    setMemoryDialogOpen(true);
+    const agentId = currentSession?.agentId;
+    if (!agentId) {
+      setMemoryCapabilities({});
+      return;
+    }
+    try {
+      const configClient = createConfigClient();
+      const config = await configClient.resolveArgosAgentConfig(agentId);
+      setMemoryCapabilities({
+        memoryEnabled: config?.memoryEnabled,
+        hasEmbeddingConfigured: Boolean(config?.memoryEmbedding?.providerId && config?.memoryEmbedding?.modelId),
+      });
+    } catch {
+      setMemoryCapabilities({});
+    }
+  }, [currentSession?.agentId]);
   const normalizedRenameValue = useMemo(() => renameValue.trim(), [renameValue]);
   const canSubmitRename = useMemo(
     () => normalizedRenameValue.length > 0 && normalizedRenameValue !== currentTitle.trim(),
@@ -387,7 +411,7 @@ const ChatTopBar: FC<ChatTopBarProps> = ({
               className="h-7 w-7 text-muted-foreground hover:text-foreground"
               title="Memory"
               aria-label="Memory"
-              onClick={() => setMemoryDialogOpen(true)}
+              onClick={() => void openMemoryDialog()}
             >
               <Icon icon="lucide:brain-circuit" className="w-4 h-4" />
             </Button>
@@ -527,6 +551,8 @@ const ChatTopBar: FC<ChatTopBarProps> = ({
           onOpenChange={setMemoryDialogOpen}
           agentId={currentSession.agentId}
           agentName={currentAgentName}
+          memoryEnabled={memoryCapabilities.memoryEnabled}
+          hasEmbeddingConfigured={memoryCapabilities.hasEmbeddingConfigured}
         />
       )}
     </>

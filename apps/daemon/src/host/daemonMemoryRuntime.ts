@@ -294,7 +294,7 @@ export class DaemonMemoryRuntime {
         query: { type: "string" },
         limit: { type: "number", minimum: 1, maximum: 20 },
       }),
-      memoryTool("memory_forget", "Archive a specific long-term memory by id so it is no longer recalled.", {
+      memoryTool("memory_forget", "Permanently delete a specific long-term memory by id so it is no longer recalled.", {
         memoryId: { type: "string" },
       }),
     ];
@@ -342,9 +342,12 @@ export class DaemonMemoryRuntime {
           importance: typeof args.importance === "number" ? args.importance : undefined,
         });
         break;
-      case "memory_recall":
-        result = await this.recallMemory(agentId, String(args.query ?? ""));
+      case "memory_recall": {
+        const items = await this.recallMemory(agentId, String(args.query ?? ""));
+        const limit = typeof args.limit === "number" ? Math.min(Math.max(Math.trunc(args.limit), 1), 20) : undefined;
+        result = limit ? items.slice(0, limit) : items;
         break;
+      }
       case "memory_forget":
         result = await this.forgetMemory(agentId, String(args.memoryId ?? ""));
         break;

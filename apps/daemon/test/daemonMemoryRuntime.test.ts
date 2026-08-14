@@ -258,4 +258,25 @@ describe("DaemonMemoryRuntime", () => {
     expect(response.toolCallId).toBe("tool-call-1");
     expect(response.toolResult).toEqual(expect.objectContaining({ action: "created" }));
   });
+
+  it("honors the recall limit argument", async () => {
+    const runtime = createRuntime();
+    await runtime.addMemory("agent-1", "Limit test one", "semantic", 0.5, "note");
+    await runtime.addMemory("agent-1", "Limit test two", "semantic", 0.5, "note");
+    await runtime.addMemory("agent-1", "Limit test three", "semantic", 0.5, "note");
+
+    const response = await runtime.callMemoryTool(
+      {
+        id: "tool-call-2",
+        type: "function",
+        function: {
+          name: "memory_recall",
+          arguments: JSON.stringify({ query: "limit test", limit: 2 }),
+        },
+      },
+      "agent-1",
+    );
+    const recalled = response.toolResult as Array<{ content: string }>;
+    expect(recalled).toHaveLength(2);
+  });
 });

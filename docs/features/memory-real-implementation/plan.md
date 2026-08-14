@@ -10,7 +10,7 @@ Settings with broken props.
 
 ## Affected Surfaces & Data Flow
 
-```
+```text
 Chat UI (MemoryManagerDialog) ──memory.add──▶ daemonDispatcher ──▶ DaemonMemoryRuntime.addMemory
                                                                        │  presenter.insert (status=pending_embedding)
                                                                        ▼
