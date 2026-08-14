@@ -114,10 +114,17 @@ function createFakeDb() {
           if (sql.includes("agent_memory_fts MATCH")) {
             throw new Error("FTS unavailable");
           }
-          if (sql.includes("status = 'pending_embedding'")) {
+          if (sql.includes("status = 'pending_embedding' AND agent_id = ?")) {
             const [agentId, limit] = params as any[];
             return Array.from(memories.values())
-              .filter((row) => row.status === "pending_embedding" && (!agentId || row.agent_id === agentId))
+              .filter((row) => row.status === "pending_embedding" && row.agent_id === agentId)
+              .sort((a, b) => a.created_at - b.created_at)
+              .slice(0, limit ?? 50);
+          }
+          if (sql.includes("status = 'pending_embedding'")) {
+            const [limit] = params as any[];
+            return Array.from(memories.values())
+              .filter((row) => row.status === "pending_embedding")
               .sort((a, b) => a.created_at - b.created_at)
               .slice(0, limit ?? 50);
           }

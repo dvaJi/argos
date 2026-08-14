@@ -116,6 +116,7 @@ const ChatTopBar: FC<ChatTopBarProps> = ({
   const openMemoryDialog = useCallback(async () => {
     const agentId = currentSession?.agentId;
     if (!agentId) return;
+    setMemoryCapabilities({});
     try {
       const configClient = createConfigClient();
       const config = await configClient.resolveArgosAgentConfig(agentId);
@@ -555,7 +556,7 @@ const ChatTopBar: FC<ChatTopBarProps> = ({
         onConfirmMove={handleMoveConfirm}
       />
 
-      {currentSession?.agentId && (
+      {canManageMemory && currentSession?.agentId && (
         <MemoryManagerDialog
           open={memoryDialogOpen}
           onOpenChange={setMemoryDialogOpen}
