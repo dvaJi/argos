@@ -75,6 +75,23 @@ function createFakeDb() {
             return { changes: row ? 1 : 0 };
           }
 
+          if (sql.includes("UPDATE agent_memory SET status = ?")) {
+            const [status, embeddingId, embeddingDim, embeddingModel, id] = params as any[];
+            const row = memories.get(String(id));
+            if (row) {
+              row.status = status;
+              row.embedding_id = embeddingId;
+              row.embedding_dim = embeddingDim;
+              row.embedding_model = embeddingModel;
+            }
+            return { changes: row ? 1 : 0 };
+          }
+
+          if (sql.includes("DELETE FROM agent_memory WHERE id = ?")) {
+            const [id] = params as any[];
+            return { changes: memories.delete(String(id)) ? 1 : 0 };
+          }
+
           return { changes: 0 };
         },
         get: (...params: unknown[]) => {
@@ -87,11 +104,22 @@ function createFakeDb() {
             const count = Array.from(memories.values()).filter((row) => row.agent_id === agentId).length;
             return { count };
           }
+          if (sql.includes("provenance_key = ?")) {
+            const [agentId, key] = params as any[];
+            return Array.from(memories.values()).find((row) => row.agent_id === agentId && row.provenance_key === key);
+          }
           return undefined;
         },
         all: (...params: unknown[]) => {
           if (sql.includes("agent_memory_fts MATCH")) {
             throw new Error("FTS unavailable");
+          }
+          if (sql.includes("status = 'pending_embedding'")) {
+            const [agentId, limit] = params as any[];
+            return Array.from(memories.values())
+              .filter((row) => row.status === "pending_embedding" && (!agentId || row.agent_id === agentId))
+              .sort((a, b) => a.created_at - b.created_at)
+              .slice(0, limit ?? 50);
           }
           if (sql.includes("SELECT * FROM agent_memory WHERE agent_id = ? AND content LIKE ?")) {
             const [agentId, likePattern] = params as any[];
@@ -139,14 +167,15 @@ describe("DaemonMemoryRuntime", () => {
     });
   }
 
-  it("writes memory rows and reports headless status", async () => {
+  it("writes memory rows and reports status", async () => {
     const runtime = createRuntime();
 
     const result = await runtime.addMemory("agent-1", "Remember this", "semantic", 0.8, "note");
     expect(result.id).toEqual(expect.any(String));
+    await runtime.presenter.processPendingEmbeddings("agent-1");
     expect(runtime.presenter.getStatus("agent-1")).toEqual({
       total: 1,
-      pendingEmbedding: 1,
+      pendingEmbedding: 0,
       hasPersona: false,
       reindexing: false,
     });
@@ -163,5 +192,70 @@ describe("DaemonMemoryRuntime", () => {
         }),
       ]),
     );
+  });
+
+  it("drains pending embeddings to fts_only when no embedding model is configured", async () => {
+    const runtime = createRuntime();
+    await runtime.addMemory("agent-1", "Drain this memory", "semantic", 0.5, "note");
+    await runtime.presenter.processPendingEmbeddings("agent-1");
+
+    expect(runtime.presenter.getStatus("agent-1").pendingEmbedding).toBe(0);
+    const rows = runtime.presenter.listMemories("agent-1");
+    expect(rows).toEqual(
+      expect.arrayContaining([expect.objectContaining({ content: "Drain this memory", status: "fts_only" })]),
+    );
+  });
+
+  it("exposes agent memory tools", () => {
+    const runtime = createRuntime();
+    const definitions = runtime.toolDefinitions();
+    const names = definitions.map((tool) => tool.function.name);
+    expect(names).toEqual(["memory_remember", "memory_recall", "memory_forget"]);
+    expect(definitions.every((tool) => tool.server.name === "agent-memory")).toBe(true);
+    expect(runtime.handlesTool("memory_remember")).toBe(true);
+    expect(runtime.handlesTool("memory_recall")).toBe(true);
+    expect(runtime.handlesTool("memory_forget")).toBe(true);
+    expect(runtime.handlesTool("unrelated_tool")).toBe(false);
+  });
+
+  it("remembers and forgets a memory through the agent tools", async () => {
+    const runtime = createRuntime();
+
+    const remembered = await runtime.rememberMemory("agent-1", {
+      content: "The user prefers dark mode.",
+      kind: "semantic",
+      importance: 0.8,
+    });
+    expect(remembered.action).toBe("created");
+    expect(remembered.id).toEqual(expect.any(String));
+
+    await expect(runtime.recallMemory("agent-1", "dark mode")).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          content: "The user prefers dark mode.",
+        }),
+      ]),
+    );
+
+    const forgot = await runtime.forgetMemory("agent-1", remembered.id as string);
+    expect(forgot).toBe(true);
+    expect(runtime.presenter.listMemories("agent-1").length).toBe(0);
+  });
+
+  it("dispatches memory tools through callMemoryTool", async () => {
+    const runtime = createRuntime();
+    const response = await runtime.callMemoryTool(
+      {
+        id: "tool-call-1",
+        type: "function",
+        function: {
+          name: "memory_remember",
+          arguments: JSON.stringify({ content: "Remember this fact." }),
+        },
+      },
+      "agent-1",
+    );
+    expect(response.toolCallId).toBe("tool-call-1");
+    expect(response.toolResult).toEqual(expect.objectContaining({ action: "created" }));
   });
 });

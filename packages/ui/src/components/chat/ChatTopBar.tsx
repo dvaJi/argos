@@ -26,6 +26,7 @@ import {
   DialogTitle,
 } from "#shadcn/components/ui/dialog";
 import AgentTransferDialog from "#/components/agent/AgentTransferDialog";
+import { MemoryManagerDialog } from "#settings/components/MemoryManagerDialog";
 import { useAgentStore } from "#/stores/ui/agent";
 import { useSessionStore, getNewConversationTargetAgentId } from "#/stores/ui/session";
 import { useSidepanelStore } from "#/stores/ui/sidepanel";
@@ -58,6 +59,7 @@ const ChatTopBar: FC<ChatTopBarProps> = ({
   const [moveDialogOpen, setMoveDialogOpen] = useState(false);
   const [moveDialogBusy, setMoveDialogBusy] = useState(false);
   const [moveDialogError, setMoveDialogError] = useState<string | null>(null);
+  const [memoryDialogOpen, setMemoryDialogOpen] = useState(false);
   const [renameValue, setRenameValue] = useState("");
   const renameInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -98,6 +100,10 @@ const ChatTopBar: FC<ChatTopBarProps> = ({
   const canMoveConversation = useMemo(
     () => !isReadOnly && currentSession?.sessionKind === "regular" && currentSession?.status !== "working",
     [isReadOnly, currentSession?.sessionKind, currentSession?.status],
+  );
+  const canManageMemory = useMemo(
+    () => !isReadOnly && Boolean(currentSession?.agentId) && currentAgent?.type === "argos",
+    [isReadOnly, currentSession?.agentId, currentAgent?.type],
   );
   const normalizedRenameValue = useMemo(() => renameValue.trim(), [renameValue]);
   const canSubmitRename = useMemo(
@@ -374,6 +380,18 @@ const ChatTopBar: FC<ChatTopBarProps> = ({
         </div>
 
         <div className="flex items-center gap-1 no-drag">
+          {canManageMemory && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-muted-foreground hover:text-foreground"
+              title="Memory"
+              aria-label="Memory"
+              onClick={() => setMemoryDialogOpen(true)}
+            >
+              <Icon icon="lucide:brain-circuit" className="w-4 h-4" />
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon"
@@ -502,6 +520,15 @@ const ChatTopBar: FC<ChatTopBarProps> = ({
         error={moveDialogError}
         onConfirmMove={handleMoveConfirm}
       />
+
+      {currentSession?.agentId && (
+        <MemoryManagerDialog
+          open={memoryDialogOpen}
+          onOpenChange={setMemoryDialogOpen}
+          agentId={currentSession.agentId}
+          agentName={currentAgentName}
+        />
+      )}
     </>
   );
 };

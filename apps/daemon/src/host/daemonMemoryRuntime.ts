@@ -9,7 +9,25 @@ import type {
   AgentMemoryListOptions,
   AgentMemoryStatus,
   AgentMemoryKind,
+  MemoryCandidate,
+  MemoryRecallItem,
 } from "@argos/memory-runtime/types";
+import type { MCPToolCall, MCPToolDefinition, MCPToolResponse } from "@argos/shared/types/core/mcp";
+import { isAgentMemoryCategory } from "@argos/shared/types/agent-memory";
+
+const MEMORY_TOOL_SERVER_NAME = "agent-memory";
+
+const memoryTool = (
+  name: string,
+  description: string,
+  properties: Record<string, unknown>,
+  required?: string[],
+): MCPToolDefinition => ({
+  type: "function",
+  source: "agent",
+  function: { name, description, parameters: { type: "object", properties, required } },
+  server: { name: MEMORY_TOOL_SERVER_NAME, icons: "\u{1F9E0}", description: "Argos long-term agent memory" },
+});
 
 type BunDB = {
   prepare(sql: string): {
@@ -50,7 +68,8 @@ export class DaemonMemoryRuntime {
           return null;
         }
       },
-      getEmbeddings: (providerId: string, _modelId: string, texts: string[]) => this.getEmbeddings(providerId, texts),
+      getEmbeddings: (providerId: string, modelId: string, texts: string[]) =>
+        this.getEmbeddings(providerId, modelId, texts),
       generateText: (providerId: string, modelId: string, prompt: string) =>
         this.generateText(providerId, modelId, prompt),
       createVectorStore: async (
@@ -253,9 +272,93 @@ export class DaemonMemoryRuntime {
       category: (category as never) ?? null,
       status: "pending_embedding" as AgentMemoryStatus,
     });
+    void this.presenter.processPendingEmbeddings(agentId).catch(() => undefined);
     return { id: row.id };
   }
-  private async getEmbeddings(providerId: string, texts: string[]): Promise<number[][]> {
+
+  // ---- Agent memory tools (Pi worker loop) ----
+  toolDefinitions(): MCPToolDefinition[] {
+    return [
+      memoryTool(
+        "memory_remember",
+        "Persist a durable long-term memory (stable fact, preference, or notable event) about the user or project for future sessions.",
+        {
+          content: { type: "string" },
+          kind: { type: "string", enum: ["episodic", "semantic"] },
+          category: { type: "string" },
+          importance: { type: "number", minimum: 0, maximum: 1 },
+        },
+        ["content"],
+      ),
+      memoryTool("memory_recall", "Recall relevant long-term memories for a query.", {
+        query: { type: "string" },
+        limit: { type: "number", minimum: 1, maximum: 20 },
+      }),
+      memoryTool("memory_forget", "Archive a specific long-term memory by id so it is no longer recalled.", {
+        memoryId: { type: "string" },
+      }),
+    ];
+  }
+
+  handlesTool(name: string): boolean {
+    return this.toolDefinitions().some((tool) => tool.function.name === name);
+  }
+
+  async rememberMemory(
+    agentId: string,
+    input: { content: string; kind?: "episodic" | "semantic"; category?: string | null; importance?: number },
+  ): Promise<{ action: "created" | "noop"; id?: string; reason?: string }> {
+    const candidate: MemoryCandidate = {
+      kind: input.kind === "episodic" ? "episodic" : "semantic",
+      content: input.content,
+      category: typeof input.category === "string" && isAgentMemoryCategory(input.category) ? input.category : null,
+      importance: input.importance ?? 0.7,
+    };
+    const ids = this.presenter.writeMemoriesSync([candidate], { agentId });
+    if (ids.length > 0) {
+      void this.presenter.processPendingEmbeddings(agentId).catch(() => undefined);
+      return { action: "created", id: ids[0] };
+    }
+    return { action: "noop", reason: "duplicate" };
+  }
+
+  async recallMemory(agentId: string, query: string): Promise<MemoryRecallItem[]> {
+    return this.presenter.recall(agentId, query);
+  }
+
+  async forgetMemory(agentId: string, memoryId: string): Promise<boolean> {
+    return this.presenter.deleteMemory(agentId, memoryId);
+  }
+
+  async callMemoryTool(request: MCPToolCall, agentId: string): Promise<MCPToolResponse> {
+    const args = JSON.parse(request.function.arguments || "{}") as Record<string, unknown>;
+    let result: unknown;
+    switch (request.function.name) {
+      case "memory_remember":
+        result = await this.rememberMemory(agentId, {
+          content: String(args.content ?? ""),
+          kind: args.kind === "episodic" ? "episodic" : args.kind === "semantic" ? "semantic" : undefined,
+          category: typeof args.category === "string" ? args.category : null,
+          importance: typeof args.importance === "number" ? args.importance : undefined,
+        });
+        break;
+      case "memory_recall":
+        result = await this.recallMemory(agentId, String(args.query ?? ""));
+        break;
+      case "memory_forget":
+        result = await this.forgetMemory(agentId, String(args.memoryId ?? ""));
+        break;
+      default:
+        throw new Error(`Unknown memory tool: ${request.function.name}`);
+    }
+    return {
+      toolCallId: request.id,
+      content: [{ type: "text", text: JSON.stringify(result) }],
+      toolResult: result,
+    };
+  }
+
+  private async getEmbeddings(providerId: string, modelId: string, texts: string[]): Promise<number[][]> {
     const provider = this.resolveProvider(providerId);
     let base = provider.baseUrl.replace(/\/+$/, "");
     if (!base.endsWith("/v1")) base += "/v1";
@@ -264,7 +367,7 @@ export class DaemonMemoryRuntime {
     const response = await fetch(base, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${provider.apiKey}` },
-      body: JSON.stringify({ model: "text-embedding-3-small", input: texts }),
+      body: JSON.stringify({ model: modelId, input: texts }),
     });
     if (!response.ok) throw new Error(`Embeddings API error (${response.status})`);
     const data = (await response.json()) as { data: Array<{ embedding: number[] }> };

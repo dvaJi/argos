@@ -291,6 +291,13 @@ export async function startDaemon(options?: {
   const { BunSessionRepository } = await import("./host/bun-session-repository");
   const sessionRepository = new BunSessionRepository(db, eventPublisher);
   const orchestrationRuntime = new ArgosOrchestrationRuntime(db, () => configPresenter.listAgents());
+  const memoryRuntime = new DaemonMemoryRuntime({
+    db,
+    configPresenter,
+    dataDir: paths.getDataDir(),
+  });
+  memoryRuntime.presenter.startBackgroundMaintenance();
+  logger.info("[daemon] Memory runtime initialized");
 
   const sessions = await sessionRepository.list();
   logger.info(`[daemon] Restored ${sessions.length} session(s) from database`);
@@ -316,12 +323,27 @@ export async function startDaemon(options?: {
         const scoped = Array.isArray(allowed)
           ? definitions.filter((tool) => allowed.includes(tool.server.name))
           : definitions;
-        return agentConfig?.orchestrationEnabled ? [...scoped, ...orchestrationRuntime.definitions()] : scoped;
+        const orchestration = agentConfig?.orchestrationEnabled
+          ? [...scoped, ...orchestrationRuntime.definitions()]
+          : scoped;
+        return agentConfig?.memoryEnabled === true
+          ? [...orchestration, ...memoryRuntime.toolDefinitions()]
+          : orchestration;
       },
-      callTool: (request) =>
-        orchestrationRuntime.handles((request as any).function?.name)
-          ? orchestrationRuntime.call(request as any)
-          : mcpRuntime.callApprovedTool(request),
+      callTool: async (request) => {
+        if (orchestrationRuntime.handles((request as any).function?.name)) {
+          return orchestrationRuntime.call(request as any);
+        }
+        if (memoryRuntime.handlesTool((request as any).function?.name)) {
+          const sessionId = (request as any).conversationId as string | undefined;
+          const session = sessionId ? await sessionRepository.get(sessionId) : null;
+          if (!session?.agentId) {
+            throw new Error("Memory tool requires an active session with an agent.");
+          }
+          return memoryRuntime.callMemoryTool(request as any, session.agentId);
+        }
+        return mcpRuntime.callApprovedTool(request);
+      },
     },
   );
   const acpProviderExecutionPort = new AcpProviderExecutionPort(configPresenter, sessionRepository, eventPublisher, {
@@ -705,11 +727,6 @@ export async function startDaemon(options?: {
     providerExecutionPort,
   });
   scheduledTasks.start();
-  const memoryRuntime = new DaemonMemoryRuntime({
-    db,
-    configPresenter,
-    dataDir: paths.getDataDir(),
-  });
   const remoteControlRuntime = new DaemonRemoteControlRuntime({
     configPresenter,
     sessionRepository,
@@ -1017,6 +1034,8 @@ export async function startDaemon(options?: {
     port: serverPort,
     close: async () => {
       scheduledTasks.stop();
+      memoryRuntime.presenter.stopBackgroundMaintenance();
+      await memoryRuntime.presenter.dispose().catch(() => undefined);
       await remoteControlRuntime.destroy();
       await pluginPresenter.shutdown();
       await piProviderExecutionPort.dispose();
