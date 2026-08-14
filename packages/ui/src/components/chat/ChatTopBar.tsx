@@ -65,6 +65,7 @@ const ChatTopBar: FC<ChatTopBarProps> = ({
     memoryEnabled?: boolean;
     hasEmbeddingConfigured?: boolean;
   }>({});
+  const agentIdRef = useRef<string | undefined>(undefined);
   const [renameValue, setRenameValue] = useState("");
   const renameInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -77,6 +78,7 @@ const ChatTopBar: FC<ChatTopBarProps> = ({
     () => sessionStore.sessions.find((session) => session.id === sessionId) ?? null,
     [sessionStore.sessions, sessionId],
   );
+  agentIdRef.current = currentSession?.agentId;
   const currentTitle = useMemo(() => currentSession?.title ?? title, [currentSession?.title, title]);
   const showCollapsedNewChatSpacer = showCollapsedNewChatButton;
   const parentSessionId = useMemo(() => currentSession?.parentSessionId ?? null, [currentSession?.parentSessionId]);
@@ -112,21 +114,22 @@ const ChatTopBar: FC<ChatTopBarProps> = ({
   );
 
   const openMemoryDialog = useCallback(async () => {
-    setMemoryDialogOpen(true);
     const agentId = currentSession?.agentId;
-    if (!agentId) {
-      setMemoryCapabilities({});
-      return;
-    }
+    if (!agentId) return;
     try {
       const configClient = createConfigClient();
       const config = await configClient.resolveArgosAgentConfig(agentId);
+      if (agentIdRef.current !== agentId) return;
       setMemoryCapabilities({
         memoryEnabled: config?.memoryEnabled,
         hasEmbeddingConfigured: Boolean(config?.memoryEmbedding?.providerId && config?.memoryEmbedding?.modelId),
       });
     } catch {
+      if (agentIdRef.current !== agentId) return;
       setMemoryCapabilities({});
+    }
+    if (agentIdRef.current === agentId) {
+      setMemoryDialogOpen(true);
     }
   }, [currentSession?.agentId]);
   const normalizedRenameValue = useMemo(() => renameValue.trim(), [renameValue]);
@@ -198,8 +201,15 @@ const ChatTopBar: FC<ChatTopBarProps> = ({
   }, [sessionId]);
 
   useEffect(() => {
+    setMemoryDialogOpen(false);
+    setMemoryCapabilities({});
+  }, [sessionId]);
+
+  useEffect(() => {
     if (isReadOnlyProp) {
       resetRenameState();
+      setMemoryDialogOpen(false);
+      setMemoryCapabilities({});
     }
   }, [isReadOnlyProp, resetRenameState]);
 
