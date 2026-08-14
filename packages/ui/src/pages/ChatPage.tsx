@@ -1050,6 +1050,7 @@ function ChatPage({ sessionId }: ChatPageProps) {
       onScroll={onScroll}
     >
       <ChatTopBar
+        key={sessionId}
         className="chat-capture-hide"
         sessionId={sessionId}
         title={sessionTitle}

@@ -1844,6 +1844,8 @@ export default function ArgosAgentsSettings() {
           onOpenChange={setMemoryDialogOpen}
           agentId={selectedAgentId}
           agentName={selectedAgent?.name}
+          memoryEnabled={form.memoryEnabled}
+          hasEmbeddingConfigured={Boolean(form.memoryEmbeddingProviderId && form.memoryEmbeddingModelId)}
         />
       )}
     </div>
