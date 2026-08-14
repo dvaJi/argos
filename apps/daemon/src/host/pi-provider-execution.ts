@@ -193,10 +193,14 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
   }
 
   private async markDone(sessionId: string): Promise<void> {
-    await this.sessionRepository.setSessionStatus(sessionId, "done");
+    // `done` marks "finished but unseen" results; if the user is already
+    // viewing this session, stay idle instead.
+    const isActive = await this.sessionRepository.isActiveSession?.(sessionId);
+    const completionStatus = isActive ? "idle" : "done";
+    await this.sessionRepository.setSessionStatus(sessionId, completionStatus);
     this.eventPublisher.publish(sessionsStatusChangedEvent.name, {
       sessionId,
-      status: "done",
+      status: completionStatus,
       reason: "generation-completed",
       version: 1,
     });

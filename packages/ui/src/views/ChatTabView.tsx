@@ -35,7 +35,6 @@ function ChatTabView() {
   const [hydrationFailed, setHydrationFailed] = useState(false);
   const hydrationFailedRef = useRef(false);
   const cancelDeferredHydrationRef = useRef<(() => void) | null>(null);
-  const runRef = useRef<(() => Promise<void>) | null>(null);
 
   const startupWorkloadStore = useStartupWorkloadStore();
 
@@ -104,7 +103,6 @@ function ChatTabView() {
       }
     };
 
-    runRef.current = run;
     void run();
 
     // If the first hydration failed because the daemon bridge was down, re-run

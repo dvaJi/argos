@@ -268,6 +268,7 @@ export default function AcpSettings() {
     if (didAutoExpandManualRef.current) return;
     if (manualAgents.length > 0) {
       didAutoExpandManualRef.current = true;
+      // react-doctor-disable-next-line react-hooks-js/set-state-in-effect
       setManualSectionOpen(true);
     }
   }, [manualAgents]);

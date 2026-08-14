@@ -44,11 +44,19 @@ export function ChannelOverviewCard({
     <div
       data-testid={`remote-channel-card-${channel.key}`}
       data-active={active}
+      role="button"
+      tabIndex={0}
       className={cn(
         "rc-card group flex cursor-pointer flex-col gap-3 rounded-2xl border bg-card p-4",
         active ? "border-ring/60 ring-1 ring-ring/30 shadow-sm" : "border-border hover:border-foreground/15",
       )}
       onClick={onSelect}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onSelect();
+        }
+      }}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">

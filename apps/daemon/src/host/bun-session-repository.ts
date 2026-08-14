@@ -1042,6 +1042,14 @@ export class BunSessionRepository implements SessionRepository {
     return row ? this.toSessionWithState(row) : null;
   }
 
+  /** True when this session is the currently selected/visible one. */
+  isActiveSession(sessionId: string): boolean {
+    const row = this.db.prepare("SELECT status FROM daemon_sessions WHERE id = ?").get(sessionId) as
+      | { status?: string }
+      | undefined;
+    return row?.status === "active";
+  }
+
   async delete(sessionId: string): Promise<void> {
     this.ensureSessionExists(sessionId);
     this.db.prepare("DELETE FROM daemon_messages WHERE session_id = ?").run(sessionId);

@@ -557,10 +557,13 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
       });
       // `done` marks "finished but unseen" results; it transitions to `idle`
       // when the user opens the session (see markSessionViewed on activate).
-      await this.sessionRepository.setSessionStatus?.(sessionId, "done");
+      // If the user is already viewing this session, stay idle instead.
+      const isActive = await this.sessionRepository.isActiveSession?.(sessionId);
+      const completionStatus = isActive ? "idle" : "done";
+      await this.sessionRepository.setSessionStatus?.(sessionId, completionStatus);
       this.eventPublisher.publish(sessionsStatusChangedEvent.name, {
         sessionId,
-        status: "done",
+        status: completionStatus,
         reason: "generation-completed",
         version: 1,
       });

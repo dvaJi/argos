@@ -141,6 +141,23 @@ export class WebSocketBridge implements ArgosBridge {
   async connect(): Promise<void> {
     if (this.ws?.readyState === WebSocket.OPEN) return;
 
+    // Tear down any stale socket (e.g. one still CONNECTING after a manual
+    // retry) before installing a replacement, so its callbacks can never fire
+    // on the new socket's state.
+    const stale = this.ws;
+    this.ws = null;
+    if (stale) {
+      stale.onopen = null;
+      stale.onmessage = null;
+      stale.onclose = null;
+      stale.onerror = null;
+      try {
+        stale.close();
+      } catch {
+        // already closed
+      }
+    }
+
     return new Promise((resolve, reject) => {
       // WebSocket browser clients cannot set arbitrary headers. Put the bearer
       // in the negotiated subprotocol instead of the URL, where it would leak
