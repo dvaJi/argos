@@ -27,6 +27,7 @@ import {
   configSetAcpAgentEnvOverrideRoute,
   configEnsureAcpAgentInstalledRoute,
   configRepairAcpAgentRoute,
+  configUpdateAcpAgentRoute,
   configUninstallAcpRegistryAgentRoute,
   configListManualAcpAgentsRoute,
   configAddManualAcpAgentRoute,
@@ -360,6 +361,11 @@ export function createConfigClient(bridge: ArgosBridge = getArgosBridge()) {
     return result.installState as unknown as AcpAgentInstallState;
   }
 
+  async function updateAcpAgent(agentId: string): Promise<AcpAgentInstallState> {
+    const result = await bridge.invoke(configUpdateAcpAgentRoute.name, { agentId });
+    return result.installState as unknown as AcpAgentInstallState;
+  }
+
   async function uninstallAcpRegistryAgent(agentId: string) {
     await bridge.invoke(configUninstallAcpRegistryAgentRoute.name, { agentId });
   }
@@ -605,6 +611,7 @@ export function createConfigClient(bridge: ArgosBridge = getArgosBridge()) {
     setAcpAgentEnvOverride,
     ensureAcpAgentInstalled,
     repairAcpAgent,
+    updateAcpAgent,
     uninstallAcpRegistryAgent,
     listManualAcpAgents,
     addManualAcpAgent,

@@ -13,6 +13,7 @@ import {
   configSetAcpAgentEnvOverrideRoute,
   configEnsureAcpAgentInstalledRoute,
   configRepairAcpAgentRoute,
+  configUpdateAcpAgentRoute,
   configUninstallAcpRegistryAgentRoute,
   configListManualAcpAgentsRoute,
   configAddManualAcpAgentRoute,
@@ -477,6 +478,13 @@ export async function dispatchConfigRoute(
       const input = configRepairAcpAgentRoute.input.parse(rawInput);
       return configRepairAcpAgentRoute.output.parse({
         installState: await configPresenter.repairAcpAgent(input.agentId),
+      });
+    }
+
+    case configUpdateAcpAgentRoute.name: {
+      const input = configUpdateAcpAgentRoute.input.parse(rawInput);
+      return configUpdateAcpAgentRoute.output.parse({
+        installState: await configPresenter.updateAcpAgent(input.agentId),
       });
     }
 

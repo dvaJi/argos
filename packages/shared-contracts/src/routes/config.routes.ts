@@ -624,6 +624,12 @@ export const configRepairAcpAgentRoute = defineRouteContract({
   output: zod.object({ installState: AcpAgentInstallStateSchema }),
 });
 
+export const configUpdateAcpAgentRoute = defineRouteContract({
+  name: "config.updateAcpAgent",
+  input: zod.object({ agentId: zod.string().min(1) }),
+  output: zod.object({ installState: AcpAgentInstallStateSchema }),
+});
+
 export const configUninstallAcpRegistryAgentRoute = defineRouteContract({
   name: "config.uninstallAcpRegistryAgent",
   input: zod.object({ agentId: zod.string().min(1) }),

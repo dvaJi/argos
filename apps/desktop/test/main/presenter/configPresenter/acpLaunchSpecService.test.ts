@@ -224,4 +224,31 @@ describe("AcpLaunchSpecService", () => {
       ),
     ).rejects.toThrow("Unsafe ACP install directory for uninstall");
   });
+
+  it("short-circuits npx agents to installed without downloading a binary", async () => {
+    const service = createService();
+    const state = await service.ensureRegistryAgentInstalled(
+      {
+        id: "npx-agent",
+        name: "Npx Agent",
+        version: "2.1.0",
+        distribution: {
+          npx: {
+            package: "npx-agent-acp",
+            args: ["--port", "0"],
+          },
+        },
+        source: "registry",
+        enabled: false,
+      },
+      null,
+    );
+
+    expect(state.status).toBe("installed");
+    expect(state.distributionType).toBe("npx");
+    expect(state.version).toBe("2.1.0");
+    expect(state.installDir).toBeNull();
+    // No binary directory should be created for package-based agents.
+    expect(fs.existsSync(path.join(tempDirs[0], "agents", "npx-agent"))).toBeFalsy();
+  });
 });

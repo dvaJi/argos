@@ -2416,6 +2416,65 @@ export class ConfigPresenter implements IConfigPresenter {
     }
   }
 
+  async updateAcpAgent(agentId: string): Promise<AcpAgentInstallState> {
+    const resolvedId = resolveAcpAgentAlias(agentId);
+    const registryAgent = this.getRegistryAgentOrThrow(resolvedId);
+    const agentRepository = this.getAgentRepositoryOrThrow();
+    const selection = this.acpLaunchSpecService.selectRegistryDistribution(registryAgent);
+
+    // npx/uvx runners resolve the latest package at launch time, so there is
+    // nothing to download. Report the current state as "up to date".
+    if (!selection || selection.type !== "binary") {
+      return (
+        agentRepository.getAgentInstallState(registryAgent.id) ?? {
+          status: "installed",
+          distributionType: selection?.type,
+          version: registryAgent.version,
+          lastCheckedAt: Date.now(),
+          installedAt: null,
+          installDir: null,
+          error: null,
+        }
+      );
+    }
+
+    const currentState = agentRepository.getAgentInstallState(registryAgent.id);
+    const updatingState: AcpAgentInstallState = {
+      status: "installing",
+      version: registryAgent.version,
+      distributionType: "binary",
+      lastCheckedAt: Date.now(),
+      installedAt: currentState?.installedAt ?? null,
+      installDir: currentState?.installDir ?? null,
+      error: null,
+    };
+    agentRepository.setAgentInstallState(registryAgent.id, updatingState);
+    this.notifyAcpAgentsChanged([registryAgent.id]);
+
+    try {
+      // repair:true deletes the old version dir and re-downloads the new version.
+      const installedState = await this.acpLaunchSpecService.ensureRegistryAgentInstalled(registryAgent, currentState, {
+        repair: true,
+      });
+      agentRepository.setAgentInstallState(registryAgent.id, installedState);
+      this.handleAcpAgentsMutated([registryAgent.id]);
+      return installedState;
+    } catch (error) {
+      const failedState: AcpAgentInstallState = {
+        status: "error",
+        version: registryAgent.version,
+        distributionType: "binary",
+        lastCheckedAt: Date.now(),
+        installedAt: currentState?.installedAt ?? null,
+        installDir: currentState?.installDir ?? null,
+        error: error instanceof Error ? error.message : String(error),
+      };
+      agentRepository.setAgentInstallState(registryAgent.id, failedState);
+      this.notifyAcpAgentsChanged([registryAgent.id]);
+      throw error;
+    }
+  }
+
   async uninstallAcpRegistryAgent(agentId: string): Promise<void> {
     const resolvedId = resolveAcpAgentAlias(agentId);
     const registryAgent = this.getRegistryAgentOrThrow(resolvedId);
@@ -2445,7 +2504,6 @@ export class ConfigPresenter implements IConfigPresenter {
 
     this.handleAcpAgentsMutated([registryAgent.id]);
   }
-
   async getAcpAgentInstallStatus(agentId: string): Promise<AcpAgentInstallState | null> {
     return this.agentRepository?.getAgentInstallState(resolveAcpAgentAlias(agentId)) ?? null;
   }

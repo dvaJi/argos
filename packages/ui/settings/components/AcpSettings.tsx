@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Badge } from "#shadcn/components/ui/badge";
@@ -261,6 +261,17 @@ export default function AcpSettings() {
     return subscribeToAgentChanges(() => void loadAcpData());
   }, [loadAcpData]);
 
+  // Auto-expand the Custom agents section once data loads if custom agents exist,
+  // so users with custom agents don't see an always-collapsed section.
+  const didAutoExpandManualRef = useRef(false);
+  useEffect(() => {
+    if (didAutoExpandManualRef.current) return;
+    if (manualAgents.length > 0) {
+      didAutoExpandManualRef.current = true;
+      setManualSectionOpen(true);
+    }
+  }, [manualAgents]);
+
   const handleToggle = async (enabled: boolean) => {
     if (toggling) return;
     setToggling(true);
@@ -368,6 +379,32 @@ export default function AcpSettings() {
       await loadAcpData();
     } catch (error) {
       console.error(error);
+    } finally {
+      setPending(agent.id, false);
+    }
+  };
+
+  const updateRegistryAgent = async (agent: AcpRegistryAgent) => {
+    setPending(agent.id, true);
+    try {
+      const state = await configClient.updateAcpAgent(agent.id);
+      const isBinary = agent.distribution.binary;
+      toast({
+        title: isBinary ? `${agent.name} updated` : `${agent.name} is up to date`,
+        description: isBinary
+          ? `Installed v${state.version}.`
+          : "Package-based agents resolve the latest version at launch.",
+      });
+      requestConnectionCheck(agent.id);
+      await loadAcpData();
+    } catch (error) {
+      console.error(error);
+      await loadAcpData();
+      toast({
+        title: "Agent update did not finish",
+        description: error instanceof Error ? error.message : String(error),
+        variant: "destructive",
+      });
     } finally {
       setPending(agent.id, false);
     }
@@ -526,7 +563,12 @@ export default function AcpSettings() {
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge variant="outline">MCP Access: {sharedMcpCount}</Badge>
-                    <Button size="sm" variant="outline" onClick={() => setSharedMcpOpen(!sharedMcpOpen)}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      aria-expanded={sharedMcpOpen}
+                      onClick={() => setSharedMcpOpen(!sharedMcpOpen)}
+                    >
                       {sharedMcpOpen ? "Collapse" : "Expand"}
                     </Button>
                   </div>
@@ -618,6 +660,29 @@ export default function AcpSettings() {
                             </div>
                           </div>
                           <div className="flex items-center gap-1 lg:justify-end">
+                            {isUpdateAvailable(agent) && (
+                              <>
+                                {agent.distribution.binary ? (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="gap-1.5 border-amber-500/40 text-amber-600 hover:bg-amber-500/10 hover:text-amber-600"
+                                    disabled={Boolean(agentPending[agent.id])}
+                                    onClick={() => void updateRegistryAgent(agent)}
+                                  >
+                                    <Icon icon="lucide:arrow-up-circle" />
+                                    Update
+                                  </Button>
+                                ) : (
+                                  <span
+                                    className="px-2 text-xs text-muted-foreground"
+                                    title="Package-based agents resolve the latest version at launch."
+                                  >
+                                    Up to date at launch
+                                  </span>
+                                )}
+                              </>
+                            )}
                             <div className="flex items-center px-1.5">
                               <Switch
                                 aria-label={`${agent.enabled ? "Disable" : "Enable"} ${agent.name}`}
@@ -761,7 +826,12 @@ export default function AcpSettings() {
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button size="sm" variant="outline" onClick={() => setManualSectionOpen(!manualSectionOpen)}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    aria-expanded={manualSectionOpen}
+                    onClick={() => setManualSectionOpen(!manualSectionOpen)}
+                  >
                     {manualSectionOpen ? "Collapse" : "Expand"}
                   </Button>
                 </div>
@@ -1084,20 +1154,29 @@ export default function AcpSettings() {
                           </div>
 
                           <div className="flex shrink-0 items-center gap-2">
-                            {isUpdateAvailable(agent) && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                disabled={
-                                  Boolean(agentPending[agent.id]) ||
-                                  (agent.installState?.status ?? "not_installed") === "installing"
-                                }
-                                onClick={() => void installRegistryAgent(agent)}
-                              >
-                                <Icon icon="lucide:arrow-up-circle" />
-                                Update
-                              </Button>
-                            )}
+                            {isUpdateAvailable(agent) &&
+                              (agent.distribution.binary ? (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="border-amber-500/40 text-amber-600 hover:bg-amber-500/10 hover:text-amber-600"
+                                  disabled={
+                                    Boolean(agentPending[agent.id]) ||
+                                    (agent.installState?.status ?? "not_installed") === "installing"
+                                  }
+                                  onClick={() => void updateRegistryAgent(agent)}
+                                >
+                                  <Icon icon="lucide:arrow-up-circle" />
+                                  Update
+                                </Button>
+                              ) : (
+                                <span
+                                  className="px-1 text-xs text-muted-foreground"
+                                  title="Package-based agents resolve the latest version at launch."
+                                >
+                                  Latest at launch
+                                </span>
+                              ))}
                             <Button
                               size="sm"
                               variant={registryActionVariant(agent)}
