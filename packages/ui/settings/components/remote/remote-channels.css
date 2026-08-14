@@ -1,0 +1,125 @@
+/* Motion for the Remote Channels settings surface.
+ * Product motion: reveals state, keeps configuration legible, never performs.
+ * All durations/eases come from the app tokens so the reduced-motion kill-switch
+ * in style.css applies automatically.
+ */
+
+/* Card hover lift + press feedback. */
+.rc-card {
+  transition:
+    transform var(--dc-motion-default) var(--dc-ease-out-soft),
+    border-color var(--dc-motion-default) var(--dc-ease-out-soft),
+    box-shadow var(--dc-motion-default) var(--dc-ease-out-soft),
+    background-color var(--dc-motion-default) var(--dc-ease-out-soft);
+}
+
+.rc-card:hover {
+  transform: translateY(-1px);
+}
+
+.rc-card:active {
+  transform: scale(0.98);
+}
+
+.rc-card:focus-visible {
+  outline: 2px solid var(--color-ring, currentColor);
+  outline-offset: 2px;
+}
+
+/* Icon tile: subtle brand tint lift on hover. */
+.rc-card:hover .rc-icon-tile {
+  transform: scale(1.05);
+}
+
+.rc-icon-tile {
+  transition: transform var(--dc-motion-default) var(--dc-ease-out-express);
+}
+
+/* Status dot: one-shot pop when a channel becomes enabled/paired. */
+.rc-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  background: var(--color-muted-foreground, currentColor);
+  transition: background-color var(--dc-motion-default) var(--dc-ease-out-soft);
+}
+
+.rc-status-dot[data-enabled="true"] {
+  background: var(--color-green-500, #22c55e);
+  animation: rc-dot-pop var(--dc-motion-default) var(--dc-ease-out-express);
+}
+
+@keyframes rc-dot-pop {
+  0% {
+    transform: scale(0.4);
+  }
+  60% {
+    transform: scale(1.3);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Fresh ping around a paired dot (Telegram only, optional). */
+.rc-status-dot[data-paired="true"] {
+  position: relative;
+}
+
+.rc-status-dot[data-paired="true"]::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 9999px;
+  border: 1px solid currentcolor;
+  opacity: 0;
+  animation: rc-fresh-ping 2.4s var(--dc-ease-out-soft) infinite;
+}
+
+@keyframes rc-fresh-ping {
+  0% {
+    opacity: 0.5;
+    transform: scale(0.6);
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+}
+
+/* Config panel: slide + fade in when a channel is selected. */
+.rc-panel-enter {
+  opacity: 0;
+  transform: translateY(6px);
+  animation: rc-panel-in var(--dc-motion-default) var(--dc-ease-out-express) forwards;
+}
+
+@keyframes rc-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Copy feedback: brief success pop on the copy button. */
+.rc-copy-feedback {
+  color: var(--color-green-600, #16a34a);
+  animation: rc-copy-pop var(--dc-motion-default) var(--dc-ease-out-express);
+}
+
+@keyframes rc-copy-pop {
+  0% {
+    transform: scale(0.8);
+  }
+  60% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
