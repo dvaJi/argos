@@ -5,6 +5,7 @@ import { ErrorBoundary } from "../components/ErrorBoundary";
 import { createConfigClient } from "#api/ConfigClient";
 import { createOnboardingClient } from "#api/OnboardingClient";
 import { createWindowClient } from "#api/WindowClient";
+import { subscribeRuntimeConnectionState } from "#api/runtime";
 import { SelectedTextContextMenu } from "../components/message/SelectedTextContextMenu";
 import { artifactStore } from "../stores/artifact";
 import { sessionStore, fetchSessions, closeSession, startNewConversation, selectSession } from "../stores/ui/session";
@@ -18,7 +19,7 @@ import TranslatePopup from "../components/popup/TranslatePopup";
 import MessageDialog from "../components/ui/MessageDialog";
 import McpSamplingDialog from "../components/mcp/McpSamplingDialog";
 import { AddRemoteMachineDialog } from "../components/workspace/WorkspaceSelectorDialogs";
-import { initAppStores, useMcpInstallDeeplinkHandler } from "../lib/storeInitializer";
+import { initAppStores, retryHydrateStores, useMcpInstallDeeplinkHandler } from "../lib/storeInitializer";
 import { ensureIconsLoaded } from "../lib/iconLoader";
 import AppBar from "../components/AppBar";
 import WindowSideBar from "../components/WindowSideBar";
@@ -466,12 +467,22 @@ function MainLayout() {
     setupMcpDeeplink();
     setupAppIpcRuntime();
 
+    // When the daemon bridge comes back after a failed startup, re-run the
+    // critical store hydration so the UI actually recovers instead of staying
+    // broken-but-alive.
+    const unsubscribeConnection = subscribeRuntimeConnectionState((state) => {
+      if (state.connected) {
+        void retryHydrateStores();
+      }
+    });
+
     return () => {
       if (errorDisplayTimer.current) {
         clearTimeout(errorDisplayTimer.current);
         errorDisplayTimer.current = null;
       }
 
+      unsubscribeConnection();
       window.removeEventListener("keydown", handleEscKey);
       window.removeEventListener(
         GUIDED_ONBOARDING_RESUME_REQUESTED_EVENT,

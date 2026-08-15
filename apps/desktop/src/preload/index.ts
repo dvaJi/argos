@@ -327,6 +327,7 @@ async function connectToLocalDaemon(): Promise<WebSocketBridge | null> {
       await bridge.connect();
       console.log(`[preload] Connected to local daemon at ${wsUrl}`);
     } catch (error) {
+      // Leave the bridge installed: its internal reconnect/probe loop keeps trying.
       console.warn("[preload] Failed to connect to local daemon:", error);
     }
 
@@ -391,10 +392,9 @@ function bindDaemonLifecycleEvents(): void {
     if (!payload || typeof payload !== "object") return;
     const maybeStatus = (payload as { status?: unknown }).status;
     if (maybeStatus === "stopped" || maybeStatus === "error" || maybeStatus === "unhealthy") {
+      // Keep the installed bridge so its internal reconnect/probe loop survives;
+      // only forget the port. The next healthy/port event re-drives the connection.
       updateLocalDaemonPort(null);
-      if (readWorkspaceConfig().activeWorkspaceId === LOCAL_WORKSPACE_ID) {
-        hybridBridge.setWsBridge(null, "local");
-      }
     }
     if (maybeStatus === "healthy") {
       void applyActiveWorkspace();
@@ -550,6 +550,7 @@ if (process.contextIsolated) {
       connection: {
         getState: () => hybridBridge.getConnectionState(),
         onStateChange: (listener: (state: any) => void) => hybridBridge.onConnectionStateChange(listener),
+        retryConnection: () => hybridBridge.retryConnection(),
       },
       workspace: buildWorkspaceApi(),
     });
@@ -568,6 +569,7 @@ if (process.contextIsolated) {
     connection: {
       getState: () => hybridBridge.getConnectionState(),
       onStateChange: (listener: (state: any) => void) => hybridBridge.onConnectionStateChange(listener),
+      retryConnection: () => hybridBridge.retryConnection(),
     },
     workspace: buildWorkspaceApi(),
   };
@@ -579,6 +581,9 @@ if (process.contextIsolated) {
   }
 }
 
+hybridBridge.setRetryHandler(() => {
+  void connectToLocalDaemon();
+});
 bindDaemonLifecycleEvents();
 initWorkspaceConnections();
 

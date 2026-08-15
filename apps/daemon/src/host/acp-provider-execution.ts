@@ -555,10 +555,15 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
         messageId: assistantMessageId,
         completedAt: Date.now(),
       });
-      await this.sessionRepository.setSessionStatus?.(sessionId, "idle");
+      // `done` marks "finished but unseen" results; it transitions to `idle`
+      // when the user opens the session (see markSessionViewed on activate).
+      // If the user is already viewing this session, stay idle instead.
+      const isActive = await this.sessionRepository.isActiveSession?.(sessionId);
+      const completionStatus = isActive ? "idle" : "done";
+      await this.sessionRepository.setSessionStatus?.(sessionId, completionStatus);
       this.eventPublisher.publish(sessionsStatusChangedEvent.name, {
         sessionId,
-        status: "idle",
+        status: completionStatus,
         reason: "generation-completed",
         version: 1,
       });
@@ -576,11 +581,11 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
         failedAt: Date.now(),
         error: errorMsg,
       });
-      await this.sessionRepository.setSessionStatus?.(sessionId, "idle");
+      await this.sessionRepository.setSessionStatus?.(sessionId, "error");
       this.eventPublisher.publish(sessionsStatusChangedEvent.name, {
         sessionId,
-        status: "idle",
-        reason: "generation-completed",
+        status: "error",
+        reason: "generation-failed",
         version: 1,
       });
     }

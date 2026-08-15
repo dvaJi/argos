@@ -80,6 +80,20 @@ export function subscribeRuntimeConnectionState(listener: (state: ConnectionStat
   }
 }
 
+/** Manually re-drive the daemon bridge connection (used by the recovery banner's Retry button). */
+export async function retryRuntimeConnection(): Promise<void> {
+  const surface = window.argos as unknown as {
+    connection?: { retryConnection?: () => Promise<void> | void };
+  };
+  const retry = surface?.connection?.retryConnection;
+  if (typeof retry !== "function") return;
+  try {
+    await retry();
+  } catch (error) {
+    console.warn("[runtime] Manual daemon connection retry failed:", error);
+  }
+}
+
 type IpcListener = (...args: any[]) => void;
 
 type IpcRendererLike = {

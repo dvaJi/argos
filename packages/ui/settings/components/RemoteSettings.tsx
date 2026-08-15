@@ -1,23 +1,23 @@
-import { useState, useEffect } from "react";
-import { Icon } from "@iconify/react";
-import { Button } from "#shadcn/components/ui/button";
-import { Input } from "#shadcn/components/ui/input";
-import { Label } from "#shadcn/components/ui/label";
-import { Switch } from "#shadcn/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "#shadcn/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#shadcn/components/ui/select";
+import { useEffect, useMemo, useState } from "react";
 import { useRemoteControlPresenter, usePresenter } from "#api/presenterBridge";
 import { useToast } from "#/components/use-toast";
 import type { TelegramRemoteSettings, TelegramPairingSnapshot } from "@argos/shared/presenter";
+import { CHANNELS, type ChannelKey } from "./remote/channelMeta";
+import { ChannelOverviewCard, type ChannelStatus } from "./remote/ChannelOverviewCard";
+import { ChannelConfigPanel, type ChannelConfigHandlers } from "./remote/ChannelConfigPanel";
+import "./remote/remote-channels.css";
 
-type ChannelKey = "telegram" | "qqbot" | "discord" | "weixin";
-
-const CHANNELS: { key: ChannelKey; label: string; icon: string }[] = [
-  { key: "telegram", label: "Telegram", icon: "simple-icons:telegram" },
-  { key: "qqbot", label: "QQ Bot", icon: "simple-icons:tencentqq" },
-  { key: "discord", label: "Discord", icon: "simple-icons:discord" },
-  { key: "weixin", label: "WeChat", icon: "simple-icons:wechat" },
-];
+function deriveStatus(
+  channel: ChannelKey,
+  telegramSettings: TelegramRemoteSettings | null,
+  telegramPairing: TelegramPairingSnapshot | null,
+): ChannelStatus {
+  if (channel !== "telegram") return "not-configured";
+  if (telegramSettings?.remoteEnabled) {
+    return telegramPairing?.allowedUserIds?.length ? "connected" : "enabled";
+  }
+  return telegramSettings?.botToken ? "enabled" : "not-configured";
+}
 
 export default function RemoteSettings() {
   const { toast } = useToast();
@@ -58,7 +58,7 @@ export default function RemoteSettings() {
     return () => {
       cancelled = true;
     };
-  }, [remoteControlPresenter]);
+  }, [remoteControlPresenter, configPresenter]);
 
   const saveTelegram = async (next: TelegramRemoteSettings) => {
     setSaving(true);
@@ -124,6 +124,10 @@ export default function RemoteSettings() {
     await saveTelegram(next);
   };
 
+  const handleTokenChange = (token: string) => {
+    setTelegramSettings((prev) => (prev ? { ...prev, botToken: token } : prev));
+  };
+
   const handleToggleChannel = async (key: ChannelKey, enabled: boolean) => {
     if (key === "telegram" && telegramSettings) {
       const next = { ...telegramSettings, remoteEnabled: enabled };
@@ -142,6 +146,27 @@ export default function RemoteSettings() {
     toast({ title: `${CHANNELS.find((c) => c.key === key)?.label} configuration is not yet available` });
   };
 
+  const statuses = useMemo(
+    () =>
+      Object.fromEntries(
+        CHANNELS.map((channel) => [channel.key, deriveStatus(channel.key, telegramSettings, telegramPairing)]),
+      ) as Record<ChannelKey, ChannelStatus>,
+    [telegramSettings, telegramPairing],
+  );
+
+  const configHandlers: ChannelConfigHandlers = {
+    saving,
+    pairBusy,
+    agents,
+    onSave: (channel) => void handleSaveConfig(channel),
+    onToggle: (channel, enabled) => void handleToggleChannel(channel, enabled),
+    onTokenChange: handleTokenChange,
+    onAgentChange: (_channel, agentId) => void handleTelegramAgentChange(agentId),
+    onGeneratePairCode: () => void handleGeneratePairCode(),
+    onClearPairCode: () => void handleClearPairCode(),
+    onCopyPairCode: () => void handleCopyPairCode(),
+  };
+
   if (isLoading) {
     return (
       <div data-testid="settings-remote-page" className="h-full w-full p-4 space-y-4 animate-pulse">
@@ -154,155 +179,42 @@ export default function RemoteSettings() {
 
   return (
     <div data-testid="settings-remote-page" className="h-full w-full">
-      <ScrollArea className="h-full w-full">
-        <div className="flex flex-col gap-4 p-4">
-          <div className="space-y-1">
-            <div className="text-base font-medium">Remote Channels</div>
-            <div className="text-sm text-muted-foreground">
+      <div className="h-full w-full overflow-y-auto">
+        <div className="mx-auto flex max-w-4xl flex-col gap-4 p-4 lg:p-6">
+          <header className="space-y-1">
+            <h1 className="text-xl font-semibold text-foreground">Remote Channels</h1>
+            <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
               Configure bot connections for various platforms. These integrations do not connect Argos to another
               machine; use Machines to connect to Argos Server.
-            </div>
-          </div>
+            </p>
+          </header>
 
-          <Tabs value={activeChannel} onValueChange={(v) => setActiveChannel(v as ChannelKey)} className="space-y-4">
-            <TabsList
-              className="grid w-full"
-              style={{ gridTemplateColumns: `repeat(${CHANNELS.length}, minmax(0, 1fr))` }}
-            >
-              {CHANNELS.map((channel) => (
-                <TabsTrigger key={channel.key} value={channel.key} className="flex items-center gap-2">
-                  <Icon icon={channel.icon} className="w-4 h-4" />
-                  <span className="hidden sm:inline">{channel.label}</span>
-                </TabsTrigger>
-              ))}
-            </TabsList>
-
+          <div className="grid gap-3 sm:grid-cols-2">
             {CHANNELS.map((channel) => {
-              const enabled = channel.key === "telegram" ? Boolean(telegramSettings?.remoteEnabled) : false;
+              const status = statuses[channel.key];
               return (
-                <TabsContent key={channel.key} value={channel.key} className="space-y-4">
-                  <div className="flex items-center justify-between rounded-lg border p-4">
-                    <div className="flex items-center gap-3">
-                      <Icon icon={channel.icon} className="w-5 h-5" />
-                      <div>
-                        <div className="font-medium">{channel.label} Bot</div>
-                        <div className="text-xs text-muted-foreground">Connect to {channel.label}</div>
-                      </div>
-                    </div>
-                    <Switch checked={enabled} onCheckedChange={(v) => void handleToggleChannel(channel.key, v)} />
-                  </div>
-
-                  <div className="rounded-lg border p-4 space-y-4">
-                    <p className="text-sm text-muted-foreground">
-                      Configure your {channel.label} bot connection settings.
-                    </p>
-                    {channel.key === "telegram" && (
-                      <div className="space-y-2">
-                        <Label>Bot Token</Label>
-                        <Input
-                          placeholder="Enter Telegram Bot Token"
-                          type="password"
-                          value={telegramSettings?.botToken ?? ""}
-                          onChange={(e) =>
-                            setTelegramSettings((prev) => (prev ? { ...prev, botToken: e.target.value } : prev))
-                          }
-                        />
-                      </div>
-                    )}
-                    {channel.key === "telegram" && (
-                      <div className="space-y-2">
-                        <Label>Default agent</Label>
-                        <Select
-                          value={telegramSettings?.defaultAgentId ?? ""}
-                          onValueChange={(v) => void handleTelegramAgentChange(v ?? "")}
-                        >
-                          <SelectTrigger className="h-9">
-                            <SelectValue placeholder="Select an agent" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {agents.map((agent) => (
-                              <SelectItem key={agent.id} value={agent.id}>
-                                {agent.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <p className="text-xs text-muted-foreground">
-                          The agent must have a default model set (Settings &gt; Agents).
-                        </p>
-                      </div>
-                    )}
-                    {channel.key === "discord" && (
-                      <div className="space-y-2">
-                        <Label>Bot Token</Label>
-                        <Input placeholder="Enter Discord Bot Token" type="password" disabled />
-                      </div>
-                    )}
-                    {(channel.key === "qqbot" || channel.key === "weixin") && (
-                      <div className="text-sm text-muted-foreground">Configuration options for {channel.label}</div>
-                    )}
-                    <Button size="sm" disabled={saving} onClick={() => void handleSaveConfig(channel.key)}>
-                      Save Configuration
-                    </Button>
-                  </div>
-
-                  {channel.key === "telegram" && (
-                    <div className="space-y-3 rounded-lg border p-4">
-                      <div>
-                        <div className="text-sm font-medium">Account pairing</div>
-                        <div className="text-xs text-muted-foreground">
-                          Generate a code, then send it to your bot in Telegram to link your account.
-                        </div>
-                      </div>
-                      {telegramPairing?.pairCode ? (
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <code className="flex-1 truncate rounded-md bg-muted px-3 py-2 font-mono text-sm tracking-widest">
-                              {telegramPairing.pairCode}
-                            </code>
-                            <Button variant="outline" size="sm" onClick={() => void handleCopyPairCode()}>
-                              Copy
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              disabled={pairBusy}
-                              onClick={() => void handleClearPairCode()}
-                            >
-                              Clear
-                            </Button>
-                          </div>
-                          {telegramPairing.pairCodeExpiresAt ? (
-                            <div className="text-xs text-muted-foreground">
-                              Expires {new Date(telegramPairing.pairCodeExpiresAt).toLocaleString()}
-                            </div>
-                          ) : null}
-                        </div>
-                      ) : (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={pairBusy}
-                          onClick={() => void handleGeneratePairCode()}
-                        >
-                          {pairBusy ? "Generating..." : "Generate pair code"}
-                        </Button>
-                      )}
-                      <div className="text-xs text-muted-foreground">
-                        Paired accounts: {telegramPairing?.allowedUserIds?.length ?? 0}
-                      </div>
-                    </div>
-                  )}
-                </TabsContent>
+                <ChannelOverviewCard
+                  key={channel.key}
+                  channel={channel}
+                  status={status}
+                  active={activeChannel === channel.key}
+                  disabled={saving || pairBusy}
+                  paired={Boolean(telegramPairing?.allowedUserIds?.length)}
+                  onToggle={(enabled) => void handleToggleChannel(channel.key, enabled)}
+                  onSelect={() => setActiveChannel(channel.key)}
+                />
               );
             })}
-          </Tabs>
+          </div>
+
+          <ChannelConfigPanel
+            channelKey={activeChannel}
+            telegramSettings={telegramSettings}
+            telegramPairing={telegramPairing}
+            handlers={configHandlers}
+          />
         </div>
-      </ScrollArea>
+      </div>
     </div>
   );
-}
-
-function ScrollArea({ className, children }: { className?: string; children: React.ReactNode }) {
-  return <div className={`overflow-auto ${className || ""}`}>{children}</div>;
 }

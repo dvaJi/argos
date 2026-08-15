@@ -51,10 +51,12 @@ const AgentMcpSelector: FC<AgentMcpSelectorProps> = ({ onUpdateSelections }) => 
         ? currentSelections.filter((name) => visibleServerNames.has(name))
         : [];
       setSelections(next);
+      // Report the *visible* count on mount so the parent badge matches the list.
+      onUpdateSelections?.(next);
     } finally {
       setLoading(false);
     }
-  }, [configClient]);
+  }, [configClient, onUpdateSelections]);
 
   const persist = useCallback(
     async (nextSelections: string[], previousSelections: string[] = selections) => {

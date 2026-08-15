@@ -10,9 +10,32 @@ import { initWorkspaceStore } from "#/stores/ui/workspace";
 export const initAppStores = async () => {
   console.info("[Startup][Renderer] initAppStores begin");
 
-  await Promise.all([loadSettings(), initializeProviders(), initTheme()]);
-  initWorkspaceStore();
-  console.info("[Startup][Renderer] initAppStores critical stores ready");
+  try {
+    await Promise.all([loadSettings(), initializeProviders(), initTheme()]);
+    initWorkspaceStore();
+    console.info("[Startup][Renderer] initAppStores critical stores ready");
+  } catch (error) {
+    console.warn("[Startup][Renderer] initAppStores critical stores failed:", error);
+    throw error;
+  }
+};
+
+let hydrateInFlight: Promise<void> | null = null;
+
+/**
+ * Re-runs the critical store hydration after the daemon bridge comes back.
+ * Deduplicated so concurrent triggers (banner + reconnect subscription) run once.
+ */
+export const retryHydrateStores = (): Promise<void> => {
+  if (hydrateInFlight) return hydrateInFlight;
+  hydrateInFlight = initAppStores()
+    .catch((error) => {
+      console.warn("[Startup][Renderer] initAppStores retry failed:", error);
+    })
+    .finally(() => {
+      hydrateInFlight = null;
+    });
+  return hydrateInFlight;
 };
 
 export const useMcpInstallDeeplinkHandler = () => {

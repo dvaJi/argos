@@ -277,6 +277,26 @@ function createFakeDb() {
             return { changes: 1 };
           }
 
+          if (sql.includes("UPDATE daemon_sessions SET generation_status = ?")) {
+            const [status, updated_at, id] = params as any[];
+            const row = sessions.get(String(id));
+            if (row) {
+              row.generation_status = status;
+              row.updated_at = updated_at;
+            }
+            return { changes: row ? 1 : 0 };
+          }
+
+          if (sql.includes("UPDATE daemon_sessions SET generation_status = 'idle'")) {
+            const [updated_at, id] = params as any[];
+            const row = sessions.get(String(id));
+            if (row) {
+              row.generation_status = "idle";
+              row.updated_at = updated_at;
+            }
+            return { changes: row ? 1 : 0 };
+          }
+
           if (sql.includes("UPDATE daemon_messages SET content = ?")) {
             const [content, updated_at, id] = params as any[];
             const row = messages.get(String(id));
@@ -320,6 +340,10 @@ function createFakeDb() {
           if (sql.includes("SELECT id FROM daemon_sessions WHERE id = ?")) {
             const row = sessions.get(String(params[0]));
             return row ? { id: row.id } : undefined;
+          }
+          if (sql.includes("SELECT generation_status FROM daemon_sessions WHERE id = ?")) {
+            const row = sessions.get(String(params[0]));
+            return row ? { generation_status: row.generation_status } : undefined;
           }
           if (sql.includes("SELECT * FROM daemon_sessions WHERE status = 'active' LIMIT 1")) {
             const row = Array.from(sessions.values()).find((entry) => entry.status === "active");
@@ -1249,6 +1273,55 @@ describe("daemon session migration routes", () => {
           expect.objectContaining({ role: "user", content: "How do I port the agent loop to the daemon?" }),
         ]),
       }),
+    );
+  });
+
+  it("clears the done flag when a session is activated (markSessionViewed)", async () => {
+    const db = createFakeDb();
+    const eventPublisher = { publish: vi.fn(), subscribe: vi.fn(() => () => undefined) };
+    const sessionRepository = new BunSessionRepository(db as any, eventPublisher as any);
+
+    const dispatcher = createDaemonDispatcher(
+      {
+        getProviderById: vi.fn(() => ({ id: "acp", name: "ACP" })),
+        getAcpAgents: vi.fn(async () => []),
+      } as any,
+      eventPublisher as any,
+      sessionRepository as any,
+      {} as any,
+      {} as any,
+    );
+
+    const created = await sessionRepository.create(
+      {
+        title: "Unseen results",
+        agentId: "acp-agent-1",
+        projectDir: "/tmp/project",
+        providerId: "acp",
+        modelId: "model-1",
+      },
+      0,
+    );
+    const sessionId = created.id;
+    await sessionRepository.setSessionStatus(sessionId, "done");
+
+    // Marking viewed resets done -> idle.
+    await expect(sessionRepository.markSessionViewed(sessionId)).resolves.toBe(true);
+    const afterView = await sessionRepository.get(sessionId);
+    expect(afterView?.status).toBe("idle");
+
+    // Idle sessions are not re-marked.
+    await expect(sessionRepository.markSessionViewed(sessionId)).resolves.toBe(false);
+
+    // Activation through the dispatcher also clears the flag and publishes the
+    // "viewed" status change.
+    await sessionRepository.setSessionStatus(sessionId, "done");
+    await dispatcher("sessions.activate", { sessionId });
+    const afterActivate = await sessionRepository.get(sessionId);
+    expect(afterActivate?.status).toBe("idle");
+    expect(eventPublisher.publish).toHaveBeenCalledWith(
+      "sessions.status.changed",
+      expect.objectContaining({ sessionId, status: "idle", reason: "viewed" }),
     );
   });
 });

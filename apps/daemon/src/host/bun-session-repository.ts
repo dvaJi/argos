@@ -1024,9 +1024,30 @@ export class BunSessionRepository implements SessionRepository {
       .run(status, Date.now(), sessionId);
   }
 
+  /** Clears the "finished but unseen" flag when the user opens a session. */
+  async markSessionViewed(sessionId: string): Promise<boolean> {
+    this.ensureSessionExists(sessionId);
+    const row = this.db.prepare("SELECT generation_status FROM daemon_sessions WHERE id = ?").get(sessionId) as
+      | { generation_status?: string }
+      | undefined;
+    if (row?.generation_status !== "done") return false;
+    this.db
+      .prepare("UPDATE daemon_sessions SET generation_status = 'idle', updated_at = ? WHERE id = ?")
+      .run(Date.now(), sessionId);
+    return true;
+  }
+
   async getActive(webContentsId: number): Promise<SessionWithState | null> {
     const row = this.db.prepare("SELECT * FROM daemon_sessions WHERE status = 'active' LIMIT 1").get() as any;
     return row ? this.toSessionWithState(row) : null;
+  }
+
+  /** True when this session is the currently selected/visible one. */
+  isActiveSession(sessionId: string): boolean {
+    const row = this.db.prepare("SELECT status FROM daemon_sessions WHERE id = ?").get(sessionId) as
+      | { status?: string }
+      | undefined;
+    return row?.status === "active";
   }
 
   async delete(sessionId: string): Promise<void> {

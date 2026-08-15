@@ -132,7 +132,7 @@ const CONNECTION_COPY: Record<ConnectionState, { label: string; description: str
     description: "Enable this agent to make it available in Argos.",
   },
   unchecked: {
-    label: "Enabled, not checked",
+    label: "Not verified yet",
     description: "Check the connection to verify the command, authentication, and capabilities.",
   },
   checking: {
@@ -275,6 +275,15 @@ export default function AcpDiagnostics({
     onAutoCheckHandled?.(autoCheckRequest);
     void runDiagnostics();
   }, [autoCheckRequest, canRun, onAutoCheckHandled, runDiagnostics]);
+
+  // Auto-run one health check on mount for enabled agents so they don't sit at
+  // "Not verified yet" until the user manually checks.
+  const ranMountCheckRef = useRef(false);
+  useEffect(() => {
+    if (!canRun || ranMountCheckRef.current) return;
+    ranMountCheckRef.current = true;
+    void runDiagnostics();
+  }, [canRun, runDiagnostics]);
 
   const caps = diagnostics?.capabilities;
   const connectionState = getConnectionState(canRun, probing, diagnostics, probeError);

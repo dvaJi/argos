@@ -220,4 +220,31 @@ describe("HybridBridge connection state", () => {
     const bridge = new HybridBridge(noopBridge);
     await expect(bridge.invoke("chat.sendMessage" as any, {} as any)).rejects.toThrow("Daemon bridge is not connected");
   });
+
+  it("retryConnection forces a reconnect on the installed bridge", async () => {
+    const forceReconnect = vi.fn(() => Promise.resolve());
+    const bridge = new HybridBridge(noopBridge);
+    bridge.setWsBridge(
+      {
+        close: vi.fn(),
+        getUrl: () => "ws://test:1/api/v1/events",
+        isConnected: () => false,
+        onConnectionStateChange: vi.fn(() => () => {}),
+        forceReconnect,
+      } as any,
+      "local",
+    );
+
+    await bridge.retryConnection();
+    expect(forceReconnect).toHaveBeenCalledTimes(1);
+  });
+
+  it("retryConnection falls back to the retry handler when no bridge is installed", async () => {
+    const handler = vi.fn(() => Promise.resolve());
+    const bridge = new HybridBridge(noopBridge);
+    bridge.setRetryHandler(handler);
+
+    await bridge.retryConnection();
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
 });

@@ -28,6 +28,13 @@ const state = vi.hoisted(() => {
         }),
     );
     readonly close = vi.fn();
+    readonly forceReconnect = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          connection.resolve = resolve;
+          connection.promise = new Promise<void>(() => {});
+        }),
+    );
 
     constructor(url: string) {
       this.url = url;
@@ -60,6 +67,7 @@ const state = vi.hoisted(() => {
   const hybridBridge = {
     setWsBridge: vi.fn(),
     setPendingBridgeConnection: vi.fn(),
+    setRetryHandler: vi.fn(),
     invoke: vi.fn(),
     on: vi.fn(() => () => {}),
     getConnectionState: vi.fn(() => ({
@@ -193,6 +201,7 @@ describe("preload local daemon connection", () => {
     state.createBridgeMock.mockClear();
     state.hybridBridge.setWsBridge.mockClear();
     state.hybridBridge.setPendingBridgeConnection.mockClear();
+    state.hybridBridge.setRetryHandler.mockClear();
     state.hybridBridge.invoke.mockClear();
     state.hybridBridge.on.mockClear();
     state.hybridBridge.getConnectionState.mockClear();
@@ -223,6 +232,35 @@ describe("preload local daemon connection", () => {
     expect(state.bridgeInstances[0]?.url).toBe("ws://127.0.0.1:4321");
     expect(state.bridgeInstances[0]?.connect).toHaveBeenCalledTimes(1);
     expect(state.hybridBridge.setWsBridge).toHaveBeenCalledTimes(1);
+
+    state.connection.resolve?.();
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+
+  it("registers a retry handler that re-drives the local daemon connection", async () => {
+    await import("../../../src/preload/index");
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(state.hybridBridge.setRetryHandler).toHaveBeenCalledTimes(1);
+    const retryHandler = state.hybridBridge.setRetryHandler.mock.calls[0]?.[0] as (() => Promise<void>) | undefined;
+    expect(typeof retryHandler).toBe("function");
+
+    // Let the initial connection settle (its promise resolves) so the in-flight
+    // dedup guard is cleared before the manual retry.
+    state.connection.resolve?.();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    // Invoking the retry handler should create a fresh bridge and call connect again.
+    const bridgesBefore = state.bridgeInstances.length;
+    await retryHandler?.();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(state.bridgeInstances.length).toBeGreaterThanOrEqual(bridgesBefore + 1);
+    expect(state.bridgeInstances.at(-1)?.connect).toHaveBeenCalledTimes(1);
 
     state.connection.resolve?.();
     await Promise.resolve();

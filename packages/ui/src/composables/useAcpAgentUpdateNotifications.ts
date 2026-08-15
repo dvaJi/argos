@@ -51,7 +51,7 @@ async function checkForAgentUpdates(): Promise<void> {
       const agent = fresh[0];
       toast({
         title: "Agent update available",
-        description: `${agent.name} is on v${agent.installState?.version}, v${agent.version} is available.`,
+        description: `${agent.name} has an update (v${agent.installState?.version} → v${agent.version}).`,
         duration: 8000,
         action: {
           label: "View updates",
@@ -65,7 +65,9 @@ async function checkForAgentUpdates(): Promise<void> {
 
     toast({
       title: `${fresh.length} agent updates available`,
-      description: fresh.map((agent) => agent.name).join(", "),
+      description: fresh
+        .map((agent) => `${agent.name} (v${agent.installState?.version} → v${agent.version})`)
+        .join(", "),
       duration: 8000,
       action: {
         label: "View updates",

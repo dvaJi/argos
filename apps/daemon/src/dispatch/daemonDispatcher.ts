@@ -3,6 +3,7 @@ import { readdirSync, statSync, mkdirSync, readFileSync, writeFileSync } from "n
 import { sep, dirname, resolve, isAbsolute, join, basename, extname } from "node:path";
 import { randomUUID } from "node:crypto";
 import type { ArgosRouteName } from "@argos/shared-contracts/routes";
+import { sessionsStatusChangedEvent } from "@argos/shared-contracts";
 import type { ProviderAggregate } from "@argos/shared/types/model-db";
 import { dispatchConfigRoute } from "@argos/backend-core/dispatch/config/configRouteHandler";
 import { ProviderImportService } from "@argos/backend-core";
@@ -2993,6 +2994,17 @@ export function createDaemonDispatcher(
     if (route === sessionsActivateRoute.name) {
       const input = sessionsActivateRoute.input.parse(rawInput);
       await (runtime as any).sessionRepository.activate(0, input.sessionId);
+      // Opening a session clears its "finished but unseen" flag so the
+      // sidebar's new-results dot disappears once the user has viewed it.
+      const viewed = await (runtime as any).sessionRepository.markSessionViewed?.(input.sessionId);
+      if (viewed) {
+        eventPublisher.publish(sessionsStatusChangedEvent.name, {
+          sessionId: input.sessionId,
+          status: "idle",
+          reason: "viewed",
+          version: 1,
+        });
+      }
       return sessionsActivateRoute.output.parse({ activated: true });
     }
 
