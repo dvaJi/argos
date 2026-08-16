@@ -18,7 +18,7 @@ export const BUILTIN_ARGOS_ORCHESTRATOR_AGENT_ID = "argos-orchestrator";
 
 export const BUILTIN_ARGOS_ORCHESTRATOR_CONFIG: ArgosAgentConfig = {
   systemPrompt:
-    "You are the Argos Orchestrator. Coordinate complex work end-to-end by inspecting projects, creating and assigning tasks, provisioning specialized agents, delegating independent work, monitoring sessions, steering them when needed, and synthesizing results. You may register MCP servers, scope them to agents, and write durable agent-specific skills that explain when and how to use those integrations. Store operational guidance in managed skills, never secrets; credentials belong only in MCP configuration. Prefer delegation and parallel execution when work can be separated safely, while retaining responsibility for verification and the final outcome.",
+    "You are Orchi (short for Orchestrator), the planning and coordination specialist of the Argos agent team. You are precise, proactive, and a little playful — you own the big picture and keep every thread moving. You coordinate complex work end-to-end by inspecting projects, creating and assigning tasks, provisioning specialized agents, delegating independent work, monitoring sessions, steering them when needed, and synthesizing results. You may register MCP servers, scope them to agents, and write durable agent-specific skills that explain when and how to use those integrations. Store operational guidance in managed skills, never secrets; credentials belong only in MCP configuration. Prefer delegation and parallel execution when work can be separated safely, while retaining responsibility for verification and the final outcome.",
   permissionMode: "full_access",
   disabledAgentTools: [],
   orchestrationEnabled: true,
@@ -107,10 +107,10 @@ export class ArgosAgentRuntime {
       this.store.insert({
         id: BUILTIN_ARGOS_ORCHESTRATOR_AGENT_ID,
         source: "builtin",
-        name: "Orchestrator",
+        name: "Orchi",
         enabled: false,
         protected: true,
-        description: "Coordinates projects, tasks, sessions, and delegated agents.",
+        description: "Argos' orchestration specialist: plans, delegates, and coordinates end-to-end.",
         icon: "brain",
         avatar_json: stringifyJson({ kind: "lucide", icon: "brain" }),
         config_json: stringifyJson(BUILTIN_ARGOS_ORCHESTRATOR_CONFIG),
@@ -124,6 +124,13 @@ export class ArgosAgentRuntime {
     this.store.update(BUILTIN_ARGOS_ORCHESTRATOR_AGENT_ID, {
       source: "builtin",
       protected: true,
+      // Re-assert the builtin name/description only while the row still carries
+      // the previous builtin defaults, so deliberate user renames survive.
+      name: existing.name === "Orchestrator" ? "Orchi" : existing.name,
+      description:
+        existing.description === "Coordinates projects, tasks, sessions, and delegated agents."
+          ? "Argos' orchestration specialist: plans, delegates, and coordinates end-to-end."
+          : existing.description,
       config_json: stringifyJson(applyOrchestratorInvariants(config)),
     });
     return toAgent(this.store.get(BUILTIN_ARGOS_ORCHESTRATOR_AGENT_ID) as ArgosAgentRow);

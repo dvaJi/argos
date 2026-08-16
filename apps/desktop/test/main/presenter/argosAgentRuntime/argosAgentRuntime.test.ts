@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { ArgosAgentRuntime, BUILTIN_ARGOS_AGENT_ID, BUILTIN_ARGOS_ORCHESTRATOR_AGENT_ID } from "@argos/agent-runtime";
+import {
+  ArgosAgentRuntime,
+  BUILTIN_ARGOS_AGENT_ID,
+  BUILTIN_ARGOS_ORCHESTRATOR_AGENT_ID,
+  stringifyJson,
+} from "@argos/agent-runtime";
 import type { AgentSessionLookupPort, ArgosAgentRow, ArgosAgentStore } from "@argos/agent-runtime";
 
 const makeRow = (overrides: Partial<ArgosAgentRow>): ArgosAgentRow => ({
@@ -79,6 +84,7 @@ describe("ArgosAgentRuntime", () => {
       source: "builtin",
       protected: true,
       enabled: false,
+      name: "Orchi",
     });
     expect(runtime.resolveArgosAgentConfig(seeded.id)).toMatchObject({
       orchestrationEnabled: true,
@@ -91,6 +97,31 @@ describe("ArgosAgentRuntime", () => {
     const afterRestart = runtime.ensureBuiltinOrchestratorAgent();
     expect(afterRestart.enabled).toBe(true);
     expect(runtime.resolveArgosAgentConfig(seeded.id).orchestrationEnabled).toBe(true);
+  });
+
+  it("migrates a stale builtin orchestrator row to Orchi while preserving user renames", () => {
+    const { store, runtime } = makeRuntime(new Set());
+    runtime.ensureBuiltinAgent();
+    store.insert(
+      makeRow({
+        id: BUILTIN_ARGOS_ORCHESTRATOR_AGENT_ID,
+        source: "builtin",
+        name: "Orchestrator",
+        description: "Coordinates projects, tasks, sessions, and delegated agents.",
+        protected: true,
+        enabled: true,
+        config_json: stringifyJson({ orchestrationEnabled: true }),
+      }),
+    );
+
+    const migrated = runtime.ensureBuiltinOrchestratorAgent();
+    expect(migrated.name).toBe("Orchi");
+    expect(migrated.description).toBe("Argos' orchestration specialist: plans, delegates, and coordinates end-to-end.");
+
+    // A deliberate user rename must survive the next re-seed.
+    runtime.updateArgosAgent(BUILTIN_ARGOS_ORCHESTRATOR_AGENT_ID, { name: "My Orchi" });
+    const afterRename = runtime.ensureBuiltinOrchestratorAgent();
+    expect(afterRename.name).toBe("My Orchi");
   });
 
   it("preserves orchestration and defaults extension policy to empty (deny-by-default)", () => {
