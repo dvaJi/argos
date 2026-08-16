@@ -2,58 +2,66 @@
 <img src='./apps/desktop/resources/icon.png' width="150" height="150" alt="Argos AI Assistant Icon" />
 </p>
 
-<h1 align="center">Argos - Powerful Open-Source AI Agent Platform</h1>
+<h1 align="center">Argos</h1>
 
-<p align="center">Argos is a feature-rich open-source AI agent platform that unifies models, tools, and agents: multi-LLM chat, MCP tool calling, Skills, ACP agent integration, and remote control.</p>
+<p align="center"><strong>The open-source control plane for AI coding agents.</strong></p>
+
+<p align="center">Run agents, models, MCP tools, and reusable Skills from one desktop workspace. Bring your own subscriptions and API keys. Keep your workflow. Own the stack.</p>
+
+<p align="center">
+  <a href="https://github.com/dvaJi/argos/releases">Download Argos</a> ·
+  <a href="./docs/README.md">Documentation</a> ·
+  <a href="./CONTRIBUTING.md">Contributing</a>
+</p>
+
+<p align="center">Windows · macOS · Linux · Apache-2.0</p>
+
+<img src="./assets/argos-readme-hero.png" alt="Argos — one surface for AI coding agents" width="100%" />
 
 ## Table of Contents
 
-- [Project Introduction](#-project-introduction)
-- [Main Features](#-main-features)
-- [Skills Support](#-skills-support)
-- [ACP Integration (Agent Client Protocol)](#-acp-integration-agent-client-protocol)
-- [Remote Control](#-remote-control)
-- [Supported Model Providers](#-supported-model-providers)
-- [Quick Start](#-quick-start)
+- [One Workspace for Agentic Development](#one-workspace-for-agentic-development)
+- [Control Sessions Away from Your Desk](#control-sessions-away-from-your-desk)
+- [Skills Support](#skills-support)
+- [ACP Integration (Agent Client Protocol)](#acp-integration-agent-client-protocol)
+- [Supported Model Providers](#supported-model-providers)
+- [Quick Start](#quick-start)
   - [Download and Install](#download-and-install)
   - [Configure Models](#configure-models)
   - [Start Conversations](#start-conversations)
-- [Development Guide](#-development-guide)
-- [Community & Contribution](#-community--contribution)
-- [License](#-license)
+- [Development Guide](#development-guide)
+- [Community & Contribution](#community--contribution)
+- [Acknowledgements](#acknowledgements)
+- [License](#license)
 
-## Project Introduction
+## One Workspace for Agentic Development
 
-Argos is a powerful open-source AI agent platform that brings together models, tools, and agent runtimes in one desktop app. Whether you're using cloud APIs like OpenAI, Gemini, Anthropic, or locally deployed Ollama models, Argos delivers a smooth user experience.
+Argos is a feature-rich open-source AI agent platform that brings together models, tools, and agent runtimes in one desktop control plane. Instead of rebuilding your workflow around one provider or one agent, Argos gives you one surface where the pieces can work together.
 
-Beyond chat, Argos supports agentic workflows: rich tool calling via MCP (Model Context Protocol), installable Skills for specialized tasks, unique ACP (Agent Client Protocol) integration that lets you run ACP-compatible agents as first-class “models” with a dedicated workspace UI, and remote control from messaging apps.
+<img src="./assets/argos-workflow.png" alt="How Argos fits your workflow — agent runtimes into one control plane, with sessions, projects, MCP tools, skills, models, and remote control" width="100%" />
 
-<table align="center">
-  <tr>
-    <td align="center" style="padding: 10px;">
-      <img src='./apps/landing/public/shot-light.png' alt="Argos Light Mode" width="400"/>
-      <br/>
-    </td>
-    <td align="center" style="padding: 10px;">
-      <img src='./apps/landing/public/shot-dark.png' alt="Argos Dark Mode" width="400"/>
-      <br/>
-    </td>
-  </tr>
-</table>
-
-## Main Features
-
-- **Multiple Cloud LLM Providers**: DeepSeek, OpenAI, Moonshot/Kimi, Grok, Gemini, Anthropic, and more — plus any OpenAI-, Gemini-, or Anthropic-compatible API.
-- **Local Model Deployment**: Integrated Ollama with download, deploy, and run controls — no command line needed.
-- **Rich Chat Experience**: Markdown + `@tanstack/highlight` code rendering, multi-window/multi-tab parallelism, Artifacts, message retry and conversation forking, multi-modal (images, Mermaid, text-to-image), inline source highlighting.
-- **Search Extensions**: Built-in BoSearch and Brave Search MCP integrations, plus any custom search engine via a search-assistant model.
-- **MCP Support**: Full Resources/Prompts/Tools coverage, semantic workflows, inMemory services, StreamableHTTP/SSE/Stdio transports, visual debugging, and bundled Bun interpreter.
-- **Skills**: Install from folders, ZIPs, or URLs; enable per conversation; import/export with Claude Code, Codex, Cursor, Windsurf, GitHub Copilot, Kiro, Antigravity, OpenCode, Goose, Kilo Code, and more. Built-ins cover code review, document collaboration, Office/PDF, frontend design, MCP development, and others.
-- **ACP Agent Integration**: Run ACP-compatible agents (built-in or custom commands) as selectable "models" with a native workspace UI.
-- **Remote Control**: Drive Argos sessions from Telegram, Feishu/Lark, QQBot, Discord, and WeChat iLink.
-- **Multi-Platform**: Windows, macOS, Linux with a themed light/dark UI, rich DeepLink support, encryption-ready data layer, and Apache 2.0 licensing for commercial use.
+- **Agent runtimes & ACP** — Run ACP-compatible agents (built-in or custom commands) as first-class selectable "models" with a dedicated workspace UI.
+- **MCP-native** — Full Resources/Prompts/Tools coverage, semantic workflows, inMemory services, StreamableHTTP/SSE/Stdio transports, visual debugging, and a bundled Bun interpreter.
+- **Reusable Skills** — Install from folders, ZIPs, or URLs; enable per conversation; import/export with Claude Code, Codex, Cursor, Windsurf, GitHub Copilot, Kiro, Antigravity, OpenCode, Goose, Kilo Code, and more.
+- **Any model** — 40+ first-class providers plus any OpenAI-, Gemini-, or Anthropic-compatible API, and integrated local Ollama with download, deploy, and run controls.
+- **Rich chat** — Markdown + code rendering, multi-window/multi-tab parallelism, Artifacts, message retry and conversation forking, multi-modal (images, Mermaid, text-to-image), inline source highlighting.
+- **Search extensions** — Built-in BoSearch and Brave Search MCP integrations, plus any custom search engine via a search-assistant model.
+- **Remote control** — Drive Argos sessions from Telegram, Feishu/Lark, QQBot, Discord, and WeChat iLink.
+- **Multi-platform & open source** — Windows, macOS, Linux with a themed light/dark UI, rich DeepLink support, encryption-ready data layer, and Apache 2.0 licensing for commercial use.
 
 For more details, see the [documentation index](./docs/README.md).
+
+## Control Sessions Away from Your Desk
+
+Your coding session doesn't need to stop when you leave your computer. Through supported messaging channels you can inspect sessions, answer pending prompts, switch sessions, stop generation, change models, and check runtime status.
+
+<img src="./assets/argos-remote-control.png" alt="Argos remote control — manage sessions from Telegram, Discord, Feishu/Lark, QQBot, and WeChat iLink" width="100%" />
+
+Configure remote channels under **Settings → Remote**. Remote endpoints can bind to a session, then create or switch sessions, stop generation, open the current session on desktop, answer pending questions or permission prompts, switch models, and check runtime status.
+
+Supported channels: Telegram, Feishu/Lark, QQBot, Discord, and WeChat iLink.
+
+Common commands: `/start`, `/help`, `/pair`, `/new`, `/sessions`, `/use`, `/stop`, `/open`, `/pending`, `/model`, `/status`.
 
 ## Skills Support
 
@@ -72,14 +80,6 @@ Argos has built-in support for [Agent Client Protocol (ACP)](https://agentclient
 **Quick start:** **Settings → ACP Agents** → enable ACP → enable a built-in agent or add a custom ACP-compatible command → select it in the model selector.
 
 Browse the ecosystem: https://agentclientprotocol.com/overview/clients
-
-## Remote Control
-
-Drive Argos from messaging apps so a session can keep running when you're away from the desktop. Configure remote channels under **Settings → Remote**.
-
-Supported channels: Telegram, Feishu/Lark, QQBot, Discord, and WeChat iLink. Remote endpoints can bind to a session, then create or switch sessions, stop generation, open the current session on desktop, answer pending questions or permission prompts, switch models, and check runtime status.
-
-Common commands: `/start`, `/help`, `/pair`, `/new`, `/sessions`, `/use`, `/stop`, `/open`, `/pending`, `/model`, `/status`.
 
 ## Supported Model Providers
 
