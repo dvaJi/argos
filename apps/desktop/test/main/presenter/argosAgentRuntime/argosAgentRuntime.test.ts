@@ -99,7 +99,7 @@ describe("ArgosAgentRuntime", () => {
     expect(runtime.resolveArgosAgentConfig(seeded.id).orchestrationEnabled).toBe(true);
   });
 
-  it("migrates a stale builtin orchestrator row to Orchi while preserving user renames", () => {
+  it("migrates a fully-untouched legacy builtin orchestrator row to Orchi", () => {
     const { store, runtime } = makeRuntime(new Set());
     runtime.ensureBuiltinAgent();
     store.insert(
@@ -110,18 +110,63 @@ describe("ArgosAgentRuntime", () => {
         description: "Coordinates projects, tasks, sessions, and delegated agents.",
         protected: true,
         enabled: true,
-        config_json: stringifyJson({ orchestrationEnabled: true }),
+        config_json: stringifyJson({
+          systemPrompt:
+            "You are the Argos Orchestrator. Coordinate complex work end-to-end by inspecting projects, creating and assigning tasks, provisioning specialized agents, delegating independent work, monitoring sessions, steering them when needed, and synthesizing results. You may register MCP servers, scope them to agents, and write durable agent-specific skills that explain when and how to use those integrations. Store operational guidance in managed skills, never secrets; credentials belong only in MCP configuration. Prefer delegation and parallel execution when work can be separated safely, while retaining responsibility for verification and the final outcome.",
+          permissionMode: "full_access",
+          disabledAgentTools: [],
+          orchestrationEnabled: true,
+          subagentEnabled: true,
+        }),
       }),
     );
 
     const migrated = runtime.ensureBuiltinOrchestratorAgent();
     expect(migrated.name).toBe("Orchi");
     expect(migrated.description).toBe("Argos' orchestration specialist: plans, delegates, and coordinates end-to-end.");
+    expect(migrated.config?.systemPrompt).toContain("You are Orchi");
 
-    // A deliberate user rename must survive the next re-seed.
+    // Migrating again must be a no-op (the row no longer matches the legacy identity).
+    const again = runtime.ensureBuiltinOrchestratorAgent();
+    expect(again.name).toBe("Orchi");
+    expect(again.config?.systemPrompt).toContain("You are Orchi");
+  });
+
+  it("never overwrites a user edit that restores the legacy name", () => {
+    const { store, runtime } = makeRuntime(new Set());
+    runtime.ensureBuiltinAgent();
+    store.insert(
+      makeRow({
+        id: BUILTIN_ARGOS_ORCHESTRATOR_AGENT_ID,
+        source: "builtin",
+        name: "Orchestrator", // deliberately restored by the user
+        description: "My custom description",
+        protected: true,
+        enabled: true,
+        config_json: stringifyJson({
+          systemPrompt: "My custom prompt",
+          orchestrationEnabled: true,
+          subagentEnabled: true,
+        }),
+      }),
+    );
+
+    const result = runtime.ensureBuiltinOrchestratorAgent();
+    expect(result.name).toBe("Orchestrator");
+    expect(result.description).toBe("My custom description");
+    expect(result.config?.systemPrompt).toBe("My custom prompt");
+  });
+
+  it("preserves a deliberate user rename on the next re-seed", () => {
+    const { store, runtime } = makeRuntime(new Set());
+    runtime.ensureBuiltinAgent();
+    runtime.ensureBuiltinOrchestratorAgent();
     runtime.updateArgosAgent(BUILTIN_ARGOS_ORCHESTRATOR_AGENT_ID, { name: "My Orchi" });
+    expect(store.get(BUILTIN_ARGOS_ORCHESTRATOR_AGENT_ID)?.name).toBe("My Orchi");
+
     const afterRename = runtime.ensureBuiltinOrchestratorAgent();
     expect(afterRename.name).toBe("My Orchi");
+    expect(afterRename.config?.systemPrompt).toContain("You are Orchi");
   });
 
   it("preserves orchestration and defaults extension policy to empty (deny-by-default)", () => {

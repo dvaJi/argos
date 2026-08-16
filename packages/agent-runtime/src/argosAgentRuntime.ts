@@ -16,6 +16,23 @@ export const BUILTIN_ARGOS_AGENT_ID = "argos";
 /** Stable id of the built-in, opt-in orchestration specialist. */
 export const BUILTIN_ARGOS_ORCHESTRATOR_AGENT_ID = "argos-orchestrator";
 
+/**
+ * Previous builtin orchestrator identity, used to detect rows that were seeded
+ * before the "Orchi" rename so they can be migrated exactly once on startup.
+ * A row is treated as unmigrated only when ALL of these still match, so a
+ * deliberate user edit to any of them disables the migration.
+ */
+const LEGACY_ORCHESTRATOR_NAME = "Orchestrator";
+const LEGACY_ORCHESTRATOR_DESCRIPTION = "Coordinates projects, tasks, sessions, and delegated agents.";
+const LEGACY_ORCHESTRATOR_CONFIG: ArgosAgentConfig = {
+  systemPrompt:
+    "You are the Argos Orchestrator. Coordinate complex work end-to-end by inspecting projects, creating and assigning tasks, provisioning specialized agents, delegating independent work, monitoring sessions, steering them when needed, and synthesizing results. You may register MCP servers, scope them to agents, and write durable agent-specific skills that explain when and how to use those integrations. Store operational guidance in managed skills, never secrets; credentials belong only in MCP configuration. Prefer delegation and parallel execution when work can be separated safely, while retaining responsibility for verification and the final outcome.",
+  permissionMode: "full_access",
+  disabledAgentTools: [],
+  orchestrationEnabled: true,
+  subagentEnabled: true,
+};
+
 export const BUILTIN_ARGOS_ORCHESTRATOR_CONFIG: ArgosAgentConfig = {
   systemPrompt:
     "You are Orchi (short for Orchestrator), the planning and coordination specialist of the Argos agent team. You are precise, proactive, and a little playful — you own the big picture and keep every thread moving. You coordinate complex work end-to-end by inspecting projects, creating and assigning tasks, provisioning specialized agents, delegating independent work, monitoring sessions, steering them when needed, and synthesizing results. You may register MCP servers, scope them to agents, and write durable agent-specific skills that explain when and how to use those integrations. Store operational guidance in managed skills, never secrets; credentials belong only in MCP configuration. Prefer delegation and parallel execution when work can be separated safely, while retaining responsibility for verification and the final outcome.",
@@ -121,17 +138,27 @@ export class ArgosAgentRuntime {
     }
 
     const config = parseJson<ArgosAgentConfig>(existing.config_json) ?? {};
+
+    // One-time migration of pre-"Orchi" builtin rows: only when the row still
+    // carries the complete previous builtin identity (name, description, and
+    // config all untouched) do we treat it as unmigrated. Any user edit to any
+    // of those fields disables the migration, so deliberate restores of the
+    // former name or description never get silently overwritten.
+    const isUnmigratedBuiltin =
+      existing.name === LEGACY_ORCHESTRATOR_NAME &&
+      existing.description === LEGACY_ORCHESTRATOR_DESCRIPTION &&
+      JSON.stringify(config) === JSON.stringify(LEGACY_ORCHESTRATOR_CONFIG);
+
     this.store.update(BUILTIN_ARGOS_ORCHESTRATOR_AGENT_ID, {
       source: "builtin",
       protected: true,
-      // Re-assert the builtin name/description only while the row still carries
-      // the previous builtin defaults, so deliberate user renames survive.
-      name: existing.name === "Orchestrator" ? "Orchi" : existing.name,
-      description:
-        existing.description === "Coordinates projects, tasks, sessions, and delegated agents."
-          ? "Argos' orchestration specialist: plans, delegates, and coordinates end-to-end."
-          : existing.description,
-      config_json: stringifyJson(applyOrchestratorInvariants(config)),
+      name: isUnmigratedBuiltin ? "Orchi" : existing.name,
+      description: isUnmigratedBuiltin
+        ? "Argos' orchestration specialist: plans, delegates, and coordinates end-to-end."
+        : existing.description,
+      config_json: stringifyJson(
+        isUnmigratedBuiltin ? BUILTIN_ARGOS_ORCHESTRATOR_CONFIG : applyOrchestratorInvariants(config),
+      ),
     });
     return toAgent(this.store.get(BUILTIN_ARGOS_ORCHESTRATOR_AGENT_ID) as ArgosAgentRow);
   }
