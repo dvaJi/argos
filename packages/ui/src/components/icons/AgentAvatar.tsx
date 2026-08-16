@@ -5,6 +5,7 @@ import { themeStore } from "#/stores/theme";
 import type { UIAgent } from "#/stores/ui/agent";
 import AcpAgentIcon from "./AcpAgentIcon";
 import argosLogo from "#/assets/logo.png";
+import orchiLogo from "#/assets/icons/orchi_logo.jpg";
 
 interface AgentAvatarProps {
   agent: Pick<UIAgent, "id" | "name" | "type" | "icon" | "avatar">;
@@ -42,12 +43,18 @@ export default function AgentAvatar({
 
   const showBuiltinArgosLogo = agent.id === "argos" && agent.type === "argos" && !agent.avatar && !agent.icon;
 
+  const showOrchiLogo = agent.id === "argos-orchestrator" && agent.type === "argos";
+
   const showAcpIcon = agent.type === "acp" && Boolean(agent.icon?.trim());
 
   const showAcpTerminalIcon = agent.type === "acp" && !agent.icon?.trim() && agent.avatar?.kind !== "lucide";
 
   const showImageIcon =
-    Boolean(agent.icon?.trim()) && !showBuiltinArgosLogo && !showAcpIcon && agent.avatar?.kind !== "lucide";
+    Boolean(agent.icon?.trim()) &&
+    !showBuiltinArgosLogo &&
+    !showOrchiLogo &&
+    !showAcpIcon &&
+    agent.avatar?.kind !== "lucide";
 
   if (showAcpIcon) {
     return (
@@ -61,10 +68,10 @@ export default function AgentAvatar({
     );
   }
 
-  if (showBuiltinArgosLogo || showImageIcon) {
+  if (showBuiltinArgosLogo || showOrchiLogo || showImageIcon) {
     return (
       <img
-        src={showBuiltinArgosLogo ? argosLogo : agent.icon}
+        src={showBuiltinArgosLogo ? argosLogo : showOrchiLogo ? orchiLogo : agent.icon}
         alt={agent.name}
         className={`object-contain ${className}`}
       />

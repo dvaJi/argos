@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import type { FloatingWidgetSessionAgent } from "@argos/shared/types/floating-widget";
 import argosLogo from "../../src/assets/logo.png";
+import orchiLogo from "../../src/assets/icons/orchi_logo.jpg";
 
 interface AgentAvatarProps {
   agent: FloatingWidgetSessionAgent;
@@ -36,19 +37,25 @@ export default function AgentAvatar({
 
   const showBuiltinArgosLogo = agent.id === "argos" && !agent.avatar && !agent.icon;
 
+  const showOrchiLogo = agent.id === "argos-orchestrator";
+
   const showAcpIcon = agent.type === "acp" && Boolean(agent.icon?.trim());
 
   const showImageIcon =
-    Boolean(agent.icon?.trim()) && !showBuiltinArgosLogo && !showAcpIcon && agent.avatar?.kind !== "lucide";
+    Boolean(agent.icon?.trim()) &&
+    !showBuiltinArgosLogo &&
+    !showOrchiLogo &&
+    !showAcpIcon &&
+    agent.avatar?.kind !== "lucide";
 
   if (showAcpIcon) {
     return <img src={agent.icon} alt={agent.name} className={`object-contain ${className}`} />;
   }
 
-  if (showBuiltinArgosLogo || showImageIcon) {
+  if (showBuiltinArgosLogo || showOrchiLogo || showImageIcon) {
     return (
       <img
-        src={showBuiltinArgosLogo ? argosLogo : agent.icon}
+        src={showBuiltinArgosLogo ? argosLogo : showOrchiLogo ? orchiLogo : agent.icon}
         alt={agent.name}
         className={`object-contain ${className}`}
       />
