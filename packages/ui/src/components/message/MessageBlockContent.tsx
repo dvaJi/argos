@@ -15,7 +15,9 @@ interface MessageBlockContentProps {
 
 const MessageBlockContentBase: FC<MessageBlockContentProps> = ({ block, messageId, threadId }) => {
   const propsRef = useRef({ block, messageId, threadId });
-  propsRef.current = { block, messageId, threadId };
+  useEffect(() => {
+    propsRef.current = { block, messageId, threadId };
+  }, [block, messageId, threadId]);
 
   const { processedContent } = useBlockContent({ block });
 

@@ -21,7 +21,7 @@ export function ChatSidePanel({ sessionId, workspacePath }: ChatSidePanelProps) 
   const browserClient = useMemo(() => createBrowserClient(), []);
 
   const stopBrowserOpenRequestedListener = useRef<(() => void) | null>(null);
-  const resizeCleanup = useRef<(() => void) | null>(null);
+  const resizeStartRef = useRef<{ startX: number; startWidth: number } | null>(null);
   const pendingResizeWidth = useRef<number | null>(null);
   const resizeFrame = useRef<number | null>(null);
   const panelMotionTimer = useRef<number | null>(null);
@@ -80,8 +80,6 @@ export function ChatSidePanel({ sessionId, workspacePath }: ChatSidePanelProps) 
   }, [sidepanelStore]);
 
   const stopResizeTracking = useCallback(() => {
-    resizeCleanup.current?.();
-    resizeCleanup.current = null;
     if (resizeFrame.current !== null) {
       window.cancelAnimationFrame(resizeFrame.current);
       resizeFrame.current = null;
@@ -127,31 +125,36 @@ export function ChatSidePanel({ sessionId, workspacePath }: ChatSidePanelProps) 
       event.preventDefault();
       if (isWorkspaceFullscreenActive) return;
       stopResizeTracking();
+      resizeStartRef.current = { startX: event.clientX, startWidth: sidepanelStore.width };
       setIsResizing(true);
-      const startX = event.clientX;
-      const startWidth = sidepanelStore.width;
-
-      const onMouseMove = (moveEvent: globalThis.MouseEvent) => {
-        pendingResizeWidth.current = startWidth - (moveEvent.clientX - startX);
-        if (resizeFrame.current === null) {
-          resizeFrame.current = window.requestAnimationFrame(applyPendingResize);
-        }
-      };
-      const onMouseUp = (_evt: globalThis.MouseEvent) => {
-        setIsResizing(false);
-        stopResizeTracking();
-      };
-
-      window.addEventListener("mousemove", onMouseMove, { passive: true });
-      window.addEventListener("mouseup", onMouseUp, { once: true });
-      resizeCleanup.current = () => {
-        window.removeEventListener("mousemove", onMouseMove);
-        window.removeEventListener("mouseup", onMouseUp);
-        setIsResizing(false);
-      };
     },
-    [isWorkspaceFullscreenActive, sidepanelStore.width, stopResizeTracking, applyPendingResize],
+    [isWorkspaceFullscreenActive, sidepanelStore.width, stopResizeTracking],
   );
+
+  useEffect(() => {
+    if (!isResizing) return;
+    const start = resizeStartRef.current;
+    if (!start) return;
+
+    const onMouseMove = (moveEvent: globalThis.MouseEvent) => {
+      pendingResizeWidth.current = start.startWidth - (moveEvent.clientX - start.startX);
+      if (resizeFrame.current === null) {
+        resizeFrame.current = window.requestAnimationFrame(applyPendingResize);
+      }
+    };
+    const onMouseUp = (_evt: globalThis.MouseEvent) => {
+      setIsResizing(false);
+    };
+
+    window.addEventListener("mousemove", onMouseMove, { passive: true });
+    window.addEventListener("mouseup", onMouseUp, { once: true });
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      stopResizeTracking();
+      setIsResizing(false);
+    };
+  }, [isResizing, applyPendingResize, stopResizeTracking]);
 
   useEffect(() => {
     clearPanelMotionHandles();

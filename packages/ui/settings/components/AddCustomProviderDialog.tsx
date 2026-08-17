@@ -76,10 +76,10 @@ export default function AddCustomProviderDialog({ open, onOpenChange, onProvider
     e.preventDefault();
     try {
       setIsSubmitting(true);
-      formData.id = nanoid();
+      const submittedProvider = { ...formData, id: nanoid() };
       closeDialog();
-      await providerStore.addCustomProvider(formData);
-      onProviderAdded?.(formData);
+      await providerStore.addCustomProvider(submittedProvider);
+      onProviderAdded?.(submittedProvider);
     } catch (error) {
       console.error("Failed to add custom provider:", error);
     } finally {

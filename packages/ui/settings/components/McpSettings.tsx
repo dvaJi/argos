@@ -31,8 +31,8 @@ export default function McpSettings() {
   const routerState = useRouterState();
   const windowPresenter = usePresenter("windowPresenter");
   const mcpServersRef = useRef<McpServersRef | null>(null);
-  const guideRootRef = useRef<HTMLDivElement | null>(null);
-  const mcpActionsRef = useRef<HTMLDivElement | null>(null);
+  const [guideRootEl, setGuideRootEl] = useState<HTMLDivElement | null>(null);
+  const [mcpActionsEl, setMcpActionsEl] = useState<HTMLDivElement | null>(null);
   const mcpGuide = useGuidedOnboardingStep("mcp");
   const [isMarketView, setIsMarketView] = useState(false);
   const [npmAdvancedDialogOpen, setNpmAdvancedDialogOpen] = useState(false);
@@ -62,7 +62,7 @@ export default function McpSettings() {
     () => Math.max(mcpStore.serverList.length - builtInCount, 0),
     [mcpStore.serverList.length, builtInCount],
   );
-  const showMcpGuide = useMemo(() => mcpGuide.showGuide && Boolean(mcpActionsRef.current), [mcpGuide.showGuide]);
+  const showMcpGuide = useMemo(() => mcpGuide.showGuide && Boolean(mcpActionsEl), [mcpGuide.showGuide, mcpActionsEl]);
 
   const continueMcpGuide = useCallback(
     async (state: any) => {
@@ -311,7 +311,7 @@ export default function McpSettings() {
   }
 
   return (
-    <div ref={guideRootRef} data-testid="settings-mcp-page" className="w-full h-full min-h-0 flex flex-col">
+    <div ref={setGuideRootEl} data-testid="settings-mcp-page" className="w-full h-full min-h-0 flex flex-col">
       <div className="shrink-0 px-4 pt-4">
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -320,7 +320,7 @@ export default function McpSettings() {
               <p className="text-xs text-muted-foreground">Manage MCP servers and tools</p>
             </div>
             <div
-              ref={mcpActionsRef}
+              ref={setMcpActionsEl}
               className="flex shrink-0 items-center gap-3"
               onClick={() => void handleMcpGuideTargetInteract()}
             >
@@ -447,8 +447,8 @@ export default function McpSettings() {
 
       <GuidedOnboardingOverlay
         visible={showMcpGuide}
-        containerEl={guideRootRef.current}
-        targetEl={mcpActionsRef.current}
+        containerEl={guideRootEl}
+        targetEl={mcpActionsEl}
         eyebrow="Guided Onboarding"
         title="Configure MCP"
         description="Enable MCP, add servers, and open the market to connect tools and capabilities."

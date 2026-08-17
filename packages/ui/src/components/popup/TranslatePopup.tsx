@@ -19,8 +19,8 @@ export default function TranslatePopup() {
   const [translatedText, setTranslatedText] = useState("");
   const [isTranslating, setIsTranslating] = useState(false);
   const [position, setPosition] = useState({ x: 100, y: 100 });
+  const [isDraggingActive, setIsDraggingActive] = useState(false);
 
-  const isDragging = useRef(false);
   const dragStart = useRef({ x: 0, y: 0 });
   const dragBounds = useRef({ minX: 0, maxX: 0, minY: 0, maxY: 0 });
   const dragFrameId = useRef<number | null>(null);
@@ -57,25 +57,8 @@ export default function TranslatePopup() {
     [flushPendingDragPosition],
   );
 
-  const removeDragListeners = useCallback(() => {
-    window.removeEventListener("pointermove", handleDrag);
-    window.removeEventListener("pointerup", stopDrag);
-    window.removeEventListener("pointercancel", stopDrag);
-  }, []);
-
-  const handleDrag = useCallback(
-    (event: MouseEvent) => {
-      if (!isDragging.current) return;
-      const newX = clamp(event.clientX - dragStart.current.x, dragBounds.current.minX, dragBounds.current.maxX);
-      const newY = clamp(event.clientY - dragStart.current.y, dragBounds.current.minY, dragBounds.current.maxY);
-      scheduleDragPosition(newX, newY);
-    },
-    [scheduleDragPosition],
-  );
-
   const stopDrag = useCallback(() => {
-    isDragging.current = false;
-    removeDragListeners();
+    setIsDraggingActive(false);
     if (dragFrameId.current !== null) {
       window.cancelAnimationFrame(dragFrameId.current);
       dragFrameId.current = null;
@@ -84,13 +67,29 @@ export default function TranslatePopup() {
       setPosition(pendingDragPosition.current);
       pendingDragPosition.current = null;
     }
-  }, [removeDragListeners]);
+  }, []);
 
-  const addDragListeners = useCallback(() => {
+  useEffect(() => {
+    if (!isDraggingActive) return;
+
+    const handleDrag = (event: MouseEvent) => {
+      const newX = clamp(event.clientX - dragStart.current.x, dragBounds.current.minX, dragBounds.current.maxX);
+      const newY = clamp(event.clientY - dragStart.current.y, dragBounds.current.minY, dragBounds.current.maxY);
+      scheduleDragPosition(newX, newY);
+    };
+    const endDrag = () => {
+      stopDrag();
+    };
+
     window.addEventListener("pointermove", handleDrag, { passive: true });
-    window.addEventListener("pointerup", stopDrag);
-    window.addEventListener("pointercancel", stopDrag);
-  }, [handleDrag, stopDrag]);
+    window.addEventListener("pointerup", endDrag);
+    window.addEventListener("pointercancel", endDrag);
+    return () => {
+      window.removeEventListener("pointermove", handleDrag);
+      window.removeEventListener("pointerup", endDrag);
+      window.removeEventListener("pointercancel", endDrag);
+    };
+  }, [isDraggingActive, scheduleDragPosition, stopDrag]);
 
   const startDrag = useCallback(
     (event: React.PointerEvent) => {
@@ -100,14 +99,13 @@ export default function TranslatePopup() {
       event.preventDefault();
       const bounds = getBounds();
       dragBounds.current = bounds;
-      isDragging.current = true;
       dragStart.current = {
         x: event.clientX - position.x,
         y: event.clientY - position.y,
       };
-      addDragListeners();
+      setIsDraggingActive(true);
     },
-    [getBounds, position, addDragListeners],
+    [getBounds, position],
   );
 
   const close = useCallback(() => {

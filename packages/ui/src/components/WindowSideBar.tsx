@@ -89,12 +89,13 @@ export default function WindowSideBar() {
     }
   }, [themeStore.themeMode]);
 
+  const hasActiveSession = getHasActiveSession();
+  const activeSessionAgentId = getActiveSession()?.agentId?.trim();
   const sidebarSelectedAgentId = useMemo(() => {
-    const activeSessionAgentId = getActiveSession()?.agentId?.trim();
-    if (getHasActiveSession() && activeSessionAgentId) return activeSessionAgentId;
+    if (hasActiveSession && activeSessionAgentId) return activeSessionAgentId;
     const selectedAgentId = typeof agentStore.selectedAgentId === "string" ? agentStore.selectedAgentId.trim() : "";
     return selectedAgentId || null;
-  }, [getHasActiveSession(), getActiveSession()?.agentId, agentStore.selectedAgentId]);
+  }, [hasActiveSession, activeSessionAgentId, agentStore.selectedAgentId]);
 
   const selectedAgentName = useMemo(() => {
     if (sidebarSelectedAgentId === null) return "All Agents";

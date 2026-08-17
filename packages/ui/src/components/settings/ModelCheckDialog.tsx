@@ -37,6 +37,12 @@ export default function ModelCheckDialog({ open, providerId, onOpenChange }: Mod
 
   const hasModels = useMemo(() => availableModels.length > 0, [availableModels]);
 
+  const resetDialog = useCallback(() => {
+    setSelectedModelId("");
+    setResult(null);
+    setIsChecking(false);
+  }, []);
+
   useEffect(() => {
     if (open && !isOpen) {
       resetDialog();
@@ -47,12 +53,6 @@ export default function ModelCheckDialog({ open, providerId, onOpenChange }: Mod
   useEffect(() => {
     onOpenChange(isOpen);
   }, [isOpen]);
-
-  const resetDialog = useCallback(() => {
-    setSelectedModelId("");
-    setResult(null);
-    setIsChecking(false);
-  }, []);
 
   const handleOpenChange = useCallback(
     (value: boolean) => {

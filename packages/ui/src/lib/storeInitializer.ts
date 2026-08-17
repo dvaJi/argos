@@ -70,11 +70,12 @@ export const useMcpInstallDeeplinkHandler = () => {
     mcpStore.setState((prev) => ({ ...prev, mcpInstallCache: mcpConfig }));
   };
 
-  const setup = () => {
+  const setup = (): (() => void) => {
     cleanupIpcListeners?.();
     const scope = createIpcSubscriptionScope();
-    scope.on(DEEPLINK_EVENTS.MCP_INSTALL, handleMcpInstall);
+    const unsubscribe = scope.on(DEEPLINK_EVENTS.MCP_INSTALL, handleMcpInstall);
     cleanupIpcListeners = scope.cleanup;
+    return unsubscribe;
   };
 
   const cleanup = () => {

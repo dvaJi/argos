@@ -36,8 +36,8 @@ export default function ModelChooser({
   const langStore = useLanguageStore();
   const chatMode = useChatMode();
 
+  const sortedProviders = getSortedProviders();
   const providers = useMemo(() => {
-    const sortedProviders = getSortedProviders();
     const enabledModels = modelStore.enabledModels;
     const currentMode = chatMode.currentMode;
 
@@ -63,7 +63,7 @@ export default function ModelChooser({
         return { id: provider.id, name: provider.name, models: eligibleModels };
       })
       .filter((provider): provider is { id: string; name: string; models: RENDERER_MODEL_META[] } => provider !== null);
-  }, [getSortedProviders(), modelStore.enabledModels, chatMode.currentMode, type, requiresVision]);
+  }, [sortedProviders, modelStore.enabledModels, chatMode.currentMode, type, requiresVision]);
 
   const filteredProviders = useMemo(() => {
     if (!keyword) return providers;

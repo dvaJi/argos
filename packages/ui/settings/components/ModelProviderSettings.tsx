@@ -103,11 +103,11 @@ export default function ModelProviderSettings({ providerId: routeProviderId }: M
   const windowPresenter = usePresenter("windowPresenter");
   const router = useRouter();
 
-  const guideRootRef = useRef<HTMLDivElement | null>(null);
   const providerDetailRef = useRef<HTMLDivElement | null>(null);
-  const providerListGuideTargetRef = useRef<HTMLDivElement | null>(null);
-  const providerApiKeyTargetRef = useRef<HTMLDivElement | null>(null);
-  const providerModelTargetRef = useRef<HTMLDivElement | null>(null);
+  const [guideRootEl, setGuideRootEl] = useState<HTMLDivElement | null>(null);
+  const [providerListGuideTargetEl, setProviderListGuideTargetEl] = useState<HTMLDivElement | null>(null);
+  const [providerApiKeyTargetEl] = useState<HTMLDivElement | null>(null);
+  const [providerModelTargetEl] = useState<HTMLDivElement | null>(null);
 
   const selectProviderGuide = useGuidedOnboardingStep("select-provider");
   const providerApiKeyGuide = useGuidedOnboardingStep("provider-api-key");
@@ -121,11 +121,15 @@ export default function ModelProviderSettings({ providerId: routeProviderId }: M
   const editInputRef = useRef<HTMLInputElement | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
+  const attachProviderListGuideTarget = useCallback((el: HTMLDivElement | null) => {
+    setProviderListGuideTargetEl(el?.parentElement ?? el);
+  }, []);
+
   const showClearButton = searchQueryBase.trim().length > 0;
 
-  const showSelectProviderGuide = selectProviderGuide.showGuide && Boolean(providerListGuideTargetRef.current);
-  const showProviderApiKeyGuide = providerApiKeyGuide.showGuide && Boolean(providerApiKeyTargetRef.current);
-  const showProviderModelGuide = providerModelGuide.showGuide && Boolean(providerModelTargetRef.current);
+  const showSelectProviderGuide = selectProviderGuide.showGuide && Boolean(providerListGuideTargetEl);
+  const showProviderApiKeyGuide = providerApiKeyGuide.showGuide && Boolean(providerApiKeyTargetEl);
+  const showProviderModelGuide = providerModelGuide.showGuide && Boolean(providerModelTargetEl);
 
   const detailGuideStepId = useMemo(() => {
     if (providerModelGuide.currentStepId === "provider-model") return "provider-model";
@@ -341,11 +345,7 @@ export default function ModelProviderSettings({ providerId: routeProviderId }: M
       onClick={() => void handleProviderRowClick(provider.id)}
     >
       <div
-        ref={(el) => {
-          if (provider.id === visibleProviders[0]?.id) {
-            (providerListGuideTargetRef as any).current = el?.parentElement ?? el;
-          }
-        }}
+        ref={provider.id === visibleProviders[0]?.id ? attachProviderListGuideTarget : undefined}
         className="contents"
       />
       <ModelIcon modelId={provider.id} customClass="w-4 h-4 text-muted-foreground" isDark={themeStore.isDark} />
@@ -426,7 +426,7 @@ export default function ModelProviderSettings({ providerId: routeProviderId }: M
 
   return (
     <>
-      <div ref={guideRootRef} data-testid="settings-provider-page" className="w-full h-full flex flex-row">
+      <div ref={setGuideRootEl} data-testid="settings-provider-page" className="w-full h-full flex flex-row">
         <ScrollArea className="w-80 border-r h-full">
           <div className="flex flex-col gap-4 p-4">
             <div className="flex flex-col gap-1">
@@ -553,8 +553,8 @@ export default function ModelProviderSettings({ providerId: routeProviderId }: M
       {showSelectProviderGuide && (
         <GuidedOnboardingOverlay
           visible={showSelectProviderGuide}
-          containerEl={guideRootRef.current}
-          targetEl={providerListGuideTargetRef.current}
+          containerEl={guideRootEl}
+          targetEl={providerListGuideTargetEl}
           eyebrow="Getting Started"
           title="Select a Provider"
           description="Configure your AI model providers and API keys."
@@ -588,8 +588,8 @@ export default function ModelProviderSettings({ providerId: routeProviderId }: M
       {showProviderApiKeyGuide && (
         <GuidedOnboardingOverlay
           visible={showProviderApiKeyGuide}
-          containerEl={guideRootRef.current}
-          targetEl={providerApiKeyTargetRef.current}
+          containerEl={guideRootEl}
+          targetEl={providerApiKeyTargetEl}
           eyebrow="Getting Started"
           title="Enter API Key"
           description="Configure your AI model providers and API keys."
@@ -629,8 +629,8 @@ export default function ModelProviderSettings({ providerId: routeProviderId }: M
       {showProviderModelGuide && (
         <GuidedOnboardingOverlay
           visible={showProviderModelGuide}
-          containerEl={guideRootRef.current}
-          targetEl={providerModelTargetRef.current}
+          containerEl={guideRootEl}
+          targetEl={providerModelTargetEl}
           eyebrow="Getting Started"
           title="Models"
           description="Configure your AI model providers and API keys."

@@ -97,10 +97,7 @@ const RagflowKnowledgeSettings = () => {
       enabled: editingConfig.enabled,
     };
     if (isEditing && editingIndex !== -1) {
-      setConfigs((prev) => {
-        prev[editingIndex] = config;
-        return [...prev];
-      });
+      setConfigs((prev) => prev.map((prevConfig, index) => (index === editingIndex ? config : prevConfig)));
     } else {
       setConfigs((prev) => [...prev, config]);
     }
@@ -109,18 +106,12 @@ const RagflowKnowledgeSettings = () => {
   };
 
   const removeConfig = async (index: number) => {
-    setConfigs((prev) => {
-      prev.splice(index, 1);
-      return [...prev];
-    });
+    setConfigs((prev) => prev.filter((_, i) => i !== index));
     await updateToMcp();
   };
 
   const toggleConfigEnabled = async (index: number, enabled: boolean) => {
-    setConfigs((prev) => {
-      prev[index].enabled = enabled;
-      return [...prev];
-    });
+    setConfigs((prev) => prev.map((config, i) => (i === index ? { ...config, enabled } : config)));
     await updateToMcp();
   };
 

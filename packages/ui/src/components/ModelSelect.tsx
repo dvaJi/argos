@@ -35,8 +35,8 @@ export default function ModelSelect({
   const langStore = useLanguageStore();
   const chatMode = useChatMode();
 
+  const sortedProviders = getSortedProviders();
   const providers = useMemo(() => {
-    const sortedProviders = getSortedProviders();
     const enabledModels = modelStore.enabledModels;
     const currentMode = chatMode.currentMode;
 
@@ -64,7 +64,7 @@ export default function ModelSelect({
       })
       .filter((provider): provider is { id: string; name: string; models: RENDERER_MODEL_META[] } => provider !== null);
   }, [
-    getSortedProviders(),
+    sortedProviders,
     modelStore.enabledModels,
     chatMode.currentMode,
     type,

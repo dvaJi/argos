@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import type { LLM_PROVIDER } from "@argos/shared/presenter";
 import { useProviderStore } from "#/stores/providerStore";
 import { Input } from "#shadcn/components/ui/input";
@@ -47,17 +47,26 @@ export default function VoiceAIProviderConfig({ provider }: VoiceAIProviderConfi
   const [isHydrating, setIsHydrating] = useState(true);
   const hydratingRef = useRef(true);
 
-  const persistUpdates = useRef(
-    (() => {
-      let timer: ReturnType<typeof setTimeout> | null = null;
-      return (updates: VoiceAIConfigUpdates) => {
-        if (timer) clearTimeout(timer);
-        timer = setTimeout(async () => {
-          await providerStore.updateVoiceAIConfig(updates);
-        }, 200);
-      };
-    })(),
+  const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const persistUpdates = useCallback(
+    (updates: VoiceAIConfigUpdates) => {
+      if (persistTimerRef.current) {
+        clearTimeout(persistTimerRef.current);
+      }
+      persistTimerRef.current = setTimeout(async () => {
+        await providerStore.updateVoiceAIConfig(updates);
+      }, 200);
+    },
+    [providerStore],
   );
+
+  useEffect(() => {
+    return () => {
+      if (persistTimerRef.current) {
+        clearTimeout(persistTimerRef.current);
+      }
+    };
+  }, []);
 
   const loadConfig = async () => {
     hydratingRef.current = true;
@@ -79,22 +88,22 @@ export default function VoiceAIProviderConfig({ provider }: VoiceAIProviderConfi
 
   useEffect(() => {
     if (hydratingRef.current) return;
-    persistUpdates.current({ audioFormat });
+    persistUpdates({ audioFormat });
   }, [audioFormat]);
 
   useEffect(() => {
     if (hydratingRef.current) return;
-    persistUpdates.current({ model: ttsModel });
+    persistUpdates({ model: ttsModel });
   }, [ttsModel]);
 
   useEffect(() => {
     if (hydratingRef.current) return;
-    persistUpdates.current({ language });
+    persistUpdates({ language });
   }, [language]);
 
   useEffect(() => {
     if (hydratingRef.current) return;
-    persistUpdates.current({ agentId });
+    persistUpdates({ agentId });
   }, [agentId]);
 
   const onTemperatureChange = (value: number | readonly number[]) => {
@@ -102,7 +111,7 @@ export default function VoiceAIProviderConfig({ provider }: VoiceAIProviderConfi
     if (next === undefined) return;
     setTemperature(next);
     if (hydratingRef.current) return;
-    persistUpdates.current({ temperature: next });
+    persistUpdates({ temperature: next });
   };
 
   const onTopPChange = (value: number | readonly number[]) => {
@@ -110,7 +119,7 @@ export default function VoiceAIProviderConfig({ provider }: VoiceAIProviderConfi
     if (next === undefined) return;
     setTopP(next);
     if (hydratingRef.current) return;
-    persistUpdates.current({ topP: next });
+    persistUpdates({ topP: next });
   };
 
   return (

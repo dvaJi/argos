@@ -1,5 +1,6 @@
-import { APP_RUNTIME_EVENTS, DEEPLINK_EVENTS, DEV_EVENTS, NOTIFICATION_EVENTS, SHORTCUT_EVENTS } from "#/events";
+import { useEffect } from "react";
 import { createIpcSubscriptionScope } from "#/lib/ipcSubscription";
+import { APP_RUNTIME_EVENTS, DEEPLINK_EVENTS, DEV_EVENTS, NOTIFICATION_EVENTS, SHORTCUT_EVENTS } from "#/events";
 
 interface UseAppIpcRuntimeOptions {
   handleStartDeeplink: (event: unknown, payload?: unknown) => void;
@@ -20,10 +21,7 @@ interface UseAppIpcRuntimeOptions {
 }
 
 export function useAppIpcRuntime(options: UseAppIpcRuntimeOptions) {
-  let cleanupListeners: (() => void) | null = null;
-
-  const setup = () => {
-    cleanupListeners?.();
+  useEffect(() => {
     const scope = createIpcSubscriptionScope();
 
     scope.on(DEEPLINK_EVENTS.START, options.handleStartDeeplink);
@@ -57,16 +55,6 @@ export function useAppIpcRuntime(options: UseAppIpcRuntimeOptions) {
       options.handleSystemNotificationClick(payload);
     });
 
-    cleanupListeners = scope.cleanup;
-  };
-
-  const cleanup = () => {
-    cleanupListeners?.();
-    cleanupListeners = null;
-  };
-
-  return {
-    setup,
-    cleanup,
-  };
+    return () => scope.cleanup();
+  }, []);
 }

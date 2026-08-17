@@ -148,21 +148,6 @@ export default function ProviderConfigImportDialog({
     ];
   }, [applyResult]);
 
-  useEffect(() => {
-    if (open) {
-      void initialize();
-    }
-  }, [open]);
-
-  const initialize = async () => {
-    setStep("scan");
-    setApplyResult(null);
-    setApplyError("");
-    setCurrentSourceIndex(0);
-    setSelectedProviderApiTypes({});
-    await runScan();
-  };
-
   const runScan = async () => {
     setIsScanning(true);
     setScanError("");
@@ -191,6 +176,21 @@ export default function ProviderConfigImportDialog({
       setIsScanning(false);
     }
   };
+
+  const initialize = async () => {
+    setStep("scan");
+    setApplyResult(null);
+    setApplyError("");
+    setCurrentSourceIndex(0);
+    setSelectedProviderApiTypes({});
+    await runScan();
+  };
+
+  useEffect(() => {
+    if (open) {
+      void initialize();
+    }
+  }, [open]);
 
   const toggleSource = (sourceId: ProviderImportSourceId) => {
     setSelectedSources((prev) => {

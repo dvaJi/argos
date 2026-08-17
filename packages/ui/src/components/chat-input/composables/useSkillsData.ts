@@ -14,9 +14,11 @@ export function useSkillsData(conversationId: string | null) {
   const [loading, setLoading] = useState(false);
 
   const conversationIdRef = useRef(conversationId);
-  conversationIdRef.current = conversationId;
   const activeSkillsRef = useRef(activeSkills);
-  activeSkillsRef.current = activeSkills;
+  useEffect(() => {
+    conversationIdRef.current = conversationId;
+    activeSkillsRef.current = activeSkills;
+  }, [conversationId, activeSkills]);
 
   const skills = useMemo<SkillMetadata[]>(() => storeSkills, [storeSkills]);
 

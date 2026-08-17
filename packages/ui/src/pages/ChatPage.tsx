@@ -76,6 +76,19 @@ const MESSAGE_JUMP_RETRY_INTERVAL = 80;
 const MESSAGE_HIGHLIGHT_DURATION = 2000;
 const MAX_MESSAGE_JUMP_RETRIES = 8;
 
+const displayMessageCache = new Map<
+  string,
+  {
+    updatedAt: number;
+    content: ChatMessageRecord["content"];
+    metadata: ChatMessageRecord["metadata"];
+    modelId: string;
+    providerId: string;
+    status: DisplayMessage["status"];
+    message: DisplayMessage;
+  }
+>();
+
 function ChatPage({ sessionId }: ChatPageProps) {
   const { toast } = useToast();
   const uiSettingsStore = useUiSettingsStore();
@@ -141,23 +154,6 @@ function ChatPage({ sessionId }: ChatPageProps) {
   const anchorRestoreFrameRef = useRef<number | null>(null);
   const attachmentFilterTokenRef = useRef(0);
 
-  const displayMessageCache = useMemo(
-    () =>
-      new Map<
-        string,
-        {
-          updatedAt: number;
-          content: ChatMessageRecord["content"];
-          metadata: ChatMessageRecord["metadata"];
-          modelId: string;
-          providerId: string;
-          status: DisplayMessage["status"];
-          message: DisplayMessage;
-        }
-      >(),
-    [],
-  );
-
   const sessionTitle = activeSession?.title ?? "New Chat";
   const sessionProject = activeSession?.projectDir ?? "";
   const isReadOnlySession = activeSession?.sessionKind === "subagent";
@@ -185,27 +181,6 @@ function ChatPage({ sessionId }: ChatPageProps) {
     if (!el) return;
     el.scrollTop = Math.max(el.scrollHeight - el.clientHeight, 0);
   }, []);
-
-  const scrollToBottom = useCallback(
-    (force = false) => {
-      if (force) {
-        markProgrammaticScroll(500);
-        setScrollMode("initial-bottom");
-        setShouldAutoFollow(true);
-      } else if (!uiSettingsStore.autoScrollEnabled || !shouldAutoFollow) {
-        return;
-      }
-      Promise.resolve().then(() => {
-        scrollDomToBottom();
-        if (force) scheduleScrollMetricsRead();
-      });
-    },
-    [uiSettingsStore.autoScrollEnabled, shouldAutoFollow, markProgrammaticScroll, scrollDomToBottom],
-  );
-
-  const schedulePostSubmitScrollToBottom = useCallback(() => {
-    Promise.resolve().then(() => scrollToBottom(true));
-  }, [scrollToBottom]);
 
   const scheduleScrollMetricsRead = useCallback(
     (fromUserScroll = false) => {
@@ -236,14 +211,32 @@ function ChatPage({ sessionId }: ChatPageProps) {
     [scrollMode, uiSettingsStore.autoScrollEnabled, isProgrammaticScrollActive],
   );
 
-  const onScroll = useCallback(() => {
-    const el = scrollContainerRef.current;
-    if (!el) return;
-    scheduleScrollMetricsRead(true);
-    if (el.scrollTop <= TOP_HISTORY_THRESHOLD) {
-      void loadOlderMessagesAtTop();
-    }
-  }, [scheduleScrollMetricsRead]);
+  const scrollToBottom = useCallback(
+    (force = false) => {
+      if (force) {
+        markProgrammaticScroll(500);
+        setScrollMode("initial-bottom");
+        setShouldAutoFollow(true);
+      } else if (!uiSettingsStore.autoScrollEnabled || !shouldAutoFollow) {
+        return;
+      }
+      Promise.resolve().then(() => {
+        scrollDomToBottom();
+        if (force) scheduleScrollMetricsRead();
+      });
+    },
+    [
+      uiSettingsStore.autoScrollEnabled,
+      shouldAutoFollow,
+      markProgrammaticScroll,
+      scrollDomToBottom,
+      scheduleScrollMetricsRead,
+    ],
+  );
+
+  const schedulePostSubmitScrollToBottom = useCallback(() => {
+    Promise.resolve().then(() => scrollToBottom(true));
+  }, [scrollToBottom]);
 
   const loadOlderMessagesAtTop = useCallback(async () => {
     if (messageStore.isLoadingHistory || !messageStore.hasMoreHistory || isProgrammaticScrollActive()) return;
@@ -261,6 +254,15 @@ function ChatPage({ sessionId }: ChatPageProps) {
       });
     });
   }, [messageStore, isProgrammaticScrollActive]);
+
+  const onScroll = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    scheduleScrollMetricsRead(true);
+    if (el.scrollTop <= TOP_HISTORY_THRESHOLD) {
+      void loadOlderMessagesAtTop();
+    }
+  }, [scheduleScrollMetricsRead, loadOlderMessagesAtTop]);
 
   const hasInlineStreamingTarget = streamState.currentStreamMessageId
     ? messageStore.messageIds.includes(streamState.currentStreamMessageId)
@@ -735,6 +737,80 @@ function ChatPage({ sessionId }: ChatPageProps) {
     setPlanFloatReservedHeight(0);
   }, [sessionId]);
 
+  const handleContextMenuAskAI = useCallback(
+    (event: Event) => {
+      if (isReadOnlySession) return;
+      const detail = (event as CustomEvent<string>).detail;
+      const text = typeof detail === "string" ? detail.trim() : "";
+      if (!text) return;
+      setMessage(text);
+    },
+    [isReadOnlySession],
+  );
+
+  const handleWorkspaceInsertReferenceRequested = useCallback(
+    (event: Event) => {
+      if (isReadOnlySession) return;
+      const detail = (event as CustomEvent<{ sessionId?: unknown; filePath?: unknown }>).detail;
+      const evtSessionId = typeof detail?.sessionId === "string" ? detail.sessionId.trim() : "";
+      const filePath = typeof detail?.filePath === "string" ? detail.filePath.trim() : "";
+      if (evtSessionId !== sessionId || !filePath) return;
+      chatInputRef.current?.insertWorkspaceReference?.(filePath);
+    },
+    [isReadOnlySession, sessionId],
+  );
+
+  const handleWindowKeydown = useCallback((event: KeyboardEvent) => {
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "f") {
+      event.preventDefault();
+      setIsChatSearchOpen(true);
+      Promise.resolve().then(() => chatSearchBarRef.current?.selectInput());
+      return;
+    }
+  }, []);
+
+  function cancelScheduledChatSearchRefresh() {
+    if (chatSearchRefreshFrameRef.current === null) return;
+    window.cancelAnimationFrame(chatSearchRefreshFrameRef.current);
+    chatSearchRefreshFrameRef.current = null;
+  }
+
+  function cancelSessionRestoreScrollSettle() {
+    if (sessionRestoreScrollFrameRef.current !== null) {
+      window.cancelAnimationFrame(sessionRestoreScrollFrameRef.current);
+      sessionRestoreScrollFrameRef.current = null;
+    }
+    if (sessionRestoreScrollTimerRef.current !== null) {
+      window.clearTimeout(sessionRestoreScrollTimerRef.current);
+      sessionRestoreScrollTimerRef.current = null;
+    }
+    cancelSessionRestoreScrollIntentListenersRef.current?.();
+    cancelSessionRestoreScrollIntentListenersRef.current = null;
+    sessionRestoreResizeObserverRef.current?.disconnect();
+    sessionRestoreResizeObserverRef.current = null;
+  }
+
+  async function focusPendingSpotlightMessageJump(attempt = 0): Promise<void> {
+    const pendingJump = spotlightStore.pendingMessageJump;
+    if (!pendingJump || pendingJump.sessionId !== sessionId) return;
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    let target = messageSearchRootRef.current?.querySelector<HTMLElement>(
+      `[data-message-id="${CSS.escape(pendingJump.messageId)}"]`,
+    );
+    if (!target && attempt < MAX_MESSAGE_JUMP_RETRIES) {
+      spotlightJumpTimerRef.current = window.setTimeout(() => {
+        void focusPendingSpotlightMessageJump(attempt + 1);
+      }, MESSAGE_JUMP_RETRY_INTERVAL);
+      return;
+    }
+    if (target) {
+      target.scrollIntoView({ block: "center", inline: "nearest", behavior: "auto" });
+      target.classList.add("message-highlight");
+      window.setTimeout(() => target.classList.remove("message-highlight"), MESSAGE_HIGHLIGHT_DURATION);
+      spotlightStore.clearPendingMessageJump();
+    }
+  }
+
   useEffect(() => {
     displayMessageCache.clear();
     sessionRestoreRequestIdRef.current += 1;
@@ -801,38 +877,6 @@ function ChatPage({ sessionId }: ChatPageProps) {
     };
   }, []);
 
-  const handleContextMenuAskAI = useCallback(
-    (event: Event) => {
-      if (isReadOnlySession) return;
-      const detail = (event as CustomEvent<string>).detail;
-      const text = typeof detail === "string" ? detail.trim() : "";
-      if (!text) return;
-      setMessage(text);
-    },
-    [isReadOnlySession],
-  );
-
-  const handleWorkspaceInsertReferenceRequested = useCallback(
-    (event: Event) => {
-      if (isReadOnlySession) return;
-      const detail = (event as CustomEvent<{ sessionId?: unknown; filePath?: unknown }>).detail;
-      const evtSessionId = typeof detail?.sessionId === "string" ? detail.sessionId.trim() : "";
-      const filePath = typeof detail?.filePath === "string" ? detail.filePath.trim() : "";
-      if (evtSessionId !== sessionId || !filePath) return;
-      chatInputRef.current?.insertWorkspaceReference?.(filePath);
-    },
-    [isReadOnlySession, sessionId],
-  );
-
-  const handleWindowKeydown = useCallback((event: KeyboardEvent) => {
-    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "f") {
-      event.preventDefault();
-      setIsChatSearchOpen(true);
-      Promise.resolve().then(() => chatSearchBarRef.current?.selectInput());
-      return;
-    }
-  }, []);
-
   const closeChatSearch = useCallback(() => {
     cancelScheduledChatSearchRefresh();
     clearChatSearchHighlights(messageSearchRootRef.current);
@@ -841,48 +885,6 @@ function ChatPage({ sessionId }: ChatPageProps) {
     setActiveChatSearchIndex(0);
     setIsChatSearchOpen(false);
   }, []);
-
-  function cancelScheduledChatSearchRefresh() {
-    if (chatSearchRefreshFrameRef.current === null) return;
-    window.cancelAnimationFrame(chatSearchRefreshFrameRef.current);
-    chatSearchRefreshFrameRef.current = null;
-  }
-
-  function cancelSessionRestoreScrollSettle() {
-    if (sessionRestoreScrollFrameRef.current !== null) {
-      window.cancelAnimationFrame(sessionRestoreScrollFrameRef.current);
-      sessionRestoreScrollFrameRef.current = null;
-    }
-    if (sessionRestoreScrollTimerRef.current !== null) {
-      window.clearTimeout(sessionRestoreScrollTimerRef.current);
-      sessionRestoreScrollTimerRef.current = null;
-    }
-    cancelSessionRestoreScrollIntentListenersRef.current?.();
-    cancelSessionRestoreScrollIntentListenersRef.current = null;
-    sessionRestoreResizeObserverRef.current?.disconnect();
-    sessionRestoreResizeObserverRef.current = null;
-  }
-
-  async function focusPendingSpotlightMessageJump(attempt = 0): Promise<void> {
-    const pendingJump = spotlightStore.pendingMessageJump;
-    if (!pendingJump || pendingJump.sessionId !== sessionId) return;
-    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-    let target = messageSearchRootRef.current?.querySelector<HTMLElement>(
-      `[data-message-id="${CSS.escape(pendingJump.messageId)}"]`,
-    );
-    if (!target && attempt < MAX_MESSAGE_JUMP_RETRIES) {
-      spotlightJumpTimerRef.current = window.setTimeout(() => {
-        void focusPendingSpotlightMessageJump(attempt + 1);
-      }, MESSAGE_JUMP_RETRY_INTERVAL);
-      return;
-    }
-    if (target) {
-      target.scrollIntoView({ block: "center", inline: "nearest", behavior: "auto" });
-      target.classList.add("message-highlight");
-      window.setTimeout(() => target.classList.remove("message-highlight"), MESSAGE_HIGHLIGHT_DURATION);
-      spotlightStore.clearPendingMessageJump();
-    }
-  }
 
   const displayMessages = useMemo(() => {
     const msgs: DisplayMessage[] = [];

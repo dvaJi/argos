@@ -63,46 +63,48 @@ function MainLayout() {
   const processingStartDeeplinkToken = useRef<number | null>(null);
   const processedStartDeeplinkToken = useRef<number | null>(null);
 
-  const handleErrorClosed = useCallback(() => {
-    currentErrorId.current = null;
+  const displayError = useCallback(function displayError(error: {
+    id: string;
+    title: string;
+    message: string;
+    type: string;
+  }) {
+    currentErrorId.current = error.id;
 
-    if (errorQueue.current.length > 0) {
-      const nextError = errorQueue.current.shift();
-      if (nextError) {
-        displayError(nextError);
-      }
-    } else if (errorDisplayTimer.current) {
-      clearTimeout(errorDisplayTimer.current);
-      errorDisplayTimer.current = null;
-    }
-  }, []);
+    const handleErrorClosed = () => {
+      currentErrorId.current = null;
 
-  const displayError = useCallback(
-    (error: { id: string; title: string; message: string; type: string }) => {
-      currentErrorId.current = error.id;
-
-      const { dismiss } = toast({
-        title: error.title,
-        description: error.message,
-        variant: "destructive",
-        onOpenChange: (open) => {
-          if (!open) {
-            handleErrorClosed();
-          }
-        },
-      });
-
-      if (errorDisplayTimer.current) {
+      if (errorQueue.current.length > 0) {
+        const nextError = errorQueue.current.shift();
+        if (nextError) {
+          displayError(nextError);
+        }
+      } else if (errorDisplayTimer.current) {
         clearTimeout(errorDisplayTimer.current);
+        errorDisplayTimer.current = null;
       }
+    };
 
-      errorDisplayTimer.current = window.setTimeout(() => {
-        dismiss();
-        handleErrorClosed();
-      }, 3000);
-    },
-    [handleErrorClosed],
-  );
+    const { dismiss } = toast({
+      title: error.title,
+      description: error.message,
+      variant: "destructive",
+      onOpenChange: (open) => {
+        if (!open) {
+          handleErrorClosed();
+        }
+      },
+    });
+
+    if (errorDisplayTimer.current) {
+      clearTimeout(errorDisplayTimer.current);
+    }
+
+    errorDisplayTimer.current = window.setTimeout(() => {
+      dismiss();
+      handleErrorClosed();
+    }, 3000);
+  }, []);
 
   const showErrorToast = useCallback(
     (error: { id: string; title: string; message: string; type: string }) => {
@@ -349,7 +351,7 @@ function MainLayout() {
     [handleResumeGuidedOnboarding],
   );
 
-  const { setup: setupMcpDeeplink, cleanup: cleanupMcpDeeplink } = useMcpInstallDeeplinkHandler();
+  const { setup: setupMcpDeeplink } = useMcpInstallDeeplinkHandler();
 
   const handleZoomIn = useCallback(() => {
     uiSettingsStore.setState((s) => ({
@@ -380,7 +382,7 @@ function MainLayout() {
     }
   }, []);
 
-  const { setup: setupAppIpcRuntime, cleanup: cleanupAppIpcRuntime } = useAppIpcRuntime({
+  useAppIpcRuntime({
     handleStartDeeplink: (event, payload) => {
       handleStartDeeplink(event, payload as Omit<StartDeeplinkPayload, "token"> | undefined);
     },
@@ -464,8 +466,7 @@ function MainLayout() {
     void ensureProvidersInitialized();
     void initializeModels();
     void fetchSessions();
-    setupMcpDeeplink();
-    setupAppIpcRuntime();
+    const cleanupMcpDeeplinkListeners = setupMcpDeeplink();
 
     // When the daemon bridge comes back after a failed startup, re-run the
     // critical store hydration so the UI actually recovers instead of staying
@@ -488,8 +489,7 @@ function MainLayout() {
         GUIDED_ONBOARDING_RESUME_REQUESTED_EVENT,
         handleGuidedOnboardingResumeRequested as EventListener,
       );
-      cleanupAppIpcRuntime();
-      cleanupMcpDeeplink();
+      cleanupMcpDeeplinkListeners();
     };
   }, []);
 

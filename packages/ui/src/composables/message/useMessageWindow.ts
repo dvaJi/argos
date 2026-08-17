@@ -1,4 +1,4 @@
-import { useMemo, useRef, useReducer } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import type { MessageListItem } from "#/components/chat/messageListItems";
 
 export type MessageLayoutEntry = {
@@ -68,26 +68,29 @@ function estimateHeight(msg: MessageListItem): number {
 
 export function useMessageWindow(messages: MessageListItem[]) {
   const measuredHeightsRef = useRef<Record<string, number>>({});
-  const [version, bumpVersion] = useReducer((c: number) => c + 1, 0);
+  const [measuredHeights, setMeasuredHeights] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    measuredHeightsRef.current = measuredHeights;
+  }, [measuredHeights]);
 
   const entries = useMemo<MessageLayoutEntry[]>(() => {
-    let offset = 0;
-    return messages.map((msg) => {
-      const measured = measuredHeightsRef.current[msg.id];
+    return messages.reduce<MessageLayoutEntry[]>((acc, msg) => {
+      const measured = measuredHeights[msg.id];
       const estimated = estimateHeight(msg);
       const height = measured ?? estimated;
-      const entry: MessageLayoutEntry = {
+      const offset = acc.length > 0 ? acc[acc.length - 1].bottom : 0;
+      acc.push({
         id: msg.id,
         orderSeq: msg.orderSeq,
         estimatedHeight: estimated,
         measuredHeight: measured,
         top: offset,
         bottom: offset + height,
-      };
-      offset = entry.bottom;
-      return entry;
-    });
-  }, [messages, version]);
+      });
+      return acc;
+    }, []);
+  }, [messages, measuredHeights]);
 
   const totalHeight = useMemo(() => entries[entries.length - 1]?.bottom ?? 0, [entries]);
 
@@ -101,13 +104,13 @@ export function useMessageWindow(messages: MessageListItem[]) {
     const prev = measuredHeightsRef.current[messageId];
     if (prev === rounded) return 0;
     measuredHeightsRef.current[messageId] = rounded;
-    bumpVersion();
+    setMeasuredHeights((state) => ({ ...state, [messageId]: rounded }));
     return rounded - (prev ?? getEntry(messageId)?.estimatedHeight ?? rounded);
   }
 
   function clearMeasurements() {
     measuredHeightsRef.current = {};
-    bumpVersion();
+    setMeasuredHeights({});
   }
 
   return { entries, totalHeight, getEntry, setMeasuredHeight, clearMeasurements };

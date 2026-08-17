@@ -84,7 +84,9 @@ export function MemoryManagerPanel({
   const searchRequestIdRef = useRef(0);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const agentIdRef = useRef(agentId);
-  agentIdRef.current = agentId;
+  useEffect(() => {
+    agentIdRef.current = agentId;
+  }, [agentId]);
 
   const searchActive = searchQuery.trim().length > 0;
   const categoryFilterActive = categoryFilter !== "all";

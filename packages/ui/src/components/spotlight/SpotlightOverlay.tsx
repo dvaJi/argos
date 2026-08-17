@@ -12,8 +12,8 @@ export default function SpotlightOverlay() {
   const mouseEnterRaf = useRef(0);
   const pendingMouseEnterId = useRef<string | number | null>(null);
 
-  const focusInput = useCallback(() => {
-    setTimeout(() => {
+  const focusInput = useCallback((): number => {
+    return window.setTimeout(() => {
       inputRef.current?.focus();
       inputRef.current?.select();
     }, 0);
@@ -145,10 +145,12 @@ export default function SpotlightOverlay() {
   );
 
   useEffect(() => {
-    if (spotlightStore.open) {
-      focusInput();
-    }
-  }, [spotlightStore.open, spotlightStore.activationKey]);
+    if (!spotlightStore.open) return;
+    const focusTimer = focusInput();
+    return () => {
+      window.clearTimeout(focusTimer);
+    };
+  }, [spotlightStore.open, spotlightStore.activationKey, focusInput]);
 
   useEffect(() => {
     if (

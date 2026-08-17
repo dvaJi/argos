@@ -96,7 +96,7 @@ export function TreesFileTree({ workspacePath, sessionId, onInsertFileReference 
   const reloadTokenRef = useRef(0);
 
   const collectPaths = useCallback(
-    async (dirPath: string, depth: number, acc: string[]): Promise<void> => {
+    async function collectPaths(dirPath: string, depth: number, acc: string[]): Promise<void> {
       if (depth > MAX_TREE_DEPTH || acc.length > MAX_TREE_NODES) return;
       let nodes: WorkspaceFileNode[];
       try {

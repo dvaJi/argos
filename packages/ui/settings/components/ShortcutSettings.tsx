@@ -9,6 +9,7 @@ import {
   enableShortcutKey,
   disableShortcutKey,
   saveShortcutKeys,
+  updateShortcutKey,
   resetShortcutKeys,
 } from "#/stores/shortcutKey";
 import { useLanguageStore } from "#/stores/language";
@@ -149,7 +150,7 @@ export default function ShortcutSettings() {
   const saveAndStopRecording = useCallback(() => {
     if (shortcutKeys && recordingShortcutId && tempShortcut) {
       const key = recordingShortcutId as keyof typeof shortcutKeys;
-      shortcutKeys[key] = tempShortcut;
+      updateShortcutKey(key, tempShortcut);
       void saveChanges();
     }
     setShortcutError("");
@@ -233,7 +234,7 @@ export default function ShortcutSettings() {
       try {
         if (recordingShortcutId === shortcutId) cancelRecording();
         const key = shortcutId as keyof typeof shortcutKeys;
-        shortcutKeys[key] = "";
+        updateShortcutKey(key, "");
         await saveChanges();
       } catch (error) {
         console.error("Clear shortcut error:", error);

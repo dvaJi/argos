@@ -151,7 +151,7 @@ export default function FloatingButton({ theme }: FloatingButtonProps) {
   );
 
   const handleMouseUp = useCallback(
-    (event: MouseEvent) => {
+    function handleMouseUp(event: MouseEvent) {
       if (event.button !== 0) return;
 
       const ds = dragStateRef.current;

@@ -68,9 +68,10 @@ const ChatTopBar: FC<ChatTopBarProps> = ({
   const [renameValue, setRenameValue] = useState("");
   const renameInputRef = useRef<HTMLInputElement | null>(null);
 
+  const newConversationTargetAgentId = getNewConversationTargetAgentId();
   const showCollapsedNewChatButton = useMemo(
-    () => sidebarStore.collapsed && Boolean(getNewConversationTargetAgentId()),
-    [sidebarStore.collapsed, getNewConversationTargetAgentId()],
+    () => sidebarStore.collapsed && Boolean(newConversationTargetAgentId),
+    [sidebarStore.collapsed, newConversationTargetAgentId],
   );
   const projectName = useMemo(() => project.split("/").pop() ?? project, [project]);
   const currentSession = useMemo(
@@ -156,22 +157,6 @@ const ChatTopBar: FC<ChatTopBarProps> = ({
     resetRenameState();
   }, [resetRenameState]);
 
-  const handleRenameInputKeydown = useCallback(
-    (event: KeyboardEvent) => {
-      if (event.nativeEvent.isComposing) return;
-      if (event.key === "Enter") {
-        event.preventDefault();
-        void handleRenameConfirm();
-        return;
-      }
-      if (event.key === "Escape") {
-        event.preventDefault();
-        handleRenameCancel();
-      }
-    },
-    [handleRenameCancel],
-  );
-
   const handleRenameConfirm = useCallback(async () => {
     if (isReadOnly) return;
     const normalized = renameValue.trim();
@@ -190,6 +175,22 @@ const ChatTopBar: FC<ChatTopBarProps> = ({
       console.error("Failed to rename chat:", error);
     }
   }, [isReadOnly, renameValue, currentTitle, sessionId, sessionStore, resetRenameState]);
+
+  const handleRenameInputKeydown = useCallback(
+    (event: KeyboardEvent) => {
+      if (event.nativeEvent.isComposing) return;
+      if (event.key === "Enter") {
+        event.preventDefault();
+        void handleRenameConfirm();
+        return;
+      }
+      if (event.key === "Escape") {
+        event.preventDefault();
+        handleRenameCancel();
+      }
+    },
+    [handleRenameCancel, handleRenameConfirm],
+  );
 
   useEffect(() => {
     resetRenameState();

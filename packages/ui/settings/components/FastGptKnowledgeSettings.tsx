@@ -81,10 +81,7 @@ const FastGptKnowledgeSettings = () => {
   const saveConfig = async () => {
     if (!isValid) return;
     if (isEditing && editingIndex !== -1) {
-      setConfigs((prev) => {
-        prev[editingIndex] = { ...editingConfig };
-        return [...prev];
-      });
+      setConfigs((prev) => prev.map((config, index) => (index === editingIndex ? { ...editingConfig } : config)));
     } else {
       setConfigs((prev) => [...prev, { ...editingConfig }]);
     }
@@ -93,18 +90,12 @@ const FastGptKnowledgeSettings = () => {
   };
 
   const removeConfig = async (index: number) => {
-    setConfigs((prev) => {
-      prev.splice(index, 1);
-      return [...prev];
-    });
+    setConfigs((prev) => prev.filter((_, i) => i !== index));
     await updateToMcp();
   };
 
   const toggleConfigEnabled = async (index: number, enabled: boolean) => {
-    setConfigs((prev) => {
-      prev[index].enabled = enabled;
-      return [...prev];
-    });
+    setConfigs((prev) => prev.map((config, i) => (i === index ? { ...config, enabled } : config)));
     await updateToMcp();
   };
 
