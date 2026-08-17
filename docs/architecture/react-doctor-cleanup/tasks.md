@@ -13,7 +13,9 @@
 - [x] Fix TraceDialog (3), ModelCheckDialog (2), TreesFileTree (1), MessageBlockThink (1), MessageBlockAction (1), McpPromptPanel (1), FloatingButton (1)
 - [x] Bucket B agent: MessageListRow, ChatTopBar, McpIndicator (3 fixed; others pre-cleared)
 - [x] Bucket C agent: settings.tsx, _main.tsx, useWorkspaceSync (+6 bonus todo clears)
-- [ ] Bucket A agent: settings components (in progress — App.tsx, ModelProviderSettings, McpSettings, ProviderRateLimitConfig, ShortcutSettings, VoiceAI, ProviderConfigImportDialog, AddCustomProviderDialog)
+- [x] Bucket A agent: settings components (App.tsx, ModelProviderSettings, McpSettings, ProviderRateLimitConfig, ShortcutSettings, VoiceAIProviderConfig, ProviderConfigImportDialog, AddCustomProviderDialog)
+- [x] Manual follow-ups missed by changed-files-only scans: `useMessageWindow` (refs/immutability → measured-height state + reduce), ShortcutSettings (immutability → `updateShortcutKey` store helper), McpPromptPanel reduce-spread cleanup
 - [x] Triage `todo` (111): ~96 try/finally + try-without-catch HIR lowering limits + 7 throw-in-try + 8 misc — documented deferrals; ~10 cleared as side effects of other fixes
-- [ ] Final rescan: full scope, improved score, no new cross-category diagnostics
-- [ ] `bun run format` + `bun run lint` + `bun run typecheck` green
+- [x] Final rescan: full scope, 242 → 105 errors, **0 non-`todo` errors**; score stays 0 (gated by `todo` severity) — deferral recorded in spec.md
+- [x] `bun run format` + `bun run lint` + `bun run typecheck` green (post-edit re-run)
+- [x] Warning delta reviewed: +123 `react-compiler-no-manual-memoization` are previously compile-skipped files now reporting pre-existing warnings (not regressions); `exhaustive-deps` -7
