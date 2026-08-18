@@ -19,8 +19,15 @@ async function writeFixtureFile(relativePath: string, content: string): Promise<
 function runArchitectureGuard(root: string) {
   const scriptPath = resolve(process.cwd(), "..", "..", "scripts", "architecture-guard.mjs");
   const scriptUrl = pathToFileURL(scriptPath).href;
+  // The guard runs under Bun in CI (`bun run lint:architecture`) and uses
+  // Bun.file for reads; spawning it under Node would crash on the Bun global.
+  const runner = process.env.BUN_INSTALL
+    ? resolve(process.env.BUN_INSTALL, "bun.exe")
+    : process.platform === "win32"
+      ? "bun.exe"
+      : "bun";
   return spawnSync(
-    process.execPath,
+    runner,
     ["--input-type=module", "--eval", `process.chdir(${JSON.stringify(root)}); await import(${JSON.stringify(scriptUrl)});`],
     {
       encoding: "utf8",

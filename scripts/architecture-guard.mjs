@@ -112,6 +112,31 @@ const HOT_PATH_FILES = [
 
 const HOT_PATH_EDGE_BASELINE = 11
 
+// ---- bun-file-io rule ----
+// Bun-runtime code (apps/daemon/src + bun-run scripts) must use Bun.file/Bun.write
+// for file reads/writes. node:fs stays correct for directory APIs (mkdir/readdir/
+// stat/rm/rename/cp/exists) per Bun's own docs.
+const BUN_FILE_IO_SCAN_ROOTS = [path.join(ROOT, 'apps/daemon/src'), path.join(ROOT, 'scripts')]
+const BUN_FILE_IO_EXCLUDED_FILES = new Set([
+  // electron-builder hooks run under Node, not Bun.
+  path.join(ROOT, 'scripts/afterPack.js'),
+  path.join(ROOT, 'scripts/notarize.js'),
+  // Imported in-process by apps/desktop vitest (Node) to mock child_process;
+  // must stay Node-compatible.
+  path.join(ROOT, 'scripts/sign-cua-helper.mjs')
+])
+const BUN_FILE_IO_FORBIDDEN_PATTERNS = [
+  // Sync variants are unambiguous fs calls (destructurable, no receiver needed).
+  /(?<![.\w$])(?:readFileSync|writeFileSync|appendFileSync)\s*\(/,
+  // Receiver forms (default/named fs import, fs/promises import).
+  /\bfs\.(?:readFile|writeFile|appendFile)\s*\(/,
+  /\bfsp\.(?:readFile|writeFile|appendFile)\s*\(/,
+  // Destructured async form: `await readFile(...)` (not method declarations).
+  /(?<=await\s)(?:readFile|writeFile|appendFile)\s*\(/
+]
+const BUN_FILE_IO_EXCEPTION_MARKER = 'bun-file-io-exception'
+
+
 const GENERIC_LEGACY_PRESENTER_CALL_PATTERN =
   /(?<!function\s)\b(?:usePresenter|useLegacyPresenter)\s*\(/g
 const LEGACY_PRESENTER_HELPER_CALL_PATTERN =
@@ -245,7 +270,7 @@ async function collectHotPathDirectEdges() {
   const edges = []
 
   for (const filePath of HOT_PATH_FILES) {
-    const source = await fs.readFile(filePath, 'utf8')
+    const source = await Bun.file(filePath).text()
     const specifiers = extractModuleSpecifiers(source)
 
     for (const specifier of specifiers) {
@@ -262,7 +287,7 @@ async function collectHotPathDirectEdges() {
 }
 
 async function loadBridgeRegister() {
-  const raw = await fs.readFile(BRIDGE_REGISTER_PATH, 'utf8')
+  const raw = await Bun.file(BRIDGE_REGISTER_PATH).text()
   const parsed = JSON.parse(raw)
 
   if (!parsed || typeof parsed !== 'object') {
@@ -352,6 +377,45 @@ function extractModuleSpecifiers(source) {
   return [...specifiers]
 }
 
+async function checkBunFileIo(violations) {
+  for (const root of BUN_FILE_IO_SCAN_ROOTS) {
+    if (!await pathExists(root)) continue
+    for (const file of await collectFiles(root)) {
+      if (BUN_FILE_IO_EXCLUDED_FILES.has(file)) continue
+      if (!isSourceFile(file)) continue
+      const source = await Bun.file(file).text()
+      const lines = source.split(/\r?\n/)
+
+      // File-level exception: a marker next to the node:fs import covers the file.
+      let headerException = false
+      for (let index = 0; index < lines.length; index++) {
+        if (lines[index].includes('node:fs') && !headerException) {
+          for (let offset = -2; offset <= 2; offset++) {
+            const probe = lines[index + offset]
+            if (probe && probe.includes(BUN_FILE_IO_EXCEPTION_MARKER)) {
+              headerException = true
+              break
+            }
+          }
+        }
+      }
+
+      for (let index = 0; index < lines.length; index++) {
+        const line = lines[index]
+        if (!BUN_FILE_IO_FORBIDDEN_PATTERNS.some((pattern) => pattern.test(line))) continue
+        const previous = index > 0 ? lines[index - 1] : ''
+        if (line.includes(BUN_FILE_IO_EXCEPTION_MARKER) || previous.includes(BUN_FILE_IO_EXCEPTION_MARKER)) {
+          continue
+        }
+        if (headerException) continue
+        violations.push(
+          `[bun-file-io] ${relativePath(file)}:${index + 1}: use Bun.file()/Bun.write() instead of node:fs read/write APIs (or mark with a bun-file-io-exception comment)`
+        )
+      }
+    }
+  }
+}
+
 async function main() {
   const scanRoots = [path.join(ROOT, 'apps/desktop/src'), path.join(ROOT, 'docs')]
   const fileSet = new Set()
@@ -369,6 +433,8 @@ async function main() {
   } catch (error) {
     violations.push(`[bridge-register-invalid] ${error instanceof Error ? error.message : String(error)}`)
   }
+
+  await checkBunFileIo(violations)
 
   for (const retiredEntryPath of RETIRED_RENDERER_LEGACY_ENTRY_PATHS) {
     if (await pathExists(retiredEntryPath)) {
@@ -388,7 +454,7 @@ async function main() {
   }
 
   for (const filePath of [...fileSet].sort()) {
-    const source = await fs.readFile(filePath, 'utf8')
+    const source = await Bun.file(filePath).text()
     const specifiers = extractModuleSpecifiers(source)
 
     if (isUnder(filePath, RENDERER_SOURCE_ROOT)) {
@@ -532,7 +598,7 @@ async function main() {
   }
 
   for (const filePath of await collectFiles(DAEMON_SOURCE_ROOT)) {
-    const source = await fs.readFile(filePath, 'utf8')
+    const source = await Bun.file(filePath).text()
     const specifiers = extractModuleSpecifiers(source)
     const electronImportCount = countMatches(source, ELECTRON_IMPORT_PATTERN)
 
@@ -582,7 +648,7 @@ async function main() {
     if (!await pathExists(root)) continue
     const pkgFiles = await collectFiles(root)
     for (const file of pkgFiles) {
-      const source = await fs.readFile(file, 'utf8')
+      const source = await Bun.file(file).text()
       for (const pattern of FORBIDDEN_PACKAGE_IMPORTS) {
         if (pattern.test(source)) {
           violations.push(

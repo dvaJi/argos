@@ -175,6 +175,7 @@ export class AcpLaunchSpecService {
     const commandPath = this.resolveInstalledBinaryPath(installDir, binaryConfig.cmd);
 
     if (!options?.repair && commandPath) {
+      this.sweepStaleInstallDirs(agent.id);
       return {
         status: "installed",
         distributionType: "binary",
@@ -186,9 +187,11 @@ export class AcpLaunchSpecService {
       };
     }
 
+    let swappedDir: string | null = null;
+
     try {
       if (options?.repair && fs.existsSync(installDir)) {
-        fs.rmSync(installDir, { recursive: true, force: true });
+        swappedDir = this.replaceInstallDir(installDir);
       }
       ensureDir(installDir);
 
@@ -205,6 +208,8 @@ export class AcpLaunchSpecService {
         fs.chmodSync(installedCommand, 0o755);
       }
 
+      this.sweepStaleInstallDirs(agent.id);
+
       return {
         status: "installed",
         distributionType: "binary",
@@ -215,6 +220,9 @@ export class AcpLaunchSpecService {
         error: null,
       };
     } catch (error) {
+      if (swappedDir) {
+        this.restoreSwappedInstallDir(swappedDir, installDir);
+      }
       return {
         status: "error",
         distributionType: "binary",
@@ -243,6 +251,7 @@ export class AcpLaunchSpecService {
       this.removeInstallDir(installDir);
     }
 
+    this.sweepStaleInstallDirs(agent.id);
     this.pruneEmptyAgentInstallRoot(agent.id);
   }
 
@@ -352,6 +361,79 @@ export class AcpLaunchSpecService {
     }
 
     fs.rmSync(resolvedInstallDir, { recursive: true, force: true });
+  }
+
+  /**
+   * Replaces an existing install dir ahead of a reinstall. On Windows a running
+   * binary locks its version directory (rm fails with EACCES/EPERM/EBUSY), but
+   * the directory itself can still be renamed while the process keeps its file
+   * handle. Swap it aside and let `sweepStaleInstallDirs` remove it once the
+   * process exits. Returns the swapped-aside path when a rename was used, or
+   * null when the directory was deleted outright.
+   */
+  private replaceInstallDir(installDir: string): string | null {
+    try {
+      this.removeInstallDir(installDir);
+      return null;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException)?.code;
+      if (process.platform !== "win32" || (code !== "EACCES" && code !== "EPERM" && code !== "EBUSY")) {
+        throw error;
+      }
+
+      const swappedDir = `${installDir}.old-${Date.now()}`;
+      fs.renameSync(installDir, swappedDir);
+      return swappedDir;
+    }
+  }
+
+  /** Restores a swapped-aside install dir after a fresh install failed. */
+  private restoreSwappedInstallDir(swappedDir: string, installDir: string): void {
+    try {
+      fs.rmSync(installDir, { recursive: true, force: true });
+    } catch {
+      // The partial install dir may itself be locked; leave it for the sweep.
+    }
+
+    try {
+      if (!fs.existsSync(installDir)) {
+        fs.renameSync(swappedDir, installDir);
+      }
+    } catch {
+      // Best effort; a later sweep removes the stale dir.
+    }
+  }
+
+  /** Removes `.old-*` install dirs left behind by locked-file swap installs. */
+  private sweepStaleInstallDirs(agentId: string): void {
+    const safeAgentId = sanitizeInstallSegment(agentId, "agent id");
+    const agentRoot = path.resolve(path.join(this.installRoot, safeAgentId));
+    if (!isPathWithinRoot(agentRoot, path.resolve(this.installRoot))) {
+      return;
+    }
+
+    let entries: string[];
+    try {
+      entries = fs.readdirSync(agentRoot);
+    } catch {
+      return;
+    }
+
+    if (!Array.isArray(entries)) {
+      return;
+    }
+
+    for (const entry of entries) {
+      if (!entry.includes(".old-")) {
+        continue;
+      }
+
+      try {
+        fs.rmSync(path.join(agentRoot, entry), { recursive: true, force: true });
+      } catch {
+        // Still locked by a running process; retried on the next sweep.
+      }
+    }
   }
 
   private pruneEmptyAgentInstallRoot(agentId: string): void {

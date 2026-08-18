@@ -120,4 +120,18 @@ describe("dispatchConfigRoute", () => {
     expect(result).toHaveProperty("version");
     expect(result).toHaveProperty("values");
   });
+
+  it("dispatches config.updateAcpAgent", async () => {
+    const config = createMockConfigPresenter();
+    config.updateAcpAgent = vi.fn<(...args: any[]) => any>().mockResolvedValue({
+      status: "installed",
+      version: "1.0.0",
+      distributionType: "binary",
+      lastCheckedAt: Date.now(),
+    });
+    const result = await dispatchConfigRoute(config, "config.updateAcpAgent", { agentId: "agent-1" });
+    expect(config.updateAcpAgent).toHaveBeenCalledWith("agent-1");
+    expect(result).toHaveProperty("installState");
+    expect(result.installState).toHaveProperty("status", "installed");
+  });
 });

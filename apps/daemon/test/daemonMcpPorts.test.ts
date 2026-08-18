@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "bun:test";
 import { createDaemonMcpPorts } from "../src/host/daemonMcpPorts";
 
 describe("createDaemonMcpPorts", () => {

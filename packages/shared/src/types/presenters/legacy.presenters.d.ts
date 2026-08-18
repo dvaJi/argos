@@ -19,7 +19,6 @@ import type { AgentSessionLifecycleStatus } from "./agent-provider";
 import type { DatabaseRepairReport, DatabaseSchemaDiagnosis } from "../databaseSchema";
 import type { ISessionPresenter } from "./session.presenter";
 import type { IConversationExporter } from "./exporter.presenter";
-import type { IWorkspacePresenter } from "./workspace";
 import type { AgentToolAccessContext, IToolPresenter } from "./tool.presenter";
 import type { ISkillPresenter } from "../skill";
 import type { ISkillSyncPresenter } from "../skillSync";
@@ -477,7 +476,6 @@ export interface IPresenter {
   oauthPresenter: IOAuthPresenter;
   dialogPresenter: IDialogPresenter;
   knowledgePresenter: IKnowledgePresenter;
-  workspacePresenter: IWorkspacePresenter;
   toolPresenter: IToolPresenter;
   skillPresenter: ISkillPresenter;
   skillSyncPresenter: ISkillSyncPresenter;

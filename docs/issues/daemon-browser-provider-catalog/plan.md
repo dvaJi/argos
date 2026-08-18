@@ -11,11 +11,11 @@
 
 - `apps/daemon/src/host/daemonConfigPresenter.ts`
 - `apps/daemon/src/dispatch/daemonDispatcher.ts`
-- `apps/daemon/test/e2e-hybrid.test.ts`
+- `apps/daemon/test/e2e-hybrid.ts`
 
 ## Validation
 
-- `bun run --filter @argos/daemon test -- e2e-hybrid.test.ts`
+- `bun run apps/daemon/test/e2e-hybrid.ts`
 - `bun run format`
 - `bun run lint`
 - `bun run typecheck`

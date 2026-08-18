@@ -1,6 +1,3 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
-import { dirname } from "node:path";
-
 type LogLevel = "debug" | "info" | "warn" | "error";
 
 const LOG_LEVELS: Record<LogLevel, number> = {
@@ -49,57 +46,3 @@ export const logger = {
     }
   },
 };
-
-type ErrorRecoveryResult = {
-  recovered: boolean;
-  error?: string;
-};
-
-async function withErrorRecovery<T>(
-  operation: () => Promise<T>,
-  options: {
-    retries?: number;
-    delayMs?: number;
-    operationName?: string;
-    onError?: (error: unknown) => void;
-  } = {},
-): Promise<T> {
-  const { retries = 2, delayMs = 100, operationName = "operation", onError } = options;
-  let lastError: unknown;
-
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      return await operation();
-    } catch (error) {
-      lastError = error;
-      onError?.(error);
-
-      if (attempt < retries) {
-        logger.warn(
-          `[${operationName}] Attempt ${attempt + 1} failed, retrying in ${delayMs}ms...`,
-          error instanceof Error ? error.message : String(error),
-        );
-        await new Promise((resolve) => setTimeout(resolve, delayMs));
-      }
-    }
-  }
-
-  throw lastError;
-}
-
-function loadJsonFile<T>(filePath: string, fallback: T): T {
-  if (!existsSync(filePath)) {
-    return fallback;
-  }
-  try {
-    const raw = readFileSync(filePath, "utf-8");
-    return JSON.parse(raw) as T;
-  } catch {
-    return fallback;
-  }
-}
-
-function saveJsonFile(filePath: string, data: unknown): void {
-  mkdirSync(dirname(filePath), { recursive: true });
-  writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
-}

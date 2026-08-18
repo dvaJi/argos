@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+// bun-file-io-exception (whole file): exclusive-create `wx` writes (no Bun.write
+// equivalent) plus a synchronous startup call site in src/index.ts.
 import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 

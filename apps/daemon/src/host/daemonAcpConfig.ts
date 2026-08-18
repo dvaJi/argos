@@ -132,6 +132,64 @@ export class DaemonAcpConfig {
     return repaired;
   }
 
+  async updateAcpAgent(agentId: string): Promise<AcpAgentInstallState> {
+    const resolvedId = resolveAcpAgentAlias(agentId);
+    const registryAgent = this.getRegistryAgentOrThrow(resolvedId);
+    const selection = this.acpLaunchSpecService.selectRegistryDistribution(registryAgent);
+
+    // npx/uvx runners resolve the latest package at launch time, so there is
+    // nothing to download. Report the current state as "up to date".
+    if (!selection || selection.type !== "binary") {
+      return (
+        this.acpConfHelper.getInstallState(resolvedId) ?? {
+          status: "installed",
+          distributionType: selection?.type,
+          version: registryAgent.version,
+          lastCheckedAt: Date.now(),
+          installedAt: null,
+          installDir: null,
+          error: null,
+        }
+      );
+    }
+
+    const currentState = this.acpConfHelper.getInstallState(resolvedId);
+    this.acpConfHelper.setInstallState(resolvedId, {
+      status: "installing",
+      version: registryAgent.version,
+      distributionType: "binary",
+      lastCheckedAt: Date.now(),
+      installedAt: currentState?.installedAt ?? null,
+      installDir: currentState?.installDir ?? null,
+      error: null,
+    });
+
+    try {
+      // repair:true deletes the old version dir and re-downloads the new version.
+      const installedState = await this.acpLaunchSpecService.ensureRegistryAgentInstalled(registryAgent, currentState, {
+        repair: true,
+      });
+      if (installedState.status === "error") {
+        // ensureRegistryAgentInstalled catches download/extract failures internally
+        // and returns an error state instead of throwing; surface it as a failure.
+        throw new Error(installedState.error ?? "Agent update failed");
+      }
+      this.acpConfHelper.setInstallState(resolvedId, installedState);
+      return installedState;
+    } catch (error) {
+      this.acpConfHelper.setInstallState(resolvedId, {
+        status: "error",
+        version: registryAgent.version,
+        distributionType: "binary",
+        lastCheckedAt: Date.now(),
+        installedAt: currentState?.installedAt ?? null,
+        installDir: currentState?.installDir ?? null,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  }
+
   async uninstallAcpRegistryAgent(agentId: string): Promise<void> {
     const resolvedId = resolveAcpAgentAlias(agentId);
     const registryAgent = this.getRegistryAgentOrThrow(resolvedId);

@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { createDaemonDispatcher } from "../src/dispatch/daemonDispatcher";
 import { connectionDescribeEnvironmentRoute } from "@argos/shared-contracts/routes";
 

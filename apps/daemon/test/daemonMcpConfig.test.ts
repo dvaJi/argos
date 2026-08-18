@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "bun:test";
 import { DaemonMcpConfig } from "../src/host/daemonMcpConfig";
 
 describe("DaemonMcpConfig", () => {

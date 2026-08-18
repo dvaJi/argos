@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "bun:test";
 import { createDaemonDispatcher } from "../src/dispatch/daemonDispatcher";
 import { BunSessionRepository } from "../src/host/bun-session-repository";
 import { AcpProviderExecutionPort } from "../src/host/acp-provider-execution";

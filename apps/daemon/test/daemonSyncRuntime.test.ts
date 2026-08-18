@@ -2,18 +2,18 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { zipSync } from "fflate";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, mock, vi } from "bun:test";
 
-const cloudMocks = vi.hoisted(() => ({
+const cloudMocks = {
   testConnection: vi.fn(),
   uploadBackup: vi.fn(),
   downloadLatest: vi.fn(),
   constructor: vi.fn(),
-}));
+};
 
-vi.mock("@argos/backend-core", () => ({}));
+mock.module("@argos/backend-core", () => ({}));
 
-vi.mock("../src/host/bunS3CloudStorageService", () => ({
+mock.module("../src/host/bunS3CloudStorageService", () => ({
   BunS3CloudStorageService: class {
     constructor(config: unknown) {
       cloudMocks.constructor(config);
@@ -26,6 +26,14 @@ vi.mock("../src/host/bunS3CloudStorageService", () => ({
 }));
 
 const { DaemonSyncRuntime } = await import("../src/host/daemonSyncRuntime");
+
+// bun:test has no vi.stubEnv/vi.unstubAllEnvs — stub manually and restore in afterEach.
+let stubbedEnv: Record<string, string | undefined> = {};
+
+function stubEnv(key: string, value: string): void {
+  if (!(key in stubbedEnv)) stubbedEnv[key] = process.env[key];
+  process.env[key] = value;
+}
 
 describe("DaemonSyncRuntime cloud sync", () => {
   let tempDir: string;
@@ -43,7 +51,11 @@ describe("DaemonSyncRuntime cloud sync", () => {
 
   afterEach(() => {
     fs.rmSync(tempDir, { recursive: true, force: true });
-    vi.unstubAllEnvs();
+    for (const [key, value] of Object.entries(stubbedEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    stubbedEnv = {};
   });
 
   function createRuntime(): InstanceType<typeof DaemonSyncRuntime> {
@@ -109,10 +121,10 @@ describe("DaemonSyncRuntime cloud sync", () => {
   });
 
   it("tests cloud credentials using environment overrides", async () => {
-    vi.stubEnv("ARGOS_SYNC_S3_ENDPOINT", "http://minio.local");
-    vi.stubEnv("ARGOS_SYNC_S3_BUCKET", "env-bucket");
-    vi.stubEnv("ARGOS_SYNC_S3_ACCESS_KEY_ID", "env-access");
-    vi.stubEnv("ARGOS_SYNC_S3_SECRET_ACCESS_KEY", "env-secret");
+    stubEnv("ARGOS_SYNC_S3_ENDPOINT", "http://minio.local");
+    stubEnv("ARGOS_SYNC_S3_BUCKET", "env-bucket");
+    stubEnv("ARGOS_SYNC_S3_ACCESS_KEY_ID", "env-access");
+    stubEnv("ARGOS_SYNC_S3_SECRET_ACCESS_KEY", "env-secret");
     const runtime = createRuntime();
 
     const result = await runtime.testCloud();

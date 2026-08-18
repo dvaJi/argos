@@ -6,7 +6,7 @@
 //   DRY_RUN=1 bun run distro:bump-tap -- 0.1.0   # print formula, do not push
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -94,7 +94,7 @@ async function resolveHashes(tag, token) {
   return hashes;
 }
 
-function pushToTap(formula, version, token) {
+async function pushToTap(formula, version, token) {
   const dir = join(tmpdir(), `homebrew-tap-${Date.now()}`);
   rmSync(dir, { recursive: true, force: true });
   const authedUrl = `https://x-access-token:${token}@github.com/${TAP_REPO}`;
@@ -103,7 +103,7 @@ function pushToTap(formula, version, token) {
   if (r1.status !== 0) throw new Error("git clone failed");
 
   mkdirSync(join(dir, "Formula"), { recursive: true });
-  writeFileSync(join(dir, FORMULA_REL), formula, "utf8");
+  await Bun.write(join(dir, FORMULA_REL), formula);
 
   const run = (args) => {
     const r = spawnSync("git", ["-c", "user.name=argos-release-bot", "-c", "user.email=bot@argos", ...args], {
@@ -141,7 +141,7 @@ async function main() {
   }
 
   console.log("> Pushing formula to dvaJi/homebrew-tap...");
-  pushToTap(formula, version, token);
+  await pushToTap(formula, version, token);
   console.log("Done. `brew install dvaJi/tap/argos-daemon` is now live.");
 }
 

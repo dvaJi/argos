@@ -1,3 +1,5 @@
+// bun-file-io-exception: fd-based positioned reads (openSync + read loops) for
+// binary header parsing; no Bun equivalent for repeated positioned reads.
 import fs from "node:fs";
 import path from "node:path";
 

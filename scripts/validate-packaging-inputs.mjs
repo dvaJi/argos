@@ -1,14 +1,12 @@
-import { access, readFile } from "node:fs/promises";
+import { access } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-
-import YAML from "yaml";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(scriptDir, "..");
 
 const readJson = async (relativePath) =>
-  JSON.parse(await readFile(path.join(repositoryRoot, relativePath), "utf8"));
+  JSON.parse(await Bun.file(path.join(repositoryRoot, relativePath)).text());
 
 const assertFile = async (label, relativePath) => {
   const absolutePath = path.resolve(repositoryRoot, relativePath);
@@ -24,7 +22,7 @@ if (rootPackage.main !== "./apps/desktop/out/main/index.js") {
 await assertFile("Electron entrypoint", rootPackage.main);
 
 const configPath = path.join(repositoryRoot, "apps/desktop/electron-builder.yml");
-const config = YAML.parse(await readFile(configPath, "utf8"));
+const config = Bun.YAML.parse(await Bun.file(configPath).text());
 
 await assertFile("NSIS include", config.nsis.include);
 await assertFile("macOS entitlements", config.mac.entitlementsInherit);

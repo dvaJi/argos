@@ -7,7 +7,6 @@ import type {
   IProjectPresenter,
   ITabPresenter,
   IWindowPresenter,
-  IWorkspacePresenter,
   IYoBrowserPresenter,
 } from "@argos/shared/presenter";
 import { createMainKernelRouteRuntime, dispatchArgosRoute } from "#/routes";
@@ -72,6 +71,27 @@ vi.mock("electron", () => ({
       [...browserWindowState.windows.values()].find((window) => window.webContents.id === webContents.id) ?? null,
   },
 }));
+
+// Daemon-owned routes (workspace.*, sessions.*, …) delegate through
+// invokeDaemonRoute. Fixture outputs are registered per test; unregistered
+// routes fall through to the real proxy (daemon_not_running), matching the
+// pre-delegation behavior of these suites.
+const daemonRouteMocks = vi.hoisted(() => ({
+  outputs: new Map<string, unknown>(),
+  invokeDaemonRoute: null as unknown as ReturnType<typeof vi.fn>,
+}));
+
+vi.mock("#/routes/daemonRouteProxy", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("#/routes/daemonRouteProxy")>();
+  const invokeDaemonRoute = vi.fn(async (route: string, input: unknown) => {
+    if (daemonRouteMocks.outputs.has(route)) {
+      return daemonRouteMocks.outputs.get(route);
+    }
+    return actual.invokeDaemonRoute(route, input);
+  });
+  daemonRouteMocks.invokeDaemonRoute = invokeDaemonRoute;
+  return { ...actual, invokeDaemonRoute };
+});
 
 function createRuntime() {
   browserWindowState.reset();
@@ -415,58 +435,62 @@ function createRuntime() {
     writeImageBase64: vi.fn<(...args: any[]) => any>().mockResolvedValue("/tmp/capture.png"),
   } as unknown as IFilePresenter;
 
-  const workspacePresenter = {
-    registerWorkspace: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
-    registerWorkdir: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
-    unregisterWorkspace: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
-    unregisterWorkdir: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
-    watchWorkspace: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
-    unwatchWorkspace: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
-    readDirectory: vi.fn<(...args: any[]) => any>().mockResolvedValue([
+  const workspaceShell = {
+    revealFileInFolder: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    openFile: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+  };
+
+  // Daemon-owned workspace routes resolve from the invokeDaemonRoute fixture map.
+  daemonRouteMocks.outputs.clear();
+  daemonRouteMocks.outputs.set("workspace.register", { registered: true });
+  daemonRouteMocks.outputs.set("workspace.unregister", { unregistered: true });
+  daemonRouteMocks.outputs.set("workspace.watch", { watching: true });
+  daemonRouteMocks.outputs.set("workspace.unwatch", { watching: false });
+  daemonRouteMocks.outputs.set("workspace.readDirectory", {
+    nodes: [
       {
         name: "src",
         path: "/workspace/src",
         isDirectory: true,
       },
-    ]),
-    expandDirectory: vi.fn<(...args: any[]) => any>().mockResolvedValue([
-      {
-        name: "app.ts",
-        path: "/workspace/src/app.ts",
-        isDirectory: false,
-      },
-    ]),
-    revealFileInFolder: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
-    openFile: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
-    readFilePreview: vi.fn<(...args: any[]) => any>().mockResolvedValue(workspacePreview),
-    resolveMarkdownLinkedFile: vi.fn<(...args: any[]) => any>().mockResolvedValue({
-      path: "/workspace/docs/guide.md",
-      name: "guide.md",
-      relativePath: "docs/guide.md",
-      workspaceRoot: "/workspace",
-    }),
-    getGitStatus: vi.fn<(...args: any[]) => any>().mockResolvedValue({
+    ],
+  });
+  daemonRouteMocks.outputs.set("workspace.readFilePreview", { preview: workspacePreview });
+  daemonRouteMocks.outputs.set("workspace.getGitStatus", {
+    state: {
       workspacePath: "/workspace",
       branch: "main",
       ahead: 0,
       behind: 0,
       changes: [],
-    }),
-    getGitDiff: vi.fn<(...args: any[]) => any>().mockResolvedValue({
+    },
+  });
+  daemonRouteMocks.outputs.set("workspace.getGitDiff", {
+    diff: {
       workspacePath: "/workspace",
       filePath: "/workspace/src/app.ts",
       relativePath: "src/app.ts",
       staged: "",
       unstaged: "diff --git a/src/app.ts b/src/app.ts",
-    }),
-    searchFiles: vi.fn<(...args: any[]) => any>().mockResolvedValue([
+    },
+  });
+  daemonRouteMocks.outputs.set("workspace.resolveMarkdownLinkedFile", {
+    resolution: {
+      path: "/workspace/docs/guide.md",
+      name: "guide.md",
+      relativePath: "docs/guide.md",
+      workspaceRoot: "/workspace",
+    },
+  });
+  daemonRouteMocks.outputs.set("workspace.searchFiles", {
+    nodes: [
       {
         name: "app.ts",
         path: "/workspace/src/app.ts",
         isDirectory: false,
       },
-    ]),
-  } as unknown as IWorkspacePresenter;
+    ],
+  });
 
   const yoBrowserPresenter = {
     getBrowserStatus: vi.fn<(...args: any[]) => any>().mockResolvedValue(browserStatus),
@@ -507,7 +531,7 @@ function createRuntime() {
       devicePresenter,
       projectPresenter,
       filePresenter,
-      workspacePresenter,
+      workspaceShell,
       yoBrowserPresenter,
       tabPresenter,
       scheduledTasks: {
@@ -528,7 +552,7 @@ function createRuntime() {
     devicePresenter,
     projectPresenter,
     filePresenter,
-    workspacePresenter,
+    workspaceShell,
     yoBrowserPresenter,
     tabPresenter,
   };
@@ -1064,7 +1088,7 @@ describe("dispatchArgosRoute", () => {
   });
 
   it("dispatches phase3 device, project, file, and workspace routes", async () => {
-    const { runtime, devicePresenter, projectPresenter, filePresenter, workspacePresenter } = createRuntime();
+    const { runtime, devicePresenter, projectPresenter, filePresenter, workspaceShell } = createRuntime();
 
     const appVersion = await dispatchArgosRoute(
       runtime,
@@ -1433,9 +1457,15 @@ describe("dispatchArgosRoute", () => {
     expect(isDirectory).toEqual({ isDirectory: true });
     expect(imagePath).toEqual({ path: "/tmp/capture.png" });
 
-    expect(workspacePresenter.registerWorkspace).toHaveBeenCalledWith("/workspace");
+    expect(daemonRouteMocks.invokeDaemonRoute).toHaveBeenCalledWith("workspace.register", {
+      workspacePath: "/workspace",
+      mode: "workspace",
+    });
     expect(registerWorkspace).toEqual({ registered: true });
-    expect(workspacePresenter.registerWorkdir).toHaveBeenCalledWith("/workspace");
+    expect(daemonRouteMocks.invokeDaemonRoute).toHaveBeenCalledWith("workspace.register", {
+      workspacePath: "/workspace",
+      mode: "workdir",
+    });
     expect(registerWorkdir).toEqual({ registered: true });
     expect(readDirectory).toEqual({
       nodes: [
@@ -1488,13 +1518,18 @@ describe("dispatchArgosRoute", () => {
         },
       ],
     });
-    expect(workspacePresenter.openFile).toHaveBeenCalledWith("/workspace/src/app.ts");
+    expect(workspaceShell.openFile).toHaveBeenCalledWith("/workspace/src/app.ts");
     expect(openFileResult).toEqual({ opened: true });
-    expect(workspacePresenter.revealFileInFolder).toHaveBeenCalledWith("/workspace/src/app.ts");
+    expect(workspaceShell.revealFileInFolder).toHaveBeenCalledWith("/workspace/src/app.ts");
     expect(revealResult).toEqual({ revealed: true });
-    expect(workspacePresenter.unwatchWorkspace).toHaveBeenCalledWith("/workspace");
+    expect(daemonRouteMocks.invokeDaemonRoute).toHaveBeenCalledWith("workspace.unwatch", {
+      workspacePath: "/workspace",
+    });
     expect(unwatchResult).toEqual({ watching: false });
-    expect(workspacePresenter.unregisterWorkspace).toHaveBeenCalledWith("/workspace");
+    expect(daemonRouteMocks.invokeDaemonRoute).toHaveBeenCalledWith("workspace.unregister", {
+      workspacePath: "/workspace",
+      mode: "workspace",
+    });
     expect(unregisterResult).toEqual({ unregistered: true });
   });
 

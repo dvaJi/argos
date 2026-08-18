@@ -461,7 +461,7 @@ export class DaemonWorkspacePresenter {
       kind = isBinary ? "binary" : "text";
       if (kind === "text") {
         try {
-          content = await fsp.readFile(filePath, "utf8");
+          content = await Bun.file(filePath).text();
         } catch {
           content = "";
         }
@@ -470,13 +470,13 @@ export class DaemonWorkspacePresenter {
       kind = extensionKind;
       if (kind === "markdown") {
         try {
-          content = await fsp.readFile(filePath, "utf8");
+          content = await Bun.file(filePath).text();
         } catch {
           content = "";
         }
       } else if (kind === "image") {
         try {
-          content = (await fsp.readFile(filePath)).toString("base64");
+          content = Buffer.from(await Bun.file(filePath).bytes()).toString("base64");
           thumbnail = content;
         } catch {
           content = "";
@@ -571,9 +571,9 @@ export class DaemonWorkspacePresenter {
     if (!stats.isFile()) return { content: null, exists: true };
     if (stats.size > READ_TEXT_MAX_BYTES) return { content: null, exists: true };
     try {
-      const buffer = await fsp.readFile(filePath);
-      if (looksBinary(buffer)) return { content: null, exists: true };
-      return { content: buffer.toString("utf8"), exists: true };
+      const bytes = await Bun.file(filePath).bytes();
+      if (looksBinary(bytes)) return { content: null, exists: true };
+      return { content: Buffer.from(bytes).toString("utf8"), exists: true };
     } catch (error) {
       console.error(`[DaemonWorkspace] Failed to read file text: ${filePath}`, error);
       return { content: null, exists: true };
@@ -586,7 +586,7 @@ export class DaemonWorkspacePresenter {
     }
     const normalizedPath = path.resolve(filePath);
     await fsp.mkdir(path.dirname(normalizedPath), { recursive: true });
-    await fsp.writeFile(normalizedPath, content, "utf8");
+    await Bun.write(normalizedPath, content);
   }
 
   async createEntry(parentDir: string, name: string, isDirectory: boolean): Promise<string> {
@@ -599,7 +599,7 @@ export class DaemonWorkspacePresenter {
       throw new Error(`[DaemonWorkspace] Unauthorized entry path: ${targetPath}`);
     }
     if (isDirectory) await fsp.mkdir(targetPath, { recursive: false });
-    else await fsp.writeFile(targetPath, "", "utf8");
+    else await Bun.write(targetPath, "");
     return targetPath;
   }
 
@@ -919,20 +919,11 @@ function previewKindFromExtension(extension: string): WorkspaceFilePreviewKind |
  * the first chunk so large binaries stay cheap.
  */
 async function sniffFileBinary(filePath: string): Promise<boolean> {
-  let handle: fs.promises.FileHandle | undefined;
   try {
-    handle = await fsp.open(filePath, "r");
-    const buffer = Buffer.alloc(BINARY_SNIFF_BYTES);
-    const { bytesRead } = await handle.read(buffer, 0, BINARY_SNIFF_BYTES, 0);
-    return looksBinary(buffer.subarray(0, bytesRead));
+    const prefix = await Bun.file(filePath).slice(0, BINARY_SNIFF_BYTES).bytes();
+    return looksBinary(prefix);
   } catch {
     return true;
-  } finally {
-    try {
-      await handle?.close();
-    } catch {
-      // ignore close errors
-    }
   }
 }
 
@@ -944,7 +935,7 @@ function inferLanguage(filePath: string, kind: WorkspaceFilePreviewKind): string
   return path.extname(filePath).slice(1).toLowerCase() || null;
 }
 
-function looksBinary(buffer: Buffer): boolean {
+function looksBinary(buffer: Uint8Array): boolean {
   const scanLength = Math.min(buffer.length, BINARY_SNIFF_BYTES);
   for (let index = 0; index < scanLength; index += 1) {
     if (buffer[index] === 0) return true;

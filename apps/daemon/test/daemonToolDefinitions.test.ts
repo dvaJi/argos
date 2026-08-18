@@ -1,7 +1,7 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "bun:test";
 import { createDaemonDispatcher } from "../src/dispatch/daemonDispatcher";
 import { DaemonConfigPresenter } from "../src/host/daemonConfigPresenter";
 import { toolsListDefinitionsRoute } from "@argos/shared-contracts/routes";

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "bun:test";
 import { runAcpDebugAction } from "@argos/acp-runtime";
 
 function createDeps(options: { closeSupported?: boolean; sessionError?: Error } = {}) {

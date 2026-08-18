@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, test, vi } from "bun:test";
 import { handlePair, handleRevokeSession } from "../src/transport/auth-routes";
 import { authorize } from "../src/transport/auth";
 

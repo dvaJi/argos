@@ -46,7 +46,7 @@ logic is no longer the execution path for these routes.
 
 ### 4. Tests
 
-- Extend `apps/daemon/test/e2e-hybrid.test.ts` (or add a daemon unit test) to refresh models
+- Extend `apps/daemon/test/e2e-hybrid.ts` (or add a daemon unit test) to refresh models
   for DeepSeek and an OpenAI-compatible provider, asserting DeepSeek resolves from the catalog
   and no `/v1/models` request is made.
 - Keep the desktop `deepseekProvider.test.ts` (registry `modelSource` guard) and add a

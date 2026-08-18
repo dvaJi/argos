@@ -163,7 +163,7 @@ async function findViolations() {
 
   const violations = []
   for (const filePath of [...fileSet].sort()) {
-    const source = await fs.readFile(filePath, 'utf8')
+    const source = await Bun.file(filePath).text()
 
     for (const specifier of extractModuleSpecifiers(source)) {
       if (isLegacyMainImport(filePath, specifier)) {

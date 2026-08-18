@@ -12,6 +12,7 @@
     "declaration": false,
     "emitDeclarationOnly": false,
     "noEmit": true,
+    "types": ["bun"],
     "paths": {
       "@argos/acp-runtime": ["../../packages/acp-runtime/src"],
       "@argos/acp-runtime/*": ["../../packages/acp-runtime/src/*"],

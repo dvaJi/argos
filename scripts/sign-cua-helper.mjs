@@ -1,5 +1,7 @@
 import { execFile } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
+// bun-file-io-exception: imported in-process by apps/desktop vitest (Node) tests;
+// must stay Node-compatible, so no Bun.file/Bun.write here.
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'

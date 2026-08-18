@@ -1,5 +1,5 @@
+// bun-file-io-exception: synchronous fallback consumed at (module-)init call sites.
 import { readFileSync } from "node:fs";
-
 // Resolved at compile time via `bun build --define __DAEMON_VERSION__`
 // (see apps/daemon/build.mjs). Falls back to package.json for non-compiled runs.
 declare const __DAEMON_VERSION__: string | undefined;

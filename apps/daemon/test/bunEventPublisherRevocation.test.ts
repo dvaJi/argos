@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "bun:test";
 import { BunEventPublisher } from "../src/host/bun-event-publisher";
 
 describe("BunEventPublisher session revocation", () => {

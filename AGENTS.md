@@ -116,9 +116,10 @@ The codebase is migrating from legacy `useLegacyPresenter()` to a typed route/cl
 
 ### Architecture guards
 
-`bun run lint` runs two guard scripts before oxlint:
-- `scripts/architecture-guard.mjs`: Enforces quarantine bounds, prevents legacy imports in business code, validates bridge register, tracks hot-path edges
+`bun run lint` runs three guard scripts before oxlint:
+- `scripts/architecture-guard.mjs`: Enforces quarantine bounds, prevents legacy imports in business code, validates bridge register, tracks hot-path edges, and enforces the `bun-file-io` rule (Bun.file/Bun.write in Bun-runtime code; `Bun.*` forbidden in shared packages)
 - `scripts/agent-cleanup-guard.mjs`: Prevents new code from importing legacy presenter directories or `@argos/chat`
+- `scripts/route-catalog-drift-guard.mjs`: Keeps the `ARGOS_ROUTE_CATALOG` and registered route handlers in sync
 
 ## Coding Style & Naming Conventions
 - TypeScript + React 19 + TanStack Router; TanStack Store for state; Tailwind CSS + shadcn/ui for styles.
@@ -127,9 +128,10 @@ The codebase is migrating from legacy `useLegacyPresenter()` to a typed route/cl
 - Names: React components PascalCase (`ChatInput.tsx`); variables/functions `camelCase`; types/classes `PascalCase`; constants `SCREAMING_SNAKE_CASE`.
 
 ## Testing Guidelines
-- Framework: Vitest (+ jsdom for renderer, node for main) and React Testing Library.
-- Two separate configs: `vitest.config.ts` (main, node env) and `vitest.config.renderer.ts` (renderer, jsdom env).
-- Location mirrors source under `test/main/**` and `test/renderer/**`.
+- Daemon (`apps/daemon`): **`bun test`** (Bun's built-in runner). Imports come from `bun:test`, which exports a vitest-compatible `vi` object (no `vi.hoisted`/`vi.stubEnv`/`vi.stubGlobal` — see the `bun-file-io` skill for workarounds). Standalone e2e harnesses live as `test/e2e-*.ts` (not `*.test.ts`) so `bun test` does not discover them.
+- Desktop + UI: Vitest (+ jsdom for renderer, node for main) and React Testing Library.
+- Two separate desktop configs: `vitest.config.ts` (main, node env) and `vitest.config.renderer.ts` (renderer, jsdom env).
+- Location mirrors source under `test/main/**` and `test/renderer/**` (desktop).
 - Names: `*.test.ts`/`*.test.tsx`/`*.spec.ts`. Coverage: `bun run test:coverage`.
 - Test aliases match Vite aliases: `#` → UI src, `#api` → UI api, `@argos/shared` → shared.
 
@@ -157,6 +159,7 @@ The `#/` alias is context-sensitive: a custom Vite plugin (`createPathAliasPlugi
 
 ## Architecture Notes & Security
 - Patterns: Presenter pattern in main; EventBus for inter-process events; typed route contracts as renderer-main boundary; two-layer LLM provider (Agent Loop + Provider); integrated MCP tools.
+- File I/O: Bun-runtime code (`apps/daemon/src`, bun-run `scripts/`) uses `Bun.file`/`Bun.write` for reads/writes and `node:fs` for directory APIs. Electron main and shared `packages/*` use `node:fs` only — `Bun.*` is forbidden there. Enforced by the `bun-file-io` rule in `bun run lint`; see the `bun-file-io` skill.
 - Secrets: use `.env` (see `.env.example`); never commit keys.
 - Toolchains: Bun 1.3.14. Windows: enable Developer Mode for symlinks.
 - Build: Vite 8 with Rolldown; `vite-plugin-electron` multi-env for main/preload/renderer.

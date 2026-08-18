@@ -72,7 +72,7 @@ export class BunS3CloudStorageService {
   }
 
   async uploadBackup(localPath: string, fileName: string): Promise<void> {
-    await this.client.write(this.buildKey(fileName), fs.readFileSync(localPath));
+    await this.client.write(this.buildKey(fileName), await Bun.file(localPath).bytes());
   }
 
   async downloadLatest(targetDir: string): Promise<string | null> {
@@ -84,7 +84,7 @@ export class BunS3CloudStorageService {
     const latest = backups[0];
     const bytes = await this.client.file(this.buildKey(latest.fileName)).bytes();
     fs.mkdirSync(targetDir, { recursive: true });
-    fs.writeFileSync(path.join(targetDir, latest.fileName), bytes);
+    await Bun.write(path.join(targetDir, latest.fileName), bytes);
     return latest.fileName;
   }
 }

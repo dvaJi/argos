@@ -43,7 +43,7 @@ function extractImported(source) {
 async function main() {
   let source
   try {
-    source = await fs.readFile(CATALOG_FILE, 'utf8')
+    source = await Bun.file(CATALOG_FILE).text()
   } catch (error) {
     console.error(`[route-catalog-drift-guard] Could not read ${CATALOG_FILE}: ${error.message}`)
     process.exit(1)

@@ -199,7 +199,7 @@ async function servePluginSettingsAsset(
   pluginId: string,
   assetPath: string,
 ): Promise<Response> {
-  const entry = pluginPresenter.resolveSettingsWebAsset(pluginId, "");
+  const entry = await pluginPresenter.resolveSettingsWebAsset(pluginId, "");
   if (!entry) {
     return Response.json(
       { ok: false, error: { code: "not_found", message: "Plugin settings not found" } },
@@ -217,7 +217,7 @@ async function servePluginSettingsAsset(
     });
   }
 
-  const asset = pluginPresenter.resolveSettingsWebAsset(pluginId, assetPath);
+  const asset = await pluginPresenter.resolveSettingsWebAsset(pluginId, assetPath);
   if (!asset) {
     return Response.json(
       { ok: false, error: { code: "not_found", message: "Plugin settings asset not found" } },
