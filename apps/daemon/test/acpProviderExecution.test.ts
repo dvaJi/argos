@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "bun:test";
 import { AcpProviderExecutionPort } from "../src/host/acp-provider-execution";
 import { resolvePermissionWithTimeout, AcpMessageFormatter } from "@argos/acp-runtime";
 

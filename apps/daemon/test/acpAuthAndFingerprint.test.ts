@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi } from "bun:test";
 import { isAuthRequiredError, clientSupportsTerminalAuth } from "@argos/acp-runtime/protocol/acpCapabilities";
 import { fingerprintMessage, fingerprintMessages } from "@argos/acp-runtime/session/acpMessageFingerprint";
 import { runAcpDebugAction } from "@argos/acp-runtime";

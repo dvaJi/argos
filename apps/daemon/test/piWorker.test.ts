@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import readline from "node:readline";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "bun:test";
 import type { PiWorkerEvent, PiWorkerInit } from "../src/host/piWorkerProtocol";
 import { PiAgentProfileManager } from "../src/host/piAgentProfileManager";
 

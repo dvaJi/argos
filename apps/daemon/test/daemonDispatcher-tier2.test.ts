@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "bun:test";
 import { DESKTOP_ONLY_ROUTE_PREFIXES } from "@argos/shared-contracts/desktop-only";
 import { createDaemonDispatcher } from "../src/dispatch/daemonDispatcher";
 

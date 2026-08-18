@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "bun:test";
 import { DaemonPluginPresenter } from "../src/host/daemonPluginPresenter";
 
 describe("DaemonPluginPresenter", () => {
@@ -84,14 +84,14 @@ describe("DaemonPluginPresenter", () => {
       ok: true,
       data: { settingsUrl: "http://127.0.0.1:43127/api/v1/plugins/fixture-plugin/settings/" },
     });
-    expect(presenter.resolveSettingsWebAsset("fixture-plugin", "")).toEqual({
+    expect(await presenter.resolveSettingsWebAsset("fixture-plugin", "")).toEqual({
       filePath: path.join(settingsRoot, "index.html"),
       isEntry: true,
     });
-    expect(presenter.resolveSettingsWebAsset("fixture-plugin", "assets/index.js")).toEqual({
+    expect(await presenter.resolveSettingsWebAsset("fixture-plugin", "assets/index.js")).toEqual({
       filePath: path.join(assetsRoot, "index.js"),
       isEntry: false,
     });
-    expect(presenter.resolveSettingsWebAsset("fixture-plugin", "../secret.txt")).toBeNull();
+    expect(await presenter.resolveSettingsWebAsset("fixture-plugin", "../secret.txt")).toBeNull();
   });
 });

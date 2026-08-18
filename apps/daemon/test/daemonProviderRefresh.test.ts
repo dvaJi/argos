@@ -1,7 +1,7 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "bun:test";
 import { createDaemonDispatcher } from "../src/dispatch/daemonDispatcher";
 import { DaemonConfigPresenter, resolveDaemonProviderDbBuiltIn } from "../src/host/daemonConfigPresenter";
 import { ProviderDbLoader } from "@argos/backend-core/provider";
@@ -14,8 +14,18 @@ import {
 } from "@argos/shared-contracts/routes";
 
 describe("daemon provider model refresh", () => {
+  // bun:test has no vi.stubGlobal/vi.unstubAllGlobals — stub fetch manually.
+  function stubFetch(implementation: (...args: unknown[]) => Promise<unknown>): () => void {
+    const original = globalThis.fetch;
+    globalThis.fetch = implementation as typeof fetch;
+    return () => {
+      globalThis.fetch = original;
+    };
+  }
+
   it("refreshes provider models into daemon-owned config state", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "argos-daemon-provider-refresh-"));
+    let restoreFetch: () => void = () => {};
     try {
       const configPresenter = new DaemonConfigPresenter(path.join(root, "config"), path.join(root, "data"));
       configPresenter.setProviders([
@@ -41,7 +51,7 @@ describe("daemon provider model refresh", () => {
         }),
         text: async () => "",
       }));
-      vi.stubGlobal("fetch", fetchMock);
+      restoreFetch = stubFetch(fetchMock);
 
       const dispatcher = createDaemonDispatcher(configPresenter as any);
       await expect(dispatcher(providersRefreshModelsRoute.name, { providerId: "openai" })).resolves.toEqual({
@@ -75,13 +85,14 @@ describe("daemon provider model refresh", () => {
         ]),
       });
     } finally {
-      vi.unstubAllGlobals();
+      restoreFetch();
       await rm(root, { recursive: true, force: true });
     }
   });
 
   it("serves Ollama routes from daemon-owned config state", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "argos-daemon-ollama-routes-"));
+    let restoreFetch: () => void = () => {};
     try {
       const configPresenter = new DaemonConfigPresenter(path.join(root, "config"), path.join(root, "data"));
       configPresenter.setProviders([
@@ -134,7 +145,7 @@ describe("daemon provider model refresh", () => {
 
         throw new Error(`Unexpected fetch url: ${url}`);
       });
-      vi.stubGlobal("fetch", fetchMock);
+      restoreFetch = stubFetch(fetchMock);
 
       const dispatcher = createDaemonDispatcher(configPresenter as any);
       await expect(dispatcher(providersListOllamaModelsRoute.name, { providerId: "ollama" })).resolves.toMatchObject({
@@ -178,7 +189,7 @@ describe("daemon provider model refresh", () => {
         }),
       );
     } finally {
-      vi.unstubAllGlobals();
+      restoreFetch();
       await rm(root, { recursive: true, force: true });
     }
   });

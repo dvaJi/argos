@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { aggregateUsageStats, resolveBuiltinModelPrice } from "../src/host/usageStatsAggregator";
 import type { UsageStatRecord } from "../src/host/bun-session-repository";
 

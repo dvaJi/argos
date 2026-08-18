@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "bun:test";
 import { createDaemonAcpSqlitePresenter } from "../src/host/daemonAcpSqlite";
 
 describe("createDaemonAcpSqlitePresenter", () => {

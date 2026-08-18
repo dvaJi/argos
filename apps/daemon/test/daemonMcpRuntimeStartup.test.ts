@@ -1,17 +1,17 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, mock, vi } from "bun:test";
 
-const runtimeMocks = vi.hoisted(() => ({
+const runtimeMocks = {
   startServer: vi.fn<(serverName: string) => Promise<void>>(),
-}));
+};
 
-vi.mock("@argos/mcp-runtime", () => ({
+mock.module("@argos/mcp-runtime", () => ({
   ServerManager: class {
     startServer = runtimeMocks.startServer;
   },
   ToolManager: class {},
 }));
 
-import { DaemonMcpRuntime } from "../src/host/daemonMcpRuntime";
+const { DaemonMcpRuntime } = await import("../src/host/daemonMcpRuntime");
 
 describe("DaemonMcpRuntime startup", () => {
   beforeEach(() => {

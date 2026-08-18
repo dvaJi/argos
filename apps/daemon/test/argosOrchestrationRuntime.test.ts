@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "bun:test";
 import { ArgosOrchestrationRuntime } from "../src/host/argosOrchestrationRuntime";
 
 const call = (runtime: ArgosOrchestrationRuntime, name: string, args: Record<string, unknown>) =>

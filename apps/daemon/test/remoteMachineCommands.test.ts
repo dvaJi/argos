@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { REMOTE_MACHINE_COMMANDS, getRemoteMachineCommands } from "@argos/shared/remoteMachineCommands";
 
 describe("remote machine command matrix", () => {
