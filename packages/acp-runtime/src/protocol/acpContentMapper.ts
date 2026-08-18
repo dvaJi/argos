@@ -213,10 +213,23 @@ export class AcpContentMapper {
     }
     const paramsChunk = this.stringifyToolParams(update);
     const contentChunk = this.formatToolCallContent(content, "");
-    const chunk = paramsChunk ?? (state.paramsCaptured ? "" : contentChunk);
+    const rawInputSnapshot = this.hasRawInputSnapshot(update);
+    let chunk: string | undefined;
+    let isSnapshot = false;
+    if (rawInputSnapshot) {
+      // rawInput is the executable tool input and has replace semantics: every
+      // snapshot supersedes the previous one.
+      chunk = paramsChunk;
+      isSnapshot = true;
+    } else if (!state.paramsCaptured) {
+      // Pre-capture fallback: complete params (title/locations) replace the display
+      // buffer; streamed content text remains an append-only delta.
+      chunk = paramsChunk ?? contentChunk;
+      isSnapshot = paramsChunk !== undefined;
+    }
     if (chunk) {
-      this.emitToolCallChunk(state, chunk, payload, paramsChunk !== undefined);
-      if (paramsChunk) {
+      this.emitToolCallChunk(state, chunk, payload, isSnapshot);
+      if (rawInputSnapshot) {
         state.paramsCaptured = true;
       }
     }
@@ -386,14 +399,38 @@ export class AcpContentMapper {
   }
 
   private extractLastJsonDocument(value: string): string | undefined {
-    const openers: number[] = [];
+    // Only top-level document boundaries qualify as salvage candidates: a complete
+    // document nested inside a truncated outer document (e.g. `{"q":"v","m":{"a":1}`)
+    // must NOT be returned silently — the tool call would execute with wrong args.
+    const candidates: number[] = [];
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
     for (let i = 0; i < value.length; i++) {
-      if (value[i] === "{" || value[i] === "[") {
-        openers.push(i);
+      const ch = value[i];
+      if (inString) {
+        if (escaped) {
+          escaped = false;
+        } else if (ch === "\\") {
+          escaped = true;
+        } else if (ch === '"') {
+          inString = false;
+        }
+        continue;
+      }
+      if (ch === '"') {
+        inString = true;
+      } else if (ch === "{" || ch === "[") {
+        if (depth === 0) {
+          candidates.push(i);
+        }
+        depth += 1;
+      } else if (ch === "}" || ch === "]") {
+        depth = Math.max(0, depth - 1);
       }
     }
-    for (let i = openers.length - 1; i >= 0; i--) {
-      const candidate = value.slice(openers[i]);
+    for (let i = candidates.length - 1; i >= 0; i--) {
+      const candidate = value.slice(candidates[i]);
       try {
         JSON.parse(candidate);
         return candidate;
@@ -418,7 +455,8 @@ export class AcpContentMapper {
 
   private emitToolCallChunk(state: ToolCallState, chunk: string, payload: MappedContent, isSnapshot: boolean) {
     // Structured params (rawInput/locations/title) have replace semantics in the ACP
-    // schema — agents re-emit the complete snapshot on every update. Streaming text
+    // schema — agents re-emit the complete current value. Once rawInput is captured,
+    // only a fresh rawInput snapshot may touch the executable buffer; streaming text
     // fallback chunks are deltas and must still append.
     state.argumentsBuffer = isSnapshot ? chunk : `${state.argumentsBuffer}${chunk}`;
     payload.events.push(createStreamEvent.toolCallChunk(state.toolCallId, chunk));
@@ -491,6 +529,13 @@ export class AcpContentMapper {
       timestamp: now(),
       ...extra,
     } as AssistantMessageBlock;
+  }
+
+  private hasRawInputSnapshot(
+    update: Extract<schema.SessionNotification["update"], { sessionUpdate: "tool_call" | "tool_call_update" }>,
+  ): boolean {
+    const rawInput = (update as any).rawInput ?? (update as any).raw_input;
+    return typeof rawInput === "object" && rawInput !== null && Object.keys(rawInput).length > 0;
   }
 
   private stringifyToolParams(

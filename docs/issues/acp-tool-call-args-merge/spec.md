@@ -29,8 +29,10 @@ Make `AcpContentMapper` honor the ACP replace semantics for structured params (`
 ## Acceptance criteria
 
 - A `tool_call` + `tool_call_update` sequence carrying `rawInput` snapshots produces a single, valid-JSON `tool_call_end` arguments string equal to the **last** snapshot.
+- A title- or locations-only update after a `rawInput` snapshot was captured must **not** alter the executable arguments (independent fields per ACP; title/locations are display metadata, only `rawInput` is tool input).
 - No `[ACP] Tool call arguments appear incomplete` warning for such snapshot sequences.
-- A buffer that still contains concatenated JSON documents falls back to the last complete document instead of passing garbage through (no warning when salvage succeeds).
+- A buffer that still contains concatenated JSON documents falls back to the last complete **top-level** document instead of passing garbage through (no warning when salvage succeeds).
+- A truncated buffer containing a complete nested document (e.g. `{"q":"v","m":{"a":1}`) must warn, never silently salvage the nested fragment.
 - Text fallback chunks (tool output content text) still append, preserving streaming display behavior.
 - `bun run typecheck`, `bun run lint`, `bun run format` pass.
 - Regression tests added under `apps/daemon/test/` (vitest, runs via `@argos/daemon` test script).

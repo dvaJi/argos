@@ -8,15 +8,16 @@ Fix the buffer accumulation semantics in `AcpContentMapper`, then add tolerance 
 
 ### 1. `packages/acp-runtime/src/protocol/acpContentMapper.ts`
 
-**`handleToolCallUpdate`** — pass whether the chunk is a structured-params snapshot:
+**`handleToolCallUpdate`** — only a fresh `rawInput` snapshot (object with keys) is the executable tool input and **replaces** the buffer; a fresh `rawInput` snapshot also sets `paramsCaptured`. Pre-capture fallback chunks (title/locations, which are complete current values) **replace** the display buffer; streamed `content` text **appends**. Once `paramsCaptured`, title/locations/content updates are suppressed entirely — independent fields must never clobber captured arguments:
 
 ```ts
-const paramsChunk = this.stringifyToolParams(update);
-const contentChunk = this.formatToolCallContent(content, "");
-const chunk = paramsChunk ?? (state.paramsCaptured ? "" : contentChunk);
-if (chunk) {
-  this.emitToolCallChunk(state, chunk, payload, paramsChunk !== undefined);
-  if (paramsChunk) state.paramsCaptured = true;
+const rawInputSnapshot = this.hasRawInputSnapshot(update);
+if (rawInputSnapshot) {
+  chunk = paramsChunk;         // replace (executable input snapshot)
+  isSnapshot = true;
+} else if (!state.paramsCaptured) {
+  chunk = paramsChunk ?? contentChunk; // complete params replace; streamed text appends
+  isSnapshot = paramsChunk !== undefined;
 }
 ```
 
@@ -28,7 +29,7 @@ state.argumentsBuffer = isSnapshot ? chunk : `${state.argumentsBuffer}${chunk}`;
 
 Rationale: `stringifyToolParams` output is always the *complete current* params representation (serialized `rawInput`, serialized `locations`, or the current `title`) — per ACP schema all three have "update"/replace semantics. Streamed `content` text remains append-only.
 
-**`tryParseJsonArguments`** — before warning, attempt to salvage the last complete JSON document from the concatenated buffer (scan candidate substrings starting at each `{`/`[` from the end); return it without warning. Only warn when nothing parses (existing behavior preserved).
+**`tryParseJsonArguments`** — before warning, attempt to salvage the last complete **top-level** JSON document from the concatenated buffer. Candidates are tracked with brace-depth + string-awareness so only top-level document boundaries qualify — a complete nested document inside a truncated outer document is never silently salvaged (it would hand the tool wrong arguments). Only warn when nothing parses (existing behavior preserved).
 
 ## Affected interfaces
 

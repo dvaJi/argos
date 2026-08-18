@@ -44,6 +44,40 @@ describe("AcpContentMapper tool call arguments", () => {
     expect(warnSpy).not.toHaveBeenCalled();
   });
 
+  it("keeps captured rawInput when a later update carries only a title", () => {
+    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const mapper = new AcpContentMapper();
+    const id = "exec-5";
+    const input = { type: "webSearch", id, query: "react compiler", action: null };
+
+    mapper.map(notify("tool_call", { toolCallId: id, title: "Searching", rawInput: input }));
+    mapper.map(notify("tool_call_update", { toolCallId: id, title: "Searching the web for results" }));
+
+    const args = toolCallEndArgs(mapper, id);
+    expect(args).toBe(JSON.stringify(input));
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  it("keeps captured rawInput when a later update carries only locations", () => {
+    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const mapper = new AcpContentMapper();
+    const id = "exec-6";
+    const input = { type: "read_file", id, path: "package.json" };
+
+    mapper.map(notify("tool_call", { toolCallId: id, title: "Reading file", rawInput: input }));
+    mapper.map(
+      notify("tool_call_update", {
+        toolCallId: id,
+        title: "Reading file",
+        locations: [{ uri: "file:///package.json" }],
+      }),
+    );
+
+    const args = toolCallEndArgs(mapper, id);
+    expect(args).toBe(JSON.stringify(input));
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
   it("salvages the last complete JSON document from a concatenated snapshot buffer", () => {
     warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const mapper = new AcpContentMapper() as unknown as {
@@ -55,6 +89,18 @@ describe("AcpContentMapper tool call arguments", () => {
     const args = mapper.tryParseJsonArguments(`${first}${second}`, "exec-1");
     expect(args).toBe(second);
     expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  it("warns instead of salvaging nested fragments from a truncated buffer", () => {
+    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const mapper = new AcpContentMapper() as unknown as {
+      tryParseJsonArguments(buffer: string, toolCallId: string): string | undefined;
+    };
+    const truncated = '{"q":"v","m":{"a":1}';
+
+    const args = mapper.tryParseJsonArguments(truncated, "exec-7");
+    expect(args).toBe(truncated);
+    expect(warnSpy).toHaveBeenCalledTimes(1);
   });
 
   it("warns and passes the buffer through only when nothing salvageable remains", () => {

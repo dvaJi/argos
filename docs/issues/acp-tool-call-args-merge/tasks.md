@@ -10,3 +10,6 @@
 - [x] Run `bun test --filter @argos/daemon` (mapper tests green)
 - [x] Run `bun run typecheck`, `bun run lint`, `bun run format` — all green
 - [x] Update tasks.md, commit, push branch, open PR (https://github.com/dvaJi/argos/pull/54)
+- [x] Review follow-up (Greptile P1 + Copilot): title/locations-only updates must not clobber captured `rawInput` — restrict executable-buffer replacement to `rawInput` snapshots only; suppress title/locations/content after capture
+- [x] Review follow-up (Copilot): salvage restricted to top-level document boundaries (brace-depth + string-aware scan); nested fragments in truncated buffers warn instead of silently returning wrong args
+- [x] Regression tests for both follow-ups: title-only and locations-only updates keep captured rawInput; truncated nested buffer warns (8 tests total)
