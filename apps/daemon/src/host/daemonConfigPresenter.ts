@@ -126,6 +126,7 @@ export class DaemonConfigPresenter {
       return { ...DEFAULTS };
     }
     try {
+      // bun-file-io-exception: presenter loads config synchronously in its constructor.
       const raw = readFileSync(this.filePath, "utf-8");
       return { ...DEFAULTS, ...JSON.parse(raw) };
     } catch {
@@ -135,6 +136,7 @@ export class DaemonConfigPresenter {
 
   private save(): void {
     mkdirSync(dirname(this.filePath), { recursive: true });
+    // bun-file-io-exception: presenter persists synchronously from sync setters.
     writeFileSync(this.filePath, JSON.stringify(this.store, null, 2), "utf-8");
   }
 
@@ -1134,6 +1136,10 @@ export class DaemonConfigPresenter {
 
   async repairAcpAgent(agentId: string): Promise<any> {
     return this.acpConfig.repairAcpAgent(agentId);
+  }
+
+  async updateAcpAgent(agentId: string): Promise<any> {
+    return this.acpConfig.updateAcpAgent(agentId);
   }
 
   async uninstallAcpRegistryAgent(agentId: string): Promise<void> {

@@ -678,7 +678,7 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
       console.warn("[ACP] Failed to send session/cancel for steer:", error);
     }
 
-    await Promise.race([active.donePromise, new Promise<void>((resolve) => setTimeout(resolve, 4000))]).catch(() => {});
+    await Promise.race([active.donePromise, Bun.sleep(4000)]).catch(() => {});
   }
 
   async getAcpSessionCommands(conversationId: string): Promise<

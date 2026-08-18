@@ -1,3 +1,5 @@
+// bun-file-io-exception: synchronous parse/scan API surface (parseXSessionFile,
+// scanLocalUsage) consumed synchronously; conversion would change the public contract.
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";

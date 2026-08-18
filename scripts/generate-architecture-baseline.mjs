@@ -270,7 +270,7 @@ async function analyzeScope(label, scopeRoot) {
   const reverseEdges = new Map(files.map((file) => [file, new Set()]))
 
   for (const file of files) {
-    const source = await fs.readFile(file, 'utf8')
+    const source = await Bun.file(file).text()
     for (const specifier of extractSpecifiers(source)) {
       const resolved = await resolveImport(specifier, file, scopeRoot)
       if (!resolved || !fileSet.has(resolved)) {
@@ -365,7 +365,7 @@ async function collectArchiveReferences() {
   for (const scanRoot of scanRoots) {
     const files = await walk(scanRoot)
     for (const file of files) {
-      const source = await fs.readFile(file, 'utf8')
+      const source = await Bun.file(file).text()
       const lines = source.split('\n')
 
       lines.forEach((line, index) => {
@@ -404,7 +404,7 @@ async function collectPatternCounts(files, pattern) {
   const counts = new Map()
 
   for (const file of files) {
-    const source = await fs.readFile(file, 'utf8')
+    const source = await Bun.file(file).text()
     const count = countMatches(source, pattern)
     if (count > 0) {
       counts.set(relativePath(file), count)
@@ -422,7 +422,7 @@ async function collectPresenterFamilyCounts(files, presenterNames) {
   const counts = Object.fromEntries(presenterNames.map((presenterName) => [presenterName, 0]))
 
   for (const file of files) {
-    const source = await fs.readFile(file, 'utf8')
+    const source = await Bun.file(file).text()
     for (const [presenterName, pattern] of patterns) {
       counts[presenterName] += countMatches(source, pattern)
     }
@@ -462,7 +462,7 @@ async function collectMigratedRawChannelCounts() {
   const counts = new Map()
 
   for (const file of files) {
-    const source = await fs.readFile(file, 'utf8')
+    const source = await Bun.file(file).text()
     const count =
       countMatches(source, INLINE_IPC_CHANNEL_PATTERN) +
       countMatches(source, INLINE_EVENTBUS_CHANNEL_PATTERN)
@@ -480,7 +480,7 @@ async function collectHotPathDirectEdges() {
   const edges = []
 
   for (const file of HOT_PATH_FILES) {
-    const source = await fs.readFile(file, 'utf8')
+    const source = await Bun.file(file).text()
     for (const specifier of extractSpecifiers(source)) {
       const resolved = await resolveImport(specifier, file, MAIN_SOURCE_ROOT)
       if (!resolved || !hotPathFileSet.has(resolved)) {
@@ -500,7 +500,7 @@ async function collectHotPathDirectEdges() {
 }
 
 async function loadBridgeRegister() {
-  const raw = await fs.readFile(BRIDGE_REGISTER_PATH, 'utf8')
+  const raw = await Bun.file(BRIDGE_REGISTER_PATH).text()
   const parsed = JSON.parse(raw)
 
   if (!parsed || typeof parsed !== 'object') {
@@ -1038,19 +1038,19 @@ async function main() {
   }
 
   await Promise.all([
-    fs.writeFile(
+    Bun.write(
       path.join(REPORT_DIR, 'dependency-report.md'),
       `${renderDependencyReport(scopes)}\n`
     ),
-    fs.writeFile(
+    Bun.write(
       path.join(REPORT_DIR, 'zero-inbound-candidates.md'),
       `${renderZeroInboundReport(scopes)}\n`
     ),
-    fs.writeFile(
+    Bun.write(
       path.join(REPORT_DIR, 'archive-reference-report.md'),
       `${renderArchiveReferenceReport(archiveReferences)}\n`
     ),
-    fs.writeFile(
+    Bun.write(
       path.join(REPORT_DIR, 'main-kernel-boundary-baseline.md'),
       `${renderBoundaryBaselineReport({
         currentPhase: bridgeRegister.currentPhase,
@@ -1066,7 +1066,7 @@ async function main() {
         hotPathEdges
       })}\n`
     ),
-    fs.writeFile(
+    Bun.write(
       path.join(REPORT_DIR, 'main-kernel-migration-scoreboard.md'),
       `${renderMigrationScoreboardReport({
         currentPhase: bridgeRegister.currentPhase,
@@ -1074,11 +1074,11 @@ async function main() {
         phaseGates
       })}\n`
     ),
-    fs.writeFile(
+    Bun.write(
       path.join(REPORT_DIR, 'main-kernel-migration-scoreboard.json'),
       `${JSON.stringify(scoreboardPayload, null, 2)}\n`
     ),
-    fs.writeFile(
+    Bun.write(
       path.join(REPORT_DIR, 'main-kernel-bridge-register.md'),
       `${renderBridgeRegisterReport(bridgeRegister, bridgeSummary)}\n`
     )

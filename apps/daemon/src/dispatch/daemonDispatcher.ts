@@ -1,5 +1,5 @@
 import { arch, cpus, homedir, platform, release, totalmem } from "node:os";
-import { readdirSync, statSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { readdirSync, statSync, mkdirSync } from "node:fs";
 import { sep, dirname, resolve, isAbsolute, join, basename, extname } from "node:path";
 import { randomUUID } from "node:crypto";
 import type { ArgosRouteName } from "@argos/shared-contracts/routes";
@@ -1668,7 +1668,7 @@ export function createDaemonDispatcher(
 
     if (route === fileReadFileRoute.name) {
       const input = fileReadFileRoute.input.parse(rawInput);
-      const content = readFileSync(input.path, "utf-8");
+      const content = await Bun.file(input.path).text();
       return fileReadFileRoute.output.parse({ content });
     }
 
@@ -1689,7 +1689,7 @@ export function createDaemonDispatcher(
       const input = fileWriteImageBase64Route.input.parse(rawInput);
       const target = join(homedir(), ".argos-daemon", "images", input.name);
       mkdirSync(dirname(target), { recursive: true });
-      writeFileSync(target, Buffer.from(input.content, "base64"));
+      await Bun.write(target, Buffer.from(input.content, "base64"));
       return fileWriteImageBase64Route.output.parse({ path: target });
     }
 

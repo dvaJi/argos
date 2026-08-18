@@ -41,6 +41,7 @@ class DaemonSkillSessionStateStore {
     }
 
     try {
+      // bun-file-io-exception: sync StoreLike-style port consumed synchronously by SkillPresenter.
       const parsed = JSON.parse(fs.readFileSync(this.filePath, "utf-8")) as Record<
         string,
         StoredSkillSessionState | string[]
@@ -75,21 +76,22 @@ class DaemonSkillSessionStateStore {
     for (const [conversationId, value] of this.load()) {
       payload[conversationId] = value;
     }
+    // bun-file-io-exception: sync StoreLike-style port consumed synchronously by SkillPresenter.
     fs.writeFileSync(this.filePath, JSON.stringify(payload, null, 2));
   }
 }
 
 /** Inline skill discovery (no worker thread) — scans for SKILL.md frontmatter. */
-function discoverSkillsInline(input: {
+async function discoverSkillsInline(input: {
   skillsDir: string;
   sidecarDirName: string;
   maxDepth: number;
 }): Promise<{ skills: SkillMetadata[]; warnings: unknown[] }> {
   const skills: SkillMetadata[] = [];
   const warnings: unknown[] = [];
-  if (!fs.existsSync(input.skillsDir)) return Promise.resolve({ skills, warnings });
+  if (!fs.existsSync(input.skillsDir)) return { skills, warnings };
 
-  const walk = (dir: string, depth: number) => {
+  const walk = async (dir: string, depth: number) => {
     if (depth > input.maxDepth) return;
     let entries: string[];
     try {
@@ -109,8 +111,7 @@ function discoverSkillsInline(input: {
         const skillMd = path.join(fullPath, "SKILL.md");
         if (fs.existsSync(skillMd)) {
           try {
-            const raw = fs.readFileSync(skillMd, "utf-8");
-            const parsed = matter(raw);
+            const parsed = matter(await Bun.file(skillMd).text());
             skills.push({
               name: entry,
               description: String(parsed.data.description ?? parsed.content.slice(0, 120) ?? ""),
@@ -126,14 +127,14 @@ function discoverSkillsInline(input: {
             warnings.push({ path: skillMd, error: String(error) });
           }
         } else {
-          walk(fullPath, depth + 1);
+          await walk(fullPath, depth + 1);
         }
       }
     }
   };
 
-  walk(input.skillsDir, 0);
-  return Promise.resolve({ skills, warnings });
+  await walk(input.skillsDir, 0);
+  return { skills, warnings };
 }
 
 /**

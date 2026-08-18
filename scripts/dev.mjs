@@ -47,7 +47,7 @@ async function waitForUiServer() {
     } catch {
       // Vite has not started listening yet.
     }
-    await new Promise((resolve) => setTimeout(resolve, 250));
+    await Bun.sleep(250);
   }
   throw new Error(`The UI dev server did not become ready at ${uiUrl} within 30 seconds.`);
 }

@@ -1,3 +1,5 @@
+// bun-file-io-exception: sync profile-manager API (validateManagedSkills, writeManagedSkill,
+// …) with a deeply sync-chained internal call graph (ensureProfile → writeSettings → …).
 import fs from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";

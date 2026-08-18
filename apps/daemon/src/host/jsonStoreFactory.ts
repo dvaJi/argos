@@ -31,6 +31,7 @@ class JsonStore<TStore extends Record<string, unknown>> implements StoreLike<TSt
       return { ...base };
     }
     try {
+      // bun-file-io-exception: implements the sync `StoreLike` contract from @argos/backend-core.
       const raw = readFileSync(this.filePath, "utf-8");
       return { ...base, ...(JSON.parse(raw) as TStore) };
     } catch {
@@ -40,6 +41,7 @@ class JsonStore<TStore extends Record<string, unknown>> implements StoreLike<TSt
 
   private persist(): void {
     mkdirSync(dirname(this.filePath), { recursive: true });
+    // bun-file-io-exception: implements the sync `StoreLike` contract from @argos/backend-core.
     writeFileSync(this.filePath, JSON.stringify(this.data, null, 2), "utf-8");
   }
 

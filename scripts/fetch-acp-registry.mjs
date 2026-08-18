@@ -16,7 +16,7 @@ const getCacheableIconAgents = (parsed) =>
 
 const hasLocalSnapshot = async () => {
   try {
-    const parsed = JSON.parse(await fs.readFile(OUTPUT_PATH, 'utf-8'))
+    const parsed = JSON.parse(await Bun.file(OUTPUT_PATH).text())
     const expectedIcons = getCacheableIconAgents(parsed).map((agent) => `${sanitizeAgentId(agent.id)}.svg`)
     const localIcons = new Set(await fs.readdir(ICON_OUTPUT_DIR))
 
@@ -42,7 +42,7 @@ const sanitizeAgentId = (agentId) => {
 const writeManifest = async (parsed) => {
   const tmpPath = `${OUTPUT_PATH}.tmp`
   await fs.mkdir(OUTPUT_DIR, { recursive: true })
-  await fs.writeFile(tmpPath, JSON.stringify(parsed, null, 2) + '\n', 'utf-8')
+  await Bun.write(tmpPath, JSON.stringify(parsed, null, 2) + '\n')
   await fs.rename(tmpPath, OUTPUT_PATH)
 }
 
@@ -60,7 +60,7 @@ const stageIcons = async (parsed) => {
       }
 
       const text = await response.text()
-      await fs.writeFile(path.join(ICON_TMP_DIR, `${safeAgentId}.svg`), text, 'utf-8')
+      await Bun.write(path.join(ICON_TMP_DIR, `${safeAgentId}.svg`), text)
     })
   )
 

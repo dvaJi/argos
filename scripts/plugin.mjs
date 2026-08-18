@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { existsSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 
 const OFFICIAL_PLUGIN_SOURCE = 'argos-official'
@@ -42,41 +42,45 @@ function parseArgs(argv) {
 }
 
 const args = parseArgs(process.argv.slice(2))
-const packageVersion = JSON.parse(readFileSync(path.resolve('package.json'), 'utf8')).version
+const packageVersion = (await Bun.file(path.resolve('package.json')).json()).version
 
-function readPluginManifest(pluginName) {
+async function readPluginManifest(pluginName) {
   const pluginDir = path.resolve('plugins', pluginName)
   const manifestPath = path.join(pluginDir, 'plugin.json')
   if (!existsSync(manifestPath)) {
     throw new Error(`Plugin not found: ${manifestPath}`)
   }
-  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
+  const manifest = await Bun.file(manifestPath).json()
   return { pluginDir, manifest }
 }
 
-function discoverOfficialPlugins() {
+async function discoverOfficialPlugins() {
   const pluginsRoot = path.resolve('plugins')
   if (!existsSync(pluginsRoot)) {
     return []
   }
 
-  return readdirSync(pluginsRoot, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => {
-      try {
-        const { manifest } = readPluginManifest(entry.name)
-        if (manifest.source?.type !== OFFICIAL_PLUGIN_SOURCE) {
+  const discovered = await Promise.all(
+    readdirSync(pluginsRoot, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map(async (entry) => {
+        try {
+          const { manifest } = await readPluginManifest(entry.name)
+          if (manifest.source?.type !== OFFICIAL_PLUGIN_SOURCE) {
+            return null
+          }
+          return {
+            name: entry.name,
+            manifest,
+            platforms: manifest.engines?.platforms ?? []
+          }
+        } catch {
           return null
         }
-        return {
-          name: entry.name,
-          manifest,
-          platforms: manifest.engines?.platforms ?? []
-        }
-      } catch {
-        return null
-      }
-    })
+      })
+  )
+
+  return discovered
     .filter(Boolean)
     .sort((a, b) => a.name.localeCompare(b.name))
 }
@@ -98,9 +102,9 @@ function artifactFileName(plugin, targetPlatform, targetArch) {
   return `${safeId}-${packageVersion}-${targetPlatform}-${targetArch}.dcplugin`
 }
 
-function verifyArtifacts(options) {
+async function verifyArtifacts(options) {
   const pluginRoot = path.resolve(options.pluginRoot)
-  const officialPlugins = discoverOfficialPlugins()
+  const officialPlugins = await discoverOfficialPlugins()
   const selected = options.name
     ? officialPlugins.filter((plugin) => plugin.name === options.name)
     : officialPlugins
@@ -126,11 +130,11 @@ function verifyArtifacts(options) {
 
 try {
   if (args.action === 'verify') {
-    verifyArtifacts(args)
+    await verifyArtifacts(args)
     process.exit(0)
   }
 
-  const { pluginDir } = readPluginManifest(args.name)
+  const { pluginDir } = await readPluginManifest(args.name)
 
   // Run native build step if the plugin has one (e.g. scripts/build-cua-plugin-runtime.mjs)
   const nativeBuildScript = path.resolve(`scripts/build-${args.name}-plugin-runtime.mjs`)

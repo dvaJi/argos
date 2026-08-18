@@ -213,7 +213,7 @@ export class DaemonPluginPresenter {
       const plugin = this.getOfficialPluginOrThrow(pluginId);
       this.assertTrustedOfficialPlugin(plugin.manifest);
       this.assertPlatformSupported(plugin.manifest);
-      const installation = this.ensureOfficialPluginInstallation(plugin);
+      const installation = await this.ensureOfficialPluginInstallation(plugin);
 
       const nextInstallation: PluginInstallationRecord = {
         ...installation,
@@ -257,7 +257,7 @@ export class DaemonPluginPresenter {
   async invokeAction(pluginId: string, actionId: string, payload?: unknown): Promise<PluginActionResult> {
     try {
       if (actionId === "settings.open") {
-        if (!this.getSettingsContribution(pluginId)) {
+        if (!(await this.getSettingsContribution(pluginId))) {
           throw new Error(`Plugin ${pluginId} does not provide a settings contribution`);
         }
         return {
@@ -288,17 +288,17 @@ export class DaemonPluginPresenter {
             error: "Helper uninstall is not implemented for daemon mode.",
           };
         case "config.get": {
-          const plugin = this.getInstalledOrOfficialPluginOrThrow(pluginId);
+          const plugin = await this.getInstalledOrOfficialPluginOrThrow(pluginId);
           const configPath = path.join(plugin.root, "config.json");
           if (!fs.existsSync(configPath)) {
             return { ok: true, data: {} };
           }
-          return { ok: true, data: JSON.parse(fs.readFileSync(configPath, "utf-8")) };
+          return { ok: true, data: await Bun.file(configPath).json() };
         }
         case "config.set": {
-          const plugin = this.getInstalledOrOfficialPluginOrThrow(pluginId);
+          const plugin = await this.getInstalledOrOfficialPluginOrThrow(pluginId);
           const configPath = path.join(plugin.root, "config.json");
-          fs.writeFileSync(configPath, JSON.stringify((payload ?? {}) as Record<string, unknown>, null, 2), "utf-8");
+          await Bun.write(configPath, JSON.stringify((payload ?? {}) as Record<string, unknown>, null, 2));
           return { ok: true };
         }
         default:
@@ -314,8 +314,8 @@ export class DaemonPluginPresenter {
     }
   }
 
-  resolveSettingsWebAsset(pluginId: string, assetPath: string): PluginSettingsWebAsset | null {
-    const settings = this.getSettingsContribution(pluginId);
+  async resolveSettingsWebAsset(pluginId: string, assetPath: string): Promise<PluginSettingsWebAsset | null> {
+    const settings = await this.getSettingsContribution(pluginId);
     if (!settings) {
       return null;
     }
@@ -344,7 +344,7 @@ export class DaemonPluginPresenter {
   }
 
   private async activatePlugin(pluginId: string): Promise<void> {
-    const plugin = this.getInstalledOrOfficialPluginOrThrow(pluginId);
+    const plugin = await this.getInstalledOrOfficialPluginOrThrow(pluginId);
     this.assertTrustedOfficialPlugin(plugin.manifest);
     this.assertPlatformSupported(plugin.manifest);
     this.applyDeclaredExecutablePermissions(plugin.manifest, plugin.root);
@@ -539,7 +539,7 @@ export class DaemonPluginPresenter {
   }
 
   private async refreshRuntime(pluginId: string): Promise<PluginRuntimeStatus> {
-    const plugin = this.getInstalledOrOfficialPluginOrThrow(pluginId);
+    const plugin = await this.getInstalledOrOfficialPluginOrThrow(pluginId);
     const runtimeManifest = plugin.manifest.runtime;
     if (!runtimeManifest) {
       throw new Error(`Plugin ${pluginId} does not declare a runtime`);
@@ -645,7 +645,7 @@ export class DaemonPluginPresenter {
         throw new Error("Permission probe did not write a status file");
       }
 
-      const status = JSON.parse(fs.readFileSync(outputPath, "utf8")) as {
+      const status = (await Bun.file(outputPath).json()) as {
         accessibility?: unknown;
         screen_recording?: unknown;
         screenRecording?: unknown;
@@ -706,7 +706,10 @@ export class DaemonPluginPresenter {
 
   private async loadOfficialPlugins(): Promise<void> {
     this.officialPlugins.clear();
-    const plugins = [...this.resolveOfficialPluginPackages(), ...this.resolveOfficialPluginDirectories()];
+    const plugins = [
+      ...(await this.resolveOfficialPluginPackages()),
+      ...(await this.resolveOfficialPluginDirectories()),
+    ];
     const usablePluginIds = new Set<string>();
 
     for (const plugin of plugins) {
@@ -746,7 +749,7 @@ export class DaemonPluginPresenter {
     }
   }
 
-  private resolveOfficialPluginDirectories(): ResolvedOfficialPlugin[] {
+  private async resolveOfficialPluginDirectories(): Promise<ResolvedOfficialPlugin[]> {
     const rootCandidates = this.getPluginDiscoveryRoots();
     const pluginRoots = new Set<string>();
 
@@ -771,15 +774,19 @@ export class DaemonPluginPresenter {
       }
     }
 
-    return Array.from(pluginRoots).map((root) => ({
-      manifest: this.readManifest(path.join(root, "plugin.json")),
-      root,
-      sourcePath: root,
-      sourceType: "directory",
-    }));
+    const plugins: ResolvedOfficialPlugin[] = [];
+    for (const root of pluginRoots) {
+      plugins.push({
+        manifest: await this.readManifest(path.join(root, "plugin.json")),
+        root,
+        sourcePath: root,
+        sourceType: "directory",
+      });
+    }
+    return plugins;
   }
 
-  private resolveOfficialPluginPackages(): ResolvedOfficialPlugin[] {
+  private async resolveOfficialPluginPackages(): Promise<ResolvedOfficialPlugin[]> {
     const packageRoots = this.getPluginPackageRoots();
     const packagePaths = new Set<string>();
 
@@ -795,12 +802,16 @@ export class DaemonPluginPresenter {
       }
     }
 
-    return Array.from(packagePaths).map((packagePath) => ({
-      manifest: this.readPackageManifest(packagePath),
-      root: packagePath,
-      sourcePath: packagePath,
-      sourceType: "package",
-    }));
+    const plugins: ResolvedOfficialPlugin[] = [];
+    for (const packagePath of packagePaths) {
+      plugins.push({
+        manifest: await this.readPackageManifest(packagePath),
+        root: packagePath,
+        sourcePath: packagePath,
+        sourceType: "package",
+      });
+    }
+    return plugins;
   }
 
   private getPluginDiscoveryRoots(): string[] {
@@ -825,18 +836,16 @@ export class DaemonPluginPresenter {
     return Array.from(new Set(roots));
   }
 
-  private readManifest(manifestPath: string): ArgosPluginManifest {
-    const parsed = this.hydrateManifestPlaceholders(
-      JSON.parse(fs.readFileSync(manifestPath, "utf8")) as ArgosPluginManifest,
-    );
+  private async readManifest(manifestPath: string): Promise<ArgosPluginManifest> {
+    const parsed = this.hydrateManifestPlaceholders((await Bun.file(manifestPath).json()) as ArgosPluginManifest);
     if (!parsed.id || !parsed.name || !parsed.version || !parsed.source) {
       throw new Error(`Invalid plugin manifest: ${manifestPath}`);
     }
     return parsed;
   }
 
-  private readPackageManifest(packagePath: string): ArgosPluginManifest {
-    const files = this.readPluginPackage(packagePath);
+  private async readPackageManifest(packagePath: string): Promise<ArgosPluginManifest> {
+    const files = await this.readPluginPackage(packagePath);
     const manifestFile = files["plugin.json"];
     if (!manifestFile) {
       throw new Error(`Plugin package is missing plugin.json: ${packagePath}`);
@@ -850,8 +859,8 @@ export class DaemonPluginPresenter {
     return manifest;
   }
 
-  private readPluginPackage(packagePath: string): Record<string, Uint8Array> {
-    const files = unzipSync(new Uint8Array(fs.readFileSync(packagePath)));
+  private async readPluginPackage(packagePath: string): Promise<Record<string, Uint8Array>> {
+    const files = unzipSync(await Bun.file(packagePath).bytes());
     this.verifyPackageChecksums(packagePath, files);
     return files;
   }
@@ -901,12 +910,12 @@ export class DaemonPluginPresenter {
     }
   }
 
-  private ensureOfficialPluginInstallation(plugin: ResolvedOfficialPlugin): PluginInstallationRecord {
+  private async ensureOfficialPluginInstallation(plugin: ResolvedOfficialPlugin): Promise<PluginInstallationRecord> {
     const pluginId = plugin.manifest.id;
     const existing = this.getInstallation(pluginId);
     const existingManifestPath = existing?.path ? path.join(existing.path, "plugin.json") : undefined;
     if (existing && existingManifestPath && fs.existsSync(existingManifestPath)) {
-      const existingManifest = this.readManifest(existingManifestPath);
+      const existingManifest = await this.readManifest(existingManifestPath);
       const shouldRefreshDirectoryInstallation =
         plugin.sourceType === "directory" && path.resolve(plugin.sourcePath) !== path.resolve(existing.path);
       if (
@@ -921,8 +930,8 @@ export class DaemonPluginPresenter {
       }
     }
 
-    const installRoot = this.installResolvedPlugin(plugin);
-    const installedManifest = this.readManifest(path.join(installRoot, "plugin.json"));
+    const installRoot = await this.installResolvedPlugin(plugin);
+    const installedManifest = await this.readManifest(path.join(installRoot, "plugin.json"));
     this.assertTrustedOfficialPlugin(installedManifest);
     this.assertPlatformSupported(installedManifest);
     this.applyDeclaredExecutablePermissions(installedManifest, installRoot);
@@ -948,35 +957,35 @@ export class DaemonPluginPresenter {
     return next;
   }
 
-  private installResolvedPlugin(plugin: ResolvedOfficialPlugin): string {
+  private async installResolvedPlugin(plugin: ResolvedOfficialPlugin): Promise<string> {
     const installRoot = this.getInstalledPluginRoot(plugin.manifest.id);
     if (plugin.sourceType === "directory" && path.resolve(plugin.sourcePath) === installRoot) {
       return installRoot;
     }
 
-    const preservedConfig = this.readInstalledPluginConfig(installRoot);
+    const preservedConfig = await this.readInstalledPluginConfig(installRoot);
     fs.rmSync(installRoot, { recursive: true, force: true });
     fs.mkdirSync(installRoot, { recursive: true });
 
     if (plugin.sourceType === "package") {
-      this.extractPluginPackage(plugin.sourcePath, installRoot);
+      await this.extractPluginPackage(plugin.sourcePath, installRoot);
     } else {
       this.copyPluginDirectory(plugin.sourcePath, installRoot);
     }
 
-    this.writeInstalledPluginConfig(installRoot, preservedConfig);
+    await this.writeInstalledPluginConfig(installRoot, preservedConfig);
     return installRoot;
   }
 
-  private extractPluginPackage(packagePath: string, installRoot: string): void {
-    const files = this.readPluginPackage(packagePath);
+  private async extractPluginPackage(packagePath: string, installRoot: string): Promise<void> {
+    const files = await this.readPluginPackage(packagePath);
     for (const [relativePath, content] of Object.entries(files)) {
       if (relativePath.endsWith("/")) {
         continue;
       }
       const outputPath = this.resolvePluginRelativePath(installRoot, relativePath);
       fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-      fs.writeFileSync(outputPath, Buffer.from(content));
+      await Bun.write(outputPath, Buffer.from(content));
     }
   }
 
@@ -1121,7 +1130,7 @@ export class DaemonPluginPresenter {
     const plugin = this.getOfficialPluginOrThrow(pluginId);
     const installation = this.getInstallation(pluginId);
     const runtimeRecord = this.getRuntimeRecord(pluginId, plugin.manifest.runtime?.id);
-    const settings = this.getSettingsContribution(pluginId);
+    const settings = await this.getSettingsContribution(pluginId);
     const runtime = plugin.manifest.runtime
       ? {
           runtimeId: plugin.manifest.runtime.id,
@@ -1152,7 +1161,7 @@ export class DaemonPluginPresenter {
     };
   }
 
-  private getSettingsContribution(pluginId: string): PluginSettingsContribution | undefined {
+  private async getSettingsContribution(pluginId: string): Promise<PluginSettingsContribution | undefined> {
     const record = this.getResources().find(
       (resource) => resource.pluginId === pluginId && resource.kind === "settings" && resource.enabled,
     );
@@ -1171,13 +1180,12 @@ export class DaemonPluginPresenter {
     }
 
     if (plugin.sourceType === "package") {
-      const ensuredInstallation = this.ensureOfficialPluginInstallation(plugin);
+      const ensuredInstallation = await this.ensureOfficialPluginInstallation(plugin);
       return this.resolveManifestSettingsContribution(plugin, ensuredInstallation.path);
     }
 
     return this.resolveManifestSettingsContribution(plugin, plugin.root);
   }
-
   private resolveManifestSettingsContribution(
     plugin: ResolvedOfficialPlugin,
     pluginRoot: string,
@@ -1224,14 +1232,14 @@ export class DaemonPluginPresenter {
     return plugin;
   }
 
-  private getInstalledOrOfficialPluginOrThrow(pluginId: string): ResolvedOfficialPlugin {
+  private async getInstalledOrOfficialPluginOrThrow(pluginId: string): Promise<ResolvedOfficialPlugin> {
     const official = this.officialPlugins.get(pluginId);
     if (official) {
-      const installation = this.ensureOfficialPluginInstallation(official);
+      const installation = await this.ensureOfficialPluginInstallation(official);
       const manifestPath = path.join(installation.path, "plugin.json");
       if (fs.existsSync(manifestPath)) {
         return {
-          manifest: this.readManifest(manifestPath),
+          manifest: await this.readManifest(manifestPath),
           root: installation.path,
           sourcePath: installation.path,
           sourceType: "directory",
@@ -1242,7 +1250,7 @@ export class DaemonPluginPresenter {
     const installation = this.getInstallation(pluginId);
     if (installation?.path && fs.existsSync(path.join(installation.path, "plugin.json"))) {
       return {
-        manifest: this.readManifest(path.join(installation.path, "plugin.json")),
+        manifest: await this.readManifest(path.join(installation.path, "plugin.json")),
         root: installation.path,
         sourcePath: installation.path,
         sourceType: "directory",
@@ -1357,19 +1365,19 @@ export class DaemonPluginPresenter {
     return pluginId.replace(/[^a-zA-Z0-9._-]/g, "-");
   }
 
-  private readInstalledPluginConfig(installRoot: string): string | undefined {
+  private async readInstalledPluginConfig(installRoot: string): Promise<string | undefined> {
     const configPath = path.join(installRoot, "config.json");
     if (!fs.existsSync(configPath) || !fs.statSync(configPath).isFile()) {
       return undefined;
     }
-    return fs.readFileSync(configPath, "utf8");
+    return Bun.file(configPath).text();
   }
 
-  private writeInstalledPluginConfig(installRoot: string, config: string | undefined): void {
+  private async writeInstalledPluginConfig(installRoot: string, config: string | undefined): Promise<void> {
     if (config === undefined) {
       return;
     }
-    fs.writeFileSync(path.join(installRoot, "config.json"), config, "utf8");
+    await Bun.write(path.join(installRoot, "config.json"), config);
   }
 
   private parsePermissionState(output: string, label: string): "granted" | "missing" | "unknown" {

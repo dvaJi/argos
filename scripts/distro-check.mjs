@@ -27,9 +27,7 @@ for (const c of checks) {
     console.log(`skip  ${c.name} (file not found)`);
     continue;
   }
-  const where = process.platform === "win32" ? "where" : "which";
-  const probe = spawnSync(where, [c.bin], { stdio: "ignore" });
-  if (probe.status !== 0) {
+  if (Bun.which(c.bin) === null) {
     console.log(`skip  ${c.name} (${c.bin} not installed)`);
     continue;
   }

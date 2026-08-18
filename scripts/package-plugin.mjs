@@ -62,8 +62,8 @@ function parseArgs(argv) {
   return args
 }
 
-function readRootPackageVersion() {
-  return JSON.parse(fs.readFileSync(path.resolve('package.json'), 'utf8')).version
+async function readRootPackageVersion() {
+  return (await Bun.file(path.resolve('package.json')).json()).version
 }
 
 function assertSafeRelativePath(relativePath, label) {
@@ -92,9 +92,9 @@ function assertFile(pluginDir, relativePath, label) {
   return absolutePath
 }
 
-function readManifest(pluginDir) {
+async function readManifest(pluginDir) {
   const manifestPath = assertFile(pluginDir, 'plugin.json', 'manifest')
-  return JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
+  return Bun.file(manifestPath).json()
 }
 
 function validateManifest(pluginDir, manifest) {
@@ -139,7 +139,7 @@ function shouldSkipPackageEntry(relativePath, manifest, args) {
   return false
 }
 
-function collectFiles(pluginDir, currentDir = pluginDir, files = {}, manifest, args) {
+async function collectFiles(pluginDir, currentDir = pluginDir, files = {}, manifest, args) {
   for (const entry of fs.readdirSync(currentDir, { withFileTypes: true })) {
     if (
       entry.isSymbolicLink() ||
@@ -159,11 +159,11 @@ function collectFiles(pluginDir, currentDir = pluginDir, files = {}, manifest, a
     }
 
     if (entry.isDirectory()) {
-      collectFiles(pluginDir, absolutePath, files, manifest, args)
+      await collectFiles(pluginDir, absolutePath, files, manifest, args)
       continue
     }
 
-    files[relativePath] = new Uint8Array(fs.readFileSync(absolutePath))
+    files[relativePath] = await Bun.file(absolutePath).bytes()
   }
   return files
 }
@@ -184,8 +184,8 @@ function releaseTag(version) {
   return version.startsWith('v') ? version : `v${version}`
 }
 
-function createPackageManifest(manifest, args) {
-  const version = args.version || (args.releaseVersionFromRoot ? readRootPackageVersion() : manifest.version)
+async function createPackageManifest(manifest, args) {
+  const version = args.version || (args.releaseVersionFromRoot ? await readRootPackageVersion() : manifest.version)
   const next = JSON.parse(
     JSON.stringify({ ...manifest, version })
       .replaceAll('${app.version}', version)
@@ -258,8 +258,8 @@ function buildChecksums(files) {
   )
 }
 
-function packagePlugin(pluginDir, outDir, manifest, args) {
-  const files = collectFiles(pluginDir, pluginDir, {}, manifest, args)
+async function packagePlugin(pluginDir, outDir, manifest, args) {
+  const files = await collectFiles(pluginDir, pluginDir, {}, manifest, args)
   files['plugin.json'] = new TextEncoder().encode(`${JSON.stringify(manifest, null, 2)}\n`)
   files['checksums.json'] = new TextEncoder().encode(
     `${JSON.stringify(buildChecksums(files), null, 2)}\n`
@@ -267,20 +267,20 @@ function packagePlugin(pluginDir, outDir, manifest, args) {
 
   fs.mkdirSync(outDir, { recursive: true })
   const outPath = path.join(outDir, artifactFileName(manifest, args.targetPlatform, args.targetArch))
-  fs.writeFileSync(outPath, Buffer.from(zipSync(files, { level: 6 })))
+  await Bun.write(outPath, Buffer.from(zipSync(files, { level: 6 })))
   return outPath
 }
 
 try {
   const args = parseArgs(process.argv.slice(2))
-  const sourceManifest = readManifest(args.pluginDir)
-  const manifest = createPackageManifest(sourceManifest, args)
+  const sourceManifest = await readManifest(args.pluginDir)
+  const manifest = await createPackageManifest(sourceManifest, args)
   validateManifest(args.pluginDir, manifest)
   validateCuaRuntime(args.pluginDir, manifest, args)
   if (args.validateOnly) {
     console.log(`Plugin ${manifest.id}@${manifest.version} is valid`)
   } else {
-    const outPath = packagePlugin(args.pluginDir, args.outDir, manifest, args)
+    const outPath = await packagePlugin(args.pluginDir, args.outDir, manifest, args)
     console.log(`Packaged ${manifest.id}@${manifest.version}: ${outPath}`)
   }
 } catch (error) {

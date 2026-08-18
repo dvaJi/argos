@@ -89,7 +89,7 @@ async function pathExists(targetPath) {
 async function readUpstreamMetadata() {
   let metadata
   try {
-    metadata = JSON.parse(await fs.readFile(upstreamMetadataPath, 'utf8'))
+    metadata = JSON.parse(await Bun.file(upstreamMetadataPath).text())
   } catch (error) {
     throw new Error(
       `Unable to read CUA upstream metadata at ${path.relative(rootDir, upstreamMetadataPath)}: ${error instanceof Error ? error.message : error}`
@@ -127,7 +127,7 @@ async function validateVendorSource(metadata) {
     throw new Error(`Vendored CUA Driver source is missing Sources at ${sourcesPath}`)
   }
 
-  const packageContent = await fs.readFile(packagePath, 'utf8')
+  const packageContent = await Bun.file(packagePath).text()
   if (!packageContent.includes('name: "cua-driver"')) {
     throw new Error('Vendored CUA Driver Package.swift does not look like the cua-driver package')
   }
@@ -138,7 +138,7 @@ async function validateVendorSource(metadata) {
     'CuaDriverCLI',
     'CuaDriverCommand.swift'
   )
-  const commandContent = await fs.readFile(commandPath, 'utf8')
+  const commandContent = await Bun.file(commandPath).text()
   if (!commandContent.includes('ArgosPermissionProbeCommand')) {
     throw new Error(
       `Vendored CUA Driver source is missing Argos permission probe patch for ${metadata.commit}`
@@ -221,7 +221,7 @@ async function stageApp(sourceDir, builtBinary, targetArch, version) {
   await fs.mkdir(resourcesPath, { recursive: true })
   await fs.copyFile(builtBinary, stagedBinary)
   await fs.chmod(stagedBinary, 0o755)
-  await fs.writeFile(path.join(contentsPath, 'Info.plist'), plistXml(version))
+  await Bun.write(path.join(contentsPath, 'Info.plist'), plistXml(version))
 
   const iconPath = path.join(sourceDir, 'App', 'CuaDriver', 'AppIcon.icns')
   if (await pathExists(iconPath)) {

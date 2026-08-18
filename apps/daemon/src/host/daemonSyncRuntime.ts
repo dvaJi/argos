@@ -95,34 +95,33 @@ export class DaemonSyncRuntime {
     const entries: Record<string, Uint8Array> = {};
     for (const file of this.configFiles()) {
       try {
-        entries[file] = fs.readFileSync(path.join(this.configDirRoot(), file));
+        entries[file] = await Bun.file(path.join(this.configDirRoot(), file)).bytes();
       } catch {
         // skip missing files
       }
     }
-    fs.writeFileSync(target, zipSync(entries));
+    await Bun.write(target, zipSync(entries));
     return { timestamp };
   }
 
   async restoreBackup(name: string): Promise<void> {
     const target = path.join(this.resolveBackupDir(), name);
     if (!fs.existsSync(target)) throw new Error(`Backup not found: ${name}`);
-    const raw = fs.readFileSync(target);
-    const extracted = unzipSync(new Uint8Array(raw));
+    const extracted = unzipSync(await Bun.file(target).bytes());
     for (const [file, data] of Object.entries(extracted)) {
       const dest = path.join(this.configDirRoot(), file);
       fs.mkdirSync(path.dirname(dest), { recursive: true });
-      fs.writeFileSync(dest, data as Uint8Array);
+      await Bun.write(dest, data as Uint8Array);
     }
   }
 
   // ---- cloud ----
   async getCloudConfig(): Promise<CloudSyncConfigView> {
-    return this.toCloudConfigView(this.readCloudConfigWithEnv());
+    return this.toCloudConfigView(await this.readCloudConfigWithEnv());
   }
 
   async setCloudConfig(config: CloudSyncConfigInput): Promise<CloudSyncConfigView> {
-    const current = this.readStoredCloudConfig();
+    const current = await this.readStoredCloudConfig();
     const next: StoredCloudSyncConfig = {
       enabled: config.enabled ?? current.enabled,
       endpoint: config.endpoint ?? current.endpoint,
@@ -137,14 +136,14 @@ export class DaemonSyncRuntime {
     };
 
     fs.mkdirSync(path.dirname(this.cloudConfigPath), { recursive: true });
-    fs.writeFileSync(this.cloudConfigPath, JSON.stringify(next, null, 2));
+    await Bun.write(this.cloudConfigPath, JSON.stringify(next, null, 2));
 
-    return this.toCloudConfigView(this.readCloudConfigWithEnv());
+    return this.toCloudConfigView(await this.readCloudConfigWithEnv());
   }
 
   async uploadToCloud(): Promise<CloudSyncResult> {
     try {
-      const service = this.buildCloudService();
+      const service = await this.buildCloudService();
       const { timestamp } = await this.startBackup();
       const backup = this.listBackupsSync().find((entry) => entry.timestamp === timestamp);
       if (!backup) {
@@ -161,7 +160,7 @@ export class DaemonSyncRuntime {
 
   async pullFromCloud(): Promise<CloudSyncResult> {
     try {
-      const service = this.buildCloudService();
+      const service = await this.buildCloudService();
       const fileName = await service.downloadLatest(this.ensureBackupDir());
       if (!fileName) {
         return { success: false, message: "sync.error.cloudNoBackup" };
@@ -176,7 +175,7 @@ export class DaemonSyncRuntime {
 
   async testCloud(): Promise<CloudSyncResult> {
     try {
-      const service = this.buildCloudService();
+      const service = await this.buildCloudService();
       await service.testConnection();
       return { success: true, message: "sync.success.cloudConnected" };
     } catch (error) {
@@ -222,12 +221,12 @@ export class DaemonSyncRuntime {
     return ["config.json", "mcp-settings.json", "acp_agents.json"];
   }
 
-  private readStoredCloudConfig(): StoredCloudSyncConfig {
+  private async readStoredCloudConfig(): Promise<StoredCloudSyncConfig> {
     try {
       if (!fs.existsSync(this.cloudConfigPath)) {
         return { ...DEFAULT_CLOUD_CONFIG };
       }
-      const parsed = JSON.parse(fs.readFileSync(this.cloudConfigPath, "utf-8")) as Partial<StoredCloudSyncConfig>;
+      const parsed = (await Bun.file(this.cloudConfigPath).json()) as Partial<StoredCloudSyncConfig>;
       return {
         enabled: parsed.enabled ?? DEFAULT_CLOUD_CONFIG.enabled,
         endpoint: parsed.endpoint ?? DEFAULT_CLOUD_CONFIG.endpoint,
@@ -243,8 +242,8 @@ export class DaemonSyncRuntime {
     }
   }
 
-  private readCloudConfigWithEnv(): StoredCloudSyncConfig {
-    const stored = this.readStoredCloudConfig();
+  private async readCloudConfigWithEnv(): Promise<StoredCloudSyncConfig> {
+    const stored = await this.readStoredCloudConfig();
     return {
       enabled: stored.enabled,
       endpoint: process.env.ARGOS_SYNC_S3_ENDPOINT || stored.endpoint,
@@ -269,8 +268,8 @@ export class DaemonSyncRuntime {
     };
   }
 
-  private getResolvedCloudSyncConfig(): DaemonResolvedCloudSyncConfig | null {
-    const config = this.readCloudConfigWithEnv();
+  private async getResolvedCloudSyncConfig(): Promise<DaemonResolvedCloudSyncConfig | null> {
+    const config = await this.readCloudConfigWithEnv();
     if (!config.endpoint || !config.bucket || !config.accessKeyId || !config.secretAccessKey) {
       return null;
     }
@@ -284,8 +283,8 @@ export class DaemonSyncRuntime {
     };
   }
 
-  private buildCloudService(): BunS3CloudStorageService {
-    const resolved = this.getResolvedCloudSyncConfig();
+  private async buildCloudService(): Promise<BunS3CloudStorageService> {
+    const resolved = await this.getResolvedCloudSyncConfig();
     if (!resolved) {
       throw new Error("sync.error.cloudNotConfigured");
     }

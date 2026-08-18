@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { chmodSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, renameSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import process from "node:process";
 import { resolveDaemonVersion } from "./version";
@@ -144,7 +144,7 @@ export async function runSelfUpdate(opts: SelfUpdateOptions = {}): Promise<void>
   const dir = opts.installDir ?? dirname(target);
   const tmpPath = join(dir, `.${binary}.update.${process.pid}.tmp`);
 
-  writeFileSync(tmpPath, buf);
+  await Bun.write(tmpPath, buf);
   try {
     chmodSync(tmpPath, 0o755);
   } catch {

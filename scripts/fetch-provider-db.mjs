@@ -277,7 +277,7 @@ async function main() {
   }
 
   try {
-    await fsp.writeFile(tmpFile, JSON.stringify(sanitized, null, 2))
+    await Bun.write(tmpFile, JSON.stringify(sanitized, null, 2))
     try {
       await fsp.rename(tmpFile, outFile)
     } catch (e) {
