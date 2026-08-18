@@ -215,7 +215,7 @@ export class AcpContentMapper {
     const contentChunk = this.formatToolCallContent(content, "");
     const chunk = paramsChunk ?? (state.paramsCaptured ? "" : contentChunk);
     if (chunk) {
-      this.emitToolCallChunk(state, chunk, payload);
+      this.emitToolCallChunk(state, chunk, payload, paramsChunk !== undefined);
       if (paramsChunk) {
         state.paramsCaptured = true;
       }
@@ -373,10 +373,35 @@ export class AcpContentMapper {
       JSON.parse(trimmed);
       return trimmed;
     } catch (error) {
+      // Defense-in-depth for agents that still append snapshots: fall back to the
+      // last complete JSON document so the tool call receives valid arguments.
+      const salvaged = this.extractLastJsonDocument(trimmed);
+      if (salvaged !== undefined) {
+        return salvaged;
+      }
       const preview = trimmed.length > 120 ? `${trimmed.slice(0, 120)}…` : trimmed;
       console.warn(`[ACP] Tool call arguments appear incomplete (toolCallId=${toolCallId}): ${preview}`, error);
       return trimmed;
     }
+  }
+
+  private extractLastJsonDocument(value: string): string | undefined {
+    const openers: number[] = [];
+    for (let i = 0; i < value.length; i++) {
+      if (value[i] === "{" || value[i] === "[") {
+        openers.push(i);
+      }
+    }
+    for (let i = openers.length - 1; i >= 0; i--) {
+      const candidate = value.slice(openers[i]);
+      try {
+        JSON.parse(candidate);
+        return candidate;
+      } catch {
+        // Keep scanning for an earlier complete document.
+      }
+    }
+    return undefined;
   }
 
   private buildToolCallReasoning(title?: string, status?: schema.ToolCallStatus | null): string | null {
@@ -391,8 +416,11 @@ export class AcpContentMapper {
     payload.events.push(createStreamEvent.toolCallStart(state.toolCallId, state.toolName));
   }
 
-  private emitToolCallChunk(state: ToolCallState, chunk: string, payload: MappedContent) {
-    state.argumentsBuffer += chunk;
+  private emitToolCallChunk(state: ToolCallState, chunk: string, payload: MappedContent, isSnapshot: boolean) {
+    // Structured params (rawInput/locations/title) have replace semantics in the ACP
+    // schema — agents re-emit the complete snapshot on every update. Streaming text
+    // fallback chunks are deltas and must still append.
+    state.argumentsBuffer = isSnapshot ? chunk : `${state.argumentsBuffer}${chunk}`;
     payload.events.push(createStreamEvent.toolCallChunk(state.toolCallId, chunk));
     payload.blocks.push(
       this.createBlock("tool_call", state.argumentsBuffer, {
