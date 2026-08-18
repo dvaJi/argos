@@ -15,7 +15,6 @@ import type {
   IToolPresenter,
   IUpgradePresenter,
   IWindowPresenter,
-  IWorkspacePresenter,
   IYoBrowserPresenter,
 } from "@argos/shared/presenter";
 import { ARGOS_ROUTE_INVOKE_CHANNEL } from "@argos/shared-contracts/channels";
@@ -275,6 +274,7 @@ import { createSettingsRouteAdapter } from "./settings/settingsAdapter";
 import { createSettingsRouteHandler } from "./settings/settingsHandler";
 import { SessionService } from "./sessions/sessionService";
 import type { StartupWorkloadCoordinator } from "#/presenter/startupWorkloadCoordinator";
+import type { WorkspaceShellPresenter } from "#/presenter/workspaceShellPresenter";
 import type { PluginPresenter } from "#/presenter/pluginPresenter";
 import type { ScheduledTasksService } from "#/presenter/scheduledTasks";
 import type { MemoryPresenter } from "@argos/memory-runtime";
@@ -306,7 +306,7 @@ export type MainKernelRouteRuntime = {
   devicePresenter: IDevicePresenter;
   projectPresenter: IProjectPresenter;
   filePresenter: IFilePresenter;
-  workspacePresenter: IWorkspacePresenter;
+  workspaceShell: WorkspaceShellPresenter;
   yoBrowserPresenter: IYoBrowserPresenter;
   tabPresenter: ITabPresenter;
   startupWorkloadCoordinator: StartupWorkloadCoordinator;
@@ -330,7 +330,7 @@ export function createMainKernelRouteRuntime(deps: {
   devicePresenter: IDevicePresenter;
   projectPresenter: IProjectPresenter;
   filePresenter: IFilePresenter;
-  workspacePresenter: IWorkspacePresenter;
+  workspaceShell: WorkspaceShellPresenter;
   yoBrowserPresenter: IYoBrowserPresenter;
   tabPresenter: ITabPresenter;
   startupWorkloadCoordinator: StartupWorkloadCoordinator;
@@ -427,7 +427,7 @@ export function createMainKernelRouteRuntime(deps: {
     devicePresenter: deps.devicePresenter,
     projectPresenter: deps.projectPresenter,
     filePresenter: deps.filePresenter,
-    workspacePresenter: deps.workspacePresenter,
+    workspaceShell: deps.workspaceShell,
     yoBrowserPresenter: deps.yoBrowserPresenter,
     tabPresenter: deps.tabPresenter,
     startupWorkloadCoordinator: deps.startupWorkloadCoordinator,
@@ -1223,127 +1223,102 @@ export async function dispatchArgosRoute(
 
     case workspaceRegisterRoute.name: {
       const input = workspaceRegisterRoute.input.parse(rawInput);
-      if (input.mode === "workdir") {
-        await runtime.workspacePresenter.registerWorkdir(input.workspacePath);
-      } else {
-        await runtime.workspacePresenter.registerWorkspace(input.workspacePath);
-      }
-      return workspaceRegisterRoute.output.parse({ registered: true });
+      return workspaceRegisterRoute.output.parse(await invokeDaemonRoute(workspaceRegisterRoute.name, input));
     }
 
     case workspaceUnregisterRoute.name: {
       const input = workspaceUnregisterRoute.input.parse(rawInput);
-      if (input.mode === "workdir") {
-        await runtime.workspacePresenter.unregisterWorkdir(input.workspacePath);
-      } else {
-        await runtime.workspacePresenter.unregisterWorkspace(input.workspacePath);
-      }
-      return workspaceUnregisterRoute.output.parse({ unregistered: true });
+      return workspaceUnregisterRoute.output.parse(await invokeDaemonRoute(workspaceUnregisterRoute.name, input));
     }
 
     case workspaceWatchRoute.name: {
       const input = workspaceWatchRoute.input.parse(rawInput);
-      await runtime.workspacePresenter.watchWorkspace(input.workspacePath);
-      return workspaceWatchRoute.output.parse({ watching: true });
+      return workspaceWatchRoute.output.parse(await invokeDaemonRoute(workspaceWatchRoute.name, input));
     }
 
     case workspaceUnwatchRoute.name: {
       const input = workspaceUnwatchRoute.input.parse(rawInput);
-      await runtime.workspacePresenter.unwatchWorkspace(input.workspacePath);
-      return workspaceUnwatchRoute.output.parse({ watching: false });
+      return workspaceUnwatchRoute.output.parse(await invokeDaemonRoute(workspaceUnwatchRoute.name, input));
     }
 
     case workspaceReadDirectoryRoute.name: {
       const input = workspaceReadDirectoryRoute.input.parse(rawInput);
-      return workspaceReadDirectoryRoute.output.parse({
-        nodes: await runtime.workspacePresenter.readDirectory(input.path),
-      });
+      return workspaceReadDirectoryRoute.output.parse(await invokeDaemonRoute(workspaceReadDirectoryRoute.name, input));
     }
 
     case workspaceExpandDirectoryRoute.name: {
       const input = workspaceExpandDirectoryRoute.input.parse(rawInput);
-      return workspaceExpandDirectoryRoute.output.parse({
-        nodes: await runtime.workspacePresenter.expandDirectory(input.path),
-      });
+      return workspaceExpandDirectoryRoute.output.parse(
+        await invokeDaemonRoute(workspaceExpandDirectoryRoute.name, input),
+      );
     }
 
     case workspaceRevealFileInFolderRoute.name: {
       const input = workspaceRevealFileInFolderRoute.input.parse(rawInput);
-      await runtime.workspacePresenter.revealFileInFolder(input.path);
+      await runtime.workspaceShell.revealFileInFolder(input.path);
       return workspaceRevealFileInFolderRoute.output.parse({ revealed: true });
     }
 
     case workspaceOpenFileRoute.name: {
       const input = workspaceOpenFileRoute.input.parse(rawInput);
-      await runtime.workspacePresenter.openFile(input.path);
+      await runtime.workspaceShell.openFile(input.path);
       return workspaceOpenFileRoute.output.parse({ opened: true });
     }
 
     case workspaceReadFilePreviewRoute.name: {
       const input = workspaceReadFilePreviewRoute.input.parse(rawInput);
-      return workspaceReadFilePreviewRoute.output.parse({
-        preview: await runtime.workspacePresenter.readFilePreview(input.path),
-      });
+      return workspaceReadFilePreviewRoute.output.parse(
+        await invokeDaemonRoute(workspaceReadFilePreviewRoute.name, input),
+      );
     }
 
     case workspaceResolveMarkdownLinkedFileRoute.name: {
       const input = workspaceResolveMarkdownLinkedFileRoute.input.parse(rawInput);
-      return workspaceResolveMarkdownLinkedFileRoute.output.parse({
-        resolution: await runtime.workspacePresenter.resolveMarkdownLinkedFile(input),
-      });
+      return workspaceResolveMarkdownLinkedFileRoute.output.parse(
+        await invokeDaemonRoute(workspaceResolveMarkdownLinkedFileRoute.name, input),
+      );
     }
 
     case workspaceGetGitStatusRoute.name: {
       const input = workspaceGetGitStatusRoute.input.parse(rawInput);
-      return workspaceGetGitStatusRoute.output.parse({
-        state: await runtime.workspacePresenter.getGitStatus(input.workspacePath),
-      });
+      return workspaceGetGitStatusRoute.output.parse(await invokeDaemonRoute(workspaceGetGitStatusRoute.name, input));
     }
 
     case workspaceGetGitDiffRoute.name: {
       const input = workspaceGetGitDiffRoute.input.parse(rawInput);
-      return workspaceGetGitDiffRoute.output.parse({
-        diff: await runtime.workspacePresenter.getGitDiff(input.workspacePath, input.filePath),
-      });
+      return workspaceGetGitDiffRoute.output.parse(await invokeDaemonRoute(workspaceGetGitDiffRoute.name, input));
     }
 
     case workspaceSearchFilesRoute.name: {
       const input = workspaceSearchFilesRoute.input.parse(rawInput);
-      return workspaceSearchFilesRoute.output.parse({
-        nodes: await runtime.workspacePresenter.searchFiles(input.workspacePath, input.query),
-      });
+      return workspaceSearchFilesRoute.output.parse(await invokeDaemonRoute(workspaceSearchFilesRoute.name, input));
     }
 
     case workspaceReadFileTextRoute.name: {
       const input = workspaceReadFileTextRoute.input.parse(rawInput);
-      const result = await runtime.workspacePresenter.readFileText(input.path);
-      return workspaceReadFileTextRoute.output.parse(result);
+      return workspaceReadFileTextRoute.output.parse(await invokeDaemonRoute(workspaceReadFileTextRoute.name, input));
     }
 
     case workspaceWriteFileRoute.name: {
       const input = workspaceWriteFileRoute.input.parse(rawInput);
-      await runtime.workspacePresenter.writeFile(input.path, input.content);
-      return workspaceWriteFileRoute.output.parse({ written: true });
+      return workspaceWriteFileRoute.output.parse(await invokeDaemonRoute(workspaceWriteFileRoute.name, input));
     }
 
     case workspaceCreateEntryRoute.name: {
       const input = workspaceCreateEntryRoute.input.parse(rawInput);
-      return workspaceCreateEntryRoute.output.parse({
-        path: await runtime.workspacePresenter.createEntry(input.parentDir, input.name, input.isDirectory),
-      });
+      return workspaceCreateEntryRoute.output.parse(await invokeDaemonRoute(workspaceCreateEntryRoute.name, input));
     }
 
     case workspaceDeletePathRoute.name: {
       const input = workspaceDeletePathRoute.input.parse(rawInput);
-      await runtime.workspacePresenter.deletePath(input.path);
-      return workspaceDeletePathRoute.output.parse({ deleted: true });
+      return workspaceDeletePathRoute.output.parse(await invokeDaemonRoute(workspaceDeletePathRoute.name, input));
     }
 
     case workspaceRenameOrMovePathRoute.name: {
       const input = workspaceRenameOrMovePathRoute.input.parse(rawInput);
-      return workspaceRenameOrMovePathRoute.output.parse({
-        path: await runtime.workspacePresenter.renameOrMovePath(input.fromPath, input.toPath),
-      });
+      return workspaceRenameOrMovePathRoute.output.parse(
+        await invokeDaemonRoute(workspaceRenameOrMovePathRoute.name, input),
+      );
     }
 
     case browserGetStatusRoute.name: {

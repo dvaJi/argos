@@ -22,7 +22,6 @@ import {
   IConversationExporter,
   IUpgradePresenter,
   IWindowPresenter,
-  IWorkspacePresenter,
   IToolPresenter,
   IYoBrowserPresenter,
   ISkillPresenter,
@@ -49,7 +48,7 @@ import { FloatingButtonPresenter } from "./floatingButtonPresenter";
 import { YoBrowserPresenter } from "./browser/YoBrowserPresenter";
 import { CONFIG_EVENTS } from "#/events";
 import { KnowledgePresenter } from "./knowledgePresenter";
-import { WorkspacePresenter } from "./workspacePresenter";
+import { ElectronWorkspaceShellPresenter, type WorkspaceShellPresenter } from "./workspaceShellPresenter";
 import { ToolPresenter } from "./toolPresenter";
 import { CommandPermissionService } from "./permission/commandPermissionService";
 import { FilePermissionService } from "./permission/filePermissionService";
@@ -152,7 +151,6 @@ export class Presenter implements IPresenter {
     "oauthPresenter",
     "dialogPresenter",
     "knowledgePresenter",
-    "workspacePresenter",
     "toolPresenter",
     "skillPresenter",
     "skillSyncPresenter",
@@ -209,7 +207,7 @@ export class Presenter implements IPresenter {
   oauthPresenter: OAuthPresenter;
   floatingButtonPresenter: FloatingButtonPresenter;
   knowledgePresenter: IKnowledgePresenter;
-  workspacePresenter: IWorkspacePresenter;
+  workspaceShell: WorkspaceShellPresenter;
   toolPresenter: IToolPresenter;
   yoBrowserPresenter: IYoBrowserPresenter;
   dialogPresenter: IDialogPresenter;
@@ -294,8 +292,9 @@ export class Presenter implements IPresenter {
       this.configPresenter as IConfigPresenter & { setBuiltinKnowledgeSupported?: (fn: () => Promise<boolean>) => void }
     ).setBuiltinKnowledgeSupported?.(() => this.knowledgePresenter.isSupported());
 
-    // Initialize generic Workspace presenter (for all Agent modes)
-    this.workspacePresenter = new WorkspacePresenter(this.filePresenter);
+    // Workspace shell actions (reveal/open). All other workspace.* routes are
+    // daemon-owned; desktop only keeps the Electron shell integrations.
+    this.workspaceShell = new ElectronWorkspaceShellPresenter();
 
     // Initialize Memory presenter (long-term agent memory: extraction, recall, persona evolution)
     const memoryVectorDir = path.join(app.getPath("userData"), "memory_vectors");
@@ -1111,7 +1110,6 @@ export class Presenter implements IPresenter {
     this.syncPresenter.destroy(); // Release sync-related resources
     this.notificationPresenter.clearAllNotifications(); // Clear all notifications
     this.knowledgePresenter.destroy(); // Release all database connections
-    (this.workspacePresenter as WorkspacePresenter).destroy(); // Destroy Workspace watchers
     (this.skillPresenter as SkillPresenter).destroy(); // Release Skills-related resources
     (this.skillSyncPresenter as SkillSyncPresenter).destroy(); // Release Skill Sync resources
     try {
@@ -1152,7 +1150,7 @@ const buildMainKernelRouteRuntime = () =>
     devicePresenter: presenter.devicePresenter,
     projectPresenter: presenter.projectPresenter,
     filePresenter: presenter.filePresenter,
-    workspacePresenter: presenter.workspacePresenter,
+    workspaceShell: presenter.workspaceShell,
     yoBrowserPresenter: presenter.yoBrowserPresenter,
     tabPresenter: presenter.tabPresenter,
     startupWorkloadCoordinator: presenter.startupWorkloadCoordinator,

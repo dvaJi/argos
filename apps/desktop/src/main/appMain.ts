@@ -5,7 +5,6 @@ import { electronApp } from "@electron-toolkit/utils";
 import log from "electron-log";
 import { eventBus, SendTarget } from "./eventbus";
 import { NOTIFICATION_EVENTS } from "./events";
-import { registerWorkspacePreviewSchemes } from "./presenter/workspacePresenter/workspacePreviewProtocol";
 import { findDeepLinkArg, findStartupDeepLink, isDeepLinkUrl, storeStartupDeepLink } from "./lib/startupDeepLink";
 import { isInsecureTlsAllowed } from "./lib/insecureTls";
 import { activateAppOnMac, ensureRegularAppOnMac } from "./lib/activateApp";
@@ -34,8 +33,6 @@ export function startApp(): void {
       });
     }
   }
-
-  registerWorkspacePreviewSchemes();
 
   // Handle unhandled exceptions to prevent app crash or error dialogs
   process.on("uncaughtException", (error) => {
