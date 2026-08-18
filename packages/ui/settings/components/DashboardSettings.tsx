@@ -77,7 +77,9 @@ export default function DashboardSettings({ hideNostalgia = false, onDashboardLo
     }
   }, [usageClient, clearRefreshTimer, onDashboardLoaded, scheduleDashboardRefresh]);
 
-  loadDashboardRef.current = loadDashboard;
+  useEffect(() => {
+    loadDashboardRef.current = loadDashboard;
+  }, [loadDashboard]);
 
   useEffect(() => {
     isDashboardMountedRef.current = true;

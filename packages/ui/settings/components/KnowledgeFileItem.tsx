@@ -73,7 +73,7 @@ export default function KnowledgeFileItem({ file, onDelete, onReAdd }: Knowledge
     };
     window.electron?.ipcRenderer.on(RAG_EVENTS.FILE_PROGRESS, handler);
     return () => {
-      window.electron?.ipcRenderer?.removeAllListeners(RAG_EVENTS.FILE_PROGRESS);
+      window.electron?.ipcRenderer?.removeListener?.(RAG_EVENTS.FILE_PROGRESS, handler);
     };
   }, [file.id]);
 

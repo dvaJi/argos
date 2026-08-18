@@ -20,7 +20,7 @@ export const MessageBlockAction: FC<MessageBlockActionProps> = ({
   isReadOnly: isReadOnlyProp,
   onContinue,
 }) => {
-  const [currentTime, setCurrentTime] = useState(Date.now());
+  const [currentTime, setCurrentTime] = useState(() => Date.now());
   const progressTimer = useRef<number | null>(null);
   const isReadOnly = isReadOnlyProp === true;
   const isRateLimitBlock = block.action_type === "rate_limit";

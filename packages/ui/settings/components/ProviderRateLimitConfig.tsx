@@ -46,6 +46,7 @@ export default function ProviderRateLimitConfig({ provider, onConfigChanged }: P
     queueLength: number;
     lastRequestTime?: number;
   } | null>(null);
+  const [nowMs, setNowMs] = useState(() => Date.now());
 
   const statusIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -115,6 +116,10 @@ export default function ProviderRateLimitConfig({ provider, onConfigChanged }: P
     void loadStatus();
   }, [provider, loadStatus]);
 
+  useEffect(() => {
+    setNowMs(Date.now());
+  }, [status, intervalValue, rateLimitEnabled]);
+
   const updateRateLimitConfig = async (enabled: boolean, interval: number) => {
     try {
       const qpsValue = convertIntervalToQps(interval);
@@ -164,7 +169,7 @@ export default function ProviderRateLimitConfig({ provider, onConfigChanged }: P
     if (!status?.lastRequestTime || status.lastRequestTime === 0) {
       return "Never";
     }
-    const diff = Date.now() - status.lastRequestTime;
+    const diff = nowMs - status.lastRequestTime;
     if (diff < 1000) return "Just now";
     if (diff < 60000) return `${Math.floor(diff / 1000)} seconds ago`;
     return `${Math.floor(diff / 60000)} minutes ago`;
@@ -176,7 +181,7 @@ export default function ProviderRateLimitConfig({ provider, onConfigChanged }: P
     }
 
     const nextAllowedTime = status.lastRequestTime + intervalValue * 1000;
-    const now = Date.now();
+    const now = nowMs;
 
     if (nextAllowedTime <= now) {
       return "Immediately";

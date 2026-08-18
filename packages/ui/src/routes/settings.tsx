@@ -133,13 +133,13 @@ function SettingsLayout() {
   const providerState = useStore(providerStore);
   const providerDeeplinkImportState = useStore(providerDeeplinkImportStore);
 
-  const { setup: setupMcpDeeplink, cleanup: cleanupMcpDeeplink } = useMcpInstallDeeplinkHandler();
+  const { setup: setupMcpDeeplink } = useMcpInstallDeeplinkHandler();
 
   const [isImportingProvider, setIsImportingProvider] = useState(false);
   const [isProcessingProviderPreview, setIsProcessingProviderPreview] = useState(false);
   const providerStoreInitializePromise = useRef<Promise<void> | null>(null);
 
-  const startupTimeOrigin = typeof performance !== "undefined" ? performance.now() : Date.now();
+  const [startupTimeOrigin] = useState(() => (typeof performance !== "undefined" ? performance.now() : Date.now()));
 
   const logSettingsStartup = useCallback(
     (phase: string) => {
@@ -284,13 +284,6 @@ function SettingsLayout() {
     [ensureProviderStoreReady, routerInstance, navigateToProviderSettings],
   );
 
-  const releaseProviderPreviewProcessing = useCallback(() => {
-    setIsProcessingProviderPreview(false);
-    if (!providerDeeplinkImportStore.state.preview) {
-      void syncPendingProviderInstall();
-    }
-  }, []);
-
   const syncPendingProviderInstall = useCallback(async () => {
     if (isProcessingProviderPreview || providerDeeplinkImportStore.state.preview) {
       return;
@@ -320,6 +313,13 @@ function SettingsLayout() {
       setIsProcessingProviderPreview(false);
     }
   }, [isProcessingProviderPreview, applyProviderInstallPreview]);
+
+  const releaseProviderPreviewProcessing = useCallback(() => {
+    setIsProcessingProviderPreview(false);
+    if (!providerDeeplinkImportStore.state.preview) {
+      void syncPendingProviderInstall();
+    }
+  }, [syncPendingProviderInstall]);
 
   const handleProviderInstall = useCallback(async () => {
     await syncPendingProviderInstall();
@@ -449,7 +449,7 @@ function SettingsLayout() {
   useEffect(() => {
     void ensureIconsLoaded();
     logSettingsStartup("settings layout mounted");
-    setupMcpDeeplink();
+    const cleanupMcpDeeplinkListeners = setupMcpDeeplink();
 
     const init = async () => {
       try {
@@ -474,7 +474,7 @@ function SettingsLayout() {
     void init();
 
     return () => {
-      cleanupMcpDeeplink();
+      cleanupMcpDeeplinkListeners();
     };
   }, []);
 

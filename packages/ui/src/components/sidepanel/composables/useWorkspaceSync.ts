@@ -84,13 +84,13 @@ export function useWorkspaceSync(options: UseWorkspaceSyncOptions) {
   const [loadingGitDiff, setLoadingGitDiff] = useState(false);
 
   const optionsRef = useRef(options);
-  optionsRef.current = options;
-
   const fileTreeRef = useRef(fileTree);
-  fileTreeRef.current = fileTree;
-
   const gitStateRef = useRef(gitState);
-  gitStateRef.current = gitState;
+  useEffect(() => {
+    optionsRef.current = options;
+    fileTreeRef.current = fileTree;
+    gitStateRef.current = gitState;
+  }, [options, fileTree, gitState]);
 
   const syncRequestIdRef = useRef(0);
   const previewRequestIdRef = useRef(0);
@@ -118,12 +118,12 @@ export function useWorkspaceSync(options: UseWorkspaceSyncOptions) {
   }, []);
 
   const restoreExpandedDirectories = useCallback(
-    async (
+    async function restoreExpandedDirectories(
       nodes: WorkspaceFileNode[],
       expandedDirectories: Set<string>,
       requestId: number,
       workspacePath: string,
-    ): Promise<void> => {
+    ): Promise<void> {
       for (const node of nodes) {
         if (!node.isDirectory) {
           continue;

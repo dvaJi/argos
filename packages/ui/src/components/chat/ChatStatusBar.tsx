@@ -559,7 +559,9 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
     });
 
     const syncAcpConfigOptionsRef = useRef(syncAcpConfigOptions);
-    syncAcpConfigOptionsRef.current = syncAcpConfigOptions;
+    useEffect(() => {
+      syncAcpConfigOptionsRef.current = syncAcpConfigOptions;
+    }, [syncAcpConfigOptions]);
 
     const acpAgentForAvatar = useMemo(() => {
       const agentId = activeAcpAgentId ?? lockedAcpModelId;
@@ -596,7 +598,9 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
     }, [isAcpAgent, activeAcpSessionId, acpWorkspacePath, agentStore.selectedAgentId]);
 
     const handleAcpConfigOptionsReadyRef = useRef(handleAcpConfigOptionsReady);
-    handleAcpConfigOptionsReadyRef.current = handleAcpConfigOptionsReady;
+    useEffect(() => {
+      handleAcpConfigOptionsReadyRef.current = handleAcpConfigOptionsReady;
+    }, [handleAcpConfigOptionsReady]);
 
     useEffect(() => {
       const unsubscribe = sessionClient.onAcpConfigOptionsReady((payload) => {

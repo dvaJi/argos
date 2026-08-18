@@ -128,22 +128,10 @@ export default function TraceDialog({ messageId, sessionId, onClose }: TraceDial
     return JSON.stringify(fullData, null, 2);
   }, [selectedTrace, parsedHeaders, parsedBody]);
 
-  useEffect(() => {
-    if (messageId) {
-      setIsOpen(true);
-      loadTraces(messageId);
-    } else {
-      setIsOpen(false);
-      resetState();
-    }
-  }, [messageId]);
-
-  useEffect(() => {
-    if (!isOpen) {
-      resetState();
-      onClose();
-    }
-  }, [isOpen]);
+  const resetState = useCallback(() => {
+    dispatch({ type: "reset" });
+    setCopySuccess(false);
+  }, []);
 
   const loadTraces = async (msgId: string) => {
     requestIdRef.current += 1;
@@ -175,6 +163,23 @@ export default function TraceDialog({ messageId, sessionId, onClose }: TraceDial
     }
   };
 
+  useEffect(() => {
+    if (messageId) {
+      setIsOpen(true);
+      loadTraces(messageId);
+    } else {
+      setIsOpen(false);
+      resetState();
+    }
+  }, [messageId]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      resetState();
+      onClose();
+    }
+  }, [isOpen]);
+
   const copyJson = useCallback(async () => {
     if (!formattedJson) return;
     try {
@@ -185,11 +190,6 @@ export default function TraceDialog({ messageId, sessionId, onClose }: TraceDial
       console.error("Failed to copy JSON:", err);
     }
   }, [formattedJson]);
-
-  const resetState = useCallback(() => {
-    dispatch({ type: "reset" });
-    setCopySuccess(false);
-  }, []);
 
   const close = useCallback(() => {
     setIsOpen(false);

@@ -171,7 +171,7 @@ export default function KnowledgeFile({ builtinKnowledgeDetail, onHideKnowledgeF
     };
     window.electron?.ipcRenderer.on(RAG_EVENTS.FILE_UPDATED, handler);
     return () => {
-      window.electron?.ipcRenderer?.removeAllListeners(RAG_EVENTS.FILE_UPDATED);
+      window.electron?.ipcRenderer?.removeListener?.(RAG_EVENTS.FILE_UPDATED, handler);
     };
   }, []);
 

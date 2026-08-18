@@ -17,7 +17,7 @@ import {
   getEnabledServerCount,
 } from "#/stores/mcp";
 import { useSessionStore, getActiveSession, getHasActiveSession } from "#/stores/ui/session";
-import { useDraftStore } from "#/stores/ui/draft";
+import { draftStore as draftStoreRef, useDraftStore } from "#/stores/ui/draft";
 import { useAgentStore, selectedAgent as getSelectedAgent } from "#/stores/ui/agent";
 import { useProjectStore, selectedProject as getSelectedProject } from "#/stores/ui/project";
 
@@ -178,9 +178,10 @@ export default function McpIndicator({
   const isGroupPending = (group: ToolGroup) => group.items.some(isGroupItemPending);
 
   const getServerLabel = useCallback((serverName: string) => serverName, []);
+  const visibleTools = getVisibleTools();
   const getServerToolsCount = useCallback(
-    (serverName: string) => getVisibleTools().filter((tool) => tool.server.name === serverName).length,
-    [getVisibleTools()],
+    (serverName: string) => visibleTools.filter((tool) => tool.server.name === serverName).length,
+    [visibleTools],
   );
   const getPluginServerLabel = useCallback(
     (server: { name: string; descriptions?: string }) => server.descriptions || getServerLabel(server.name),
@@ -234,7 +235,7 @@ export default function McpIndicator({
   const persistDisabledTools = useCallback(
     async (nextList: string[], affectedToolNames: string[]) => {
       if (!argosSessionId) {
-        draftStore.disabledAgentTools = nextList;
+        draftStoreRef.setState((prev) => ({ ...prev, disabledAgentTools: nextList }));
         setDisabledToolNames(nextList);
         return;
       }

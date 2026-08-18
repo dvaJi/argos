@@ -21,6 +21,13 @@ export const saveShortcutKeys = async () => {
   await configClient.setShortcutKey(shortcutKeyStore.state.shortcutKeys);
 };
 
+export const updateShortcutKey = (key: keyof ShortcutKeySetting, value: string) => {
+  shortcutKeyStore.setState((s) => ({
+    ...s,
+    shortcutKeys: s.shortcutKeys ? { ...s.shortcutKeys, [key]: value } : s.shortcutKeys,
+  }));
+};
+
 export const resetShortcutKeys = async () => {
   await configClient.resetShortcutKeys();
   await loadShortcutKeys();

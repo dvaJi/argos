@@ -86,9 +86,10 @@ export function WorkspacePanel({
     sidepanelStore,
   });
 
+  const messages = getMessages();
   const artifactItems = useMemo<ArtifactItem[]>(() => {
     const items: ArtifactItem[] = [];
-    for (const message of getMessages()) {
+    for (const message of messages) {
       if (message.sessionId !== sessionId || message.role !== "assistant") continue;
       for (const block of messageStore.getAssistantMessageBlocks(message)) {
         for (const artifact of extractArtifactsFromContent(block.content ?? "", block.status)) {
@@ -109,7 +110,7 @@ export function WorkspacePanel({
       }
     }
     return items.sort((a, b) => b.createdAt - a.createdAt);
-  }, [getMessages(), sessionId]);
+  }, [messages, sessionId]);
 
   const selectedArtifact = useMemo(() => {
     const context = sessionState.selectedArtifactContext;
@@ -160,13 +161,14 @@ export function WorkspacePanel({
   const [isNavResizing, setIsNavResizing] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
-  const expandedNavWidth = useMemo(() => `${sidepanelStore.getNavWidth()}px`, [sidepanelStore.getNavWidth()]);
+  const navWidth = sidepanelStore.getNavWidth();
+  const expandedNavWidth = useMemo(() => `${navWidth}px`, [navWidth]);
   const navStyle = useMemo(
     () => ({ width: navCollapsed ? `${NAV_COLLAPSED_WIDTH}px` : expandedNavWidth }),
     [navCollapsed, expandedNavWidth],
   );
 
-  const navResizeCleanup = useRef<(() => void) | null>(null);
+  const navResizeStartRef = useRef<{ startX: number; startWidth: number } | null>(null);
   const pendingNavWidth = useRef<number | null>(null);
   const navResizeFrame = useRef<number | null>(null);
 
@@ -178,8 +180,6 @@ export function WorkspacePanel({
   }, [sidepanelStore]);
 
   const stopNavResize = useCallback(() => {
-    navResizeCleanup.current?.();
-    navResizeCleanup.current = null;
     if (navResizeFrame.current !== null) {
       window.cancelAnimationFrame(navResizeFrame.current);
       navResizeFrame.current = null;
@@ -194,29 +194,36 @@ export function WorkspacePanel({
     (event: ReactMouseEvent) => {
       event.preventDefault();
       stopNavResize();
+      navResizeStartRef.current = { startX: event.clientX, startWidth: sidepanelStore.getNavWidth() };
       setIsNavResizing(true);
-      const startX = event.clientX;
-      const startWidth = sidepanelStore.getNavWidth();
-      const onMouseMove = (moveEvent: MouseEvent) => {
-        pendingNavWidth.current = startWidth + (moveEvent.clientX - startX);
-        if (navResizeFrame.current === null) {
-          navResizeFrame.current = window.requestAnimationFrame(applyPendingNavResize);
-        }
-      };
-      const onMouseUp = () => {
-        setIsNavResizing(false);
-        stopNavResize();
-      };
-      window.addEventListener("mousemove", onMouseMove, { passive: true });
-      window.addEventListener("mouseup", onMouseUp, { once: true });
-      navResizeCleanup.current = () => {
-        window.removeEventListener("mousemove", onMouseMove);
-        window.removeEventListener("mouseup", onMouseUp);
-        setIsNavResizing(false);
-      };
     },
-    [sidepanelStore.getNavWidth(), stopNavResize, applyPendingNavResize],
+    [stopNavResize, sidepanelStore],
   );
+
+  useEffect(() => {
+    if (!isNavResizing) return;
+    const start = navResizeStartRef.current;
+    if (!start) return;
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      pendingNavWidth.current = start.startWidth + (moveEvent.clientX - start.startX);
+      if (navResizeFrame.current === null) {
+        navResizeFrame.current = window.requestAnimationFrame(applyPendingNavResize);
+      }
+    };
+    const onMouseUp = () => {
+      setIsNavResizing(false);
+    };
+
+    window.addEventListener("mousemove", onMouseMove, { passive: true });
+    window.addEventListener("mouseup", onMouseUp, { once: true });
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      stopNavResize();
+      setIsNavResizing(false);
+    };
+  }, [isNavResizing, applyPendingNavResize, stopNavResize]);
 
   useEffect(() => {
     return () => stopNavResize();

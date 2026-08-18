@@ -30,6 +30,24 @@ const McpPromptPanel: FC<McpPromptPanelProps> = ({ serverName, open, onOpenChang
     [mcpStore.prompts, serverName],
   );
 
+  const selectedPromptObj = useMemo(
+    () => serverPrompts.find((p) => p.name === selectedPrompt),
+    [serverPrompts, selectedPrompt],
+  );
+
+  const defaultPromptParams = useMemo(() => {
+    if (!selectedPromptObj) return "{}";
+    const promptArgs = selectedPromptObj.arguments || {};
+    if (Array.isArray(promptArgs)) {
+      const argsObject: Record<string, string> = {};
+      for (const arg of promptArgs) {
+        argsObject[arg.name] = "";
+      }
+      return JSON.stringify(argsObject, null, 2);
+    }
+    return JSON.stringify(promptArgs, null, 2);
+  }, [selectedPromptObj]);
+
   useEffect(() => {
     if (open) {
       setSelectedPrompt("");
@@ -96,27 +114,6 @@ const McpPromptPanel: FC<McpPromptPanelProps> = ({ serverName, open, onOpenChang
   const formatPromptParams = () => {
     setPromptParams(formatJson(promptParams));
   };
-
-  const selectedPromptObj = useMemo(
-    () => serverPrompts.find((p) => p.name === selectedPrompt),
-    [serverPrompts, selectedPrompt],
-  );
-
-  const defaultPromptParams = useMemo(() => {
-    if (!selectedPromptObj) return "{}";
-    const promptArgs = selectedPromptObj.arguments || {};
-    if (Array.isArray(promptArgs)) {
-      const argsObject = promptArgs.reduce(
-        (acc, arg) => {
-          acc[arg.name] = "";
-          return acc;
-        },
-        {} as Record<string, string>,
-      );
-      return JSON.stringify(argsObject, null, 2);
-    }
-    return JSON.stringify(promptArgs, null, 2);
-  }, [selectedPromptObj]);
 
   const promptArgsDescription = useMemo(() => {
     if (!selectedPromptObj) return [];

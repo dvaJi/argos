@@ -73,11 +73,13 @@ function NewThreadPage() {
   const [message, setMessage] = useState("");
   const [attachedFiles, setAttachedFiles] = useState<MessageFile[]>([]);
   const [pendingSkills, setPendingSkills] = useState<string[]>([]);
-  const guideRootRef = useRef<HTMLDivElement>(null);
-  const agentGuideTargetRef = useRef<HTMLDivElement | null>(null);
-  const modelGuideTargetRef = useRef<HTMLDivElement | null>(null);
+  const [guideRootEl, setGuideRootEl] = useState<HTMLDivElement | null>(null);
+  const [guideTargets, setGuideTargets] = useState<{
+    agent: HTMLDivElement | null;
+    model: HTMLDivElement | null;
+    firstChat: HTMLDivElement | null;
+  }>({ agent: null, model: null, firstChat: null });
   const firstChatGuideHostRef = useRef<HTMLDivElement>(null);
-  const firstChatGuideTargetRef = useRef<HTMLDivElement | null>(null);
   const [isVoiceInputEnabled, setIsVoiceInputEnabled] = useState(false);
   const chatInputRef = useRef<{
     triggerAttach: () => void;
@@ -117,26 +119,26 @@ function NewThreadPage() {
     [agentState.agents],
   );
 
+  const selectedAgentFromStore = getSelectedAgent();
   const resolveAgentType = useCallback(
     (agentId: string | null | undefined): "argos" | "acp" => {
       if (!agentId) return "argos";
       const matchedAgent = availableAgents.find((a) => a.id === agentId);
-      const sel = getSelectedAgent()?.id === agentId ? getSelectedAgent() : null;
+      const sel = selectedAgentFromStore?.id === agentId ? selectedAgentFromStore : null;
       const explicitType = matchedAgent?.agentType ?? matchedAgent?.type ?? sel?.type;
       if (explicitType === "argos" || explicitType === "acp") return explicitType;
       return agentId === "argos" ? "argos" : "acp";
     },
-    [availableAgents, getSelectedAgent()],
+    [availableAgents, selectedAgentFromStore],
   );
 
   const selectedAgent = useMemo(() => {
     const id = agentState.selectedAgentId ?? "argos";
     const matched = availableAgents.find((a) => a.id === id);
     if (matched) return matched;
-    const agent = getSelectedAgent();
-    if (agent?.id === id) return agent;
+    if (selectedAgentFromStore?.id === id) return selectedAgentFromStore;
     return { id, type: resolveAgentType(id) };
-  }, [agentState.selectedAgentId, availableAgents, getSelectedAgent(), resolveAgentType]);
+  }, [agentState.selectedAgentId, availableAgents, selectedAgentFromStore, resolveAgentType]);
 
   const isAcpSelectedAgent = selectedAgent.type === "acp";
   const isArgosSelectedAgent = selectedAgent.type === "argos";
@@ -174,17 +176,18 @@ function NewThreadPage() {
 
   const syncGuideTargets = useCallback(() => {
     if (typeof document === "undefined") return;
-    agentGuideTargetRef.current =
+    const agent =
       (document.querySelector(
         '[data-testid="sidebar-agent-button"][data-agent-id="argos"]',
       ) as HTMLDivElement | null) ??
       (document.querySelector(
         '[data-testid="sidebar-agent-button"][data-agent-type="argos"]',
       ) as HTMLDivElement | null);
-    modelGuideTargetRef.current = document.querySelector('[data-testid="app-model-switcher"]') as HTMLDivElement | null;
-    firstChatGuideTargetRef.current =
+    const model = document.querySelector('[data-testid="app-model-switcher"]') as HTMLDivElement | null;
+    const firstChat =
       (firstChatGuideHostRef.current?.querySelector('[data-testid="chat-input-box"]') as HTMLDivElement | null) ??
       firstChatGuideHostRef.current;
+    setGuideTargets({ agent, model, firstChat });
   }, []);
 
   const ensureEnabledModelsReady = async (): Promise<boolean> => {
@@ -421,46 +424,6 @@ function NewThreadPage() {
     };
   }, [selectedProjectPath]);
 
-  useEffect(() => {
-    if (
-      !agentState.selectedAgentId ||
-      selectedAgent.type === "argos" ||
-      !selectedProjectPath ||
-      selectedProjectDirectoryStatus !== "valid"
-    ) {
-      setAcpDraftSessionId(null);
-      setAcpDraftModelSelection(null);
-      lastAcpDraftKeyRef.current = null;
-      return;
-    }
-
-    const agentId = agentState.selectedAgentId;
-    const projectPath = selectedProjectPath;
-    const draftKey = `${agentId}::${projectPath}`;
-
-    if (lastAcpDraftKeyRef.current === draftKey && acpDraftSessionId) return;
-
-    acpDraftRequestSeqRef.current += 1;
-    cancelEnsureDraftTaskRef.current?.();
-    cancelEnsureDraftTaskRef.current = null;
-
-    if (lastAcpDraftKeyRef.current !== draftKey) {
-      setAcpDraftSessionId(null);
-      setAcpDraftModelSelection(null);
-      lastAcpDraftKeyRef.current = null;
-    }
-
-    cancelEnsureDraftTaskRef.current = scheduleStartupDeferredTask(async () => {
-      await ensureAcpDraftSession(agentId, projectPath);
-    });
-  }, [
-    agentState.selectedAgentId,
-    selectedProjectPath,
-    selectedProjectDirectoryStatus,
-    selectedAgent.type,
-    acpDraftSessionId,
-  ]);
-
   const ensureAcpDraftSession = async (agentId: string, projectPath: string) => {
     const projectDir = projectPath.trim();
     if (!projectDir) return;
@@ -503,6 +466,46 @@ function NewThreadPage() {
       lastAcpDraftKeyRef.current = null;
     }
   };
+
+  useEffect(() => {
+    if (
+      !agentState.selectedAgentId ||
+      selectedAgent.type === "argos" ||
+      !selectedProjectPath ||
+      selectedProjectDirectoryStatus !== "valid"
+    ) {
+      setAcpDraftSessionId(null);
+      setAcpDraftModelSelection(null);
+      lastAcpDraftKeyRef.current = null;
+      return;
+    }
+
+    const agentId = agentState.selectedAgentId;
+    const projectPath = selectedProjectPath;
+    const draftKey = `${agentId}::${projectPath}`;
+
+    if (lastAcpDraftKeyRef.current === draftKey && acpDraftSessionId) return;
+
+    acpDraftRequestSeqRef.current += 1;
+    cancelEnsureDraftTaskRef.current?.();
+    cancelEnsureDraftTaskRef.current = null;
+
+    if (lastAcpDraftKeyRef.current !== draftKey) {
+      setAcpDraftSessionId(null);
+      setAcpDraftModelSelection(null);
+      lastAcpDraftKeyRef.current = null;
+    }
+
+    cancelEnsureDraftTaskRef.current = scheduleStartupDeferredTask(async () => {
+      await ensureAcpDraftSession(agentId, projectPath);
+    });
+  }, [
+    agentState.selectedAgentId,
+    selectedProjectPath,
+    selectedProjectDirectoryStatus,
+    selectedAgent.type,
+    acpDraftSessionId,
+  ]);
 
   useEffect(() => {
     const applyDefaults = async () => {
@@ -604,11 +607,13 @@ function NewThreadPage() {
     syncGuideTargets,
   ]);
 
-  useEffect(() => {
-    if (switchAgentGuide.currentStepId === "switch-agent" && isArgosSelectedAgent) {
-      void completeSwitchAgentStep();
-    }
-  }, [switchAgentGuide.currentStepId, isArgosSelectedAgent]);
+  const continueChatGuide = async (state: any) => {
+    const stepId = state?.status === "completed" ? "first-chat" : state?.currentStepId;
+    const target = resolveGuidedOnboardingStepTarget(stepId);
+    if (target?.surface !== "settings" || !target.routeName) return;
+    persistGuidedOnboardingResumeIntent({ stepId: target.stepId, trigger: "window-focus" });
+    await configClient.openSettings({ routeName: target.routeName });
+  };
 
   const completeSwitchAgentStep = async () => {
     if (isCompletingSwitchAgentGuide || switchAgentGuide.currentStepId !== "switch-agent") return;
@@ -623,54 +628,58 @@ function NewThreadPage() {
     }
   };
 
-  const continueChatGuide = async (state: any) => {
-    const stepId = state?.status === "completed" ? "first-chat" : state?.currentStepId;
-    const target = resolveGuidedOnboardingStepTarget(stepId);
-    if (target?.surface !== "settings" || !target.routeName) return;
-    persistGuidedOnboardingResumeIntent({ stepId: target.stepId, trigger: "window-focus" });
-    await configClient.openSettings({ routeName: target.routeName });
-  };
+  useEffect(() => {
+    if (switchAgentGuide.currentStepId === "switch-agent" && isArgosSelectedAgent) {
+      void completeSwitchAgentStep();
+    }
+  }, [switchAgentGuide.currentStepId, isArgosSelectedAgent]);
 
   const activeChatGuide = useMemo(() => {
-    if (switchAgentGuide.showGuide && !isArgosSelectedAgent && agentGuideTargetRef.current) {
+    if (switchAgentGuide.showGuide && !isArgosSelectedAgent && guideTargets.agent) {
       return {
         key: "switch-agent" as const,
         title: "Switch Agent",
         description: "Switch to the Argos agent to continue setup.",
         caption: "Select the Argos agent from the sidebar.",
-        targetEl: agentGuideTargetRef.current,
+        targetEl: guideTargets.agent,
         stepIndex: switchAgentGuide.stepIndex ?? 1,
         totalSteps: switchAgentGuide.totalSteps ?? 1,
         dismiss: switchAgentGuide.dismissGuide,
       };
     }
-    if (switchModelGuide.showGuide && modelGuideTargetRef.current) {
+    if (switchModelGuide.showGuide && guideTargets.model) {
       return {
         key: "switch-model" as const,
         preferredPanelPlacement: "above" as const,
         title: "Switch Model",
         description: "Select a model to use for chat.",
         caption: "Choose your preferred model.",
-        targetEl: modelGuideTargetRef.current,
+        targetEl: guideTargets.model,
         stepIndex: switchModelGuide.stepIndex ?? 1,
         totalSteps: switchModelGuide.totalSteps ?? 1,
         dismiss: switchModelGuide.dismissGuide,
       };
     }
-    if (firstChatGuide.showGuide && firstChatGuideTargetRef.current) {
+    if (firstChatGuide.showGuide && guideTargets.firstChat) {
       return {
         key: "first-chat" as const,
         title: "Start Your First Chat",
         description: "Type a message to begin chatting with the AI.",
         caption: "Send your first message below.",
-        targetEl: firstChatGuideTargetRef.current,
+        targetEl: guideTargets.firstChat,
         stepIndex: firstChatGuide.stepIndex ?? 1,
         totalSteps: firstChatGuide.totalSteps ?? 1,
         dismiss: firstChatGuide.dismissGuide,
       };
     }
     return null;
-  }, [switchAgentGuide.showGuide, switchModelGuide.showGuide, firstChatGuide.showGuide, isArgosSelectedAgent]);
+  }, [
+    switchAgentGuide.showGuide,
+    switchModelGuide.showGuide,
+    firstChatGuide.showGuide,
+    isArgosSelectedAgent,
+    guideTargets,
+  ]);
 
   const activeChatGuidePrimaryLabel =
     activeChatGuide?.key === "switch-agent" || activeChatGuide?.key === "switch-model" ? "Next" : undefined;
@@ -679,7 +688,7 @@ function NewThreadPage() {
     activeChatGuide?.key === "switch-agent"
       ? !isArgosSelectedAgent
       : activeChatGuide?.key === "switch-model"
-        ? !modelGuideTargetRef.current
+        ? !guideTargets.model
         : false;
 
   const handleActiveChatGuideBack = async () => {
@@ -737,7 +746,7 @@ function NewThreadPage() {
 
   return (
     <div
-      ref={guideRootRef}
+      ref={setGuideRootEl}
       data-testid="new-thread-page"
       className="relative h-full w-full flex flex-col overflow-y-auto overflow-x-clip"
     >
@@ -859,7 +868,7 @@ function NewThreadPage() {
 
       <GuidedOnboardingOverlay
         visible={Boolean(activeChatGuide?.targetEl)}
-        containerEl={guideRootRef.current}
+        containerEl={guideRootEl}
         targetEl={activeChatGuide?.targetEl ?? null}
         preferredPanelPlacement={activeChatGuide?.preferredPanelPlacement ?? "auto"}
         eyebrow="Getting Started"

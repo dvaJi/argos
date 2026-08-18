@@ -45,8 +45,6 @@ const MessageListRowBase: FC<MessageListRowProps> = ({
   onMeasure,
 }) => {
   const rowRef = useRef<HTMLDivElement | null>(null);
-  let resizeObserverRef = useRef<ResizeObserver | null>(null);
-  let intersectionObserverRef = useRef<IntersectionObserver | null>(null);
   let measureFrameRef = useRef<number | null>(null);
   let lastMeasuredHeightRef = useRef(0);
   let hasBeenVisibleRef = useRef(typeof IntersectionObserver === "undefined");
@@ -57,45 +55,44 @@ const MessageListRowBase: FC<MessageListRowProps> = ({
 
     measureFrameRef.current = window.requestAnimationFrame(() => {
       measureFrameRef.current = null;
-      const messageId = item?.id;
+      const messageId = item.id;
       if (!messageId) return;
       const height = rowRef.current?.offsetHeight ?? 0;
       if (height <= 0 || Math.abs(height - lastMeasuredHeightRef.current) < 1) return;
       lastMeasuredHeightRef.current = height;
       onMeasure({ messageId, height });
     });
-  }, [item?.id, onMeasure]);
+  }, [item.id, onMeasure]);
 
   useEffect(() => {
     const el = rowRef.current;
     if (!el) return;
 
+    let io: IntersectionObserver | null = null;
     if (typeof IntersectionObserver !== "undefined") {
-      const io = new IntersectionObserver(
+      io = new IntersectionObserver(
         (entries) => {
           if (!entries.some((entry) => entry.isIntersecting)) return;
           hasBeenVisibleRef.current = true;
           emitMeasuredHeight();
-          io.disconnect();
+          io?.disconnect();
         },
         { rootMargin: "200px 0px" },
       );
       io.observe(el);
-      intersectionObserverRef.current = io;
     } else {
       emitMeasuredHeight();
     }
 
-    if (typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver(emitMeasuredHeight);
-    ro.observe(el);
-    resizeObserverRef.current = ro;
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(emitMeasuredHeight);
+      ro.observe(el);
+    }
 
     return () => {
-      ro.disconnect();
-      resizeObserverRef.current = null;
-      intersectionObserverRef.current?.disconnect();
-      intersectionObserverRef.current = null;
+      io?.disconnect();
+      ro?.disconnect();
       if (measureFrameRef.current !== null) {
         window.cancelAnimationFrame(measureFrameRef.current);
         measureFrameRef.current = null;

@@ -123,22 +123,25 @@ const MessageBlockThinkHeaderLabelBase: FC<MessageBlockThinkHeaderLabelProps> = 
     }
   }, []);
 
-  const scheduleNextUpdate = useCallback(() => {
-    stopTimer();
-    if (!isLoading) return;
+  const scheduleNextUpdate = useCallback(
+    function scheduleNextUpdate() {
+      stopTimer();
+      if (!isLoading) return;
 
-    const fallbackDuration = Number.isFinite(reasoningDuration) ? reasoningDuration * 1000 : 0;
-    const startTimestamp = reasoningTimeRange?.start ?? Date.now() - fallbackDuration;
-    const now = Date.now();
-    const elapsed = Math.max(0, now - startTimestamp);
-    const remainder = elapsed % UPDATE_INTERVAL;
-    const delay = Math.max(UPDATE_INTERVAL - remainder, 0) + UPDATE_OFFSET;
+      const fallbackDuration = Number.isFinite(reasoningDuration) ? reasoningDuration * 1000 : 0;
+      const startTimestamp = reasoningTimeRange?.start ?? Date.now() - fallbackDuration;
+      const now = Date.now();
+      const elapsed = Math.max(0, now - startTimestamp);
+      const remainder = elapsed % UPDATE_INTERVAL;
+      const delay = Math.max(UPDATE_INTERVAL - remainder, 0) + UPDATE_OFFSET;
 
-    updateTimer.current = setTimeout(() => {
-      updateDisplayedDuration();
-      scheduleNextUpdate();
-    }, delay);
-  }, [isLoading, reasoningDuration, reasoningTimeRange, stopTimer, updateDisplayedDuration]);
+      updateTimer.current = setTimeout(() => {
+        updateDisplayedDuration();
+        scheduleNextUpdate();
+      }, delay);
+    },
+    [isLoading, reasoningDuration, reasoningTimeRange, stopTimer, updateDisplayedDuration],
+  );
 
   useEffect(() => {
     updateDisplayedDuration();

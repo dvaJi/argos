@@ -114,7 +114,7 @@ export default function SettingsApp() {
     [themeState.themeMode, themeState.isDark],
   );
 
-  const startupTimeOrigin = typeof performance !== "undefined" ? performance.now() : Date.now();
+  const [startupTimeOrigin] = useState(() => (typeof performance !== "undefined" ? performance.now() : Date.now()));
 
   const logSettingsStartup = useCallback(
     (phase: string) => {
@@ -243,6 +243,31 @@ export default function SettingsApp() {
     });
   }, []);
 
+  const handleErrorClosedRef = useRef<(() => void) | null>(null);
+
+  const displayError = useCallback((error: { id: string; title: string; message: string; type: string }) => {
+    currentErrorId.current = error.id;
+
+    const { dismiss } = toast({
+      title: error.title,
+      description: error.message,
+      variant: "destructive",
+      onOpenChange: (open) => {
+        if (!open) {
+          handleErrorClosedRef.current?.();
+        }
+      },
+    });
+
+    if (errorDisplayTimer.current) {
+      clearTimeout(errorDisplayTimer.current);
+    }
+
+    errorDisplayTimer.current = window.setTimeout(() => {
+      dismiss();
+    }, 3000);
+  }, []);
+
   const handleErrorClosed = useCallback(() => {
     currentErrorId.current = null;
 
@@ -255,33 +280,11 @@ export default function SettingsApp() {
       clearTimeout(errorDisplayTimer.current);
       errorDisplayTimer.current = null;
     }
-  }, []);
+  }, [displayError]);
 
-  const displayError = useCallback(
-    (error: { id: string; title: string; message: string; type: string }) => {
-      currentErrorId.current = error.id;
-
-      const { dismiss } = toast({
-        title: error.title,
-        description: error.message,
-        variant: "destructive",
-        onOpenChange: (open) => {
-          if (!open) {
-            handleErrorClosed();
-          }
-        },
-      });
-
-      if (errorDisplayTimer.current) {
-        clearTimeout(errorDisplayTimer.current);
-      }
-
-      errorDisplayTimer.current = window.setTimeout(() => {
-        dismiss();
-      }, 3000);
-    },
-    [handleErrorClosed],
-  );
+  useEffect(() => {
+    handleErrorClosedRef.current = handleErrorClosed;
+  }, [handleErrorClosed]);
 
   const showErrorToast = useCallback(
     (error: { id: string; title: string; message: string; type: string }) => {
@@ -325,13 +328,6 @@ export default function SettingsApp() {
     [ensureProviderStoreReady, routerInstance, navigateToProviderSettings],
   );
 
-  const releaseProviderPreviewProcessing = useCallback(() => {
-    setIsProcessingProviderPreview(false);
-    if (!providerDeeplinkImportStore.state.preview) {
-      void syncPendingProviderInstall();
-    }
-  }, []);
-
   const syncPendingProviderInstall = useCallback(async () => {
     if (isProcessingProviderPreview || providerDeeplinkImportStore.state.preview) {
       return;
@@ -361,6 +357,13 @@ export default function SettingsApp() {
       setIsProcessingProviderPreview(false);
     }
   }, [isProcessingProviderPreview, windowPresenter, applyProviderInstallPreview]);
+
+  const releaseProviderPreviewProcessing = useCallback(() => {
+    setIsProcessingProviderPreview(false);
+    if (!providerDeeplinkImportStore.state.preview) {
+      void syncPendingProviderInstall();
+    }
+  }, [syncPendingProviderInstall]);
 
   const handleProviderInstall = useCallback(async () => {
     await syncPendingProviderInstall();
