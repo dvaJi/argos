@@ -8,6 +8,8 @@ function createTestDispatcher(
     providerExecutionPort?: Record<string, unknown>;
     mcpRuntime?: Record<string, unknown>;
     knowledgeRuntime?: Record<string, unknown> | null;
+    sessionRepository?: Record<string, unknown>;
+    pendingRows?: Map<string, { id: string; sessionId: string; mode: "queue" | "steer"; payload: any }>;
   } = {},
 ) {
   let knowledgeConfigs = [
@@ -145,17 +147,47 @@ function createTestDispatcher(
     subscribe: vi.fn(() => () => undefined),
   };
 
+  // Pending-input surface for the sessions.* routes (steer/queue lane) plus
+  // the base repository surface used by dispatcher tests.
+  const pendingRows =
+    overrides.pendingRows ??
+    (new Map() as Map<string, { id: string; sessionId: string; mode: "queue" | "steer"; payload: any }>);
   const sessionRepository = {
     getSearchResults: vi.fn(async () => []),
     listMessageTraces: vi.fn(async () => []),
     getViewManifests: vi.fn(async () => []),
     getViewLineage: vi.fn(async () => []),
     resumePendingQueue: vi.fn(),
+    get: vi.fn(async (sessionId: string) => ({ id: sessionId, providerId: "pi", status: "idle" })),
+    steerPendingInput: vi.fn(async (sessionId: string, itemId: string) => {
+      const row = pendingRows.get(itemId);
+      if (!row || row.sessionId !== sessionId) throw new Error(`Pending input not found: ${itemId}`);
+      row.mode = "steer";
+      return { id: row.id, sessionId, mode: row.mode, state: "pending", payload: row.payload };
+    }),
+    consumePendingInput: vi.fn(
+      async (sessionId: string, itemId: string, deliver: (input: unknown) => Promise<unknown>) => {
+        const row = pendingRows.get(itemId);
+        if (!row || row.sessionId !== sessionId) throw new Error(`Pending input not found: ${itemId}`);
+        pendingRows.delete(itemId);
+        try {
+          await deliver(row.payload);
+        } catch (error) {
+          pendingRows.set(itemId, row);
+          throw error;
+        }
+      },
+    ),
+    deletePendingInput: vi.fn(async (_sessionId: string, itemId: string) => {
+      pendingRows.delete(itemId);
+    }),
+    ...overrides.sessionRepository,
   } as any;
 
   const providerExecutionPort = {
     sendMessage: vi.fn(),
     steerActiveTurn: vi.fn(),
+    getActiveGeneration: vi.fn((): { eventId: string; runId: string } | null => null),
     respondToolInteraction: vi.fn(() => ({ resumed: false })),
     cancelGeneration: vi.fn(),
     testConnection: vi.fn(),
@@ -1022,6 +1054,82 @@ describe("DaemonDispatcher Tier 2 routes no longer return Coming soon", () => {
       const result = await dispatcher("sessions.resumePendingQueue", { sessionId: "session-1" });
       expect(result).toEqual({ resumed: true });
       expect(sessionRepository.resumePendingQueue).toHaveBeenCalledWith("session-1");
+    });
+  });
+  describe("sessions.steerPendingInput delivery", () => {
+    function setup(rows: Array<{ mode: "queue" | "steer"; payload: any }>) {
+      const pendingRows = new Map<string, { id: string; sessionId: string; mode: "queue" | "steer"; payload: any }>();
+      rows.forEach((row, index) => {
+        pendingRows.set(`item-${index + 1}`, { id: `item-${index + 1}`, sessionId: "session-1", ...row });
+      });
+      const harness = createTestDispatcher({ pendingRows });
+      return { ...harness, pendingRows };
+    }
+
+    it("delivers into the active turn when a generation is running", async () => {
+      const { dispatcher, providerExecutionPort } = setup([{ mode: "queue", payload: { text: "pivot", files: [] } }]);
+      providerExecutionPort.getActiveGeneration.mockReturnValue({ eventId: "e1", runId: "r1" });
+
+      const result = await dispatcher("sessions.steerPendingInput", { sessionId: "session-1", itemId: "item-1" });
+      expect(result).toEqual({
+        item: {
+          id: "item-1",
+          sessionId: "session-1",
+          mode: "steer",
+          state: "pending",
+          payload: { text: "pivot", files: [] },
+        },
+      });
+      expect(providerExecutionPort.steerActiveTurn).toHaveBeenCalledWith("session-1", { text: "pivot", files: [] });
+      expect(providerExecutionPort.sendMessage).not.toHaveBeenCalled();
+    });
+
+    it("sends as a fresh turn when the session is idle", async () => {
+      const { dispatcher, providerExecutionPort } = setup([{ mode: "queue", payload: { text: "recover", files: [] } }]);
+
+      await dispatcher("sessions.steerPendingInput", { sessionId: "session-1", itemId: "item-1" });
+      expect(providerExecutionPort.sendMessage).toHaveBeenCalledWith("session-1", { text: "recover", files: [] });
+      expect(providerExecutionPort.steerActiveTurn).not.toHaveBeenCalled();
+    });
+
+    it("defers Pi steer items with files to the post-settle drain", async () => {
+      const { dispatcher, providerExecutionPort, pendingRows } = setup([
+        { mode: "queue", payload: { text: "with attachment", files: [{ path: "/tmp/a.png" }] } },
+      ]);
+      providerExecutionPort.getActiveGeneration.mockReturnValue({ eventId: "e1", runId: "r1" });
+
+      await dispatcher("sessions.steerPendingInput", { sessionId: "session-1", itemId: "item-1" });
+      // Pi steer is text-only: the row stays in the steer lane for the drain.
+      expect(pendingRows.get("item-1")?.mode).toBe("steer");
+      expect(providerExecutionPort.steerActiveTurn).not.toHaveBeenCalled();
+      expect(providerExecutionPort.sendMessage).not.toHaveBeenCalled();
+    });
+
+    it("delivers ACP steer items with files into the active turn", async () => {
+      const { dispatcher, providerExecutionPort, sessionRepository } = setup([
+        { mode: "queue", payload: { text: "acp with attachment", files: [{ path: "/tmp/a.png" }] } },
+      ]);
+      providerExecutionPort.getActiveGeneration.mockReturnValue({ eventId: "e1", runId: "r1" });
+      sessionRepository.get.mockResolvedValue({ id: "session-1", providerId: "acp", status: "generating" });
+
+      await dispatcher("sessions.steerPendingInput", { sessionId: "session-1", itemId: "item-1" });
+      expect(providerExecutionPort.steerActiveTurn).toHaveBeenCalledWith("session-1", {
+        text: "acp with attachment",
+        files: [{ path: "/tmp/a.png" }],
+      });
+    });
+
+    it("reports failure and restores the row when delivery fails", async () => {
+      const { dispatcher, providerExecutionPort, pendingRows } = setup([
+        { mode: "queue", payload: { text: "poison", files: [] } },
+      ]);
+      providerExecutionPort.sendMessage.mockRejectedValue(new Error("provider down"));
+
+      await expect(
+        dispatcher("sessions.steerPendingInput", { sessionId: "session-1", itemId: "item-1" }),
+      ).rejects.toThrow(/Failed to deliver pending input/);
+      // consumePendingInput restored the row so it is not lost.
+      expect(pendingRows.get("item-1")?.mode).toBe("steer");
     });
   });
 

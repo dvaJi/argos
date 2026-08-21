@@ -453,6 +453,17 @@ export async function startDaemon(options?: {
     stop: (sessionId) => providerExecutionPort.cancelGeneration(sessionId),
   });
 
+  // Pending-input drain: after a turn settles, send the next pending input
+  // (steer items first, then queue order). See docs/issues/daemon-pending-input-drain.
+  sessionRepository.setPendingQueueSender((sessionId, input) => providerExecutionPort.sendMessage(sessionId, input));
+  const drainPendingInputs = (sessionId: string): void => {
+    void sessionRepository.resumePendingQueue(sessionId).catch((error) => {
+      logger.warn(`[pending-inputs] Drain failed for session ${sessionId}:`, error);
+    });
+  };
+  piProviderExecutionPort.setTurnSettledHandler(drainPendingInputs);
+  acpProviderExecutionPort.setTurnSettledHandler(drainPendingInputs);
+
   const sessionAuthRepo = new SessionAuthRepository(db);
 
   const knowledgeRuntime = new DaemonKnowledgeRuntime({

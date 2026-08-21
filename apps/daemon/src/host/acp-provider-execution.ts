@@ -67,6 +67,12 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
   >();
   private pendingPermissions = new Map<string, PendingAcpPermission>();
   private readonly contentMapper = new AcpContentMapper();
+  /** Invoked after a turn completes successfully (used to drain pending inputs). */
+  private turnSettledHandler: ((sessionId: string) => void | Promise<void>) | null = null;
+
+  setTurnSettledHandler(handler: (sessionId: string) => void | Promise<void>): void {
+    this.turnSettledHandler = handler;
+  }
 
   constructor(
     private readonly configPresenter: DaemonConfigPresenter,
@@ -567,6 +573,9 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
         reason: "generation-completed",
         version: 1,
       });
+      // Drain the pending-input lane (steer first, then queue) — the next
+      // drained turn re-triggers this hook when it settles.
+      await this.turnSettledHandler?.(sessionId);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       await this.sessionRepository.setMessageError(
