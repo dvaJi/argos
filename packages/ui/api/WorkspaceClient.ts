@@ -4,6 +4,10 @@ import {
   workspaceExpandDirectoryRoute,
   workspaceGetGitDiffRoute,
   workspaceGetGitStatusRoute,
+  workspaceGitCreateWorktreeRoute,
+  workspaceGitListBranchesRoute,
+  workspaceGitListWorktreesRoute,
+  workspaceGitRemoveWorktreeRoute,
   workspaceOpenFileRoute,
   workspaceReadDirectoryRoute,
   workspaceReadFilePreviewRoute,
@@ -87,6 +91,42 @@ export function createWorkspaceClient(bridge: ArgosBridge = getArgosBridge()) {
     return result.diff;
   }
 
+  /** List local + remote-tracking branches (powers the worktree base-branch picker). */
+  async function gitListBranches(workspacePath: string) {
+    return await bridge.invoke(workspaceGitListBranchesRoute.name, { workspacePath });
+  }
+
+  /** List git worktrees registered for the repo containing `workspacePath`. */
+  async function gitListWorktrees(workspacePath: string) {
+    const result = await bridge.invoke(workspaceGitListWorktreesRoute.name, { workspacePath });
+    return result.worktrees;
+  }
+
+  /**
+   * Create an isolated worktree based on `baseBranch` (or its fetched
+   * `origin/<baseBranch>` tip when `fromRemote`). Never touches the current
+   * checkout. Returns the worktree path, the created branch, and the base ref.
+   */
+  async function gitCreateWorktree(input: {
+    workspacePath: string;
+    baseBranch: string;
+    fromRemote?: boolean;
+    branchName?: string;
+  }) {
+    const result = await bridge.invoke(workspaceGitCreateWorktreeRoute.name, input);
+    return result.worktree as { worktreePath: string; branch: string; baseRef: string };
+  }
+
+  /** Remove a worktree (and optionally its branch) registered for the repo. */
+  async function gitRemoveWorktree(input: {
+    workspacePath: string;
+    worktreePath: string;
+    force?: boolean;
+    deleteBranch?: boolean;
+  }) {
+    return await bridge.invoke(workspaceGitRemoveWorktreeRoute.name, input);
+  }
+
   async function searchFiles(workspacePath: string, query: string) {
     const result = await bridge.invoke(workspaceSearchFilesRoute.name, {
       workspacePath,
@@ -145,6 +185,10 @@ export function createWorkspaceClient(bridge: ArgosBridge = getArgosBridge()) {
     resolveMarkdownLinkedFile,
     getGitStatus,
     getGitDiff,
+    gitListBranches,
+    gitListWorktrees,
+    gitCreateWorktree,
+    gitRemoveWorktree,
     searchFiles,
     browseDirectory,
     readFileText,

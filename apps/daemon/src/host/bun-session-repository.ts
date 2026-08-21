@@ -1171,13 +1171,13 @@ export class BunSessionRepository implements SessionRepository {
             // Idempotency guard: a previous recovery pass may already have
             // appended the interruption block; never duplicate it.
             const alreadyInterrupted = blocks.some(
-              (block) => block.type === "error" && typeof block.content === "string" && block.content.includes("interrupted"),
+              (block) =>
+                block.type === "error" && typeof block.content === "string" && block.content.includes("interrupted"),
             );
             if (!alreadyInterrupted) {
               blocks.push({
                 type: "error",
-                content:
-                  "Generation interrupted — the app or daemon restarted while this response was being produced.",
+                content: "Generation interrupted — the app or daemon restarted while this response was being produced.",
                 status: "error",
                 timestamp: Date.now(),
               });

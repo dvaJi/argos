@@ -83,6 +83,42 @@ export type WorkspaceGitDiff = {
   unstaged: string;
 };
 
+export type WorkspaceGitBranchKind = "local" | "remote";
+
+export type WorkspaceGitBranch = {
+  /** Branch name without the `refs/heads/` or `refs/remotes/` prefix (e.g. `main`, `origin/main`). */
+  name: string;
+  kind: WorkspaceGitBranchKind;
+  /** True for the repo's default branch (from `origin/HEAD`, falling back to the main checkout HEAD). */
+  isDefault: boolean;
+  /** True for the branch currently checked out in the main checkout. */
+  isHead: boolean;
+  /** Absolute path of the worktree that has this branch checked out, when any. */
+  worktreePath: string | null;
+};
+
+export type WorkspaceGitWorktree = {
+  /** Absolute path of the worktree directory. */
+  path: string;
+  /** Checked-out branch name (null for bare/detached worktrees). */
+  branch: string | null;
+  /** HEAD commit SHA of the worktree. */
+  head: string;
+  /** True for the repository's main worktree (never removable via worktree routes). */
+  isMain: boolean;
+  /** True for worktrees the daemon created under its managed root (the only ones removable via routes). */
+  isManaged: boolean;
+};
+
+export type WorkspaceGitWorktreeCreation = {
+  /** Absolute path of the created worktree directory. */
+  worktreePath: string;
+  /** Branch created and checked out in the new worktree. */
+  branch: string;
+  /** Ref the worktree was based on (e.g. `main`, `origin/main`, or a commit SHA). */
+  baseRef: string;
+};
+
 export type WorkspaceInvalidationKind = "fs" | "git" | "full";
 
 export type WorkspaceInvalidationSource = "watcher" | "fallback" | "lifecycle";
@@ -199,6 +235,43 @@ export interface IWorkspacePresenter {
    * @param filePath Optional absolute file path within the workspace
    */
   getGitDiff(workspacePath: string, filePath?: string): Promise<WorkspaceGitDiff | null>;
+
+  /**
+   * List local and remote-tracking branches for the repo containing `workspacePath`.
+   * Returns `isRepo: false` with an empty list when the path is not a git repository.
+   */
+  listGitBranches(workspacePath: string): Promise<{
+    isRepo: boolean;
+    defaultBranch: string | null;
+    branches: WorkspaceGitBranch[];
+  }>;
+
+  /** List the git worktrees registered for the repo containing `workspacePath`. */
+  listGitWorktrees(workspacePath: string): Promise<WorkspaceGitWorktree[]>;
+
+  /**
+   * Create an isolated git worktree based on an explicit branch ref (`baseBranch`,
+   * or the fetched `origin/<baseBranch>` tip when `fromRemote` is set). Never
+   * touches the current checkout: `git worktree add -b <branch> <dir> <startPoint>`
+   * with a server-derived directory under the daemon worktrees root.
+   */
+  createGitWorktree(input: {
+    workspacePath: string;
+    baseBranch: string;
+    fromRemote: boolean;
+    branchName?: string;
+  }): Promise<WorkspaceGitWorktreeCreation>;
+
+  /**
+   * Remove a worktree registered under the repo containing `workspacePath`.
+   * Refuses the main worktree and (with `deleteBranch`) protected branches.
+   */
+  removeGitWorktree(input: {
+    workspacePath: string;
+    worktreePath: string;
+    force: boolean;
+    deleteBranch: boolean;
+  }): Promise<void>;
 
   /**
    * Search workspace files by query (query does not include @)

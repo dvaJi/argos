@@ -442,17 +442,17 @@ export default function EmojiPicker({ modelValue, onModelValueChange }: EmojiPic
         {modelValue || "📁"}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-80 p-0">
-        <div className="p-2">
+        <div className="p-2 relative">
           <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-            <TabsList className="flex overflow-x-auto w-full justify-between">
+            <TabsList>
               {categories.map((category) => (
-                <TabsTrigger key={category.id} value={category.id} className="w-0 grow py-1" title={category.name}>
+                <TabsTrigger key={category.id} value={category.id} title={category.name}>
                   {category.icon}
                 </TabsTrigger>
               ))}
             </TabsList>
             {categories.map((category) => (
-              <TabsContent key={category.id} value={category.id} className="mt-2 focus:outline-none">
+              <TabsContent key={category.id} value={category.id}>
                 <ScrollArea className="h-40">
                   <div className="grid grid-cols-8 gap-1">
                     {filteredEmojis[category.id]?.map((emoji) => (

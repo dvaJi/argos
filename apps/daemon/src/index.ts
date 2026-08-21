@@ -1,5 +1,5 @@
 import { serve } from "bun";
-import { resolve } from "node:path";
+import { join as pathJoin, resolve } from "node:path";
 import { handleRouteDispatch, dispatchRoute, setRouteDispatcher } from "./transport/http";
 import type { RouteDispatcher } from "./transport/http";
 import { authorize } from "./transport/auth";
@@ -793,7 +793,11 @@ export async function startDaemon(options?: {
     },
   });
 
-  const workspacePresenter = new DaemonWorkspacePresenter(eventPublisher, "http://127.0.0.1:0");
+  const workspacePresenter = new DaemonWorkspacePresenter(
+    eventPublisher,
+    "http://127.0.0.1:0",
+    pathJoin(paths.getDataDir(), "worktrees"),
+  );
 
   const dispatcher =
     options?.dispatcher ??

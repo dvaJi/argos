@@ -566,6 +566,42 @@ export const WorkspaceGitDiffSchema = zod.object({
   unstaged: zod.string(),
 });
 
+export const WorkspaceGitBranchKindSchema = zod.enum(["local", "remote"]);
+
+export const WorkspaceGitBranchSchema = zod.object({
+  /** Branch name without the `refs/heads/` or `refs/remotes/` prefix (e.g. `main`, `origin/main`). */
+  name: zod.string().min(1),
+  kind: WorkspaceGitBranchKindSchema,
+  /** True for the repo's default branch (from `origin/HEAD`, falling back to the main checkout HEAD). */
+  isDefault: zod.boolean(),
+  /** True for the branch currently checked out in the main checkout. */
+  isHead: zod.boolean(),
+  /** Absolute path of the worktree that has this branch checked out, when any. */
+  worktreePath: zod.string().nullable(),
+});
+
+export const WorkspaceGitWorktreeSchema = zod.object({
+  /** Absolute path of the worktree directory. */
+  path: zod.string().min(1),
+  /** Checked-out branch name (null for bare/detached worktrees). */
+  branch: zod.string().nullable(),
+  /** HEAD commit SHA of the worktree. */
+  head: zod.string(),
+  /** True for the repository's main worktree (never removable via worktree routes). */
+  isMain: zod.boolean(),
+  /** True for worktrees the daemon created under its managed root (the only ones removable via routes). */
+  isManaged: zod.boolean(),
+});
+
+export const WorkspaceGitWorktreeCreationSchema = zod.object({
+  /** Absolute path of the created worktree directory. */
+  worktreePath: zod.string().min(1),
+  /** Branch created and checked out in the new worktree. */
+  branch: zod.string().min(1),
+  /** Ref the worktree was based on (e.g. `main`, `origin/main`, or a commit SHA). */
+  baseRef: zod.string().min(1),
+});
+
 export const WorkspaceLinkedFileResolutionSchema = zod.object({
   path: zod.string(),
   name: zod.string(),

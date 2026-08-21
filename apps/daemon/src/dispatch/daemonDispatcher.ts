@@ -117,6 +117,10 @@ import {
   workspaceResolveMarkdownLinkedFileRoute,
   workspaceGetGitStatusRoute,
   workspaceGetGitDiffRoute,
+  workspaceGitListBranchesRoute,
+  workspaceGitListWorktreesRoute,
+  workspaceGitCreateWorktreeRoute,
+  workspaceGitRemoveWorktreeRoute,
   workspaceSearchFilesRoute,
   fileIsDirectoryRoute,
   filePrepareDirectoryRoute,
@@ -867,6 +871,20 @@ export function createDaemonDispatcher(
     resolveMarkdownLinkedFile(input: unknown): Promise<unknown>;
     getGitStatus(workspacePath: string): Promise<unknown>;
     getGitDiff(workspacePath: string, filePath?: string): Promise<unknown>;
+    listGitBranches(workspacePath: string): Promise<unknown>;
+    listGitWorktrees(workspacePath: string): Promise<unknown[]>;
+    createGitWorktree(input: {
+      workspacePath: string;
+      baseBranch: string;
+      fromRemote: boolean;
+      branchName?: string;
+    }): Promise<unknown>;
+    removeGitWorktree(input: {
+      workspacePath: string;
+      worktreePath: string;
+      force: boolean;
+      deleteBranch: boolean;
+    }): Promise<void>;
     searchFiles(workspacePath: string, query: string): Promise<unknown[]>;
   },
   knowledgeRuntime?: DaemonKnowledgeRuntimePort,
@@ -1755,6 +1773,41 @@ export function createDaemonDispatcher(
       return workspaceGetGitDiffRoute.output.parse({
         diff: await workspacePresenter.getGitDiff(input.workspacePath, input.filePath),
       });
+    }
+
+    if (workspacePresenter && route === workspaceGitListBranchesRoute.name) {
+      const input = workspaceGitListBranchesRoute.input.parse(rawInput);
+      return workspaceGitListBranchesRoute.output.parse(await workspacePresenter.listGitBranches(input.workspacePath));
+    }
+
+    if (workspacePresenter && route === workspaceGitListWorktreesRoute.name) {
+      const input = workspaceGitListWorktreesRoute.input.parse(rawInput);
+      return workspaceGitListWorktreesRoute.output.parse({
+        worktrees: await workspacePresenter.listGitWorktrees(input.workspacePath),
+      });
+    }
+
+    if (workspacePresenter && route === workspaceGitCreateWorktreeRoute.name) {
+      const input = workspaceGitCreateWorktreeRoute.input.parse(rawInput);
+      return workspaceGitCreateWorktreeRoute.output.parse({
+        worktree: await workspacePresenter.createGitWorktree({
+          workspacePath: input.workspacePath,
+          baseBranch: input.baseBranch,
+          fromRemote: input.fromRemote,
+          branchName: input.branchName,
+        }),
+      });
+    }
+
+    if (workspacePresenter && route === workspaceGitRemoveWorktreeRoute.name) {
+      const input = workspaceGitRemoveWorktreeRoute.input.parse(rawInput);
+      await workspacePresenter.removeGitWorktree({
+        workspacePath: input.workspacePath,
+        worktreePath: input.worktreePath,
+        force: input.force,
+        deleteBranch: input.deleteBranch,
+      });
+      return workspaceGitRemoveWorktreeRoute.output.parse({ removed: true });
     }
 
     if (workspacePresenter && route === workspaceSearchFilesRoute.name) {
@@ -2655,9 +2708,7 @@ export function createDaemonDispatcher(
           // Delivery failed: consumePendingInput already restored the row and
           // logged. Re-throw so the route reports the failed delivery instead
           // of pretending the steer succeeded.
-          throw new Error(
-            `Failed to deliver pending input ${input.itemId}; it was restored to the pending lane.`,
-          );
+          throw new Error(`Failed to deliver pending input ${input.itemId}; it was restored to the pending lane.`);
         }
       }
 
