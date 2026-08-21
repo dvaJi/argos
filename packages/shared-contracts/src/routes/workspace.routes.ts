@@ -3,8 +3,11 @@ import { defineRouteContract } from "../common";
 import {
   WorkspaceFileNodeSchema,
   WorkspaceFilePreviewSchema,
+  WorkspaceGitBranchSchema,
   WorkspaceGitDiffSchema,
   WorkspaceGitStateSchema,
+  WorkspaceGitWorktreeCreationSchema,
+  WorkspaceGitWorktreeSchema,
   WorkspaceLinkedFileResolutionSchema,
 } from "../domainSchemas";
 
@@ -132,6 +135,79 @@ export const workspaceGetGitDiffRoute = defineRouteContract({
   }),
   output: zod.object({
     diff: WorkspaceGitDiffSchema.nullable(),
+  }),
+});
+
+/**
+ * List local and remote-tracking branches of the repository containing
+ * `workspacePath`. Powers the worktree base-branch picker: `origin/…` refs
+ * first, then local branches, marking the default branch, the main checkout's
+ * HEAD branch, and branches already checked out in some worktree.
+ */
+export const workspaceGitListBranchesRoute = defineRouteContract({
+  name: "workspace.gitListBranches",
+  input: zod.object({
+    workspacePath: zod.string().min(1),
+  }),
+  output: zod.object({
+    isRepo: zod.boolean(),
+    defaultBranch: zod.string().nullable(),
+    branches: zod.array(WorkspaceGitBranchSchema),
+  }),
+});
+
+/** List the git worktrees registered for the repository containing `workspacePath`. */
+export const workspaceGitListWorktreesRoute = defineRouteContract({
+  name: "workspace.gitListWorktrees",
+  input: zod.object({
+    workspacePath: zod.string().min(1),
+  }),
+  output: zod.object({
+    worktrees: zod.array(WorkspaceGitWorktreeSchema),
+  }),
+});
+
+/**
+ * Create an isolated git worktree for agent work, modeled on t3code's
+ * `createWorktree`. The worktree is always based on an explicit start point —
+ * the named base branch, or (when `fromRemote` is set and `origin` exists) the
+ * fetched `origin/<baseBranch>` tip resolved to a commit SHA — never on the
+ * current checkout. A new branch (auto `argos/<8hex>` unless `branchName` is
+ * given) is created for the worktree inside the daemon-managed worktrees
+ * directory, so the user's checkout is never touched or switched.
+ */
+export const workspaceGitCreateWorktreeRoute = defineRouteContract({
+  name: "workspace.gitCreateWorktree",
+  input: zod.object({
+    workspacePath: zod.string().min(1),
+    baseBranch: zod.string().min(1),
+    /** Base the worktree on `origin/<baseBranch>` (fetch + resolve to a SHA) instead of the local ref. */
+    fromRemote: zod.boolean().default(true),
+    /** Optional branch name to create for the worktree; auto-generated as `argos/<8hex>` when omitted. */
+    branchName: zod.string().optional(),
+  }),
+  output: zod.object({
+    worktree: WorkspaceGitWorktreeCreationSchema,
+  }),
+});
+
+/**
+ * Remove a git worktree registered under the repository containing
+ * `workspacePath`. The path must belong to that repo's worktree list and must
+ * not be the main worktree. `deleteBranch` additionally deletes the branch that
+ * was checked out in the removed worktree (refused for the main checkout's HEAD
+ * branch and the default remote branch).
+ */
+export const workspaceGitRemoveWorktreeRoute = defineRouteContract({
+  name: "workspace.gitRemoveWorktree",
+  input: zod.object({
+    workspacePath: zod.string().min(1),
+    worktreePath: zod.string().min(1),
+    force: zod.boolean().default(false),
+    deleteBranch: zod.boolean().default(false),
+  }),
+  output: zod.object({
+    removed: zod.boolean(),
   }),
 });
 

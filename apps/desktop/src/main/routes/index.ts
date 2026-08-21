@@ -237,6 +237,10 @@ import {
   workspaceExpandDirectoryRoute,
   workspaceGetGitDiffRoute,
   workspaceGetGitStatusRoute,
+  workspaceGitCreateWorktreeRoute,
+  workspaceGitListBranchesRoute,
+  workspaceGitListWorktreesRoute,
+  workspaceGitRemoveWorktreeRoute,
   workspaceOpenFileRoute,
   workspaceReadDirectoryRoute,
   workspaceReadFilePreviewRoute,
@@ -1287,6 +1291,34 @@ export async function dispatchArgosRoute(
     case workspaceGetGitDiffRoute.name: {
       const input = workspaceGetGitDiffRoute.input.parse(rawInput);
       return workspaceGetGitDiffRoute.output.parse(await invokeDaemonRoute(workspaceGetGitDiffRoute.name, input));
+    }
+
+    case workspaceGitListBranchesRoute.name: {
+      const input = workspaceGitListBranchesRoute.input.parse(rawInput);
+      return workspaceGitListBranchesRoute.output.parse(
+        await invokeDaemonRoute(workspaceGitListBranchesRoute.name, input),
+      );
+    }
+
+    case workspaceGitListWorktreesRoute.name: {
+      const input = workspaceGitListWorktreesRoute.input.parse(rawInput);
+      return workspaceGitListWorktreesRoute.output.parse(
+        await invokeDaemonRoute(workspaceGitListWorktreesRoute.name, input),
+      );
+    }
+
+    case workspaceGitCreateWorktreeRoute.name: {
+      const input = workspaceGitCreateWorktreeRoute.input.parse(rawInput);
+      return workspaceGitCreateWorktreeRoute.output.parse(
+        await invokeDaemonRoute(workspaceGitCreateWorktreeRoute.name, input),
+      );
+    }
+
+    case workspaceGitRemoveWorktreeRoute.name: {
+      const input = workspaceGitRemoveWorktreeRoute.input.parse(rawInput);
+      return workspaceGitRemoveWorktreeRoute.output.parse(
+        await invokeDaemonRoute(workspaceGitRemoveWorktreeRoute.name, input),
+      );
     }
 
     case workspaceSearchFilesRoute.name: {

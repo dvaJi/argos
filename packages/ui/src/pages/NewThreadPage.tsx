@@ -16,6 +16,8 @@ import { BrandWordmark } from "#/components/brand/BrandWordmark";
 import { FolderPickerDialog } from "#/components/FolderPicker";
 import ChatInputToolbar from "#/components/chat/ChatInputToolbar";
 import ChatStatusBar from "#/components/chat/ChatStatusBar";
+import WorktreeSelector from "#/components/WorktreeSelector";
+import { emptyWorktreeDraft, type WorktreeDraftConfig } from "#/components/worktreeConfig";
 import { useToast } from "#/components/use-toast";
 import GuidedOnboardingOverlay from "#/components/onboarding/GuidedOnboardingOverlay";
 import { useGuidedOnboardingStep } from "#/composables/useGuidedOnboardingStep";
@@ -35,6 +37,7 @@ import { createConfigClient } from "#api/ConfigClient";
 import { createFileClient } from "#api/FileClient";
 import { createModelClient } from "#api/ModelClient";
 import { createSessionClient } from "#api/SessionClient";
+import { createWorkspaceClient } from "#api/WorkspaceClient";
 import { persistGuidedOnboardingResumeIntent } from "#/lib/onboardingResume";
 import { resolveGuidedOnboardingStepTarget } from "@argos/shared/guidedOnboarding";
 import { normalizeArgosSubagentConfig } from "@argos/shared/lib/argosSubagents";
@@ -51,9 +54,40 @@ const configClient = createConfigClient();
 const fileClient = createFileClient();
 const modelClient = createModelClient();
 const sessionClient = createSessionClient();
+const workspaceClient = createWorkspaceClient();
 const PROJECT_MENU_LIMIT = 8;
 
 type SubmissionModelSelection = { providerId: string; modelId: string };
+
+/** Creates the isolated worktree for a submission (module-level: compiler-safe try/catch). */
+async function createSubmissionWorktree(input: {
+  workspacePath: string;
+  baseBranch: string;
+  fromRemote: boolean;
+  branchName?: string;
+}): Promise<string> {
+  const worktree = await workspaceClient.gitCreateWorktree(input);
+  return worktree.worktreePath;
+}
+
+/** Best-effort cleanup of a worktree created for a submission that failed. */
+async function abandonSubmissionWorktree(input: { workspacePath: string; worktreePath: string }): Promise<void> {
+  await workspaceClient.gitRemoveWorktree({ ...input, force: true, deleteBranch: true }).catch(() => {});
+}
+
+/** Ensures an ACP draft session bound to the worktree directory (compiler-safe throw). */
+async function ensureWorktreeAcpDraft(input: {
+  agentId: string;
+  projectDir: string;
+  permissionMode: "default" | "full_access";
+}): Promise<string> {
+  const draft = await sessionClient.ensureAcpDraftSession(input);
+  const draftSessionId = typeof draft?.id === "string" ? draft.id.trim() : "";
+  if (!draftSessionId) {
+    throw new Error("Failed to create ACP draft session for the worktree.");
+  }
+  return draftSessionId;
+}
 
 function NewThreadPage() {
   const { toast } = useToast();
@@ -95,6 +129,8 @@ function NewThreadPage() {
   const acpDraftRequestSeqRef = useRef(0);
   const [isCompletingSwitchAgentGuide, setIsCompletingSwitchAgentGuide] = useState(false);
   const [folderPickerOpen, setFolderPickerOpen] = useState(false);
+  const [worktreeDraft, setWorktreeDraft] = useState<WorktreeDraftConfig>(emptyWorktreeDraft);
+  const [isCreatingWorktree, setIsCreatingWorktree] = useState(false);
   const currentDraftDefaultsTaskRef = useRef<Promise<void> | null>(null);
   const cancelEnsureDraftTaskRef = useRef<(() => void) | null>(null);
   const voiceInputConfigTokenRef = useRef(0);
@@ -167,6 +203,17 @@ function NewThreadPage() {
 
   const isSelectedInvalidProjectPath = (projectPath: string | null | undefined): boolean =>
     selectedProjectDirectoryInvalid && normalizeProjectPath(projectPath) === selectedProjectPath;
+
+  // A worktree base branch belongs to the selected repository: reset the draft
+  // whenever the project changes so a stale branch from another repo is never
+  // submitted.
+  const prevWorktreeProjectRef = useRef<string | null>(selectedProjectPath);
+  useEffect(() => {
+    if (prevWorktreeProjectRef.current !== selectedProjectPath) {
+      prevWorktreeProjectRef.current = selectedProjectPath;
+      setWorktreeDraft((prev) => (prev.enabled || prev.baseBranch ? { ...emptyWorktreeDraft } : prev));
+    }
+  }, [selectedProjectPath]);
 
   const isAcpWorkdirMissing = isAcpSelectedAgent && !selectedProjectPath;
   const isAcpWorkdirInvalid = isAcpSelectedAgent && Boolean(selectedProjectPath) && selectedProjectDirectoryInvalid;
@@ -287,8 +334,62 @@ function NewThreadPage() {
       const agentId = agentState.selectedAgentId ?? "argos";
       const isAcp = isAcpSelectedAgent;
 
+      // If any step after worktree creation fails (or bails early), remove
+      // the checkout so failed submissions never orphan worktrees/branches.
+      // Declared before the outer try so the catch path can clean it up.
+      let createdWorktree: { repoPath: string; worktreePath: string } | null = null;
+      const abandonCreatedWorktree = async (): Promise<void> => {
+        if (!createdWorktree) return;
+        const orphan = createdWorktree;
+        createdWorktree = null;
+        await abandonSubmissionWorktree({
+          workspacePath: orphan.repoPath,
+          worktreePath: orphan.worktreePath,
+        });
+      };
       try {
-        if (isAcp && acpDraftSessionId) {
+        // Worktree mode: create the isolated checkout from the selected base
+        // branch FIRST, then bind the session to it. The base repo checkout is
+        // never touched (server-side `git worktree add -b <branch> <path> <ref>`).
+        let sessionProjectDir = projectState.selectedProjectPath ?? undefined;
+        if (worktreeDraft.enabled) {
+          if (isCreatingWorktree) return;
+          const repoPath = projectState.selectedProjectPath;
+          if (!repoPath || !worktreeDraft.baseBranch) {
+            toast({
+              title: "Worktree Not Configured",
+              description: "Select a base branch for the worktree, or turn worktree mode off.",
+              variant: "destructive",
+            });
+            if (preparedHeroFlight) cancelChatInputHeroFlight();
+            return;
+          }
+          setIsCreatingWorktree(true);
+          const created = await createSubmissionWorktree({
+            workspacePath: repoPath,
+            baseBranch: worktreeDraft.baseBranch,
+            fromRemote: worktreeDraft.fromRemote,
+            branchName: worktreeDraft.branchName.trim() || undefined,
+          })
+            .then((worktreePath) => ({ repoPath: repoPath as string, worktreePath }))
+            .catch((error: unknown) => {
+              toast({
+                title: "Failed to Create Worktree",
+                description: error instanceof Error ? error.message : String(error),
+                variant: "destructive",
+              });
+              return null;
+            });
+          setIsCreatingWorktree(false);
+          if (!created) {
+            if (preparedHeroFlight) cancelChatInputHeroFlight();
+            return;
+          }
+          createdWorktree = created;
+          sessionProjectDir = created.worktreePath;
+        }
+
+        if (isAcp && acpDraftSessionId && !createdWorktree) {
           await selectSession(acpDraftSessionId);
           await sendMessage(acpDraftSessionId, { text, files });
           void fetchSessions();
@@ -305,11 +406,29 @@ function NewThreadPage() {
           const resolved = await resolveModel();
           if (!resolved) {
             console.error("No model available. Please configure a provider and model in settings.");
+            await abandonCreatedWorktree();
             if (preparedHeroFlight) cancelChatInputHeroFlight();
             return;
           }
           providerId = resolved.providerId;
           modelId = resolved.modelId;
+        }
+
+        if (isAcp && sessionProjectDir) {
+          // ACP drafts are keyed per agent+projectDir: in worktree mode this
+          // mints a fresh draft bound to the worktree directory, so the agent
+          // spawns with cwd = worktree. Throws propagate to the outer catch,
+          // which removes the orphaned worktree.
+          const draftSessionId = await ensureWorktreeAcpDraft({
+            agentId,
+            projectDir: sessionProjectDir,
+            permissionMode: draftState.permissionMode,
+          });
+          await selectSession(draftSessionId);
+          await sendMessage(draftSessionId, { text, files });
+          createdWorktree = null; // submission succeeded; keep the worktree
+          void fetchSessions();
+          return;
         }
 
         const pendingSkillsSnapshot = chatInputRef.current?.getPendingSkillsSnapshot?.() ?? pendingSkills;
@@ -318,7 +437,7 @@ function NewThreadPage() {
         await createSession({
           message: text,
           files,
-          projectDir: projectState.selectedProjectPath ?? undefined,
+          projectDir: sessionProjectDir,
           agentId,
           providerId,
           modelId,
@@ -328,7 +447,9 @@ function NewThreadPage() {
           generationSettings: getToGenerationSettings?.() ?? {},
           activeSkills: dedupedPendingSkills.length > 0 ? dedupedPendingSkills : undefined,
         });
+        createdWorktree = null; // submission succeeded; keep the worktree
       } catch (error) {
+        await abandonCreatedWorktree();
         if (preparedHeroFlight) cancelChatInputHeroFlight();
         throw error;
       }
@@ -343,6 +464,10 @@ function NewThreadPage() {
       pendingSkills,
       projectState,
       draftState,
+      agentState,
+      worktreeDraft,
+      isCreatingWorktree,
+      toast,
     ],
   );
 
@@ -784,7 +909,7 @@ function NewThreadPage() {
                 showVoiceInput={isVoiceInputEnabled}
                 isVoiceInputListening={false}
                 isVoiceInputTranscribing={false}
-                sendDisabled={isAcpWorkdirUnavailable || !isDaemonConnected || !message.trim()}
+                sendDisabled={isAcpWorkdirUnavailable || !isDaemonConnected || !message.trim() || isCreatingWorktree}
                 onAttach={onAttach}
                 onVoiceInput={() => {}}
                 onSend={onSubmit}
@@ -862,6 +987,12 @@ function NewThreadPage() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          <WorktreeSelector
+            workspacePath={projectState.selectedProjectPath ?? null}
+            value={worktreeDraft}
+            onChange={setWorktreeDraft}
+            disabled={selectedProjectDirectoryStatus !== "valid"}
+          />
         </div>
         <ChatStatusBar acpDraftSessionId={acpDraftSessionId ?? undefined} />
       </div>

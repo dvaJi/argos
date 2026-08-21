@@ -1,6 +1,8 @@
 import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
+import os from "node:os";
+import { createHash, randomBytes } from "node:crypto";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
@@ -13,10 +15,13 @@ import type {
   WorkspaceFileNode,
   WorkspaceFilePreview,
   WorkspaceFilePreviewKind,
+  WorkspaceGitBranch,
   WorkspaceGitChangeType,
   WorkspaceGitDiff,
   WorkspaceGitFileChange,
   WorkspaceGitState,
+  WorkspaceGitWorktree,
+  WorkspaceGitWorktreeCreation,
   WorkspaceInvalidationEvent,
   WorkspaceInvalidationKind,
   WorkspaceInvalidationSource,
@@ -141,11 +146,15 @@ export class DaemonWorkspacePresenter {
   private readonly allowedExactPaths = new Set<string>();
   private readonly eventPublisher: IEventPublisher;
   private baseUrl: string;
+  private readonly worktreesRootDir: string;
   private readonly watchRuntimes = new Map<string, WorkspaceWatchRuntime>();
 
-  constructor(eventPublisher: IEventPublisher, baseUrl: string) {
+  constructor(eventPublisher: IEventPublisher, baseUrl: string, worktreesRootDir?: string) {
     this.eventPublisher = eventPublisher;
     this.baseUrl = baseUrl.replace(/\/$/, "");
+    // Daemon-managed root for agent worktrees (kept outside user repositories,
+    // mirroring t3code's central `<dataDir>/worktrees` layout).
+    this.worktreesRootDir = worktreesRootDir ?? path.join(os.homedir(), ".argos-daemon", "worktrees");
   }
 
   /** Update the HTTP origin used to build preview URLs (after the server bound its port). */
@@ -769,6 +778,352 @@ export class DaemonWorkspacePresenter {
     } catch {
       return null;
     }
+  }
+
+  // ---- git worktrees (t3code-style isolated agent checkouts) ----
+
+  /**
+   * Run git expecting success and surface git's own error detail on failure
+   * (unlike `execGit`, which only swallows a missing git binary).
+   */
+  private async runGitStrict(workspacePath: string, args: string[]): Promise<string> {
+    try {
+      const result = await execFileAsync("git", args, {
+        cwd: workspacePath,
+        windowsHide: true,
+        maxBuffer: 8 * 1024 * 1024,
+      });
+      return result.stdout.trimEnd();
+    } catch (error) {
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "code" in error &&
+        (error as { code?: unknown }).code === "ENOENT"
+      ) {
+        throw new Error("git binary not found on PATH");
+      }
+      const detail =
+        (typeof error === "object" && error !== null
+          ? String((error as { stderr?: unknown }).stderr ?? (error as { message?: unknown }).message ?? "")
+          : String(error)
+        ).trim() || `git ${args[0]} failed`;
+      throw new Error(detail);
+    }
+  }
+
+  /**
+   * Best-effort git query: returns null on any failure (missing binary,
+   * non-zero exit) for optional lookups such as `symbolic-ref origin/HEAD`
+   * that legitimately fail in repos without remotes.
+   */
+  private async tryGit(workspacePath: string, args: string[]): Promise<string | null> {
+    try {
+      return await this.runGitStrict(workspacePath, args);
+    } catch {
+      return null;
+    }
+  }
+
+  /** Resolve a revision to a commit SHA, or null when it does not exist. */
+  private async revParseCommit(workspacePath: string, revision: string): Promise<string | null> {
+    try {
+      const output = await this.runGitStrict(workspacePath, ["rev-parse", "--verify", `${revision}^{commit}`]);
+      return output.split(/\r?\n/)[0]?.trim() || null;
+    } catch {
+      return null;
+    }
+  }
+
+  private parseWorktreeList(output: string): WorkspaceGitWorktree[] {
+    const parsed: { path: string; head: string; branch: string | null }[] = [];
+    let current: { path: string; head: string; branch: string | null } | null = null;
+    const flush = () => {
+      if (current) parsed.push(current);
+      current = null;
+    };
+    for (const rawLine of output.split(/\r?\n/)) {
+      const line = rawLine.trimEnd();
+      if (!line) {
+        flush();
+        continue;
+      }
+      if (line.startsWith("worktree ")) {
+        flush();
+        current = { path: line.slice("worktree ".length), head: "", branch: null };
+      } else if (current) {
+        if (line.startsWith("HEAD ")) {
+          current.head = line.slice("HEAD ".length);
+        } else if (line.startsWith("branch ")) {
+          current.branch = line.slice("branch ".length).replace(/^refs\/heads\//, "");
+        }
+      }
+    }
+    flush();
+    // The first entry in `git worktree list` output is always the main worktree.
+    const managedRoot = path.resolve(this.worktreesRootDir);
+    return parsed.map((entry, index) => {
+      const resolvedPath = path.resolve(entry.path);
+      // Only daemon-created worktrees (under the managed root) are exposed as
+      // managed: they are the only ones removable via the worktree routes.
+      const relative = path.relative(managedRoot, resolvedPath);
+      const isManaged = index !== 0 && relative !== "" && !relative.startsWith("..") && !path.isAbsolute(relative);
+      return {
+        path: resolvedPath,
+        branch: entry.branch,
+        head: entry.head,
+        isMain: index === 0,
+        isManaged,
+      };
+    });
+  }
+
+  async listGitWorktrees(workspacePath: string): Promise<WorkspaceGitWorktree[]> {
+    if (!this.isPathAllowed(workspacePath)) return [];
+    const repoRoot = await this.resolveGitWorkspace(workspacePath);
+    if (!repoRoot) return [];
+    try {
+      const output = await execGit(repoRoot, ["worktree", "list", "--porcelain"]);
+      if (output == null) return [];
+      return this.parseWorktreeList(output);
+    } catch (error) {
+      console.warn(`[DaemonWorkspace] Failed git worktree list for ${workspacePath}`, error);
+      return [];
+    }
+  }
+
+  async listGitBranches(
+    workspacePath: string,
+  ): Promise<{ isRepo: boolean; defaultBranch: string | null; branches: WorkspaceGitBranch[] }> {
+    if (!this.isPathAllowed(workspacePath)) {
+      return { isRepo: false, defaultBranch: null, branches: [] };
+    }
+    const repoRoot = await this.resolveGitWorkspace(workspacePath);
+    if (!repoRoot) {
+      return { isRepo: false, defaultBranch: null, branches: [] };
+    }
+    try {
+      // Run against the main checkout (repo root) so `%(HEAD)` reflects the
+      // user's checked-out branch, not some worktree.
+      const [refsOutput, worktrees] = await Promise.all([
+        execGit(repoRoot, ["for-each-ref", "--format=%(refname)%09%(HEAD)", "refs/heads", "refs/remotes"]),
+        this.listGitWorktrees(repoRoot),
+      ]);
+      if (refsOutput == null) {
+        return { isRepo: false, defaultBranch: null, branches: [] };
+      }
+
+      const branchToWorktreePath = new Map<string, string>();
+      for (const worktree of worktrees) {
+        if (worktree.branch && !worktree.isMain) {
+          branchToWorktreePath.set(worktree.branch, worktree.path);
+        }
+      }
+
+      let defaultBranch: string | null = null;
+      const originHead = await this.tryGit(repoRoot, ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"]);
+      if (originHead && originHead.startsWith("origin/")) {
+        defaultBranch = originHead.slice("origin/".length).trim();
+      }
+
+      const branches: WorkspaceGitBranch[] = [];
+      let headBranch: string | null = null;
+      for (const line of refsOutput.split(/\r?\n/).filter(Boolean)) {
+        const [refname, headMarker] = line.split("\t");
+        if (!refname) continue;
+        let kind: "local" | "remote";
+        let name: string;
+        if (refname.startsWith("refs/heads/")) {
+          kind = "local";
+          name = refname.slice("refs/heads/".length);
+        } else if (refname.startsWith("refs/remotes/")) {
+          kind = "remote";
+          name = refname.slice("refs/remotes/".length);
+        } else {
+          continue;
+        }
+        // Skip symbolic remote HEAD placeholders (e.g. `origin/HEAD`).
+        if (name.endsWith("/HEAD")) continue;
+        const isHead = headMarker === "*";
+        if (isHead && kind === "local") headBranch = name;
+        branches.push({
+          name,
+          kind,
+          isDefault: false,
+          isHead,
+          worktreePath: kind === "local" ? (branchToWorktreePath.get(name) ?? null) : null,
+        });
+      }
+
+      if (!defaultBranch) defaultBranch = headBranch;
+      for (const branch of branches) {
+        if (!defaultBranch) break;
+        if (branch.name === defaultBranch) branch.isDefault = true;
+        if (branch.kind === "remote" && branch.name === `origin/${defaultBranch}`) branch.isDefault = true;
+      }
+
+      // Remote-tracking refs first (the worktree flow prefers origin-based
+      // start points), then local branches; alphabetical within each group.
+      branches.sort((a, b) => {
+        if (a.kind !== b.kind) return a.kind === "remote" ? -1 : 1;
+        return a.name.localeCompare(b.name);
+      });
+
+      return { isRepo: true, defaultBranch, branches };
+    } catch (error) {
+      console.warn(`[DaemonWorkspace] Failed git branch list for ${workspacePath}`, error);
+      return { isRepo: false, defaultBranch: null, branches: [] };
+    }
+  }
+
+  private validateGitRefName(candidate: string, label: string): string {
+    const trimmed = candidate.trim();
+    if (
+      !trimmed ||
+      trimmed.startsWith("-") ||
+      trimmed.includes("..") ||
+      trimmed.endsWith("/") ||
+      trimmed.endsWith(".") ||
+      trimmed.endsWith(".lock") ||
+      /[\\\s~^:?*[\]]/.test(trimmed) ||
+      !/^[\w./-]+$/.test(trimmed)
+    ) {
+      throw new Error(`Invalid ${label}: ${candidate}`);
+    }
+    return trimmed;
+  }
+
+  async createGitWorktree(input: {
+    workspacePath: string;
+    baseBranch: string;
+    fromRemote: boolean;
+    branchName?: string;
+  }): Promise<WorkspaceGitWorktreeCreation> {
+    const { workspacePath, baseBranch, fromRemote } = input;
+    if (!this.isPathWithinRegisteredWorkspace(workspacePath)) {
+      throw new Error(`[DaemonWorkspace] Unauthorized workspace: ${workspacePath}`);
+    }
+    const repoRoot = await this.resolveGitWorkspace(workspacePath);
+    if (!repoRoot) {
+      throw new Error(`Not a git repository: ${workspacePath}`);
+    }
+
+    const baseBranchName = this.validateGitRefName(baseBranch, "base branch name");
+    const branchName = this.validateGitRefName(
+      input.branchName?.trim() || `argos/${randomBytes(4).toString("hex")}`,
+      "branch name",
+    );
+
+    // Resolve the start point. The current checkout is never consulted: the
+    // start point is always the named base ref, or (fromRemote) the fetched
+    // `origin/<baseBranch>` tip pinned to its commit SHA — the t3code
+    // "start from origin" behavior.
+    let startPoint = baseBranchName;
+    if (fromRemote) {
+      const remotes = await this.tryGit(repoRoot, ["remote"]);
+      const hasOrigin = (remotes ?? "")
+        .split(/\r?\n/)
+        .map((remote) => remote.trim())
+        .filter(Boolean)
+        .includes("origin");
+      if (hasOrigin) {
+        await this.runGitStrict(repoRoot, ["fetch", "--quiet", "--no-tags", "origin"]);
+        const remoteSha = await this.revParseCommit(repoRoot, `refs/remotes/origin/${baseBranchName}`);
+        if (remoteSha) {
+          startPoint = remoteSha;
+        }
+        // No `origin` remote or missing remote branch: fall back to the local
+        // base branch (t3code falls back rather than failing the bootstrap).
+      }
+    }
+    if (startPoint === baseBranchName) {
+      const exists =
+        (await this.revParseCommit(repoRoot, `refs/heads/${baseBranchName}`)) ??
+        (await this.revParseCommit(repoRoot, `refs/remotes/${baseBranchName}`)) ??
+        (fromRemote ? await this.revParseCommit(repoRoot, baseBranchName) : null);
+      if (!exists) {
+        throw new Error(`Branch not found: ${baseBranchName}`);
+      }
+    }
+
+    // Server-derived target under the daemon worktrees root: never inside the
+    // user's repository, and namespaced so same-named repos never collide.
+    const repoName = path.basename(repoRoot);
+    const repoKey = createHash("sha1").update(repoRoot.toLowerCase()).digest("hex").slice(0, 6);
+    const worktreePath = path.join(this.worktreesRootDir, `${repoName}-${repoKey}`, branchName.replace(/[/\\]/g, "-"));
+    if (fs.existsSync(worktreePath)) {
+      throw new Error(`Worktree path already exists: ${worktreePath}`);
+    }
+    await fsp.mkdir(path.dirname(worktreePath), { recursive: true });
+
+    // `worktree add -b <branch> <path> <startPoint>` checks out the start
+    // point into the new directory only — the main checkout is untouched.
+    await this.runGitStrict(repoRoot, ["worktree", "add", "-b", branchName, worktreePath, startPoint]);
+    await this.registerWorkspace(worktreePath);
+
+    return { worktreePath, branch: branchName, baseRef: startPoint };
+  }
+
+  async removeGitWorktree(input: {
+    workspacePath: string;
+    worktreePath: string;
+    force: boolean;
+    deleteBranch: boolean;
+  }): Promise<void> {
+    const { workspacePath, worktreePath, force, deleteBranch } = input;
+    if (!this.isPathWithinRegisteredWorkspace(workspacePath)) {
+      throw new Error(`[DaemonWorkspace] Unauthorized workspace: ${workspacePath}`);
+    }
+    const repoRoot = await this.resolveGitWorkspace(workspacePath);
+    if (!repoRoot) {
+      throw new Error(`Not a git repository: ${workspacePath}`);
+    }
+
+    const worktrees = await this.listGitWorktrees(repoRoot);
+    const targetPath = path.resolve(worktreePath);
+    const entry = worktrees.find((worktree) => path.resolve(worktree.path) === targetPath);
+    if (!entry) {
+      throw new Error(`Not a registered worktree of this repository: ${targetPath}`);
+    }
+    if (entry.isMain) {
+      throw new Error("The repository's main worktree cannot be removed.");
+    }
+    // Containment: this route may only remove worktrees the daemon itself
+    // created (under the managed root). User-owned checkouts belonging to the
+    // repository must never be deletable through it.
+    const managedRoot = path.resolve(this.worktreesRootDir);
+    const relative = path.relative(managedRoot, targetPath);
+    const isManaged = relative !== "" && !relative.startsWith("..") && !path.isAbsolute(relative);
+    if (!isManaged) {
+      throw new Error(
+        `Refusing to remove worktree outside the daemon-managed worktrees root (${managedRoot}): ${targetPath}`,
+      );
+    }
+
+    if (deleteBranch && entry.branch) {
+      const headBranch = await this.tryGit(repoRoot, ["symbolic-ref", "--short", "HEAD"]);
+      if (entry.branch === headBranch) {
+        throw new Error(`Branch '${entry.branch}' is checked out in the main worktree; refusing to delete.`);
+      }
+      const originHead = await this.tryGit(repoRoot, ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"]);
+      if (originHead && entry.branch === originHead.replace(/^origin\//, "").trim()) {
+        throw new Error(`Branch '${entry.branch}' is the repository's default branch; refusing to delete.`);
+      }
+    }
+
+    const args = ["worktree", "remove"];
+    if (force) args.push("--force");
+    args.push(targetPath);
+    await this.runGitStrict(repoRoot, args);
+    try {
+      await this.runGitStrict(repoRoot, ["worktree", "prune"]);
+    } catch {
+      // prune is best-effort cleanup of stale metadata
+    }
+    if (deleteBranch && entry.branch) {
+      await this.runGitStrict(repoRoot, ["branch", "-D", entry.branch]);
+    }
+    await this.unregisterWorkspace(targetPath);
   }
 
   // ---- search ----
