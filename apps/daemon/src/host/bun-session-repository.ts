@@ -1116,6 +1116,90 @@ export class BunSessionRepository implements SessionRepository {
       .run(status, Date.now(), sessionId);
   }
 
+  /**
+   * Startup recovery for turns orphaned by a daemon crash/restart: any session
+   * still marked `generating` at boot is by definition interrupted (no turn
+   * can be running in a freshly started process). The in-flight assistant
+   * message is finalized — streaming blocks flip to `error`, an empty message
+   * gains an explanatory error block — and the session moves to `error`.
+   * See docs/issues/daemon-recover-interrupted-turns.
+   *
+   * @returns the recovered session ids (for status-change event publishing).
+   */
+  async recoverInterruptedTurns(): Promise<string[]> {
+    const rows = this.db
+      .prepare("SELECT id FROM daemon_sessions WHERE generation_status = 'generating'")
+      .all() as Array<{ id: string }>;
+    if (rows.length === 0) return [];
+
+    const recovered: string[] = [];
+    for (const row of rows) {
+      const sessionId = row.id;
+      try {
+        const lastAssistant = this.db
+          .prepare(
+            `SELECT id, content FROM daemon_messages WHERE session_id = ? AND role = 'assistant'
+             ORDER BY created_at DESC, id DESC LIMIT 1`,
+          )
+          .get(sessionId) as { id: string; content: string } | undefined;
+
+        if (lastAssistant) {
+          let blocks: Array<Record<string, unknown>> = [];
+          try {
+            const parsed = JSON.parse(lastAssistant.content);
+            if (Array.isArray(parsed)) blocks = parsed;
+          } catch {
+            blocks = [];
+          }
+
+          // Flip streaming blocks to error; keep settled content visible.
+          let hasVisibleContent = false;
+          for (const block of blocks) {
+            if (block.status === "loading" || block.status === "pending") {
+              block.status = "error";
+            }
+            if (
+              block.type === "content" ||
+              block.type === "tool_call" ||
+              block.type === "reasoning_content" ||
+              block.type === "artifact-thinking"
+            ) {
+              hasVisibleContent = true;
+            }
+          }
+          if (!hasVisibleContent) {
+            // Idempotency guard: a previous recovery pass may already have
+            // appended the interruption block; never duplicate it.
+            const alreadyInterrupted = blocks.some(
+              (block) => block.type === "error" && typeof block.content === "string" && block.content.includes("interrupted"),
+            );
+            if (!alreadyInterrupted) {
+              blocks.push({
+                type: "error",
+                content:
+                  "Generation interrupted — the app or daemon restarted while this response was being produced.",
+                status: "error",
+                timestamp: Date.now(),
+              });
+            }
+          }
+
+          await this.setMessageError(
+            lastAssistant.id,
+            blocks,
+            JSON.stringify({ runtime: "recovery", recoveredAt: Date.now() }),
+          );
+        }
+
+        await this.setSessionStatus(sessionId, "error");
+        recovered.push(sessionId);
+      } catch (error) {
+        // One bad session must not block recovery of the rest.
+        console.warn(`[recovery] Failed to recover interrupted turn for session ${sessionId}:`, error);
+      }
+    }
+    return recovered;
+  }
 
   /** Clears the "finished but unseen" flag when the user opens a session. */
   async markSessionViewed(sessionId: string): Promise<boolean> {
