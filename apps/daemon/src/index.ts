@@ -4,6 +4,7 @@ import { handleRouteDispatch, dispatchRoute, setRouteDispatcher } from "./transp
 import type { RouteDispatcher } from "./transport/http";
 import { authorize } from "./transport/auth";
 import type { AuthGateConfig, ExposureMode } from "@argos/shared-contracts/auth";
+import { sessionsStatusChangedEvent } from "@argos/shared-contracts";
 import { handlePair, handleListSessions, handleRevokeSession, handleIssuePairingToken } from "./transport/auth-routes";
 import { SessionAuthRepository } from "./host/session-auth-repository";
 import { BunPathResolver } from "./host/bun-paths";
@@ -306,6 +307,22 @@ export async function startDaemon(options?: {
   await sessionRepository.deactivate(0);
   if (sessions.length > 0) {
     logger.info(`[daemon] Reset active sessions to idle`);
+  }
+
+  // Recover turns orphaned by a daemon crash/restart: sessions still marked
+  // `generating` move to `error` and their in-flight assistant message gets an
+  // error block instead of rendering empty. See docs/issues/daemon-recover-interrupted-turns.
+  const recoveredSessions = await sessionRepository.recoverInterruptedTurns();
+  if (recoveredSessions.length > 0) {
+    logger.info(`[daemon] Recovered ${recoveredSessions.length} interrupted turn(s)`);
+    for (const sessionId of recoveredSessions) {
+      eventPublisher.publish(sessionsStatusChangedEvent.name, {
+        sessionId,
+        status: "error",
+        reason: "generation-interrupted",
+        version: 1,
+      });
+    }
   }
 
   const piProfiles = new PiAgentProfileManager(paths.getDataDir(), resolveDaemonVersion());
