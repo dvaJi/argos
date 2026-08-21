@@ -1,4 +1,4 @@
-import { type FC, memo, useCallback, useMemo, useState } from "react";
+import { type FC, memo, useCallback, useState } from "react";
 import { Icon } from "@iconify/react";
 import type { DisplayAssistantMessageBlock } from "#/components/chat/messageListItems";
 import { MessageBlockContent } from "./MessageBlockContent";
@@ -174,6 +174,28 @@ const FoldRow = memo(FoldRowBase);
 // Turn fold
 // ---------------------------------------------------------------------------
 
+/**
+ * Sibling keys must be unique. Blocks with a stable id (block id / tool_call
+ * id) key on it; the content-derived fallback can collide (e.g. legacy
+ * history containing several id-less action blocks with the same timestamp
+ * and content length), so duplicate fallbacks get a deterministic `#n`
+ * suffix derived from their position among identical keys.
+ */
+const buildRowKeys = (blocks: DisplayAssistantMessageBlock[]): string[] => {
+  const seen = new Map<string, number>();
+  return blocks.map((block) => {
+    const base =
+      block.id ??
+      block.tool_call?.id ??
+      `${block.type}:${block.timestamp ?? "no-ts"}:${block.tool_call?.name ?? "anonymous"}:${
+        Array.isArray(block.content) ? block.content.join("").length : (block.content?.length ?? 0)
+      }`;
+    const duplicateCount = seen.get(base) ?? 0;
+    seen.set(base, duplicateCount + 1);
+    return duplicateCount === 0 ? base : `${base}#${duplicateCount}`;
+  });
+};
+
 const MessageTurnFoldBase: FC<MessageTurnFoldProps> = ({
   blocks,
   messageId,
@@ -183,11 +205,9 @@ const MessageTurnFoldBase: FC<MessageTurnFoldProps> = ({
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const durationText = useMemo(() => formatActivityDuration(durationMs, DURATION_LABELS), [durationMs]);
-  const label = useMemo(
-    () => (durationMs >= 1000 ? `Worked for ${durationText}` : "Worked"),
-    [durationMs, durationText],
-  );
+  const durationText = formatActivityDuration(durationMs, DURATION_LABELS);
+  const label = durationMs >= 1000 ? `Worked for ${durationText}` : "Worked";
+  const rowKeys = buildRowKeys(blocks);
 
   const toggleExpanded = useCallback(() => {
     const next = !isExpanded;
@@ -221,17 +241,8 @@ const MessageTurnFoldBase: FC<MessageTurnFoldProps> = ({
       >
         <div className="min-h-0 overflow-hidden">
           <div className="mt-1 flex w-full flex-col gap-px" data-testid="turn-fold-body">
-            {blocks.map((rowBlock) => (
-              <FoldRow
-                key={
-                  rowBlock.id ??
-                  rowBlock.tool_call?.id ??
-                  `${rowBlock.type}:${rowBlock.timestamp ?? "no-ts"}:${rowBlock.tool_call?.name ?? "anonymous"}:${Array.isArray(rowBlock.content) ? rowBlock.content.join("").length : (rowBlock.content?.length ?? 0)}`
-                }
-                block={rowBlock}
-                messageId={messageId}
-                threadId={threadId}
-              />
+            {blocks.map((rowBlock, index) => (
+              <FoldRow key={rowKeys[index]} block={rowBlock} messageId={messageId} threadId={threadId} />
             ))}
           </div>
         </div>
