@@ -308,9 +308,25 @@ export const ChatMessagePageResultSchema = zod.object({
   hasMore: zod.boolean(),
 });
 
+export const TurnFileChangeSchema = zod.object({
+  path: zod.string().min(1),
+  additions: zod.number().int().nullable(),
+  deletions: zod.number().int().nullable(),
+});
+
 export const AssistantMessageBlockSchema = zod.object({
   id: EntityIdSchema.optional(),
-  type: zod.enum(["content", "search", "reasoning_content", "plan", "error", "tool_call", "action", "image"]),
+  type: zod.enum([
+    "content",
+    "search",
+    "reasoning_content",
+    "plan",
+    "error",
+    "tool_call",
+    "action",
+    "image",
+    "file_changes",
+  ]),
   content: zod.string().optional(),
   status: zod.enum(["pending", "success", "error", "loading", "granted", "denied"]),
   timestamp: TimestampMsSchema,
@@ -346,6 +362,7 @@ export const AssistantMessageBlockSchema = zod.object({
     .optional(),
   extra: zod.record(zod.string(), JsonValueSchema).optional(),
   action_type: zod.enum(["tool_call_permission", "question_request", "rate_limit"]).optional(),
+  file_changes: zod.object({ files: zod.array(TurnFileChangeSchema) }).optional(),
 });
 
 export interface RouteContract<

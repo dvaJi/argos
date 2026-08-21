@@ -7,6 +7,7 @@ function createTestDispatcher(
     configPresenter?: Record<string, unknown>;
     providerExecutionPort?: Record<string, unknown>;
     mcpRuntime?: Record<string, unknown>;
+    knowledgeRuntime?: Record<string, unknown> | null;
   } = {},
 ) {
   let knowledgeConfigs = [
@@ -283,6 +284,26 @@ function createTestDispatcher(
     addMemory: vi.fn(async () => ({ id: "memory-1" })),
   };
 
+  const knowledgeRuntime = {
+    isSupported: vi.fn(async () => true),
+    addFile: vi.fn(async () => ({ data: { id: "file-1", status: "processing" } })),
+    deleteFile: vi.fn(async () => undefined),
+    reAddFile: vi.fn(async () => ({ data: { id: "file-1", status: "processing" } })),
+    listFiles: vi.fn(async () => [{ id: "file-1", status: "completed" }]),
+    similarityQuery: vi.fn(async () => [{ id: "r-1", distance: 0.1, metadata: {} }]),
+    validateFile: vi.fn(async () => ({ isSupported: true, mimeType: "text/plain" })),
+    getSupportedFileExtensions: vi.fn(async () => ["txt", "md"]),
+    pauseAllRunningTasks: vi.fn(async () => undefined),
+    resumeAllPausedTasks: vi.fn(async () => undefined),
+    getTaskQueueStatus: vi.fn(async () => ({ totalTasks: 0, runningTasks: 0, queuedTasks: 0 })),
+    resetAll: vi.fn(async () => undefined),
+    syncConfigs: vi.fn(async () => undefined),
+    ...overrides.knowledgeRuntime,
+  };
+
+  // `null` opts out of the knowledge runtime entirely (dispatcher must degrade).
+  const knowledgeRuntimeArg = overrides.knowledgeRuntime === null ? undefined : (knowledgeRuntime as any);
+
   return {
     dispatcher: createDaemonDispatcher(
       configPresenter,
@@ -299,6 +320,10 @@ function createTestDispatcher(
       pluginRuntime as any,
       providerImportService as any,
       settingsActivityDb as any,
+      undefined,
+      undefined,
+      undefined,
+      knowledgeRuntimeArg,
     ),
     sessionRepository,
     providerExecutionPort,
@@ -312,6 +337,7 @@ function createTestDispatcher(
     pluginRuntime,
     providerImportService,
     settingsActivityDb,
+    knowledgeRuntime,
   };
 }
 
@@ -366,6 +392,60 @@ describe("DaemonDispatcher Tier 2 routes no longer return Coming soon", () => {
         ],
       });
       expect(configPresenter.setKnowledgeConfigs).toHaveBeenCalledWith(nextConfigs);
+    });
+
+    it("config.setKnowledgeConfigs reconciles the knowledge runtime stores", async () => {
+      const { dispatcher, knowledgeRuntime } = createTestDispatcher();
+      await dispatcher("config.setKnowledgeConfigs", { configs: [] });
+      expect(knowledgeRuntime.syncConfigs).toHaveBeenCalled();
+    });
+  });
+
+  describe("knowledge.*", () => {
+    it("delegates knowledge operations to the knowledge runtime", async () => {
+      const { dispatcher, knowledgeRuntime } = createTestDispatcher();
+
+      expect(await dispatcher("knowledge.isSupported", {})).toEqual({ supported: true });
+
+      const addResult = await dispatcher("knowledge.addFile", { id: "kb-1", filePath: "/tmp/notes.txt" });
+      expect(addResult).toEqual({
+        result: { data: { id: "file-1", status: "processing" } },
+      });
+      expect(knowledgeRuntime.addFile).toHaveBeenCalledWith("kb-1", "/tmp/notes.txt");
+
+      const files = await dispatcher("knowledge.listFiles", { id: "kb-1" });
+      expect(files).toEqual({ files: [{ id: "file-1", status: "completed" }] });
+
+      const results = await dispatcher("knowledge.similarityQuery", { id: "kb-1", query: "alpha" });
+      expect(results).toEqual({ results: [{ id: "r-1", distance: 0.1, metadata: {} }] });
+      expect(knowledgeRuntime.similarityQuery).toHaveBeenCalledWith("kb-1", "alpha");
+
+      const validation = await dispatcher("knowledge.validateFile", { filePath: "/tmp/notes.txt" });
+      expect(validation).toEqual({ result: { isSupported: true, mimeType: "text/plain" } });
+
+      expect(await dispatcher("knowledge.getSupportedFileExtensions", {})).toEqual({
+        extensions: ["txt", "md"],
+      });
+
+      await dispatcher("knowledge.pauseAllRunningTasks", { id: "kb-1" });
+      expect(knowledgeRuntime.pauseAllRunningTasks).toHaveBeenCalledWith("kb-1");
+      await dispatcher("knowledge.resumeAllPausedTasks", { id: "kb-1" });
+      expect(knowledgeRuntime.resumeAllPausedTasks).toHaveBeenCalledWith("kb-1");
+
+      expect(await dispatcher("knowledge.getTaskQueueStatus", {})).toEqual({
+        status: { totalTasks: 0, runningTasks: 0, queuedTasks: 0 },
+      });
+
+      await dispatcher("knowledge.reset", {});
+      expect(knowledgeRuntime.resetAll).toHaveBeenCalled();
+    });
+
+    it("reports unsupported/empty knowledge surface without a runtime", async () => {
+      const { dispatcher } = createTestDispatcher({ knowledgeRuntime: null });
+      expect(await dispatcher("knowledge.isSupported", {})).toEqual({ supported: false });
+      expect(await dispatcher("knowledge.getTaskQueueStatus", {})).toEqual({
+        status: { totalTasks: 0, runningTasks: 0, queuedTasks: 0 },
+      });
     });
   });
 

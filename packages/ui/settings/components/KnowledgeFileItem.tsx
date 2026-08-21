@@ -5,6 +5,8 @@ import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
 import type { KnowledgeFileMessage } from "@argos/shared/presenter";
+import type { ArgosEventPayload } from "@argos/shared-contracts/events";
+import type { knowledgeFileProgressEvent } from "@argos/shared-contracts/events";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,7 +19,6 @@ import {
   AlertDialogTrigger,
 } from "#shadcn/components/ui/alert-dialog";
 import { Button } from "#shadcn/components/ui/button";
-import { RAG_EVENTS } from "#/events";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -66,14 +67,16 @@ export default function KnowledgeFileItem({ file, onDelete, onReAdd }: Knowledge
   }, [progress]);
 
   useEffect(() => {
-    const handler = (_: unknown, data: { fileId: string; completed: number; error: number; total: number }) => {
-      if (file.id === data.fileId) {
-        setProgress({ completed: data.completed, error: data.error, total: data.total });
-      }
-    };
-    window.electron?.ipcRenderer.on(RAG_EVENTS.FILE_PROGRESS, handler);
+    const unsubscribe = window.argos?.on?.(
+      "knowledge.fileProgress",
+      (payload: ArgosEventPayload<typeof knowledgeFileProgressEvent.name>) => {
+        if (file.id === payload?.fileId) {
+          setProgress({ completed: payload.completed, error: payload.error, total: payload.total });
+        }
+      },
+    );
     return () => {
-      window.electron?.ipcRenderer?.removeListener?.(RAG_EVENTS.FILE_PROGRESS, handler);
+      unsubscribe?.();
     };
   }, [file.id]);
 

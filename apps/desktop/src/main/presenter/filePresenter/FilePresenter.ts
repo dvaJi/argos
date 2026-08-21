@@ -2,18 +2,24 @@ import { app, clipboard, dialog, nativeImage, net } from "electron";
 import fs from "fs/promises";
 import path from "path";
 
-import { BaseFileAdapter } from "./BaseFileAdapter";
-import { FileAdapterConstructor } from "./FileAdapterConstructor";
+import { BaseFileAdapter } from "@argos/file-adapters/BaseFileAdapter";
+import type { FileAdapterConstructor } from "@argos/file-adapters/FileAdapterConstructor";
 import { FileOperation, IConfigPresenter } from "@argos/shared/presenter";
-import { detectMimeType, getMimeTypeAdapterMap } from "./mime";
+import { detectMimeType, getMimeTypeAdapterMap } from "@argos/file-adapters/mime";
 import { IFilePresenter } from "@argos/shared/presenter";
 import { MessageFile } from "@argos/shared/chat";
 import { estimateTokenCount } from "tokenx";
-import { ImageFileAdapter } from "./ImageFileAdapter";
+import { ImageFileAdapter } from "@argos/file-adapters/ImageFileAdapter";
 import { nanoid } from "nanoid";
-import { DirectoryAdapter } from "./DirectoryAdapter";
-import { UnsupportFileAdapter } from "./UnsupportFileAdapter";
-import { FileValidationService, FileValidationResult, IFileValidationService } from "./FileValidationService";
+import { DirectoryAdapter } from "@argos/file-adapters/DirectoryAdapter";
+import { UnsupportFileAdapter } from "@argos/file-adapters/UnsupportFileAdapter";
+import {
+  FileValidationService,
+  type FileValidationResult,
+  type IFileValidationService,
+} from "@argos/file-adapters/FileValidationService";
+import { setImageProcessingRouteCaller } from "@argos/file-adapters/imageProcessingRoute";
+import { callDaemonRoute } from "#/lib/daemonProxy";
 
 type SaveImageInput = {
   source: string;
@@ -126,6 +132,8 @@ export class FilePresenter implements IFilePresenter {
     this.tempDir = path.join(this.userDataPath, "temp");
     this.configPresenter = configPresenter;
     this.fileValidationService = fileValidationService || new FileValidationService();
+    // Bridge the shared ImageFileAdapter to the daemon HTTP route caller.
+    setImageProcessingRouteCaller(callDaemonRoute);
     // Ensure temp directory exists
     try {
       const mkdirResult = fs.mkdir(this.tempDir, { recursive: true });

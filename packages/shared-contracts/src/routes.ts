@@ -352,6 +352,20 @@ import {
   memoryClearRoute,
 } from "./routes/memory.routes";
 import {
+  knowledgeIsSupportedRoute,
+  knowledgeAddFileRoute,
+  knowledgeDeleteFileRoute,
+  knowledgeReAddFileRoute,
+  knowledgeListFilesRoute,
+  knowledgeSimilarityQueryRoute,
+  knowledgeValidateFileRoute,
+  knowledgeGetSupportedFileExtensionsRoute,
+  knowledgePauseAllRunningTasksRoute,
+  knowledgeResumeAllPausedTasksRoute,
+  knowledgeGetTaskQueueStatusRoute,
+  knowledgeResetRoute,
+} from "./routes/knowledge.routes";
+import {
   tabCaptureCurrentAreaRoute,
   tabNotifyRendererActivatedRoute,
   tabNotifyRendererReadyRoute,
@@ -424,6 +438,7 @@ export * from "./routes/system.routes";
 export * from "./routes/tab.routes";
 export * from "./routes/tools.routes";
 export * from "./routes/memory.routes";
+export * from "./routes/knowledge.routes";
 export * from "./routes/upgrade.routes";
 export * from "./routes/usage.routes";
 export * from "./routes/window.routes";
@@ -760,6 +775,18 @@ export const ARGOS_ROUTE_CATALOG = {
   [memoryAddRoute.name]: memoryAddRoute,
   [memoryDeleteRoute.name]: memoryDeleteRoute,
   [memoryClearRoute.name]: memoryClearRoute,
+  [knowledgeIsSupportedRoute.name]: knowledgeIsSupportedRoute,
+  [knowledgeAddFileRoute.name]: knowledgeAddFileRoute,
+  [knowledgeDeleteFileRoute.name]: knowledgeDeleteFileRoute,
+  [knowledgeReAddFileRoute.name]: knowledgeReAddFileRoute,
+  [knowledgeListFilesRoute.name]: knowledgeListFilesRoute,
+  [knowledgeSimilarityQueryRoute.name]: knowledgeSimilarityQueryRoute,
+  [knowledgeValidateFileRoute.name]: knowledgeValidateFileRoute,
+  [knowledgeGetSupportedFileExtensionsRoute.name]: knowledgeGetSupportedFileExtensionsRoute,
+  [knowledgePauseAllRunningTasksRoute.name]: knowledgePauseAllRunningTasksRoute,
+  [knowledgeResumeAllPausedTasksRoute.name]: knowledgeResumeAllPausedTasksRoute,
+  [knowledgeGetTaskQueueStatusRoute.name]: knowledgeGetTaskQueueStatusRoute,
+  [knowledgeResetRoute.name]: knowledgeResetRoute,
   [remoteListChannelsRoute.name]: remoteListChannelsRoute,
   [remoteGetChannelSettingsRoute.name]: remoteGetChannelSettingsRoute,
   [remoteSaveChannelSettingsRoute.name]: remoteSaveChannelSettingsRoute,

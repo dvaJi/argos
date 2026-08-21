@@ -1,9 +1,6 @@
 import { describe, it, expect, beforeEach, vi, Mock } from "vitest";
 import { FilePresenter } from "../../../src/main/presenter/filePresenter/FilePresenter";
-import {
-  FileValidationResult,
-  IFileValidationService,
-} from "../../../src/main/presenter/filePresenter/FileValidationService";
+import type { FileValidationResult, IFileValidationService } from "@argos/file-adapters/FileValidationService";
 import { IConfigPresenter } from "@argos/shared/presenter";
 
 // Mock all external dependencies
@@ -37,12 +34,12 @@ vi.mock("path", () => ({
   },
 }));
 
-vi.mock("../../../src/main/presenter/filePresenter/FileValidationService");
-vi.mock("../../../src/main/presenter/filePresenter/mime");
-vi.mock("../../../src/main/presenter/filePresenter/BaseFileAdapter");
-vi.mock("../../../src/main/presenter/filePresenter/DirectoryAdapter");
-vi.mock("../../../src/main/presenter/filePresenter/UnsupportFileAdapter");
-vi.mock("../../../src/main/presenter/filePresenter/ImageFileAdapter");
+vi.mock("@argos/file-adapters/FileValidationService");
+vi.mock("@argos/file-adapters/mime");
+vi.mock("@argos/file-adapters/BaseFileAdapter");
+vi.mock("@argos/file-adapters/DirectoryAdapter");
+vi.mock("@argos/file-adapters/UnsupportFileAdapter");
+vi.mock("@argos/file-adapters/ImageFileAdapter");
 vi.mock("tokenx");
 vi.mock("nanoid");
 

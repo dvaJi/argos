@@ -263,11 +263,8 @@ export const DIALOG_EVENTS = {
   RESPONSE: "dialog:response", // Renderer -> Main: Dialog result response
 };
 
-// Knowledge base events
-export const RAG_EVENTS = {
-  FILE_UPDATED: "rag:file-updated", // File status update
-  FILE_PROGRESS: "rag:file-progress", // File processing progress update
-};
+// Knowledge base events moved to the daemon event catalog
+// ("knowledge.fileUpdated" / "knowledge.fileProgress" in @argos/shared-contracts).
 
 // Lifecycle management events
 export const LIFECYCLE_EVENTS = {

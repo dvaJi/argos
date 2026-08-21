@@ -3,9 +3,9 @@ import os from "os";
 import path from "path";
 import { zipSync, strToU8 } from "fflate";
 import { afterEach, describe, expect, it } from "vitest";
-import { CsvFileAdapter } from "../../../../src/main/presenter/filePresenter/CsvFileAdapter";
-import { OpenDocumentFileAdapter } from "../../../../src/main/presenter/filePresenter/OpenDocumentFileAdapter";
-import { RtfFileAdapter } from "../../../../src/main/presenter/filePresenter/RtfFileAdapter";
+import { CsvFileAdapter } from "@argos/file-adapters/CsvFileAdapter";
+import { OpenDocumentFileAdapter } from "@argos/file-adapters/OpenDocumentFileAdapter";
+import { RtfFileAdapter } from "@argos/file-adapters/RtfFileAdapter";
 
 describe("file adapters", () => {
   const tempDirs: string[] = [];

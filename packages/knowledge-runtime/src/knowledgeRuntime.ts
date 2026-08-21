@@ -2,47 +2,73 @@ import fs from "node:fs";
 import path from "node:path";
 
 import {
-  IConfigPresenter,
-  IKnowledgePresenter,
   BuiltinKnowledgeConfig,
   KnowledgeFileMessage,
   QueryResult,
   KnowledgeFileResult,
 } from "@argos/shared/presenter";
-import { FileValidationResult } from "../filePresenter/FileValidationService";
-import { eventBus } from "#/eventbus";
-import { MCP_EVENTS } from "#/events";
-import { KnowledgeConfHelper } from "../configPresenter/knowledgeConfHelper";
-import { DuckDBPresenter } from "./database/duckdbPresenter";
-import { KnowledgeStorePresenter } from "./knowledgeStorePresenter";
-import { KnowledgeTaskPresenter } from "./knowledgeTaskPresenter";
-import { getMetric } from "#/utils/vector";
-import { presenter } from "..";
-import { IFilePresenter } from "@argos/shared/presenter";
-import { DIALOG_WARN } from "@argos/shared/dialog";
+import { getMetric } from "@argos/shared/vector";
+import type { FileValidationResult } from "@argos/file-adapters/FileValidationService";
+import { FileValidationService } from "@argos/file-adapters/FileValidationService";
 import {
   RecursiveCharacterTextSplitter,
-  SupportedTextSplitterLanguages,
   type SupportedTextSplitterLanguage,
-} from "#/lib/textsplitters";
+  SupportedTextSplitterLanguages,
+} from "./textSplitters";
+import { DuckDBKnowledgeDatabase } from "./duckdbKnowledgeDatabase";
+import { KnowledgeStorePresenter, type KnowledgeStorePorts } from "./knowledgeStore";
+import { KnowledgeTaskPresenter } from "./knowledgeTaskQueue";
 
-export class KnowledgePresenter implements IKnowledgePresenter {
+/** Diff two knowledge config snapshots (moved from the desktop KnowledgeConfHelper). */
+export function diffKnowledgeConfigs(
+  oldConfigs: BuiltinKnowledgeConfig[],
+  newConfigs: BuiltinKnowledgeConfig[],
+): {
+  added: BuiltinKnowledgeConfig[];
+  deleted: BuiltinKnowledgeConfig[];
+  updated: BuiltinKnowledgeConfig[];
+} {
+  const oldMap = new Map(oldConfigs.map((cfg) => [cfg.id, cfg]));
+  const newMap = new Map(newConfigs.map((cfg) => [cfg.id, cfg]));
+
+  const added = newConfigs.filter((cfg) => !oldMap.has(cfg.id));
+  const deleted = oldConfigs.filter((cfg) => !newMap.has(cfg.id));
+  const updated = newConfigs.filter(
+    (cfg) => oldMap.has(cfg.id) && JSON.stringify(cfg) !== JSON.stringify(oldMap.get(cfg.id)),
+  );
+
+  return { added, deleted, updated };
+}
+
+export interface KnowledgeRuntimePorts extends KnowledgeStorePorts {
+  /** DuckDB vss extension dir (optional; auto-resolved with network fallback). */
+  extensionDir?: string;
+  /** Max file size for ingestion (defaults to 30MB, like the desktop FilePresenter). */
+  maxFileSize?: number;
+}
+
+/**
+ * Host-agnostic built-in knowledge runtime (ported from the desktop
+ * KnowledgePresenter). Owns per-config DuckDB stores, the ingestion task queue
+ * and similarity queries. The host (daemon) supplies configs, embeddings and
+ * event publishing through ports.
+ */
+export class KnowledgeRuntime {
   /**
    * Knowledge base storage directory
    */
-  private readonly storageDir;
+  private readonly storageDir: string;
 
-  private readonly configP: IConfigPresenter;
-
-  /**
-   * File presenter for validation operations
-   */
-  private readonly filePresenter: IFilePresenter;
+  private readonly getKnowledgeConfigs: () => BuiltinKnowledgeConfig[];
 
   /**
    * Global task scheduler
    */
   private readonly taskP: KnowledgeTaskPresenter;
+
+  private readonly ports: KnowledgeRuntimePorts;
+
+  private readonly fileValidationService: FileValidationService;
 
   /**
    * Cached RAG application instances
@@ -52,18 +78,22 @@ export class KnowledgePresenter implements IKnowledgePresenter {
 
   private knowledgeConfigSnapshot: BuiltinKnowledgeConfig[];
 
-  constructor(configP: IConfigPresenter, dbDir: string, filePresenter: IFilePresenter) {
-    console.log("[RAG] Initializing Built-in Knowledge Presenter");
-    this.configP = configP;
-    this.filePresenter = filePresenter;
-    this.storageDir = path.join(dbDir, "KnowledgeBase");
+  constructor(deps: {
+    storageDir: string;
+    getKnowledgeConfigs: () => BuiltinKnowledgeConfig[];
+    ports: KnowledgeRuntimePorts;
+  }) {
+    console.log("[RAG] Initializing built-in knowledge runtime");
+    this.storageDir = deps.storageDir;
+    this.getKnowledgeConfigs = deps.getKnowledgeConfigs;
+    this.ports = deps.ports;
     this.taskP = new KnowledgeTaskPresenter();
     this.storePresenterCache = new Map();
     this.storePresenterInitTasks = new Map();
-    this.knowledgeConfigSnapshot = this.configP.getKnowledgeConfigs() ?? [];
+    this.fileValidationService = new FileValidationService();
+    this.knowledgeConfigSnapshot = this.getKnowledgeConfigs() ?? [];
 
     this.initStorageDir();
-    this.setupEventBus();
   }
 
   /**
@@ -75,18 +105,10 @@ export class KnowledgePresenter implements IKnowledgePresenter {
     }
   };
 
-  private setupEventBus = (): void => {
-    // Listen for knowledge base related events
-    eventBus.on(MCP_EVENTS.CONFIG_CHANGED, () => {
-      void this.syncKnowledgeConfigChanges().catch((error) => {
-        console.error("[RAG] Error syncing knowledge configs:", error);
-      });
-    });
-  };
-
-  private syncKnowledgeConfigChanges = async (): Promise<void> => {
-    const configs = this.configP.getKnowledgeConfigs() ?? [];
-    const diffs = KnowledgeConfHelper.diffKnowledgeConfigs(this.knowledgeConfigSnapshot, configs);
+  /** Reconcile stores with the current config snapshot (create/update/delete). */
+  syncConfigs = async (): Promise<void> => {
+    const configs = this.getKnowledgeConfigs() ?? [];
+    const diffs = diffKnowledgeConfigs(this.knowledgeConfigSnapshot, configs);
     this.knowledgeConfigSnapshot = configs;
 
     if (diffs.deleted.length > 0) {
@@ -116,7 +138,7 @@ export class KnowledgePresenter implements IKnowledgePresenter {
 
   isSupported = async (): Promise<boolean> => {
     const os = `${process.platform}-${process.arch}`;
-    return KnowledgePresenter.SUPPORTED_OS.includes(os);
+    return KnowledgeRuntime.SUPPORTED_OS.includes(os);
   };
 
   /**
@@ -199,9 +221,9 @@ export class KnowledgePresenter implements IKnowledgePresenter {
     }
 
     const initTask = (async () => {
-      const db = await this.getVectorDatabasePresenter(config.id, config.dimensions, config.normalized);
+      const db = await this.getVectorDatabase(config.id, config.dimensions, config.normalized);
       try {
-        const rag = new KnowledgeStorePresenter(db, config, this.taskP);
+        const rag = new KnowledgeStorePresenter(db, config, this.taskP, this.ports);
         this.storePresenterCache.set(config.id, rag);
         return rag;
       } catch (e) {
@@ -247,7 +269,7 @@ export class KnowledgePresenter implements IKnowledgePresenter {
       return this.storePresenterCache.get(id) as KnowledgeStorePresenter;
     }
     // Get the configuration
-    const configs = this.configP.getKnowledgeConfigs();
+    const configs = this.getKnowledgeConfigs();
     const config = configs.find((cfg) => cfg.id === id);
     if (!config) {
       throw new Error(`Knowledge config not found for id: ${id}`);
@@ -279,19 +301,19 @@ export class KnowledgePresenter implements IKnowledgePresenter {
    * @param dimensions Vector dimensions
    * @returns
    */
-  private getVectorDatabasePresenter = async (
+  private getVectorDatabase = async (
     id: string,
     dimensions: number,
     normalized: boolean,
-  ): Promise<DuckDBPresenter> => {
+  ): Promise<DuckDBKnowledgeDatabase> => {
     const dbPath = path.join(this.storageDir, id);
     if (fs.existsSync(dbPath)) {
-      const db = new DuckDBPresenter(dbPath);
+      const db = new DuckDBKnowledgeDatabase(dbPath, { extensionDir: this.ports.extensionDir });
       await db.open();
       return db;
     }
     // If the database does not exist, initialize it
-    const db = new DuckDBPresenter(dbPath);
+    const db = new DuckDBKnowledgeDatabase(dbPath, { extensionDir: this.ports.extensionDir });
     await db.initialize(dimensions, {
       metric: getMetric(normalized),
     });
@@ -351,24 +373,21 @@ export class KnowledgePresenter implements IKnowledgePresenter {
   }
 
   /**
-   * @returns return true if user confirmed to destroy knowledge, otherwise false
+   * Close every open DuckDB store and delete all persisted knowledge data
+   * (stores re-create lazily from configs on next use). Used by the desktop
+   * "reset knowledge data" flow via the `knowledge.reset` route — deleting the
+   * files while the runtime holds connections would fail or leave the cache
+   * pointing at removed files.
    */
-  async beforeDestroy(): Promise<boolean> {
-    const status = this.taskP.getStatus();
-    if (status.totalTasks === 0) {
-      return true;
+  async resetAll(): Promise<void> {
+    await this.closeAll();
+    if (fs.existsSync(this.storageDir)) {
+      for (const entry of fs.readdirSync(this.storageDir)) {
+        fs.rmSync(path.join(this.storageDir, entry), { recursive: true, force: true });
+      }
     }
-    const choice = await presenter.dialogPresenter.showDialog({
-      title: "settings.knowledgeBase.dialog.beforequit.title",
-      description: "settings.knowledgeBase.dialog.beforequit.description",
-      icon: DIALOG_WARN,
-      buttons: [
-        { key: "cancel", label: "settings.knowledgeBase.dialog.beforequit.cancel" },
-        { key: "confirm", label: "settings.knowledgeBase.dialog.beforequit.confirm", default: true },
-      ],
-      timeout: 10000,
-    });
-    return choice === "confirm";
+    this.initStorageDir();
+    this.knowledgeConfigSnapshot = this.getKnowledgeConfigs() ?? [];
   }
 
   async destroy(): Promise<void> {
@@ -397,11 +416,11 @@ export class KnowledgePresenter implements IKnowledgePresenter {
     await rag.resumeAllPausedTasks();
   }
 
+  separators: string[] = ["\n\n", "\n", " ", ""];
+
   async getSupportedLanguages(): Promise<string[]> {
     return [...SupportedTextSplitterLanguages];
   }
-
-  separators: string[] = ["\n\n", "\n", " ", ""];
 
   async getSeparatorsForLanguage(language: string): Promise<string[]> {
     try {
@@ -418,24 +437,13 @@ export class KnowledgePresenter implements IKnowledgePresenter {
    */
   async validateFile(filePath: string): Promise<FileValidationResult> {
     try {
-      console.log(`[RAG] Validating file for knowledge base: ${filePath}`);
-      const result = await this.filePresenter.validateFileForKnowledgeBase(filePath);
-
-      if (!result.isSupported) {
-        console.warn(`[RAG] File validation failed for ${filePath}: ${result.error}`);
-      } else {
-        console.log(`[RAG] File validation successful for ${filePath}, MIME type: ${result.mimeType}`);
-      }
-
-      return result;
+      return await this.fileValidationService.validateFile(filePath);
     } catch (error) {
-      const errorMessage = `File validation error: ${error instanceof Error ? error.message : "Unknown error"}`;
-      console.error(`[RAG] ${errorMessage}`, error);
-
+      console.error("Error validating file for knowledge base:", error);
       return {
         isSupported: false,
-        error: errorMessage,
-        suggestedExtensions: await this.getSupportedFileExtensions(),
+        error: `Validation failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+        suggestedExtensions: this.fileValidationService.getSupportedExtensions(),
       };
     }
   }
@@ -446,13 +454,10 @@ export class KnowledgePresenter implements IKnowledgePresenter {
    */
   async getSupportedFileExtensions(): Promise<string[]> {
     try {
-      console.log("[RAG] Getting supported file extensions");
-      const extensions = this.filePresenter.getSupportedExtensions();
-      console.log(`[RAG] Retrieved ${extensions.length} supported extensions`);
+      const extensions = this.fileValidationService.getSupportedExtensions();
       return extensions;
     } catch (error) {
-      const errorMessage = `Error getting supported extensions: ${error instanceof Error ? error.message : "Unknown error"}`;
-      console.error(`[RAG] ${errorMessage}`, error);
+      console.error(`Error getting supported extensions: ${error instanceof Error ? error.message : "Unknown error"}`);
 
       // Return fallback extensions if service fails
       const fallbackExtensions = [

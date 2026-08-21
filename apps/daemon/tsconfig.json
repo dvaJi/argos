@@ -16,6 +16,10 @@
     "paths": {
       "@argos/acp-runtime": ["../../packages/acp-runtime/src"],
       "@argos/acp-runtime/*": ["../../packages/acp-runtime/src/*"],
+      "@argos/file-adapters": ["../../packages/file-adapters/src"],
+      "@argos/file-adapters/*": ["../../packages/file-adapters/src/*"],
+      "@argos/knowledge-runtime": ["../../packages/knowledge-runtime/src"],
+      "@argos/knowledge-runtime/*": ["../../packages/knowledge-runtime/src/*"],
       "@argos/mcp-runtime": ["../../packages/mcp-runtime/src"],
       "@argos/mcp-runtime/*": ["../../packages/mcp-runtime/src/*"],
       "@argos/skills-runtime": ["../../packages/skills-runtime/src"],

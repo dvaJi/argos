@@ -9,7 +9,6 @@ import {
   IDevicePresenter,
   IDialogPresenter,
   IFilePresenter,
-  IKnowledgePresenter,
   ILifecycleManager,
   ILlmProviderPresenter,
   IMCPPresenter,
@@ -47,7 +46,6 @@ import { OAuthPresenter } from "./oauthPresenter";
 import { FloatingButtonPresenter } from "./floatingButtonPresenter";
 import { YoBrowserPresenter } from "./browser/YoBrowserPresenter";
 import { CONFIG_EVENTS } from "#/events";
-import { KnowledgePresenter } from "./knowledgePresenter";
 import { ElectronWorkspaceShellPresenter, type WorkspaceShellPresenter } from "./workspaceShellPresenter";
 import { ToolPresenter } from "./toolPresenter";
 import { CommandPermissionService } from "./permission/commandPermissionService";
@@ -150,7 +148,6 @@ export class Presenter implements IPresenter {
     "yoBrowserPresenter",
     "oauthPresenter",
     "dialogPresenter",
-    "knowledgePresenter",
     "toolPresenter",
     "skillPresenter",
     "skillSyncPresenter",
@@ -206,7 +203,6 @@ export class Presenter implements IPresenter {
   trayPresenter: TrayPresenter;
   oauthPresenter: OAuthPresenter;
   floatingButtonPresenter: FloatingButtonPresenter;
-  knowledgePresenter: IKnowledgePresenter;
   workspaceShell: WorkspaceShellPresenter;
   toolPresenter: IToolPresenter;
   yoBrowserPresenter: IYoBrowserPresenter;
@@ -283,14 +279,8 @@ export class Presenter implements IPresenter {
     this.dialogPresenter = new DialogPresenter();
     this.yoBrowserPresenter = new YoBrowserPresenter(this.windowPresenter);
 
-    // Define dbDir for knowledge presenter
-    const dbDir = path.join(app.getPath("userData"), "app_db");
-    this.knowledgePresenter = new KnowledgePresenter(this.configPresenter, dbDir, this.filePresenter);
-
-    // Wire up knowledge support check after knowledgePresenter is created
-    (
-      this.configPresenter as IConfigPresenter & { setBuiltinKnowledgeSupported?: (fn: () => Promise<boolean>) => void }
-    ).setBuiltinKnowledgeSupported?.(() => this.knowledgePresenter.isSupported());
+    // Built-in knowledge moved to the daemon (see docs/architecture/daemon-knowledge-runtime);
+    // the config presenter pushes legacy knowledge configs to the daemon store once.
 
     // Workspace shell actions (reveal/open). All other workspace.* routes are
     // daemon-owned; desktop only keeps the Electron shell integrations.
@@ -1109,7 +1099,6 @@ export class Presenter implements IPresenter {
     this.shortcutPresenter.destroy(); // Destroy the shortcut key listeners
     this.syncPresenter.destroy(); // Release sync-related resources
     this.notificationPresenter.clearAllNotifications(); // Clear all notifications
-    this.knowledgePresenter.destroy(); // Release all database connections
     (this.skillPresenter as SkillPresenter).destroy(); // Release Skills-related resources
     (this.skillSyncPresenter as SkillSyncPresenter).destroy(); // Release Skill Sync resources
     try {

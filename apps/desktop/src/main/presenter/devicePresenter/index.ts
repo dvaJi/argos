@@ -10,6 +10,7 @@ import axios from "axios";
 import { is } from "@electron-toolkit/utils";
 import { eventBus, SendTarget } from "../../eventbus";
 import { NOTIFICATION_EVENTS } from "../../events";
+import { invokeDaemonRoute } from "#/routes/daemonRouteProxy";
 import { svgSanitizer } from "@argos/backend-core";
 
 // Lazy-loaded to avoid a circular dependency: this module is imported by
@@ -376,21 +377,20 @@ export class DevicePresenter implements IDevicePresenter {
         }
 
         case "knowledge": {
-          // Delete knowledge base data
+          // Delete knowledge base data. The engine (DuckDB stores) is
+          // daemon-owned: reset through the daemon route so stores are closed
+          // before their files are removed. See docs/architecture/daemon-knowledge-runtime.
           console.log("Resetting knowledge base data...");
           try {
-            const presenter = await getPresenter();
-            if (presenter.knowledgePresenter) {
-              await presenter.knowledgePresenter.destroy();
-              console.log("Knowledge database connections closed");
-            }
-            await new Promise((resolve) => setTimeout(resolve, 500));
-          } catch (closeError) {
-            console.warn("Error closing knowledge database connections:", closeError);
+            await invokeDaemonRoute("mcp.stopServer", { serverName: "builtinKnowledge" });
+            await invokeDaemonRoute("knowledge.reset", {});
+          } catch (resetError) {
+            console.warn("Error resetting daemon knowledge data:", resetError);
+            // Fallback for a daemon that predates the knowledge.reset route:
+            // attempt a local removal of the (shared) storage directory.
+            const knowledgeDbPath = path.join(userDataPath, "app_db", "KnowledgeBase");
+            removeDirectory(knowledgeDbPath);
           }
-          const knowledgeDbPath = path.join(userDataPath, "app_db", "KnowledgeBase");
-          console.log("Removing knowledge base directory:", knowledgeDbPath);
-          removeDirectory(knowledgeDbPath);
           break;
         }
 
@@ -431,10 +431,7 @@ export class DevicePresenter implements IDevicePresenter {
               presenter.sqlitePresenter.close();
               console.log("SQLite database connection closed");
             }
-            if (presenter.knowledgePresenter) {
-              await presenter.knowledgePresenter.destroy();
-              console.log("Knowledge database connections closed");
-            }
+            await invokeDaemonRoute("mcp.stopServer", { serverName: "builtinKnowledge" }).catch(() => {});
             await new Promise((resolve) => setTimeout(resolve, 1000));
           } catch (closeError) {
             console.warn("Error closing database connections:", closeError);

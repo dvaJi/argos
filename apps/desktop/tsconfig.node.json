@@ -26,6 +26,12 @@
       "@argos/electron-adapter/*": [
         "../../packages/electron-adapter/src/*"
       ],
+      "@argos/file-adapters": [
+        "../../packages/file-adapters/src"
+      ],
+      "@argos/file-adapters/*": [
+        "../../packages/file-adapters/src/*"
+      ],
       "@argos/acp-runtime": [
         "../../packages/acp-runtime/src"
       ],

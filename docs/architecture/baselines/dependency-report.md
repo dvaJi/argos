@@ -1,48 +1,48 @@
 # Dependency Baseline
 
-Generated on 2026-06-21.
+Generated on 2026-08-20.
 
 ## main
 
-- Total files: 431
-- Internal dependency edges: 1075
-- Cycles detected: 31
+- Total files: 269
+- Internal dependency edges: 692
+- Cycles detected: 26
 
 ### Top outgoing dependencies
 
-- `presenter\index.ts`: 47
-- `presenter\sqlitePresenter\index.ts`: 29
-- `presenter\agentRuntimePresenter\index.ts`: 27
-- `presenter\configPresenter\index.ts`: 27
-- `presenter\sqlitePresenter\schemaCatalog.ts`: 27
-- `presenter\lifecyclePresenter\hooks\index.ts`: 23
-- `presenter\toolPresenter\agentTools\agentToolManager.ts`: 18
-- `routes\index.ts`: 17
-- `presenter\agentSessionPresenter\index.ts`: 15
-- `presenter\filePresenter\mime.ts`: 14
-- `presenter\llmProviderPresenter\index.ts`: 14
-- `presenter\remoteControlPresenter\index.ts`: 14
-- `presenter\agentRuntimePresenter\dispatch.ts`: 13
-- `presenter\llmProviderPresenter\acp\index.ts`: 12
-- `presenter\llmProviderPresenter\acp\acpProcessManager.ts`: 11
+- `presenter\index.ts`: 48
+- `presenter\sqlitePresenter\index.ts`: 30
+- `presenter\sqlitePresenter\schemaCatalog.ts`: 29
+- `presenter\lifecyclePresenter\hooks\index.ts`: 22
+- `presenter\configPresenter\index.ts`: 20
+- `presenter\toolPresenter\agentTools\agentToolManager.ts`: 19
+- `routes\index.ts`: 15
+- `presenter\agentSessionPresenter\index.ts`: 12
+- `presenter\llmProviderPresenter\index.ts`: 12
+- `presenter\windowPresenter\index.ts`: 12
+- `presenter\sessionPresenter\index.ts`: 11
+- `presenter\skillSyncPresenter\adapters\index.ts`: 11
+- `presenter\browser\YoBrowserPresenter.ts`: 10
+- `presenter\tabPresenter.ts`: 10
+- `presenter\toolPresenter\index.ts`: 10
 
 ### Top incoming dependencies
 
-- `eventbus.ts`: 57
-- `events.ts`: 57
-- `presenter\index.ts`: 46
-- `presenter\remoteControlPresenter\types.ts`: 37
+- `eventbus.ts`: 44
+- `events.ts`: 43
+- `presenter\index.ts`: 38
+- `presenter\sqlitePresenter\dbType.ts`: 36
 - `presenter\sqlitePresenter\tables\baseTable.ts`: 28
-- `presenter\remoteControlPresenter\services\remoteBindingStore.ts`: 22
-- `routes\publishArgosEvent.ts`: 20
-- `presenter\sqlitePresenter\index.ts`: 17
-- `presenter\remoteControlPresenter\services\remoteConversationRunner.ts`: 16
-- `presenter\filePresenter\BaseFileAdapter.ts`: 13
-- `presenter\llmProviderPresenter\baseProvider.ts`: 11
-- `presenter\configPresenter\acpRegistryConstants.ts`: 9
-- `presenter\llmProviderPresenter\acp\index.ts`: 8
-- `presenter\llmProviderPresenter\runtimePorts.ts`: 8
-- `presenter\proxyConfig.ts`: 8
+- `routes\publishArgosEvent.ts`: 13
+- `presenter\sqlitePresenter\index.ts`: 11
+- `presenter\llmProviderPresenter\baseProvider.ts`: 10
+- `presenter\toolPresenter\runtimePorts.ts`: 8
+- `routes\daemonRouteProxy.ts`: 8
+- `lib\daemonUi.ts`: 7
+- `lib\paths.ts`: 7
+- `presenter\proxyConfig.ts`: 7
+- `presenter\skillSyncPresenter\adapters\claudeCodeAdapter.ts`: 7
+- `lib\agentRuntime\sessionPaths.ts`: 6
 
 ### Cycle samples
 
@@ -56,63 +56,62 @@ Generated on 2026-06-21.
 - `presenter\index.ts -> presenter\sessionPresenter\index.ts -> presenter\index.ts`
 - `presenter\index.ts -> presenter\sessionPresenter\index.ts -> presenter\sessionPresenter\managers\conversationManager.ts -> presenter\index.ts`
 - `presenter\index.ts -> presenter\upgradePresenter\index.ts -> presenter\index.ts`
-- `presenter\index.ts -> presenter\mcpPresenter\index.ts -> presenter\mcpPresenter\serverManager.ts -> presenter\mcpPresenter\mcpClient.ts -> presenter\index.ts`
-- `presenter\index.ts -> presenter\mcpPresenter\index.ts -> presenter\mcpPresenter\serverManager.ts -> presenter\mcpPresenter\mcpClient.ts -> presenter\mcpPresenter\inMemoryServers\builder.ts -> presenter\mcpPresenter\inMemoryServers\deepResearchServer.ts -> presenter\index.ts`
-- `presenter\index.ts -> presenter\mcpPresenter\index.ts -> presenter\mcpPresenter\serverManager.ts -> presenter\mcpPresenter\mcpClient.ts -> presenter\mcpPresenter\inMemoryServers\builder.ts -> presenter\mcpPresenter\inMemoryServers\autoPromptingServer.ts -> presenter\index.ts`
-- `presenter\index.ts -> presenter\mcpPresenter\index.ts -> presenter\mcpPresenter\serverManager.ts -> presenter\mcpPresenter\mcpClient.ts -> presenter\mcpPresenter\inMemoryServers\builder.ts -> presenter\mcpPresenter\inMemoryServers\conversationSearchServer.ts -> presenter\index.ts`
-- `presenter\index.ts -> presenter\mcpPresenter\index.ts -> presenter\mcpPresenter\serverManager.ts -> presenter\mcpPresenter\mcpClient.ts -> presenter\mcpPresenter\inMemoryServers\builder.ts -> presenter\mcpPresenter\inMemoryServers\builtinKnowledgeServer.ts -> presenter\index.ts`
-- `presenter\index.ts -> presenter\mcpPresenter\index.ts -> presenter\mcpPresenter\toolManager.ts -> presenter\index.ts`
+- `presenter\index.ts -> presenter\mcpPresenter\index.ts -> presenter\mcpPresenter\desktopMcpPorts.ts -> presenter\index.ts`
+- `presenter\index.ts -> presenter\mcpPresenter\index.ts -> presenter\mcpPresenter\desktopMcpPorts.ts -> presenter\mcpPresenter\inMemoryServers\builder.ts -> presenter\index.ts`
 - `presenter\index.ts -> presenter\mcpPresenter\index.ts -> presenter\index.ts`
 - `presenter\sqlitePresenter\index.ts -> presenter\agentSessionPresenter\legacyImportService.ts -> presenter\sqlitePresenter\index.ts`
 - `presenter\sqlitePresenter\index.ts -> presenter\agentSessionPresenter\legacyImportService.ts -> presenter\agentRuntimePresenter\messageStore.ts -> presenter\sqlitePresenter\index.ts`
+- `presenter\agentRuntimePresenter\messageStore.ts -> presenter\agentRuntimePresenter\tapeFacts.ts -> presenter\agentRuntimePresenter\tapeViewManifest.ts -> presenter\agentRuntimePresenter\contextBuilder.ts -> presenter\agentRuntimePresenter\messageStore.ts`
 - `presenter\index.ts -> presenter\syncPresenter\index.ts -> presenter\index.ts`
+- `presenter\index.ts -> presenter\deeplinkPresenter\index.ts -> presenter\index.ts`
+- `presenter\index.ts -> presenter\notificationPresenter.ts -> presenter\index.ts`
+- `presenter\index.ts -> presenter\oauthPresenter.ts -> presenter\index.ts`
 
 ## renderer
 
-- Total files: 274
-- Internal dependency edges: 508
-- Cycles detected: 4
+- Total files: 232
+- Internal dependency edges: 454
+- Cycles detected: 3
 
 ### Top outgoing dependencies
 
-- `App.tsx`: 29
-- `pages\ChatPage.tsx`: 28
-- `routeTree.gen.ts`: 28
-- `routes\_main.tsx`: 25
-- `components\message\MessageItemAssistant.tsx`: 18
-- `pages\NewThreadPage.tsx`: 17
-- `components\chat\ChatStatusBar.tsx`: 15
+- `pages\ChatPage.tsx`: 30
+- `routeTree.gen.ts`: 29
+- `routes\_main.tsx`: 27
+- `pages\NewThreadPage.tsx`: 22
+- `components\message\MessageItemAssistant.tsx`: 20
+- `components\chat\ChatStatusBar.tsx`: 17
 - `views\ChatTabView.tsx`: 12
 - `routes\settings.tsx`: 11
 - `components\markdown\MarkdownRenderer.tsx`: 9
-- `components\WindowSideBar.tsx`: 9
-- `components\ChatConfig.tsx`: 8
 - `components\sidepanel\viewer\WorkspacePreviewPane.tsx`: 8
 - `components\sidepanel\WorkspacePanel.tsx`: 8
+- `components\sidepanel\WorkspaceViewer.tsx`: 8
+- `components\WindowSideBar.tsx`: 8
 - `lib\storeInitializer.ts`: 8
+- `components\chat\ChatInputBox.tsx`: 7
 
 ### Top incoming dependencies
 
 - `components\chat\messageListItems.ts`: 22
-- `stores\ui\session.ts`: 16
+- `stores\theme.ts`: 16
 - `stores\ui\agent.ts`: 15
-- `stores\artifact.ts`: 14
-- `stores\providerStore.ts`: 14
-- `stores\theme.ts`: 14
-- `stores\uiSettingsStore.ts`: 14
-- `components\use-toast.ts`: 11
-- `stores\modelStore.ts`: 11
-- `stores\ui\sidepanel.ts`: 11
-- `stores\mcp.ts`: 8
+- `stores\ui\session.ts`: 15
+- `components\use-toast.ts`: 13
+- `stores\ui\sidepanel.ts`: 12
+- `stores\providerStore.ts`: 11
+- `stores\modelStore.ts`: 10
+- `stores\uiSettingsStore.ts`: 10
+- `stores\artifact.ts`: 8
+- `components\icons\ModelIcon.tsx`: 7
 - `events.ts`: 7
-- `lib\onboardingResume.ts`: 7
-- `components\icons\ModelIcon.tsx`: 6
-- `lib\startupDeferred.ts`: 6
+- `stores\mcp.ts`: 7
+- `lib\onboardingResume.ts`: 6
+- `lib\startupDeferred.ts`: 5
 
 ### Cycle samples
 
-- `lib\storeInitializer.ts -> router.tsx -> routeTree.gen.ts -> routes\settings.tsx -> lib\storeInitializer.ts`
+- `components\workspace\WorkspaceSelectorDialogs.tsx -> components\workspace\RemoteWorkspaceSetup.tsx -> stores\ui\remoteSetup.ts -> components\workspace\WorkspaceSelectorDialogs.tsx`
 - `lib\storeInitializer.ts -> router.tsx -> routeTree.gen.ts -> routes\_main.tsx -> lib\storeInitializer.ts`
-- `components\json-viewer\JsonValue.tsx -> components\json-viewer\JsonObject.tsx -> components\json-viewer\JsonValue.tsx`
-- `components\json-viewer\JsonValue.tsx -> components\json-viewer\JsonArray.tsx -> components\json-viewer\JsonValue.tsx`
+- `lib\storeInitializer.ts -> router.tsx -> routeTree.gen.ts -> routes\settings.tsx -> lib\storeInitializer.ts`
 

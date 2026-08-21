@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "module": "esnext", "moduleResolution": "bundler", "target": "esnext",
+    "strict": true, "esModuleInterop": true, "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true, "resolveJsonModule": false,
+    "composite": false, "declaration": false, "emitDeclarationOnly": false,
+    "noEmit": true,
+    "paths": {
+      "@argos/shared-contracts": ["../shared-contracts/src"],
+      "@argos/shared-contracts/*": ["../shared-contracts/src/*"],
+      "@argos/shared/*": ["../shared/src/*"]
+    }
+  },
+  "include": ["src/**/*"]
+}

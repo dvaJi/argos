@@ -94,7 +94,8 @@ export type AssistantMessageBlock = {
     | "action"
     | "image"
     | "audio"
-    | "artifact-thinking";
+    | "artifact-thinking"
+    | "file_changes";
   id?: string;
   content?: string;
   extra?: AssistantMessageExtra;
@@ -130,6 +131,9 @@ export type AssistantMessageBlock = {
   reasoning_time?: {
     start: number;
     end: number;
+  };
+  file_changes?: {
+    files: Array<{ path: string; additions: number | null; deletions: number | null }>;
   };
 };
 

@@ -225,11 +225,9 @@ const DIALOG_EVENTS = {
   RESPONSE: "dialog:response", // Renderer -> main process: dialog result returned
 };
 
-// Knowledge base events
-export const RAG_EVENTS = {
-  FILE_UPDATED: "rag:file-updated", // File status updated
-  FILE_PROGRESS: "rag:file-progress", // File progress updated
-};
+// Knowledge base events moved to the daemon event catalog
+// ("knowledge.fileUpdated" / "knowledge.fileProgress" in @argos/shared-contracts).
+
 // New agent session events
 const SESSION_EVENTS = {
   LIST_UPDATED: "session:list-updated",

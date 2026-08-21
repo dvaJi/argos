@@ -75,6 +75,8 @@ import {
   configCreateArgosAgentRoute,
   configUpdateArgosAgentRoute,
   configDeleteArgosAgentRoute,
+  configGetKnowledgeConfigsRoute,
+  configSetKnowledgeConfigsRoute,
 } from "@argos/shared-contracts/routes";
 import type { HookTestResult, HooksNotificationsSettings } from "@argos/shared/hooksNotifications";
 import type {
@@ -793,6 +795,38 @@ export class ConfigPresenter implements IConfigPresenter {
     // the single source of truth for custom agents. The builtin agent stays
     // local (config-entry compat). Fire-and-forget; waits for the daemon sidecar.
     void this.migrateCustomArgosAgentsToDaemon();
+    void this.migrateKnowledgeConfigsToDaemon();
+  }
+
+  /**
+   * One-shot migration: built-in knowledge configs moved to the daemon store
+   * (see docs/architecture/daemon-knowledge-runtime). Pushes the desktop-held
+   * configs once, merging by id, and never retries after success.
+   */
+  private async migrateKnowledgeConfigsToDaemon(): Promise<void> {
+    if (this.getSetting<number>("knowledgeConfigsMigratedToDaemon") !== undefined) {
+      return;
+    }
+    try {
+      const localConfigs = this.getKnowledgeConfigs() ?? [];
+      if (localConfigs.length > 0) {
+        const current = await invokeDaemonRoute<{ configs: BuiltinKnowledgeConfig[] }>(
+          configGetKnowledgeConfigsRoute.name,
+          {},
+        );
+        const daemonConfigs = current?.configs ?? [];
+        const daemonIds = new Set(daemonConfigs.map((config) => config.id));
+        const merged = [...daemonConfigs, ...localConfigs.filter((config) => !daemonIds.has(config.id))];
+        await invokeDaemonRoute(configSetKnowledgeConfigsRoute.name, { configs: merged });
+      }
+      this.store.set("knowledgeConfigsMigratedToDaemon", 1);
+      if (localConfigs.length > 0) {
+        console.log("[Config] Knowledge configs migrated to the daemon store");
+      }
+    } catch (error) {
+      // Daemon not ready yet or transient failure; retry on next launch.
+      console.warn("[Config] Knowledge config migration deferred:", error);
+    }
   }
 
   private async migrateCustomArgosAgentsToDaemon(): Promise<void> {

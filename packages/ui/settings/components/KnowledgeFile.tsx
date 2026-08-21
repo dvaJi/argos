@@ -6,11 +6,14 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "#shadcn/components/ui/t
 import { toast } from "#/components/use-toast";
 import { ScrollArea } from "#shadcn/components/ui/scroll-area";
 import { Input } from "#shadcn/components/ui/input";
-import { usePresenter } from "#api/presenterBridge";
+import { createKnowledgeClient } from "#api/KnowledgeClient";
 import { copyRuntimeText, getRuntimePathForFile } from "#api/runtime";
+import type { ArgosEventPayload } from "@argos/shared-contracts/events";
+import type { knowledgeFileUpdatedEvent } from "@argos/shared-contracts/events";
 import KnowledgeFileItem from "./KnowledgeFileItem";
 import type { BuiltinKnowledgeConfig, KnowledgeFileMessage } from "@argos/shared/presenter";
-import { RAG_EVENTS } from "#/events";
+
+const knowledgeClient = createKnowledgeClient();
 
 interface KnowledgeFileProps {
   builtinKnowledgeDetail: BuiltinKnowledgeConfig;
@@ -18,7 +21,6 @@ interface KnowledgeFileProps {
 }
 
 export default function KnowledgeFile({ builtinKnowledgeDetail, onHideKnowledgeFile }: KnowledgeFileProps) {
-  const knowledgePresenter = usePresenter("knowledgePresenter");
   const [fileList, setFileList] = useState<KnowledgeFileMessage[]>([]);
   const [acceptExts, setAcceptExts] = useState<string[]>([]);
   const [isSearchDialogOpen, setIsSearchDialogOpen] = useState(false);
@@ -39,25 +41,25 @@ export default function KnowledgeFile({ builtinKnowledgeDetail, onHideKnowledgeF
   }, [fileList]);
 
   const loadList = useCallback(async () => {
-    const list = (await knowledgePresenter.listFiles(builtinKnowledgeDetail.id)) || [];
+    const list = (await knowledgeClient.listFiles(builtinKnowledgeDetail.id)) || [];
     setFileList(list);
-  }, [knowledgePresenter, builtinKnowledgeDetail.id]);
+  }, [builtinKnowledgeDetail.id]);
 
   const loadSupportedExtensions = useCallback(async () => {
     try {
-      const extensions = await knowledgePresenter.getSupportedFileExtensions();
+      const extensions = await knowledgeClient.getSupportedFileExtensions();
       const uniqueExts = extensions.filter((ext: string) => !defaultSupported.includes(ext));
       setAcceptExts([...defaultSupported, ...uniqueExts]);
     } catch {
       setAcceptExts([...defaultSupported]);
     }
-  }, [knowledgePresenter]);
+  }, []);
 
   const toggleStatus = async (run: boolean) => {
     if (run) {
-      await knowledgePresenter.resumeAllPausedTasks(builtinKnowledgeDetail.id);
+      await knowledgeClient.resumeAllPausedTasks(builtinKnowledgeDetail.id);
     } else {
-      await knowledgePresenter.pauseAllRunningTasks(builtinKnowledgeDetail.id);
+      await knowledgeClient.pauseAllRunningTasks(builtinKnowledgeDetail.id);
     }
     loadList();
   };
@@ -66,7 +68,7 @@ export default function KnowledgeFile({ builtinKnowledgeDetail, onHideKnowledgeF
     for (const file of files) {
       try {
         const path = getRuntimePathForFile(file);
-        const validationResult = await knowledgePresenter.validateFile(path);
+        const validationResult = await knowledgeClient.validateFile(path);
         if (!validationResult.isSupported) {
           toast({
             title: `"${file.name}" upload error`,
@@ -76,7 +78,7 @@ export default function KnowledgeFile({ builtinKnowledgeDetail, onHideKnowledgeF
           });
           continue;
         }
-        const result = await knowledgePresenter.addFile(builtinKnowledgeDetail.id, path);
+        const result = await knowledgeClient.addFile(builtinKnowledgeDetail.id, path);
         if (result.error) {
           toast({
             title: `${file.name} upload error`,
@@ -118,13 +120,13 @@ export default function KnowledgeFile({ builtinKnowledgeDetail, onHideKnowledgeF
   };
 
   const deleteFile = async (fileId: string) => {
-    await knowledgePresenter.deleteFile(builtinKnowledgeDetail.id, fileId);
+    await knowledgeClient.deleteFile(builtinKnowledgeDetail.id, fileId);
     toast({ title: "Deleted successfully", duration: 3000 });
     loadList();
   };
 
   const reAddFile = async (file: KnowledgeFileMessage) => {
-    const result = await knowledgePresenter.reAddFile(builtinKnowledgeDetail.id, file.id);
+    const result = await knowledgeClient.reAddFile(builtinKnowledgeDetail.id, file.id);
     setFileList((prev) => prev.map((f) => (f.id === file.id ? { ...f, status: "processing" } : f)));
     if (result.error) {
       toast({
@@ -141,7 +143,7 @@ export default function KnowledgeFile({ builtinKnowledgeDetail, onHideKnowledgeF
     setCopyId("");
     setLoading(true);
     try {
-      const res = await knowledgePresenter.similarityQuery(builtinKnowledgeDetail.id, searchKey);
+      const res = await knowledgeClient.similarityQuery(builtinKnowledgeDetail.id, searchKey);
       setSearchResult(res || []);
     } catch {
       toast({ title: "Search failed", variant: "destructive", duration: 3000 });
@@ -166,12 +168,16 @@ export default function KnowledgeFile({ builtinKnowledgeDetail, onHideKnowledgeF
 
   useEffect(() => {
     Promise.all([loadList(), loadSupportedExtensions()]);
-    const handler = (_: unknown, data: any) => {
-      setFileList((prev) => prev.map((f) => (f.id === data.id ? { ...f, ...data } : f)));
-    };
-    window.electron?.ipcRenderer.on(RAG_EVENTS.FILE_UPDATED, handler);
+    const unsubscribe = window.argos?.on?.(
+      "knowledge.fileUpdated",
+      (payload: ArgosEventPayload<typeof knowledgeFileUpdatedEvent.name>) => {
+        const data = payload?.file;
+        if (!data) return;
+        setFileList((prev) => prev.map((f) => (f.id === data.id ? { ...f, ...data } : f)));
+      },
+    );
     return () => {
-      window.electron?.ipcRenderer?.removeListener?.(RAG_EVENTS.FILE_UPDATED, handler);
+      unsubscribe?.();
     };
   }, []);
 

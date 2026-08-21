@@ -1,8 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { shouldRejectAgentBinaryRead } from "../../../src/main/lib/binaryReadGuard";
-import { isLikelyTextFile } from "#/presenter/filePresenter/mime";
+import { isLikelyTextFile } from "@argos/file-adapters/mime";
 
-vi.mock("#/presenter/filePresenter/mime", () => ({
+vi.mock("@argos/file-adapters/mime", () => ({
   detectMimeType: vi.fn<(...args: any[]) => any>(),
   isLikelyTextFile: vi.fn<(...args: any[]) => any>(),
 }));

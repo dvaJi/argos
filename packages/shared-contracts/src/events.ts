@@ -34,6 +34,7 @@ import {
   mcpServerStoppedEvent,
   mcpToolCallResultEvent,
 } from "./events/mcp.events";
+import { knowledgeFileProgressEvent, knowledgeFileUpdatedEvent } from "./events/knowledge.events";
 import {
   modelsChangedEvent,
   modelsConfigChangedEvent,
@@ -81,6 +82,7 @@ export * from "./events/browser.events";
 export * from "./events/chat.events";
 export * from "./events/config.events";
 export * from "./events/dialog.events";
+export * from "./events/knowledge.events";
 export * from "./events/mcp.events";
 export * from "./events/misc.providers.events";
 export * from "./events/models.events";
@@ -143,6 +145,8 @@ export const ARGOS_EVENT_CATALOG = {
   [mcpSamplingRequestEvent.name]: mcpSamplingRequestEvent,
   [mcpSamplingDecisionEvent.name]: mcpSamplingDecisionEvent,
   [mcpSamplingCancelledEvent.name]: mcpSamplingCancelledEvent,
+  [knowledgeFileUpdatedEvent.name]: knowledgeFileUpdatedEvent,
+  [knowledgeFileProgressEvent.name]: knowledgeFileProgressEvent,
   [syncBackupStartedEvent.name]: syncBackupStartedEvent,
   [syncBackupCompletedEvent.name]: syncBackupCompletedEvent,
   [syncBackupErrorEvent.name]: syncBackupErrorEvent,

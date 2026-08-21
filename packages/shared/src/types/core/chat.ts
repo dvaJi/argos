@@ -60,7 +60,8 @@ export type AssistantMessageBlock = {
     | "action"
     | "image"
     | "audio"
-    | "artifact-thinking";
+    | "artifact-thinking"
+    | "file_changes";
   content?: string;
   extra?: AssistantMessageExtra;
   status: "success" | "loading" | "cancel" | "error" | "reading" | "optimizing" | "pending" | "granted" | "denied";
@@ -93,6 +94,9 @@ export type AssistantMessageBlock = {
   action_type?: "tool_call_permission" | "maximum_tool_calls_reached" | "rate_limit" | "question_request";
   image_data?: { data: string; mimeType: string };
   reasoning_time?: { start: number; end: number };
+  file_changes?: {
+    files: Array<{ path: string; additions: number | null; deletions: number | null }>;
+  };
 };
 
 export type AssistantMessageExtra = Record<string, string | number | object[] | boolean> & {

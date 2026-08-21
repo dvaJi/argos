@@ -1,5 +1,12 @@
 /**
- * DuckDB Database Presenter
+ * DuckDB knowledge database (ported from the desktop presenter; host-agnostic).
+ *
+ * Extension dir resolution order (first existing wins, network INSTALL is the
+ * fallback — same behavior as the desktop implementation):
+ *  1. explicit `extensionDir` option (host injected)
+ *  2. ARGOS_DUCKDB_EXTENSION_DIR env var
+ *  3. <cwd>/runtime/duckdb/extensions
+ *  4. <dirname(process.execPath)>/runtime/duckdb/extensions
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -17,10 +24,7 @@ import {
 } from "@argos/shared/presenter";
 
 import { nanoid } from "nanoid";
-import { app } from "electron";
 
-const runtimeBasePath = path.join(app.getAppPath(), "runtime").replace("app.asar", "app.asar.unpacked");
-const extensionDir = path.join(runtimeBasePath, "duckdb", "extensions");
 const extensionSuffix = ".duckdb_extension";
 
 // Database version constant
@@ -31,8 +35,8 @@ const DB_VERSION_KEY = "db_version";
 interface DatabaseMigration {
   version: number;
   description: string;
-  up: (presenter: DuckDBPresenter) => Promise<void>;
-  down?: (presenter: DuckDBPresenter) => Promise<void>;
+  up: (presenter: DuckDBKnowledgeDatabase) => Promise<void>;
+  down?: (presenter: DuckDBKnowledgeDatabase) => Promise<void>;
 }
 
 // Database migration definitions
@@ -40,7 +44,7 @@ const MIGRATIONS: DatabaseMigration[] = [
   {
     version: 1,
     description: "Initial database schema",
-    up: async (_presenter: DuckDBPresenter) => {
+    up: async (_presenter: DuckDBKnowledgeDatabase) => {
       // The initial version migration is already handled in the initialize method
       console.log("[DuckDB Migration] Applied initial schema (v1)");
     },
@@ -49,31 +53,47 @@ const MIGRATIONS: DatabaseMigration[] = [
   // {
   //   version: 2,
   //   description: 'Add file size and hash columns',
-  //   up: async (presenter: DuckDBPresenter) => {
+  //   up: async (presenter: DuckDBKnowledgeDatabase) => {
   //     await presenter.safeRun('ALTER TABLE file ADD COLUMN file_size BIGINT;')
   //     await presenter.safeRun('ALTER TABLE file ADD COLUMN file_hash VARCHAR;')
   //     await presenter.safeRun('CREATE INDEX IF NOT EXISTS idx_file_hash ON file (file_hash);')
   //   },
-  //   down: async (presenter: DuckDBPresenter) => {
+  //   down: async (presenter: DuckDBKnowledgeDatabase) => {
   //     await presenter.safeRun('ALTER TABLE file DROP COLUMN file_size;')
   //     await presenter.safeRun('ALTER TABLE file DROP COLUMN file_hash;')
   //   }
   // }
 ];
 
-export class DuckDBPresenter implements IVectorDatabasePresenter {
+export function resolveDuckdbExtensionDir(explicit?: string): string {
+  const candidates = [
+    explicit,
+    process.env.ARGOS_DUCKDB_EXTENSION_DIR,
+    path.join(process.cwd(), "runtime", "duckdb", "extensions"),
+    path.join(path.dirname(process.execPath), "runtime", "duckdb", "extensions"),
+  ].filter((value): value is string => typeof value === "string" && value.length > 0);
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  return candidates[0] ?? path.join(process.cwd(), "runtime", "duckdb", "extensions");
+}
+
+export class DuckDBKnowledgeDatabase implements IVectorDatabasePresenter {
   private dbInstance!: DuckDBInstance;
   private connection!: DuckDBConnection;
 
   private readonly dbPath: string;
+  private readonly extensionDir: string;
 
   private readonly vectorTable = "vector";
   private readonly fileTable = "file";
   private readonly chunkTable = "chunk";
   private readonly metadataTable = "metadata";
 
-  constructor(dbPath: string) {
+  constructor(dbPath: string, options?: { extensionDir?: string }) {
     this.dbPath = dbPath;
+    this.extensionDir = resolveDuckdbExtensionDir(options?.extensionDir);
   }
 
   async initialize(dimensions: number, opts?: IndexOptions): Promise<void> {
@@ -650,7 +670,7 @@ export class DuckDBPresenter implements IVectorDatabasePresenter {
     const conn = await ins.connect();
 
     // load vss
-    const extensionPath = path.join(extensionDir, `vss${extensionSuffix}`);
+    const extensionPath = path.join(this.extensionDir, `vss${extensionSuffix}`);
     if (fs.existsSync(extensionPath)) {
       const escapedPath = extensionPath.replace(/\\/g, "\\\\");
       console.log(`[DuckDB] LOAD VSS extension from ${escapedPath}`);
@@ -673,7 +693,7 @@ export class DuckDBPresenter implements IVectorDatabasePresenter {
 
   /** Install and load the VSS extension */
   private async installAndLoadExtension(name: string, afterRun?: () => Promise<void>): Promise<void> {
-    const extensionPath = path.join(extensionDir, `${name}${extensionSuffix}`);
+    const extensionPath = path.join(this.extensionDir, `${name}${extensionSuffix}`);
     if (fs.existsSync(extensionPath)) {
       const escapedPath = extensionPath.replace(/\\/g, "\\\\");
       console.log(`[DuckDB] LOAD ${name} extension from ${escapedPath}`);

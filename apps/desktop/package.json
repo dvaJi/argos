@@ -30,6 +30,7 @@
     "@argos/backend-core": "workspace:*",
     "@argos/client-sdk": "workspace:*",
     "@argos/electron-adapter": "workspace:*",
+    "@argos/file-adapters": "workspace:*",
     "@argos/mcp-runtime": "workspace:*",
     "@argos/memory-runtime": "workspace:*",
     "@argos/shared": "workspace:*",
