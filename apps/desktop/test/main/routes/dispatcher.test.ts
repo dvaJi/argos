@@ -634,7 +634,7 @@ describe("dispatchArgosRoute", () => {
     });
   });
 
-  it("dispatches built-in knowledge config routes through ConfigPresenter", async () => {
+  it("delegates built-in knowledge config routes to the daemon", async () => {
     const { runtime, configPresenter } = createRuntime();
     const nextConfigs = [
       {
@@ -658,6 +658,21 @@ describe("dispatchArgosRoute", () => {
       },
     ];
 
+    daemonRouteMocks.outputs.set("config.getKnowledgeConfigs", {
+      configs: [
+        {
+          id: "daemon-knowledge-1",
+          description: "Daemon knowledge",
+          embedding: { providerId: "openai", modelId: "text-embedding-3-small" },
+          dimensions: 1536,
+          normalized: true,
+          fragmentsNumber: 5,
+          enabled: true,
+        },
+      ],
+    });
+    daemonRouteMocks.outputs.set("config.setKnowledgeConfigs", { configs: nextConfigs });
+
     const getResult = await dispatchArgosRoute(
       runtime,
       "config.getKnowledgeConfigs",
@@ -679,17 +694,16 @@ describe("dispatchArgosRoute", () => {
       },
     );
 
-    expect(getResult).toEqual({
-      configs: [
-        expect.objectContaining({
-          id: "knowledge-1",
-        }),
-      ],
-    });
-    expect(configPresenter.setKnowledgeConfigs).toHaveBeenCalledWith(nextConfigs);
-    expect(setResult).toEqual({
+    expect(daemonRouteMocks.invokeDaemonRoute).toHaveBeenCalledWith("config.getKnowledgeConfigs", {});
+    expect(daemonRouteMocks.invokeDaemonRoute).toHaveBeenCalledWith("config.setKnowledgeConfigs", {
       configs: nextConfigs,
     });
+    expect(getResult).toEqual({
+      configs: [expect.objectContaining({ id: "daemon-knowledge-1" })],
+    });
+    expect(setResult).toEqual({ configs: nextConfigs });
+    // Knowledge configs are daemon-owned; the local presenter store is untouched.
+    expect(configPresenter.setKnowledgeConfigs).not.toHaveBeenCalled();
   });
 
   it("dispatches session and chat routes with renderer context", async () => {

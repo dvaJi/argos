@@ -15,7 +15,8 @@ export class DaemonMcpConfig {
   private readonly mcprouterManager: McpRouterManager;
 
   constructor(configDir: string, configPresenter: DaemonConfigPresenter) {
-    // Treat the built-in knowledge server as supported so getMcpServers returns
+    // The built-in knowledge server is hosted by the daemon's knowledge runtime
+    // (docs/architecture/daemon-knowledge-runtime), so getMcpServers returns
     // the full default set; the headless init below marks every built-in as
     // user-removed so the daemon ships with an empty MCP catalog by default.
     this.mcpConfHelper = new McpConfHelper(createJsonStoreFactory(configDir), {

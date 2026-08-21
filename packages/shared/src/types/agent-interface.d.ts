@@ -315,7 +315,17 @@ export type AssistantBlockType =
   | "error"
   | "tool_call"
   | "action"
-  | "image";
+  | "image"
+  | "file_changes";
+
+export interface TurnFileChange {
+  /** Workspace-relative path with forward slashes. */
+  path: string;
+  /** Added line count; null for binary files. */
+  additions: number | null;
+  /** Deleted line count; null for binary files. */
+  deletions: number | null;
+}
 
 export interface ToolCallBlockData {
   id?: string;
@@ -387,6 +397,9 @@ export interface AssistantMessageBlock {
   tool_call?: ToolCallBlockData;
   extra?: AssistantMessageExtra;
   action_type?: "tool_call_permission" | "question_request" | "rate_limit";
+  file_changes?: {
+    files: TurnFileChange[];
+  };
 }
 
 export interface MessageMetadata {

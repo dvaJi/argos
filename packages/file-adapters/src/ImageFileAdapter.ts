@@ -1,7 +1,7 @@
 import { BaseFileAdapter } from "./BaseFileAdapter";
 import fs from "fs/promises";
 import path from "path";
-import { callDaemonRoute } from "#/lib/daemonProxy";
+import { callImageProcessingRoute } from "./imageProcessingRoute";
 // import { VisionService } from '../llm/VisionService'
 // import { loadVisionConfig } from '../../utils/env'
 
@@ -31,7 +31,7 @@ export class ImageFileAdapter extends BaseFileAdapter {
   private async extractImageMetadata(): Promise<void> {
     try {
       const buffer = await fs.readFile(this.filePath);
-      const result = await callDaemonRoute<{
+      const result = await callImageProcessingRoute<{
         imageBase64: string;
         metadata?: { width?: number; height?: number; format?: string };
       }>("image.process", {
@@ -52,7 +52,7 @@ export class ImageFileAdapter extends BaseFileAdapter {
 
   public async getThumbnail(): Promise<string | undefined> {
     const buffer = await fs.readFile(this.filePath);
-    const result = await callDaemonRoute<{ imageBase64: string }>("image.process", {
+    const result = await callImageProcessingRoute<{ imageBase64: string }>("image.process", {
       imageBase64: buffer.toString("base64"),
       operations: [
         { type: "resize", width: 256, height: 256, fit: "inside", withoutEnlargement: true },
@@ -72,7 +72,7 @@ export class ImageFileAdapter extends BaseFileAdapter {
     await this.extractImageMetadata();
 
     const buffer = await fs.readFile(this.filePath);
-    const result = await callDaemonRoute<{
+    const result = await callImageProcessingRoute<{
       imageBase64: string;
       metadata?: { width?: number; height?: number; format?: string };
     }>("image.process", {

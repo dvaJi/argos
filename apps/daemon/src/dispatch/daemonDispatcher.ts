@@ -253,6 +253,20 @@ import {
   memoryAddRoute,
   memoryDeleteRoute,
   memoryClearRoute,
+  knowledgeIsSupportedRoute,
+  knowledgeAddFileRoute,
+  knowledgeDeleteFileRoute,
+  knowledgeReAddFileRoute,
+  knowledgeListFilesRoute,
+  knowledgeSimilarityQueryRoute,
+  knowledgeValidateFileRoute,
+  knowledgeGetSupportedFileExtensionsRoute,
+  knowledgePauseAllRunningTasksRoute,
+  knowledgeResumeAllPausedTasksRoute,
+  knowledgeGetTaskQueueStatusRoute,
+  knowledgeResetRoute,
+  configGetKnowledgeConfigsRoute,
+  configSetKnowledgeConfigsRoute,
   startupGetBootstrapRoute,
   tabNotifyRendererReadyRoute,
   systemConsumePendingProviderInstallRoute,
@@ -681,6 +695,22 @@ function buildExportContent(
   return plainText;
 }
 
+type DaemonKnowledgeRuntimePort = {
+  isSupported(): Promise<boolean>;
+  addFile(id: string, filePath: string): Promise<unknown>;
+  deleteFile(id: string, fileId: string): Promise<void>;
+  reAddFile(id: string, fileId: string): Promise<unknown>;
+  listFiles(id: string): Promise<unknown[]>;
+  similarityQuery(id: string, key: string): Promise<unknown[]>;
+  validateFile(filePath: string): Promise<unknown>;
+  getSupportedFileExtensions(): Promise<string[]>;
+  pauseAllRunningTasks(id: string): Promise<void>;
+  resumeAllPausedTasks(id: string): Promise<void>;
+  getTaskQueueStatus(): Promise<{ totalTasks: number; runningTasks: number; queuedTasks: number }>;
+  resetAll(): Promise<void>;
+  syncConfigs(): Promise<void>;
+};
+
 export function createDaemonDispatcher(
   configPresenter: IConfigPresenter,
   eventPublisher: IEventPublisher,
@@ -838,6 +868,7 @@ export function createDaemonDispatcher(
     getGitDiff(workspacePath: string, filePath?: string): Promise<unknown>;
     searchFiles(workspacePath: string, query: string): Promise<unknown[]>;
   },
+  knowledgeRuntime?: DaemonKnowledgeRuntimePort,
 ): RouteDispatcher {
   const settingsHandler = new SettingsRouteHandler(createSettingsRouteAdapter(configPresenter));
   const runtime: {
@@ -1449,6 +1480,103 @@ export function createDaemonDispatcher(
       const input = memoryClearRoute.input.parse(rawInput);
       const removed = await memoryRuntime.presenter.clearMemories(input.agentId);
       return memoryClearRoute.output.parse({ removed });
+    }
+
+    if (route === knowledgeIsSupportedRoute.name) {
+      knowledgeIsSupportedRoute.input.parse(rawInput);
+      if (!knowledgeRuntime) {
+        return knowledgeIsSupportedRoute.output.parse({ supported: false });
+      }
+      return knowledgeIsSupportedRoute.output.parse({ supported: await knowledgeRuntime.isSupported() });
+    }
+    if (route === knowledgeAddFileRoute.name) {
+      const input = knowledgeAddFileRoute.input.parse(rawInput);
+      if (!knowledgeRuntime) throw new Error("Knowledge runtime is not available");
+      return knowledgeAddFileRoute.output.parse({
+        result: await knowledgeRuntime.addFile(input.id, input.filePath),
+      });
+    }
+    if (route === knowledgeDeleteFileRoute.name) {
+      const input = knowledgeDeleteFileRoute.input.parse(rawInput);
+      if (!knowledgeRuntime) throw new Error("Knowledge runtime is not available");
+      await knowledgeRuntime.deleteFile(input.id, input.fileId);
+      return knowledgeDeleteFileRoute.output.parse({ deleted: true });
+    }
+    if (route === knowledgeReAddFileRoute.name) {
+      const input = knowledgeReAddFileRoute.input.parse(rawInput);
+      if (!knowledgeRuntime) throw new Error("Knowledge runtime is not available");
+      return knowledgeReAddFileRoute.output.parse({
+        result: await knowledgeRuntime.reAddFile(input.id, input.fileId),
+      });
+    }
+    if (route === knowledgeListFilesRoute.name) {
+      const input = knowledgeListFilesRoute.input.parse(rawInput);
+      if (!knowledgeRuntime) throw new Error("Knowledge runtime is not available");
+      return knowledgeListFilesRoute.output.parse({ files: await knowledgeRuntime.listFiles(input.id) });
+    }
+    if (route === knowledgeSimilarityQueryRoute.name) {
+      const input = knowledgeSimilarityQueryRoute.input.parse(rawInput);
+      if (!knowledgeRuntime) throw new Error("Knowledge runtime is not available");
+      return knowledgeSimilarityQueryRoute.output.parse({
+        results: await knowledgeRuntime.similarityQuery(input.id, input.query),
+      });
+    }
+    if (route === knowledgeValidateFileRoute.name) {
+      const input = knowledgeValidateFileRoute.input.parse(rawInput);
+      if (!knowledgeRuntime) throw new Error("Knowledge runtime is not available");
+      return knowledgeValidateFileRoute.output.parse({ result: await knowledgeRuntime.validateFile(input.filePath) });
+    }
+    if (route === knowledgeGetSupportedFileExtensionsRoute.name) {
+      knowledgeGetSupportedFileExtensionsRoute.input.parse(rawInput);
+      if (!knowledgeRuntime) {
+        return knowledgeGetSupportedFileExtensionsRoute.output.parse({ extensions: [] });
+      }
+      return knowledgeGetSupportedFileExtensionsRoute.output.parse({
+        extensions: await knowledgeRuntime.getSupportedFileExtensions(),
+      });
+    }
+    if (route === knowledgePauseAllRunningTasksRoute.name) {
+      const input = knowledgePauseAllRunningTasksRoute.input.parse(rawInput);
+      if (!knowledgeRuntime) throw new Error("Knowledge runtime is not available");
+      await knowledgeRuntime.pauseAllRunningTasks(input.id);
+      return knowledgePauseAllRunningTasksRoute.output.parse({ paused: true });
+    }
+    if (route === knowledgeResumeAllPausedTasksRoute.name) {
+      const input = knowledgeResumeAllPausedTasksRoute.input.parse(rawInput);
+      if (!knowledgeRuntime) throw new Error("Knowledge runtime is not available");
+      await knowledgeRuntime.resumeAllPausedTasks(input.id);
+      return knowledgeResumeAllPausedTasksRoute.output.parse({ resumed: true });
+    }
+    if (route === knowledgeGetTaskQueueStatusRoute.name) {
+      knowledgeGetTaskQueueStatusRoute.input.parse(rawInput);
+      if (!knowledgeRuntime) {
+        return knowledgeGetTaskQueueStatusRoute.output.parse({
+          status: { totalTasks: 0, runningTasks: 0, queuedTasks: 0 },
+        });
+      }
+      return knowledgeGetTaskQueueStatusRoute.output.parse({ status: await knowledgeRuntime.getTaskQueueStatus() });
+    }
+    if (route === knowledgeResetRoute.name) {
+      knowledgeResetRoute.input.parse(rawInput);
+      if (!knowledgeRuntime) throw new Error("Knowledge runtime is not available");
+      // Closes DuckDB stores first so their files can be removed safely.
+      await knowledgeRuntime.resetAll();
+      return knowledgeResetRoute.output.parse({ reset: true });
+    }
+
+    if (route === configGetKnowledgeConfigsRoute.name) {
+      configGetKnowledgeConfigsRoute.input.parse(rawInput);
+      return configGetKnowledgeConfigsRoute.output.parse({
+        configs: daemonConfig.getKnowledgeConfigs(),
+      });
+    }
+    if (route === configSetKnowledgeConfigsRoute.name) {
+      const input = configSetKnowledgeConfigsRoute.input.parse(rawInput);
+      daemonConfig.setKnowledgeConfigs(input.configs);
+      await knowledgeRuntime?.syncConfigs();
+      return configSetKnowledgeConfigsRoute.output.parse({
+        configs: daemonConfig.getKnowledgeConfigs(),
+      });
     }
 
     if (routeName === pluginsListRoute.name) {

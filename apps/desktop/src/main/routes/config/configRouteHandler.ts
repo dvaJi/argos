@@ -1,4 +1,5 @@
 import type { IConfigPresenter, Prompt, ShortcutKeySetting } from "@argos/shared/presenter";
+import { invokeDaemonRoute } from "#/routes/daemonRouteProxy";
 import {
   configAddCustomPromptRoute,
   configAddSystemPromptRoute,
@@ -415,17 +416,17 @@ export async function dispatchConfigRoute(
 
     case configGetKnowledgeConfigsRoute.name: {
       configGetKnowledgeConfigsRoute.input.parse(rawInput);
-      return configGetKnowledgeConfigsRoute.output.parse({
-        configs: configPresenter.getKnowledgeConfigs(),
-      });
+      // Knowledge configs are daemon-owned (docs/architecture/daemon-knowledge-runtime).
+      return configGetKnowledgeConfigsRoute.output.parse(
+        await invokeDaemonRoute(configGetKnowledgeConfigsRoute.name, {}),
+      );
     }
 
     case configSetKnowledgeConfigsRoute.name: {
       const input = configSetKnowledgeConfigsRoute.input.parse(rawInput);
-      configPresenter.setKnowledgeConfigs(input.configs);
-      return configSetKnowledgeConfigsRoute.output.parse({
-        configs: configPresenter.getKnowledgeConfigs(),
-      });
+      return configSetKnowledgeConfigsRoute.output.parse(
+        await invokeDaemonRoute(configSetKnowledgeConfigsRoute.name, input),
+      );
     }
 
     case configGetAcpRegistryIconMarkupRoute.name: {

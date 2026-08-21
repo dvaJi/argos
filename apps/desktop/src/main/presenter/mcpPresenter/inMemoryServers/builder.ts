@@ -1,5 +1,4 @@
 import { AppleServer } from "./appleServer";
-import { BuiltinKnowledgeServer } from "@argos/backend-core";
 import {
   ArtifactsServer,
   AutoPromptingServer,
@@ -248,10 +247,10 @@ export function getInMemoryServer(serverName: string, _args: string[], env?: Rec
     case "fastGptKnowledge":
       return new FastGptKnowledgeServer(env);
     case "builtinKnowledge":
-      return new BuiltinKnowledgeServer({
-        getKnowledgeConfigs: () => presenter.configPresenter.getKnowledgeConfigs(),
-        similarityQuery: (id, key) => presenter.knowledgePresenter.similarityQuery(id, key),
-      });
+      // The built-in knowledge engine is daemon-hosted; the desktop runtime must
+      // not own the DuckDB stores (single-owner constraint). See
+      // docs/architecture/daemon-knowledge-runtime.
+      throw new Error("builtinKnowledge is hosted by the daemon MCP runtime");
     case "argos-inmemory/deep-research-server":
       return new DeepResearchServer(env, {
         getLanguage: () => presenter.configPresenter.getLanguage?.() || "zh-CN",

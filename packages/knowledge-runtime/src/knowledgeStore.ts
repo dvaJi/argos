@@ -10,18 +10,37 @@ import {
   KnowledgeFileResult,
   KnowledgeChunkMessage,
 } from "@argos/shared/presenter";
-import { presenter } from "#/presenter";
 import { nanoid } from "nanoid";
-import { RecursiveCharacterTextSplitter } from "#/lib/textsplitters";
-import { sanitizeText } from "#/utils/strings";
-import { getMetric, normalizeDistance } from "#/utils/vector";
-import { eventBus, SendTarget } from "#/eventbus";
-import { RAG_EVENTS } from "#/events";
+import { RecursiveCharacterTextSplitter } from "./textSplitters";
+import { sanitizeText } from "@argos/shared/strings";
+import { getMetric, normalizeDistance } from "@argos/shared/vector";
+
+export interface KnowledgeFileIngestionInfo {
+  name: string;
+  content: string;
+  size: number;
+}
+
+/** Host-provided capabilities the knowledge store needs (process-agnostic). */
+export interface KnowledgeStorePorts {
+  /** Resolve the MIME type of a file on disk. */
+  detectMime(filePath: string): Promise<string>;
+  /** Read a file for ingestion: raw ("origin") content + name + size. */
+  prepareForIngestion(filePath: string, mimeType: string): Promise<KnowledgeFileIngestionInfo>;
+  /** Generate embeddings via the configured provider. */
+  getEmbeddings(providerId: string, modelId: string, texts: string[]): Promise<number[][]>;
+  /** Progress events (bridged to typed daemon events by the host). */
+  events: {
+    fileUpdated(file: KnowledgeFileMessage): void;
+    fileProgress(payload: { fileId: string; completed: number; error: number; total: number }): void;
+  };
+}
 
 export class KnowledgeStorePresenter {
   private readonly vectorP: IVectorDatabasePresenter;
   private config: BuiltinKnowledgeConfig;
   private taskP: IKnowledgeTaskPresenter;
+  private readonly ports: KnowledgeStorePorts;
   // File processing progress tracker
   private fileProgressMap = new Map<string, { completed: number; error: number; total: number }>();
   // --- Added: per-file queue to guarantee vectorP thread safety ---
@@ -40,10 +59,12 @@ export class KnowledgeStorePresenter {
     vectorP: IVectorDatabasePresenter,
     config: BuiltinKnowledgeConfig,
     taskScheduler: IKnowledgeTaskPresenter,
+    ports: KnowledgeStorePorts,
   ) {
     this.vectorP = vectorP;
     this.config = config;
     this.taskP = taskScheduler;
+    this.ports = ports;
   }
 
   /**
@@ -71,7 +92,7 @@ export class KnowledgeStorePresenter {
         return { data: existingFile[0] };
       }
 
-      const mimeType = await presenter.filePresenter.getMimeType(filePath);
+      const mimeType = await this.ports.detectMime(filePath);
       // Insert basic file info into the database first
       const fileMessage = {
         id: fileId ?? nanoid(),
@@ -106,16 +127,12 @@ export class KnowledgeStorePresenter {
   private async processFileAsync(fileMessage: KnowledgeFileMessage): Promise<void> {
     try {
       // 1. Read the file and obtain basic info
-      const fileInfo = await presenter.filePresenter.prepareFileCompletely(
-        fileMessage.path,
-        fileMessage.mimeType,
-        "origin",
-      );
+      const fileInfo = await this.ports.prepareForIngestion(fileMessage.path, fileMessage.mimeType);
 
       // 2. Update basic file info
       fileMessage.name = fileInfo.name;
       fileMessage.metadata = {
-        size: fileInfo.metadata.fileSize,
+        size: fileInfo.size,
         totalChunks: 0,
       };
 
@@ -125,7 +142,7 @@ export class KnowledgeStorePresenter {
         fileMessage.metadata.errorReason =
           "Could not read file or file is empty; please check whether the file is corrupted or the format is supported";
         await this.enqueueFileTask(fileMessage.id, async () => this.vectorP.updateFile(fileMessage));
-        eventBus.sendToRenderer(RAG_EVENTS.FILE_UPDATED, SendTarget.ALL_WINDOWS, fileMessage);
+        this.ports.events.fileUpdated(fileMessage);
         return;
       }
 
@@ -142,7 +159,7 @@ export class KnowledgeStorePresenter {
       await this.enqueueFileTask(fileMessage.id, async () => this.vectorP.updateFile(fileMessage));
 
       // 5. Emit the file updated event
-      eventBus.sendToRenderer(RAG_EVENTS.FILE_UPDATED, SendTarget.ALL_WINDOWS, fileMessage);
+      this.ports.events.fileUpdated(fileMessage);
 
       // 6. Create chunk records
       const chunkMessages = chunks.map((content, index) => ({
@@ -172,7 +189,7 @@ export class KnowledgeStorePresenter {
               chunkIndex: chunkMsg.chunkIndex,
             },
           },
-          run: async ({ signal }) => this.processChunkTask(chunkMsg, signal),
+          run: async ({ signal }: { signal: AbortSignal }) => this.processChunkTask(chunkMsg, signal),
           onSuccess: () => this.handleChunkCompletion(chunkMsg.id, fileMessage.id),
           onError: (error: Error) => this.handleChunkError(chunkMsg.id, fileMessage.id, error.message),
           onTerminate: () => console.log(`[RAG] Chunk processing terminated for ${chunkMsg.id}`),
@@ -190,11 +207,9 @@ export class KnowledgeStorePresenter {
   private async processChunkTask(chunkMsg: KnowledgeChunkMessage, signal: AbortSignal): Promise<void> {
     try {
       // Generate vectors
-      const vectors = await presenter.llmproviderPresenter.getEmbeddings(
-        this.config.embedding.providerId,
-        this.config.embedding.modelId,
-        [chunkMsg.content],
-      );
+      const vectors = await this.ports.getEmbeddings(this.config.embedding.providerId, this.config.embedding.modelId, [
+        chunkMsg.content,
+      ]);
 
       if (!vectors || vectors.length === 0) {
         throw new Error("Failed to generate embeddings");
@@ -232,7 +247,7 @@ export class KnowledgeStorePresenter {
     progress.completed++;
 
     // Update file progress
-    eventBus.sendToRenderer(RAG_EVENTS.FILE_PROGRESS, SendTarget.ALL_WINDOWS, {
+    this.ports.events.fileProgress({
       fileId,
       completed: progress.completed,
       error: progress.error,
@@ -258,7 +273,7 @@ export class KnowledgeStorePresenter {
     progress.error++;
 
     // Update file progress
-    eventBus.sendToRenderer(RAG_EVENTS.FILE_PROGRESS, SendTarget.ALL_WINDOWS, {
+    this.ports.events.fileProgress({
       fileId,
       completed: progress.completed,
       error: progress.error,
@@ -281,7 +296,7 @@ export class KnowledgeStorePresenter {
       if (fileMessage) {
         fileMessage.status = "completed";
         await this.enqueueFileTask(fileId, async () => this.vectorP.updateFile(fileMessage));
-        eventBus.sendToRenderer(RAG_EVENTS.FILE_UPDATED, SendTarget.ALL_WINDOWS, fileMessage);
+        this.ports.events.fileUpdated(fileMessage);
         console.log(`[RAG] File processing completed for ${fileId}`);
       }
     } catch (error) {
@@ -299,7 +314,7 @@ export class KnowledgeStorePresenter {
           fileMessage.metadata.errorReason = errorMessage;
         }
         await this.enqueueFileTask(fileId, async () => this.vectorP.updateFile(fileMessage));
-        eventBus.sendToRenderer(RAG_EVENTS.FILE_UPDATED, SendTarget.ALL_WINDOWS, fileMessage);
+        this.ports.events.fileUpdated(fileMessage);
       }
     } catch (error) {
       console.error(`[RAG] Error handling file processing error for ${fileId}:`, error);
@@ -324,7 +339,7 @@ export class KnowledgeStorePresenter {
 
   async similarityQuery(key: string): Promise<QueryResult[]> {
     try {
-      const embedding = await presenter.llmproviderPresenter.getEmbeddings(
+      const embedding = await this.ports.getEmbeddings(
         this.config.embedding.providerId,
         this.config.embedding.modelId,
         [sanitizeText(key)],
@@ -407,7 +422,7 @@ export class KnowledgeStorePresenter {
             chunkIndex: chunkMessage.chunkIndex,
           },
         },
-        run: async ({ signal }) => this.processChunkTask(chunkMessage, signal),
+        run: async ({ signal }: { signal: AbortSignal }) => this.processChunkTask(chunkMessage, signal),
         onSuccess: () => this.handleChunkCompletion(chunkMessage.id, chunkMessage.fileId),
         onError: (error: Error) => this.handleChunkError(chunkMessage.id, chunkMessage.fileId, error.message),
         onTerminate: () => console.log(`[RAG] Chunk processing terminated for ${chunkMessage.id}`),

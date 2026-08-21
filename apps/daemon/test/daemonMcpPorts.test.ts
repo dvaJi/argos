@@ -65,4 +65,52 @@ describe("createDaemonMcpPorts", () => {
       expect.objectContaining({ startServer: expect.any(Function) }),
     );
   });
+
+  it("creates the built-in knowledge server when the knowledge runtime is wired", () => {
+    const configPresenter = {
+      getMcpServers: vi.fn(() => ({})),
+      getProviders: vi.fn(() => []),
+      getProviderModels: vi.fn(() => []),
+      getCustomModels: vi.fn(() => []),
+      getKnowledgeConfigs: vi.fn(() => [
+        { id: "kb_1", description: "KB", enabled: true, embedding: { modelId: "m", providerId: "p" } },
+      ]),
+    };
+    const knowledge = {
+      similarityQuery: vi.fn(async () => []),
+    };
+    const ports = createDaemonMcpPorts({
+      appVersion: "1.0.0",
+      eventPublisher: { publish: vi.fn() } as any,
+      configPresenter: configPresenter as any,
+      configDir: "/tmp/argos",
+      knowledge,
+      db: { prepare: vi.fn(() => ({ all: vi.fn(() => []), get: vi.fn(() => ({ count: 0 })) })) } as any,
+      sessionRepository: {
+        get: vi.fn(async () => null),
+        listMessages: vi.fn(async () => []),
+      } as any,
+    });
+
+    for (const name of ["builtinKnowledge", "argos-inmemory/builtin-knowledge-server"]) {
+      const server = ports.services.getInMemoryServer?.(name, [], {});
+      expect(server).toEqual(expect.objectContaining({ startServer: expect.any(Function) }));
+    }
+
+    // Without the knowledge runtime the case fails fast instead of silently.
+    const noKnowledgePorts = createDaemonMcpPorts({
+      appVersion: "1.0.0",
+      eventPublisher: { publish: vi.fn() } as any,
+      configPresenter: configPresenter as any,
+      configDir: "/tmp/argos",
+      db: { prepare: vi.fn(() => ({ all: vi.fn(() => []), get: vi.fn(() => ({ count: 0 })) })) } as any,
+      sessionRepository: {
+        get: vi.fn(async () => null),
+        listMessages: vi.fn(async () => []),
+      } as any,
+    });
+    expect(() => noKnowledgePorts.services.getInMemoryServer?.("builtinKnowledge", [], {})).toThrow(
+      "Built-in knowledge runtime is not available",
+    );
+  });
 });

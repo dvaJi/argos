@@ -6,19 +6,25 @@ import NowledgeMemSettings from "./NowledgeMemSettings";
 import BuiltinKnowledgeSettings from "./BuiltinKnowledgeSettings";
 import KnowledgeFile from "./KnowledgeFile";
 import type { BuiltinKnowledgeConfig } from "@argos/shared/presenter";
-import { usePresenter } from "#api/presenterBridge";
+import { createKnowledgeClient } from "#api/KnowledgeClient";
 import SettingsPageShell from "./control-center/SettingsPageShell";
 
+const knowledgeClient = createKnowledgeClient();
+
 export default function KnowledgeBaseSettings() {
-  const knowledgePresenter = usePresenter("knowledgePresenter");
   const [enableBuiltinKnowledge, setEnableBuiltinKnowledge] = useState(false);
   const [showBuiltinKnowledgeDetail, setShowBuiltinKnowledgeDetail] = useState(false);
   const [builtinKnowledgeDetail, setBuiltinKnowledgeDetail] = useState<BuiltinKnowledgeConfig | null>(null);
 
   useEffect(() => {
-    knowledgePresenter.isSupported().then((res: boolean) => {
-      setEnableBuiltinKnowledge(res);
-    });
+    knowledgeClient
+      .isSupported()
+      .then((res: boolean) => {
+        setEnableBuiltinKnowledge(res);
+      })
+      .catch(() => {
+        setEnableBuiltinKnowledge(false);
+      });
   }, []);
 
   const showDetail = (detail: BuiltinKnowledgeConfig) => {

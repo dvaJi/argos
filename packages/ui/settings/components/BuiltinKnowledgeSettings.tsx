@@ -27,8 +27,10 @@ import {
 } from "#shadcn/components/ui/alert-dialog";
 import { useMcpStore } from "#/stores/mcp";
 import { useToast } from "#/components/use-toast";
-import { usePresenter } from "#api/presenterBridge";
+import { createConfigClient } from "#api/ConfigClient";
 import type { BuiltinKnowledgeConfig } from "@argos/shared/presenter";
+
+const configClient = createConfigClient();
 
 interface BuiltinKnowledgeSettingsProps {
   onShowDetail: (detail: BuiltinKnowledgeConfig) => void;
@@ -37,7 +39,6 @@ interface BuiltinKnowledgeSettingsProps {
 export default function BuiltinKnowledgeSettings({ onShowDetail }: BuiltinKnowledgeSettingsProps) {
   const mcpStore = useMcpStore();
   const { toast } = useToast();
-  const knowledgePresenter = usePresenter("configPresenter");
 
   const [isConfigPanelOpen, setIsConfigPanelOpen] = useState(false);
   const [configs, setConfigs] = useState<BuiltinKnowledgeConfig[]>([]);
@@ -48,10 +49,10 @@ export default function BuiltinKnowledgeSettings({ onShowDetail }: BuiltinKnowle
 
   const loadConfigs = useCallback(async () => {
     try {
-      const list = await knowledgePresenter.getKnowledgeConfigs();
+      const list = await configClient.getKnowledgeConfigs();
       setConfigs(list || []);
     } catch {}
-  }, [knowledgePresenter]);
+  }, []);
 
   const toggleMcpServer = async () => {
     if (!mcpStore.mcpEnabled) return;
@@ -72,7 +73,7 @@ export default function BuiltinKnowledgeSettings({ onShowDetail }: BuiltinKnowle
 
   const handleCreate = async (_name: string, description: string, embeddingModel: string) => {
     try {
-      const currentConfigs = await knowledgePresenter.getKnowledgeConfigs();
+      const currentConfigs = await configClient.getKnowledgeConfigs();
       const newConfig: BuiltinKnowledgeConfig = {
         id: `kb_${Date.now()}`,
         description,
@@ -82,7 +83,7 @@ export default function BuiltinKnowledgeSettings({ onShowDetail }: BuiltinKnowle
         normalized: true,
         fragmentsNumber: 1,
       };
-      await knowledgePresenter.setKnowledgeConfigs([...currentConfigs, newConfig]);
+      await configClient.setKnowledgeConfigs([...currentConfigs, newConfig]);
       toast({ title: "Created successfully" });
       setIsCreateDialogOpen(false);
       loadConfigs();
@@ -94,8 +95,8 @@ export default function BuiltinKnowledgeSettings({ onShowDetail }: BuiltinKnowle
   const handleDelete = async (index: number) => {
     const config = configs[index];
     try {
-      const currentConfigs = await knowledgePresenter.getKnowledgeConfigs();
-      await knowledgePresenter.setKnowledgeConfigs(currentConfigs.filter((c) => c.id !== config.id));
+      const currentConfigs = await configClient.getKnowledgeConfigs();
+      await configClient.setKnowledgeConfigs(currentConfigs.filter((c) => c.id !== config.id));
       toast({ title: "Deleted successfully" });
       loadConfigs();
     } catch (error) {
@@ -106,10 +107,8 @@ export default function BuiltinKnowledgeSettings({ onShowDetail }: BuiltinKnowle
   const toggleConfigEnabled = async (index: number, enabled: boolean) => {
     const config = configs[index];
     try {
-      const currentConfigs = await knowledgePresenter.getKnowledgeConfigs();
-      await knowledgePresenter.setKnowledgeConfigs(
-        currentConfigs.map((c) => (c.id === config.id ? { ...c, enabled } : c)),
-      );
+      const currentConfigs = await configClient.getKnowledgeConfigs();
+      await configClient.setKnowledgeConfigs(currentConfigs.map((c) => (c.id === config.id ? { ...c, enabled } : c)));
       loadConfigs();
     } catch {}
   };

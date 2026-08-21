@@ -21,6 +21,7 @@ import { BUILTIN_ARGOS_AGENT_ID } from "@argos/agent-runtime";
 import { AcpProviderExecutionPort } from "./host/acp-provider-execution";
 import { createDaemonMcpPorts } from "./host/daemonMcpPorts";
 import { DaemonMcpRuntime } from "./host/daemonMcpRuntime";
+import { DaemonKnowledgeRuntime } from "./host/daemonKnowledgeRuntime";
 import { DaemonSkillRuntime } from "./host/daemonSkillRuntime";
 import { DaemonSyncRuntime } from "./host/daemonSyncRuntime";
 import { DaemonMemoryRuntime } from "./host/daemonMemoryRuntime";
@@ -454,11 +455,21 @@ export async function startDaemon(options?: {
 
   const sessionAuthRepo = new SessionAuthRepository(db);
 
+  const knowledgeRuntime = new DaemonKnowledgeRuntime({
+    configPresenter,
+    dataDir: paths.getDataDir(),
+    eventPublisher,
+  });
+  void knowledgeRuntime.syncConfigs().catch((error) => {
+    logger.warn("[daemon] Knowledge config sync failed:", error);
+  });
+
   const mcpPorts = createDaemonMcpPorts({
     appVersion: resolveDaemonVersion(),
     eventPublisher,
     configPresenter,
     configDir: paths.getConfigDir(),
+    knowledge: knowledgeRuntime.runtime,
     sessionRepository,
     db,
   });
@@ -776,6 +787,7 @@ export async function startDaemon(options?: {
       environmentId,
       orchestrationRuntime,
       workspacePresenter,
+      knowledgeRuntime.runtime,
     );
   setRouteDispatcher(dispatcher);
 

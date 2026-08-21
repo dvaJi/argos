@@ -12,9 +12,15 @@ import {
   RagflowKnowledgeServer,
   type McpHostPorts,
 } from "@argos/mcp-runtime";
+import { BuiltinKnowledgeServer } from "@argos/backend-core";
 import type { IEventPublisher } from "@argos/backend-core";
 import type { DaemonConfigPresenter } from "./daemonConfigPresenter";
 import type { PluginToolPolicyDecision } from "@argos/shared/types/plugin";
+
+/** Knowledge capabilities exposed by the daemon knowledge runtime. */
+export interface DaemonKnowledgePort {
+  similarityQuery(id: string, key: string): Promise<import("@argos/shared/presenter").QueryResult[]>;
+}
 
 type StoredToolPolicy = {
   pluginId: string;
@@ -38,6 +44,7 @@ export function createDaemonMcpPorts(deps: {
   eventPublisher: IEventPublisher;
   configPresenter: DaemonConfigPresenter;
   configDir: string;
+  knowledge?: DaemonKnowledgePort;
   db: {
     prepare(sql: string): {
       all(...args: unknown[]): unknown[];
@@ -152,6 +159,15 @@ export function createDaemonMcpPorts(deps: {
           case "fastGptKnowledge":
           case "argos-inmemory/fastgpt-knowledge-server":
             return new FastGptKnowledgeServer(env);
+          case "builtinKnowledge":
+          case "argos-inmemory/builtin-knowledge-server":
+            if (!deps.knowledge) {
+              throw new Error("Built-in knowledge runtime is not available");
+            }
+            return new BuiltinKnowledgeServer({
+              getKnowledgeConfigs: () => deps.configPresenter.getKnowledgeConfigs(),
+              similarityQuery: (id, key) => deps.knowledge!.similarityQuery(id, key),
+            });
           case "deepResearch":
           case "argos-inmemory/deep-research-server":
             return new DeepResearchServer(env, {

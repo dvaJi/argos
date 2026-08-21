@@ -17,6 +17,8 @@
     "@argos/acp-runtime": "workspace:*",
     "@argos/agent-runtime": "workspace:*",
     "@argos/backend-core": "workspace:*",
+    "@argos/file-adapters": "workspace:*",
+    "@argos/knowledge-runtime": "workspace:*",
     "@argos/mcp-runtime": "workspace:*",
     "@argos/memory-runtime": "workspace:*",
     "@argos/pi-orchestrator-extension": "workspace:*",

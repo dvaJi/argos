@@ -174,7 +174,7 @@ export class FileValidationService implements IFileValidationService {
         "yaml",
         "yml",
       ];
-      commonExtensions.forEach(supportedExtensions.add);
+      commonExtensions.forEach((extension) => supportedExtensions.add(extension));
 
       return Array.from(supportedExtensions).sort();
     } catch (error) {

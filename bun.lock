@@ -38,6 +38,8 @@
         "@argos/acp-runtime": "workspace:*",
         "@argos/agent-runtime": "workspace:*",
         "@argos/backend-core": "workspace:*",
+        "@argos/file-adapters": "workspace:*",
+        "@argos/knowledge-runtime": "workspace:*",
         "@argos/mcp-runtime": "workspace:*",
         "@argos/memory-runtime": "workspace:*",
         "@argos/pi-orchestrator-extension": "workspace:*",
@@ -77,6 +79,7 @@
         "@argos/backend-core": "workspace:*",
         "@argos/client-sdk": "workspace:*",
         "@argos/electron-adapter": "workspace:*",
+        "@argos/file-adapters": "workspace:*",
         "@argos/mcp-runtime": "workspace:*",
         "@argos/memory-runtime": "workspace:*",
         "@argos/shared": "workspace:*",
@@ -228,6 +231,38 @@
       },
       "devDependencies": {
         "electron": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
+    "packages/file-adapters": {
+      "name": "@argos/file-adapters",
+      "version": "0.1.0",
+      "dependencies": {
+        "@argos/shared": "workspace:*",
+        "es-mime-types": "^0.1.4",
+        "fflate": "catalog:",
+        "mammoth": "^1.12.0",
+        "pdf-parse-new": "^2.1.0",
+        "turndown": "^7.2.4",
+        "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
+        "xml2js": "^0.6.2",
+      },
+      "devDependencies": {
+        "@types/turndown": "^5.0.5",
+        "@types/xml2js": "^0.4.14",
+        "typescript": "catalog:",
+      },
+    },
+    "packages/knowledge-runtime": {
+      "name": "@argos/knowledge-runtime",
+      "version": "0.1.0",
+      "dependencies": {
+        "@argos/file-adapters": "workspace:*",
+        "@argos/shared": "workspace:*",
+        "@duckdb/node-api": "1.5.5-r.3",
+        "nanoid": "catalog:",
+      },
+      "devDependencies": {
         "typescript": "catalog:",
       },
     },
@@ -512,6 +547,10 @@
     "@argos/desktop": ["@argos/desktop@workspace:apps/desktop"],
 
     "@argos/electron-adapter": ["@argos/electron-adapter@workspace:packages/electron-adapter"],
+
+    "@argos/file-adapters": ["@argos/file-adapters@workspace:packages/file-adapters"],
+
+    "@argos/knowledge-runtime": ["@argos/knowledge-runtime@workspace:packages/knowledge-runtime"],
 
     "@argos/landing": ["@argos/landing@workspace:apps/landing"],
 
@@ -1567,9 +1606,13 @@
 
     "@types/trusted-types": ["@types/trusted-types@2.0.7", "", {}, "sha512-ScaPdn1dQczgbl0QFTeTOmVHFULt394XJgOQNoyVhZ6r2vLnMLJfBPd53SB52T/3G36VI1/g2MZaX0cwDuXsfw=="],
 
+    "@types/turndown": ["@types/turndown@5.0.6", "", {}, "sha512-ru00MoyeeouE5BX4gRL+6m/BsDfbRayOskWqUvh7CLGW+UXxHQItqALa38kKnOiZPqJrtzJUgAC2+F0rL1S4Pg=="],
+
     "@types/unist": ["@types/unist@3.0.3", "", {}, "sha512-ko/gIFJRv177XgZsZcBwnqJN5x/Gien8qNOn0D5bQU/zAzVf9Zt3BlcUiLqhV9y4ARk0GbT3tnUiPNgnTXzc/Q=="],
 
     "@types/use-sync-external-store": ["@types/use-sync-external-store@0.0.6", "", {}, "sha512-zFDAD+tlpf2r4asuHEj0XH6pY6i0g5NeAHPn+15wk3BV6JA69eERFXC1gyGThDkVa1zCyKr5jox1+2LbV/AMLg=="],
+
+    "@types/xml2js": ["@types/xml2js@0.4.14", "", { "dependencies": { "@types/node": "*" } }, "sha512-4YnrRemBShWRO2QjvUin8ESA41rH+9nQGLUGZV/1IDhi3SL9OhdpNC/MrulTWuptXKwhx/aDxE7toV0f/ypIXQ=="],
 
     "@typescript/typescript-aix-ppc64": ["@typescript/typescript-aix-ppc64@7.0.2", "", { "os": "aix", "cpu": "ppc64" }, "sha512-MTKKkWB7p/0E9xi1d1tHtZ5PiLkGEMIq88pK2CubZjOsLtYTLqhgIgi6zepFa+9GHZ6h05NMCkQxGKiPXMxXtQ=="],
 

@@ -1,21 +1,18 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import {
-  FileValidationService,
-  FileValidationResult,
-} from "../../../src/main/presenter/filePresenter/FileValidationService";
-import { getMimeTypeAdapterMap, detectMimeType } from "../../../src/main/presenter/filePresenter/mime";
-import { AudioFileAdapter } from "../../../src/main/presenter/filePresenter/AudioFileAdapter";
-import { ImageFileAdapter } from "../../../src/main/presenter/filePresenter/ImageFileAdapter";
-import { UnsupportFileAdapter } from "../../../src/main/presenter/filePresenter/UnsupportFileAdapter";
-import { TextFileAdapter } from "../../../src/main/presenter/filePresenter/TextFileAdapter";
-import { CodeFileAdapter } from "../../../src/main/presenter/filePresenter/CodeFileAdapter";
-import { PdfFileAdapter } from "../../../src/main/presenter/filePresenter/PdfFileAdapter";
+import { FileValidationService, type FileValidationResult } from "@argos/file-adapters/FileValidationService";
+import { getMimeTypeAdapterMap, detectMimeType } from "@argos/file-adapters/mime";
+import { AudioFileAdapter } from "@argos/file-adapters/AudioFileAdapter";
+import { ImageFileAdapter } from "@argos/file-adapters/ImageFileAdapter";
+import { UnsupportFileAdapter } from "@argos/file-adapters/UnsupportFileAdapter";
+import { TextFileAdapter } from "@argos/file-adapters/TextFileAdapter";
+import { CodeFileAdapter } from "@argos/file-adapters/CodeFileAdapter";
+import { PdfFileAdapter } from "@argos/file-adapters/PdfFileAdapter";
 import fs from "fs/promises";
 import path from "path";
 import os from "os";
 
 // Mock the mime detection module
-vi.mock("../../../src/main/presenter/filePresenter/mime", () => ({
+vi.mock("@argos/file-adapters/mime", () => ({
   detectMimeType: vi.fn<(...args: any[]) => any>(),
   getMimeTypeAdapterMap: vi.fn<(...args: any[]) => any>(),
 }));
@@ -338,8 +335,7 @@ describe("FileValidationService", () => {
       vi.clearAllMocks();
 
       // Import and use the real function directly
-      const { getMimeTypeAdapterMap: realGetMimeTypeAdapterMap } =
-        await import("../../../src/main/presenter/filePresenter/mime");
+      const { getMimeTypeAdapterMap: realGetMimeTypeAdapterMap } = await import("@argos/file-adapters/mime");
 
       // Mock with real implementation
       vi.mocked(getMimeTypeAdapterMap).mockImplementation(realGetMimeTypeAdapterMap);

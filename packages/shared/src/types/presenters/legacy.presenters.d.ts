@@ -475,7 +475,6 @@ export interface IPresenter {
   yoBrowserPresenter: IYoBrowserPresenter;
   oauthPresenter: IOAuthPresenter;
   dialogPresenter: IDialogPresenter;
-  knowledgePresenter: IKnowledgePresenter;
   toolPresenter: IToolPresenter;
   skillPresenter: ISkillPresenter;
   skillSyncPresenter: ISkillSyncPresenter;
