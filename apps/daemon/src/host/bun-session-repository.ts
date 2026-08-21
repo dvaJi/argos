@@ -696,8 +696,100 @@ export class BunSessionRepository implements SessionRepository {
     return this.toPendingRecord(row);
   }
 
+  /**
+   * Wires the send action used to drain pending inputs after a turn settles.
+   * The provider execution port is assembled after the repository, so the
+   * sender is injected late (mirrors orchestrationRuntime.setSessionActions).
+   */
+  setPendingQueueSender(sender: (sessionId: string, input: SendMessageInput) => Promise<unknown>): void {
+    this.pendingQueueSender = sender;
+  }
+
+  private pendingQueueSender: ((sessionId: string, input: SendMessageInput) => Promise<unknown>) | null = null;
+  private readonly drainingSessions = new Set<string>();
+
+  /**
+   * Drains the next pending input for a session: steer items first (their own
+   * turn), then queue items in order. Sending one item starts a new turn; when
+   * that turn settles, the caller's settle hook re-invokes this to drain the
+   * next item — one pending input per turn, matching the desktop semantics.
+   */
   async resumePendingQueue(sessionId: string): Promise<void> {
     this.ensureSessionExists(sessionId);
+    if (!this.pendingQueueSender) return;
+    if (this.drainingSessions.has(sessionId)) return;
+
+    // `status` doubles as the active-selection marker; generation state lives
+    // in `generation_status` (see toSessionWithState).
+    const session = this.db.prepare("SELECT generation_status FROM daemon_sessions WHERE id = ?").get(sessionId) as
+      | { generation_status?: string }
+      | undefined;
+    if (session?.generation_status === "generating") return;
+
+    const candidates = this.listPendingRows(sessionId).filter((row) => row.state !== "claimed");
+    if (candidates.length === 0) return;
+
+    const next = candidates[0];
+    this.drainingSessions.add(sessionId);
+    try {
+      await this.consumePendingInput(sessionId, next.id, (input) => this.pendingQueueSender!(sessionId, input));
+    } catch {
+      // consumePendingInput already restored the row and logged.
+    } finally {
+      this.drainingSessions.delete(sessionId);
+    }
+  }
+
+  /**
+   * Consumes one specific pending input: deletes the row, runs `deliver`, and
+   * restores the row if delivery fails. Deleting first prevents the settle-hook
+   * drain from double-sending the same row while delivery is in flight.
+   */
+  async consumePendingInput(
+    sessionId: string,
+    itemId: string,
+    deliver: (input: SendMessageInput) => Promise<unknown>,
+  ): Promise<void> {
+    const row = this.getPendingRow(itemId);
+    if (!row || row.session_id !== sessionId) {
+      throw new Error(`Pending input not found: ${itemId}`);
+    }
+    this.db.prepare("DELETE FROM daemon_pending_inputs WHERE id = ?").run(itemId);
+    if (row.mode === "queue") {
+      this.resequenceQueue(sessionId);
+    }
+    this.emitPendingInputsUpdated(sessionId);
+    try {
+      await deliver(this.parsePayload(row));
+    } catch (error) {
+      console.warn(`[pending-inputs] Failed to deliver pending input ${itemId}:`, error);
+      this.reinsertPendingRow(row);
+      this.emitPendingInputsUpdated(sessionId);
+      throw error;
+    }
+  }
+
+  private reinsertPendingRow(row: PendingInputRow): void {
+    this.db
+      .prepare(
+        `
+        INSERT INTO daemon_pending_inputs (
+          id, session_id, mode, state, payload_json, queue_order, claimed_at, consumed_at, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+      )
+      .run(
+        row.id,
+        row.session_id,
+        row.mode,
+        row.state,
+        row.payload_json,
+        row.queue_order,
+        row.claimed_at,
+        row.consumed_at,
+        row.created_at,
+        Date.now(),
+      );
   }
 
   private async insertSession(input: {
@@ -1023,6 +1115,7 @@ export class BunSessionRepository implements SessionRepository {
       .prepare("UPDATE daemon_sessions SET generation_status = ?, updated_at = ? WHERE id = ?")
       .run(status, Date.now(), sessionId);
   }
+
 
   /** Clears the "finished but unseen" flag when the user opens a session. */
   async markSessionViewed(sessionId: string): Promise<boolean> {

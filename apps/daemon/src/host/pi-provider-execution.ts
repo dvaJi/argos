@@ -121,6 +121,12 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
   private readonly interactions = new Map<string, PendingInteraction>();
   private readonly controlWaiters = new Map<string, { resolve: () => void; reject: (error: Error) => void }>();
   private readonly utilityPort: LlmUtilityExecution;
+  /** Invoked after a turn completes successfully (used to drain pending inputs). */
+  private turnSettledHandler: ((sessionId: string) => void | Promise<void>) | null = null;
+
+  setTurnSettledHandler(handler: (sessionId: string) => void | Promise<void>): void {
+    this.turnSettledHandler = handler;
+  }
 
   constructor(
     private readonly configPresenter: DaemonConfigPresenter,
@@ -161,6 +167,9 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
       try {
         await completed;
         await this.markDone(sessionId);
+        // Drain the pending-input lane (steer first, then queue) — the next
+        // drained turn re-triggers this hook when it settles.
+        await this.turnSettledHandler?.(sessionId);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         try {

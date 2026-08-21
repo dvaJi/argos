@@ -340,6 +340,7 @@ type DaemonProviderExecutionPort = Required<
     | "cancelGeneration"
     | "compactSession"
     | "testConnection"
+    | "getActiveGeneration"
     | "warmupAcpProcess"
     | "getAcpProcessConfigOptions"
     | "runAcpDebugAction"
@@ -2619,7 +2620,47 @@ export function createDaemonDispatcher(
 
     if (route === sessionsSteerPendingInputRoute.name) {
       const input = sessionsSteerPendingInputRoute.input.parse(rawInput);
-      const item = await (runtime as any).sessionRepository.steerPendingInput(input.sessionId, input.itemId);
+      const repo = (runtime as any).sessionRepository;
+      const item = await repo.steerPendingInput(input.sessionId, input.itemId);
+
+      // The route contract promises "promote *and* interrupt": deliver the
+      // promoted item now instead of leaving it locked in the steer lane.
+      // See docs/issues/daemon-pending-input-drain.
+      if (runtime.providerExecutionPort) {
+        try {
+          const session = (await repo.get?.(input.sessionId)) ?? null;
+          const isAcp = (session as any)?.providerId === "acp";
+          const hasFiles = (item.payload?.files?.length ?? 0) > 0;
+          const hasActiveTurn =
+            ((runtime.providerExecutionPort as any).getActiveGeneration?.(input.sessionId) ?? null) !== null ||
+            session?.status === "generating";
+
+          if (hasActiveTurn && !isAcp && hasFiles) {
+            // Pi steer is text-only: keep the row in the steer lane; the
+            // post-settle drain sends it (with files) as its own turn.
+          } else if (hasActiveTurn) {
+            // Deliver into the running turn (ACP: interrupt + send; Pi: steer text).
+            // consumePendingInput restores the row on failure and rethrows so
+            // the route surfaces the failed delivery to the caller.
+            await repo.consumePendingInput(input.sessionId, item.id, (payload: unknown) =>
+              runtime.providerExecutionPort!.steerActiveTurn(input.sessionId, payload as never),
+            );
+          } else {
+            // Idle/error/done: send as a fresh turn (recovery path).
+            await repo.consumePendingInput(input.sessionId, item.id, (payload: unknown) =>
+              runtime.providerExecutionPort!.sendMessage(input.sessionId, payload as never),
+            );
+          }
+        } catch {
+          // Delivery failed: consumePendingInput already restored the row and
+          // logged. Re-throw so the route reports the failed delivery instead
+          // of pretending the steer succeeded.
+          throw new Error(
+            `Failed to deliver pending input ${input.itemId}; it was restored to the pending lane.`,
+          );
+        }
+      }
+
       return sessionsSteerPendingInputRoute.output.parse({ item });
     }
 
