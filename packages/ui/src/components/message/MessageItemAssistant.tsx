@@ -27,6 +27,7 @@ import { MessageBlockAudio } from "./MessageBlockAudio";
 import { MessageBlockVideo } from "./MessageBlockVideo";
 import { MessageBlockPlan } from "./MessageBlockPlan";
 import { MessageTurnFold } from "./MessageTurnFold";
+import { MessageBlockFileChanges } from "./MessageBlockFileChanges";
 import { buildAssistantRenderItems } from "./messageActivityGroups";
 import {
   Dialog,
@@ -477,6 +478,15 @@ const MessageItemAssistant = forwardRef<MessageItemAssistantRef, MessageItemAssi
               if (block.type === "image")
                 return (
                   <MessageBlockImage
+                    key={item.key}
+                    block={block}
+                    messageId={currentMessage.id}
+                    threadId={currentThreadId}
+                  />
+                );
+              if (block.type === "file_changes")
+                return (
+                  <MessageBlockFileChanges
                     key={item.key}
                     block={block}
                     messageId={currentMessage.id}
