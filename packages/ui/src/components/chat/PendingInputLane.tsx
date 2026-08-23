@@ -12,6 +12,7 @@ interface PendingInputLaneProps {
   isGenerating?: boolean;
 
   onDeleteQueue: (itemId: string) => void;
+  onDeleteSteer: (itemId: string) => void;
   onSteerQueueItem: (itemId: string) => void;
 }
 
@@ -31,6 +32,7 @@ const PendingInputLane: FC<PendingInputLaneProps> = ({
   isGenerating = false,
 
   onDeleteQueue,
+  onDeleteSteer,
   onSteerQueueItem,
 }) => {
   const showLane = useMemo(() => steerItems.length > 0 || queueItems.length > 0, [steerItems, queueItems]);
@@ -69,7 +71,7 @@ const PendingInputLane: FC<PendingInputLaneProps> = ({
                   {formatPayloadText(item)}
                 </div>
               </div>
-              <div className="flex shrink-0 items-center gap-1">
+              <div className="flex shrink-0 items-center gap-1 opacity-70 transition group-hover:opacity-100 group-focus-within:opacity-100">
                 {(item.payload.files?.length ?? 0) > 0 && (
                   <span className="inline-flex items-center rounded-full border border-border/60 bg-muted/35 px-1.5 py-0.5 text-[11px] leading-none text-muted-foreground">
                     {item.payload.files?.length ?? 0} file(s)
@@ -78,6 +80,19 @@ const PendingInputLane: FC<PendingInputLaneProps> = ({
                 <span className="inline-flex items-center rounded-full border border-border/60 bg-muted/45 px-1.5 py-0.5 text-[11px] leading-none text-muted-foreground">
                   Locked
                 </span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 rounded-full text-muted-foreground"
+                  title="Remove"
+                  aria-label="Remove steer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDeleteSteer(item.id);
+                  }}
+                >
+                  <Icon icon="lucide:x" className="h-3.5 w-3.5" />
+                </Button>
               </div>
             </div>
           ))}

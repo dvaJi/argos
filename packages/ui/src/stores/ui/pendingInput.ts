@@ -135,7 +135,7 @@ export async function deleteInput(sessionId: string, itemId: string): Promise<vo
   } catch (e) {
     pendingInputStore.setState((prev) => ({
       ...prev,
-      error: `Failed to delete queued message: ${e}`,
+      error: `Failed to delete pending input: ${e}`,
     }));
     throw e;
   }

@@ -5,6 +5,7 @@ import { normalizeVideoGenerationOptions } from "@argos/shared/videoGenerationSe
 import type {
   CreateSessionInput,
   PermissionMode,
+  ServiceTier,
   SessionGenerationSettings,
 } from "@argos/shared/types/agent-interface";
 
@@ -34,6 +35,7 @@ export const draftStore = new Store({
   reasoningEffort: undefined as SessionGenerationSettings["reasoningEffort"] | undefined,
   reasoningVisibility: undefined as SessionGenerationSettings["reasoningVisibility"] | undefined,
   verbosity: undefined as SessionGenerationSettings["verbosity"] | undefined,
+  serviceTier: undefined as ServiceTier | undefined,
   forceInterleavedThinkingCompat: undefined as boolean | undefined,
   imageGeneration: undefined as SessionGenerationSettings["imageGeneration"] | undefined,
   videoGeneration: undefined as SessionGenerationSettings["videoGeneration"] | undefined,
@@ -69,6 +71,7 @@ export function toGenerationSettings(): Partial<SessionGenerationSettings> | und
   if (s.reasoningEffort !== undefined) settings.reasoningEffort = s.reasoningEffort;
   if (s.reasoningVisibility !== undefined) settings.reasoningVisibility = s.reasoningVisibility;
   if (s.verbosity !== undefined) settings.verbosity = s.verbosity;
+  if (s.serviceTier !== undefined) settings.serviceTier = s.serviceTier;
   if (s.forceInterleavedThinkingCompat !== undefined) {
     settings.forceInterleavedThinkingCompat = s.forceInterleavedThinkingCompat;
   }
@@ -128,6 +131,9 @@ function updateGenerationSettings(settings: Partial<SessionGenerationSettings>):
   if (Object.prototype.hasOwnProperty.call(settings, "verbosity")) {
     updates.verbosity = settings.verbosity;
   }
+  if (Object.prototype.hasOwnProperty.call(settings, "serviceTier")) {
+    updates.serviceTier = settings.serviceTier;
+  }
   if (Object.prototype.hasOwnProperty.call(settings, "forceInterleavedThinkingCompat")) {
     updates.forceInterleavedThinkingCompat = settings.forceInterleavedThinkingCompat;
   }
@@ -154,6 +160,7 @@ function resetGenerationSettings(): void {
     reasoningEffort: undefined,
     reasoningVisibility: undefined,
     verbosity: undefined,
+    serviceTier: undefined,
     forceInterleavedThinkingCompat: undefined,
     imageGeneration: undefined,
     videoGeneration: undefined,
@@ -177,6 +184,7 @@ function reset(): void {
     reasoningEffort: undefined,
     reasoningVisibility: undefined,
     verbosity: undefined,
+    serviceTier: undefined,
     forceInterleavedThinkingCompat: undefined,
     imageGeneration: undefined,
     videoGeneration: undefined,
