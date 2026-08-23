@@ -13,6 +13,7 @@ interface ChatInputToolbarProps {
   showVoiceInput?: boolean;
   isVoiceInputListening?: boolean;
   isVoiceInputTranscribing?: boolean;
+  compact?: boolean;
   onSend: () => void;
   onQueue: () => void;
   onSteer: () => void;
@@ -31,6 +32,7 @@ const ChatInputToolbar: FC<ChatInputToolbarProps> = ({
   showVoiceInput = false,
   isVoiceInputListening = false,
   isVoiceInputTranscribing = false,
+  compact = false,
   onSend,
   onQueue,
   onSteer,
@@ -90,7 +92,7 @@ const ChatInputToolbar: FC<ChatInputToolbarProps> = ({
   };
 
   return (
-    <div className="flex items-center justify-between px-3 py-2">
+    <div className={compact ? "flex items-center gap-1" : "flex items-center justify-between px-3 py-2"}>
       <div className="flex items-center gap-1">
         <Tooltip>
           <TooltipTrigger

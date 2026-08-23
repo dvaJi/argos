@@ -11,6 +11,7 @@ import type {
 import { ErrorBoundary } from "#/components/ErrorBoundary";
 import ChatInputBox from "#/components/chat/ChatInputBox";
 import ChatInputToolbar from "#/components/chat/ChatInputToolbar";
+import ComposerFooterBar from "#/components/chat/ComposerFooterBar";
 import AgentProgressFloat from "#/components/chat/AgentProgressFloat";
 import PendingInputLane from "#/components/chat/PendingInputLane";
 import ChatStatusBar from "#/components/chat/ChatStatusBar";
@@ -1121,6 +1122,7 @@ function ChatPage({ sessionId }: ChatPageProps) {
                 disableSteerAction={isAtCapacity()}
                 isGenerating={isGenerating}
                 onDeleteQueue={onPendingInputDelete}
+                onDeleteSteer={onPendingInputDelete}
                 onSteerQueueItem={onSteerPendingInput}
               />
               <div>
@@ -1188,8 +1190,10 @@ function ChatPage({ sessionId }: ChatPageProps) {
                       onQueueSubmit={onQueueSubmit}
                       onSubmit={onSubmit}
                       onToggleVoiceInput={() => {}}
+                      footerLeft={<ComposerFooterBar />}
                       toolbar={
                         <ChatInputToolbar
+                          compact
                           isGenerating={isGenerating}
                           isCancelling={isCancelling}
                           hasInput={hasDraftInput}

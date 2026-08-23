@@ -123,6 +123,8 @@ export const ArgosSubagentMetaSchema = zod
   })
   .nullable();
 
+export const ServiceTierSchema = zod.enum(["standard", "fast"]);
+
 export const SessionGenerationSettingsSchema = zod.object({
   systemPrompt: zod.string(),
   temperature: zod.number(),
@@ -134,6 +136,7 @@ export const SessionGenerationSettingsSchema = zod.object({
   reasoningEffort: ReasoningEffortSchema.optional(),
   reasoningVisibility: ReasoningVisibilitySchema.optional(),
   verbosity: VerbositySchema.optional(),
+  serviceTier: ServiceTierSchema.optional(),
   forceInterleavedThinkingCompat: zod.boolean().optional(),
   imageGeneration: ImageGenerationOptionsSchema,
   videoGeneration: VideoGenerationOptionsSchema,

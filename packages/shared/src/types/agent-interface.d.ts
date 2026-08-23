@@ -21,6 +21,8 @@ export interface SessionCompactionState {
   summaryUpdatedAt: number | null;
 }
 
+export type ServiceTier = "standard" | "fast";
+
 export interface SessionGenerationSettings {
   systemPrompt: string;
   temperature: number;
@@ -32,6 +34,7 @@ export interface SessionGenerationSettings {
   reasoningEffort?: ReasoningEffort;
   reasoningVisibility?: ReasoningVisibility;
   verbosity?: Verbosity;
+  serviceTier?: ServiceTier;
   forceInterleavedThinkingCompat?: boolean;
   imageGeneration?: ImageGenerationOptions;
   videoGeneration?: VideoGenerationOptions;

@@ -56,6 +56,7 @@ interface ChatInputBoxProps {
   onPendingSkillsChange?: (skills: string[]) => void;
   onToggleVoiceInput?: () => void;
   toolbar?: ReactNode;
+  footerLeft?: ReactNode;
 }
 
 const ChatInputBox = forwardRef<
@@ -90,6 +91,7 @@ const ChatInputBox = forwardRef<
       onPendingSkillsChange,
       onToggleVoiceInput,
       toolbar,
+      footerLeft,
     },
     ref,
   ) => {
@@ -422,7 +424,12 @@ const ChatInputBox = forwardRef<
           )}
         </div>
 
-        {toolbar}
+        {footerLeft || toolbar ? (
+          <div className="flex items-center justify-between gap-2 border-t border-border/40 px-3 py-2">
+            <div className="flex min-w-0 items-center gap-1">{footerLeft}</div>
+            <div className="flex shrink-0 items-center gap-1">{toolbar}</div>
+          </div>
+        ) : null}
 
         {dialogState && (
           <CommandInputDialog
