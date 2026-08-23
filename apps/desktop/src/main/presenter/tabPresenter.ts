@@ -18,6 +18,9 @@ import { resolveUiUrl } from "#/lib/daemonUi";
 import { getPreloadPath } from "#/lib/paths";
 import { presenter } from "./";
 import { getYoBrowserSession } from "./browser/yoBrowserSession";
+import { createLogger } from "@argos/shared/logger";
+
+const log = createLogger("Tab");
 
 const tabContextMenuLabels = {
   copy: "Copy",
@@ -158,7 +161,7 @@ export class TabPresenter implements ITabPresenter {
    * Create a new tab and add it to the given window.
    */
   async createTab(windowId: number, url: string, options: TabCreateOptions = {}): Promise<number | null> {
-    console.log("createTab", windowId, url, options);
+    log.info("createTab", windowId, url, options);
     const window = BrowserWindow.fromId(windowId);
     if (!window) return null;
     if (!this.windowTypes.has(windowId)) {
@@ -168,12 +171,12 @@ export class TabPresenter implements ITabPresenter {
     const isLocalUrl = url.startsWith("local://");
 
     if (windowType === "browser" && isLocalUrl) {
-      console.warn(`Browser window ${windowId} cannot open local tab: ${url}`);
+      log.warn(`Browser window ${windowId} cannot open local tab: ${url}`);
       return null;
     }
 
     if (windowType === "chat" && !isLocalUrl && !options.allowNonLocal) {
-      console.warn(`Chat window ${windowId} cannot open external tab without explicit opt-in: ${url}`);
+      log.warn(`Chat window ${windowId} cannot open external tab without explicit opt-in: ${url}`);
       return null;
     }
 
@@ -438,18 +441,18 @@ export class TabPresenter implements ITabPresenter {
     if (!window || window.isDestroyed()) return false;
     const state = this.tabState.get(tabId);
     if (!state) {
-      console.warn(`attachTab: Tab ${tabId} state not found.`);
+      log.warn(`attachTab: Tab ${tabId} state not found.`);
       return false;
     }
     const targetWindowType = this.getWindowType(targetWindowId);
     const isLocal = state.url?.startsWith("local://");
 
     if (targetWindowType === "browser" && isLocal) {
-      console.warn(`Browser window ${targetWindowId} cannot attach local tab ${tabId}.`);
+      log.warn(`Browser window ${targetWindowId} cannot attach local tab ${tabId}.`);
       return false;
     }
     if (targetWindowType === "chat" && !isLocal) {
-      console.warn(`Chat window ${targetWindowId} cannot attach external tab ${tabId}.`);
+      log.warn(`Chat window ${targetWindowId} cannot attach external tab ${tabId}.`);
       return false;
     }
     if (!this.chromeHeights.has(targetWindowId)) {
@@ -488,18 +491,18 @@ export class TabPresenter implements ITabPresenter {
     const windowId = this.tabWindowMap.get(tabId);
     const tabState = this.tabState.get(tabId);
     if (!tabState) {
-      console.warn(`moveTab: Tab ${tabId} state not found.`);
+      log.warn(`moveTab: Tab ${tabId} state not found.`);
       return false;
     }
     const targetWindowType = this.getWindowType(targetWindowId);
     const isLocal = tabState.url?.startsWith("local://");
 
     if (targetWindowType === "browser" && isLocal) {
-      console.warn(`Browser window ${targetWindowId} cannot receive local tab ${tabId}.`);
+      log.warn(`Browser window ${targetWindowId} cannot receive local tab ${tabId}.`);
       return false;
     }
     if (targetWindowType === "chat" && !isLocal) {
-      console.warn(`Chat window ${targetWindowId} cannot receive external tab ${tabId}.`);
+      log.warn(`Chat window ${targetWindowId} cannot receive external tab ${tabId}.`);
       return false;
     }
 
@@ -543,7 +546,7 @@ export class TabPresenter implements ITabPresenter {
     // Get the tab ID list for the window
     const tabsInWindow = this.windowTabs.get(windowId);
     if (!tabsInWindow) {
-      console.warn(`TabPresenter: No tab list found for window ${windowId} when getting active tab ID.`);
+      log.warn(`TabPresenter: No tab list found for window ${windowId} when getting active tab ID.`);
       return undefined;
     }
 
@@ -557,7 +560,7 @@ export class TabPresenter implements ITabPresenter {
     }
 
     // No active tab found
-    console.log(`TabPresenter: No active tab found for window ${windowId}.`);
+    log.info(`TabPresenter: No active tab found for window ${windowId}.`);
     return undefined;
   }
 
@@ -667,7 +670,7 @@ export class TabPresenter implements ITabPresenter {
         const state = this.tabState.get(tabId);
         if (state) {
           if (state.icon !== favicons[0]) {
-            console.log("page-favicon-updated", state.icon, favicons[0]);
+            log.info("page-favicon-updated", state.icon, favicons[0]);
             state.icon = favicons[0];
             this.notifyWindowTabsUpdate(windowId).catch(console.error); // Call async function, handle potential rejection
           }
@@ -820,7 +823,7 @@ export class TabPresenter implements ITabPresenter {
     // Destroy all tabs
     // Use a `for...of` loop so every closeTab call is awaited
     for (const [tabId] of this.tabWindowMap.entries()) {
-      console.log(`Destroying resources for tab: ${tabId}`);
+      log.info(`Destroying resources for tab: ${tabId}`);
       await this.closeTab(tabId);
     }
 
@@ -838,20 +841,20 @@ export class TabPresenter implements ITabPresenter {
    * Reorder tabs within a window.
    */
   async reorderTabs(windowId: number, tabIds: number[]): Promise<boolean> {
-    console.log("reorderTabs", windowId, tabIds);
+    log.info("reorderTabs", windowId, tabIds);
 
     const windowTabs = this.windowTabs.get(windowId);
     if (!windowTabs) return false;
 
     for (const tabId of tabIds) {
       if (!windowTabs.includes(tabId)) {
-        console.warn(`Tab ${tabId} does not belong to window ${windowId}`);
+        log.warn(`Tab ${tabId} does not belong to window ${windowId}`);
         return false;
       }
     }
 
     if (tabIds.length !== windowTabs.length) {
-      console.warn("Tab count mismatch in reorder operation");
+      log.warn("Tab count mismatch in reorder operation");
       return false;
     }
 
@@ -875,14 +878,14 @@ export class TabPresenter implements ITabPresenter {
     const originalWindowId = this.tabWindowMap.get(tabId);
 
     if (!tabInfo || originalWindowId === undefined) {
-      console.error(`moveTabToNewWindow: Tab ${tabId} not found or no window associated.`);
+      log.error(`moveTabToNewWindow: Tab ${tabId} not found or no window associated.`);
       return false;
     }
 
     // 1. Detach the tab from the current window
     const detached = await this.detachTab(tabId);
     if (!detached) {
-      console.error(`moveTabToNewWindow: Failed to detach tab ${tabId} from window ${originalWindowId}.`);
+      log.error(`moveTabToNewWindow: Failed to detach tab ${tabId} from window ${originalWindowId}.`);
       // Consider reattaching here on failure if that's the desired fallback
       // await this.attachTab(tabId, originalWindowId);
       return false;
@@ -912,7 +915,7 @@ export class TabPresenter implements ITabPresenter {
           });
 
     if (newWindowId === null) {
-      console.error("moveTabToNewWindow: Failed to create a new window.");
+      log.error("moveTabToNewWindow: Failed to create a new window.");
       // Reattach to original window if new window creation fails
       await this.attachTab(tabId, originalWindowId);
       return false;
@@ -921,7 +924,7 @@ export class TabPresenter implements ITabPresenter {
     // 3. Attach the tab to the new window
     const attached = await this.attachTab(tabId, newWindowId);
     if (!attached) {
-      console.error(`moveTabToNewWindow: Failed to attach tab ${tabId} to new window ${newWindowId}.`);
+      log.error(`moveTabToNewWindow: Failed to attach tab ${tabId} to new window ${newWindowId}.`);
       // Reattach to original window if attaching fails
       await this.attachTab(tabId, originalWindowId);
       // Optionally close the empty new window here:
@@ -930,7 +933,7 @@ export class TabPresenter implements ITabPresenter {
       return false;
     }
 
-    // console.log(`Tab ${tabId} moved from window ${originalWindowId} to new window ${newWindowId}`); // Kept concise log
+    // log.info(`Tab ${tabId} moved from window ${originalWindowId} to new window ${newWindowId}`); // Kept concise log
     // Notify the original window to refresh its tab list
     await this.notifyWindowTabsUpdate(originalWindowId);
     // Notify the new window to refresh its tab list
@@ -981,7 +984,7 @@ export class TabPresenter implements ITabPresenter {
       }
 
       if (!targetWebContents || targetWebContents.isDestroyed()) {
-        console.error(`captureTabArea: Tab ${tabId} not found or destroyed`);
+        log.error(`captureTabArea: Tab ${tabId} not found or destroyed`);
         return null;
       }
 
@@ -989,7 +992,7 @@ export class TabPresenter implements ITabPresenter {
       const image = await targetWebContents.capturePage(rect);
 
       if (image.isEmpty()) {
-        console.error("Capture tab area: Captured image is empty");
+        log.error("Capture tab area: Captured image is empty");
         return null;
       }
 
@@ -997,7 +1000,7 @@ export class TabPresenter implements ITabPresenter {
       const base64Data = image.toDataURL();
       return base64Data;
     } catch (error) {
-      console.error("Capture tab area error:", error);
+      log.error("Capture tab area error:", error);
       return null;
     }
   }
@@ -1007,7 +1010,7 @@ export class TabPresenter implements ITabPresenter {
    * @param tabId Tab ID.
    */
   async onRendererTabReady(tabId: number): Promise<void> {
-    console.log(`Tab ${tabId} renderer ready`);
+    log.info(`Tab ${tabId} renderer ready`);
     // Notify other modules via the EventBus
     eventBus.sendToMain(TAB_EVENTS.RENDERER_TAB_READY, tabId);
   }
@@ -1017,7 +1020,7 @@ export class TabPresenter implements ITabPresenter {
    * @param threadId Session ID.
    */
   async onRendererTabActivated(threadId: string): Promise<void> {
-    console.log(`Thread ${threadId} activated in renderer`);
+    log.info(`Thread ${threadId} activated in renderer`);
     // Notify other modules via the EventBus
     eventBus.sendToMain(TAB_EVENTS.RENDERER_TAB_ACTIVATED, threadId);
   }
@@ -1044,7 +1047,7 @@ export class TabPresenter implements ITabPresenter {
   ): Promise<string | null> {
     try {
       if (imageDataList.length === 0) {
-        console.error("stitchImagesWithWatermark: No images provided");
+        log.error("stitchImagesWithWatermark: No images provided");
         return null;
       }
 
@@ -1070,10 +1073,10 @@ export class TabPresenter implements ITabPresenter {
       // Convert to base64 format
       const base64Data = watermarkedImage.toDataURL();
 
-      console.log(`Successfully stitched ${imageDataList.length} images with watermark`);
+      log.info(`Successfully stitched ${imageDataList.length} images with watermark`);
       return base64Data;
     } catch (error) {
-      console.error("Stitch images with watermark error:", error);
+      log.error("Stitch images with watermark error:", error);
       return null;
     }
   }
@@ -1111,9 +1114,9 @@ export class TabPresenter implements ITabPresenter {
 
   registerFloatingWindow(webContentsId: number, webContents: Electron.WebContents): void {
     try {
-      console.log(`TabPresenter: Registering floating window as virtual tab, ID: ${webContentsId}`);
+      log.info(`TabPresenter: Registering floating window as virtual tab, ID: ${webContentsId}`);
       if (this.tabs.has(webContentsId)) {
-        console.warn(`TabPresenter: Tab ${webContentsId} already exists, skipping registration`);
+        log.warn(`TabPresenter: Tab ${webContentsId} already exists, skipping registration`);
         return;
       }
       const virtualView = {
@@ -1124,20 +1127,20 @@ export class TabPresenter implements ITabPresenter {
       } as any;
       this.webContentsToTabId.set(webContentsId, webContentsId);
       this.tabs.set(webContentsId, virtualView);
-      console.log(`TabPresenter: Virtual tab registered successfully for floating window ${webContentsId}`);
+      log.info(`TabPresenter: Virtual tab registered successfully for floating window ${webContentsId}`);
     } catch (error) {
-      console.error("TabPresenter: Failed to register floating window:", error);
+      log.error("TabPresenter: Failed to register floating window:", error);
     }
   }
 
   unregisterFloatingWindow(webContentsId: number): void {
     try {
-      console.log(`TabPresenter: Unregistering floating window virtual tab, ID: ${webContentsId}`);
+      log.info(`TabPresenter: Unregistering floating window virtual tab, ID: ${webContentsId}`);
       this.webContentsToTabId.delete(webContentsId);
       this.tabs.delete(webContentsId);
-      console.log(`TabPresenter: Virtual tab unregistered successfully for floating window ${webContentsId}`);
+      log.info(`TabPresenter: Virtual tab unregistered successfully for floating window ${webContentsId}`);
     } catch (error) {
-      console.error("TabPresenter: Failed to unregister floating window:", error);
+      log.error("TabPresenter: Failed to unregister floating window:", error);
     }
   }
 }

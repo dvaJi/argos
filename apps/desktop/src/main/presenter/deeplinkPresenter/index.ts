@@ -12,6 +12,9 @@ import {
   type ProviderInstallDeeplinkPayload,
   type ProviderInstallPreview,
 } from "@argos/shared/providerDeeplink";
+import { createLogger } from "@argos/shared/logger";
+
+const log = createLogger("Deeplink");
 
 interface MCPInstallConfig {
   mcpServers: Record<
@@ -45,7 +48,7 @@ export class DeeplinkPresenter implements IDeeplinkPresenter {
   init(): void {
     const startupDeepLinkUrl = consumeStartupDeepLink();
     if (startupDeepLinkUrl) {
-      console.log("Found startup deeplink URL:", this.redactDeepLinkUrlForLog(startupDeepLinkUrl));
+      log.info("Found startup deeplink URL:", this.redactDeepLinkUrlForLog(startupDeepLinkUrl));
       this.startupUrl = startupDeepLinkUrl;
     }
 
@@ -60,9 +63,9 @@ export class DeeplinkPresenter implements IDeeplinkPresenter {
 
     // Listen for window content loaded event
     eventBus.once(WINDOW_EVENTS.FIRST_CONTENT_LOADED, () => {
-      console.log("Window content loaded. Processing DeepLink if exists.");
+      log.info("Window content loaded. Processing DeepLink if exists.");
       if (this.startupUrl) {
-        console.log("Processing startup URL:", this.redactDeepLinkUrlForLog(this.startupUrl));
+        log.info("Processing startup URL:", this.redactDeepLinkUrlForLog(this.startupUrl));
         void this.handleDeepLink(this.startupUrl);
         this.startupUrl = null;
       }
@@ -70,9 +73,9 @@ export class DeeplinkPresenter implements IDeeplinkPresenter {
 
     // Listen for MCP initialized event
     eventBus.on(MCP_EVENTS.INITIALIZED, () => {
-      console.log("MCP initialized. Processing pending MCP install if exists.");
+      log.info("MCP initialized. Processing pending MCP install if exists.");
       if (this.pendingMcpInstallUrl) {
-        console.log("Processing pending MCP install URL:", this.redactDeepLinkUrlForLog(this.pendingMcpInstallUrl));
+        log.info("Processing pending MCP install URL:", this.redactDeepLinkUrlForLog(this.pendingMcpInstallUrl));
         void this.handleDeepLink(this.pendingMcpInstallUrl);
         this.pendingMcpInstallUrl = null;
       }
@@ -82,10 +85,10 @@ export class DeeplinkPresenter implements IDeeplinkPresenter {
   async handleDeepLink(url: string): Promise<void> {
     try {
       const urlObj = new URL(url);
-      console.log("Received DeepLink:", this.redactDeepLinkUrlForLog(url));
+      log.info("Received DeepLink:", this.redactDeepLinkUrlForLog(url));
 
       if (urlObj.protocol !== "argos:") {
-        console.error("Unsupported protocol:", urlObj.protocol);
+        log.error("Unsupported protocol:", urlObj.protocol);
         return;
       }
 
@@ -94,10 +97,10 @@ export class DeeplinkPresenter implements IDeeplinkPresenter {
         .join("/");
       const [command = "", subCommand = ""] = rawPath.split("/");
 
-      console.log("Parsed deeplink - command:", command, "subCommand:", subCommand);
+      log.info("Parsed deeplink - command:", command, "subCommand:", subCommand);
 
       if (command === "mcp" && subCommand === "install" && !presenter.mcpPresenter.isReady()) {
-        console.log("MCP not ready yet, saving MCP install URL for later");
+        log.info("MCP not ready yet, saving MCP install URL for later");
         this.pendingMcpInstallUrl = url;
         return;
       }
@@ -110,31 +113,31 @@ export class DeeplinkPresenter implements IDeeplinkPresenter {
         if (subCommand === "install") {
           await this.handleMcpInstall(urlObj.searchParams);
         } else {
-          console.warn("Unknown MCP subcommand:", subCommand);
+          log.warn("Unknown MCP subcommand:", subCommand);
         }
       } else if (command === "provider") {
         if (subCommand === "install") {
           await this.handleProviderInstall(urlObj.searchParams);
         } else {
-          console.warn("Unknown provider subcommand:", subCommand);
+          log.warn("Unknown provider subcommand:", subCommand);
         }
       } else if (command === "auth") {
         // Handle auth/callback command (GitHub OAuth relay hand-off)
         if (subCommand === "callback") {
           await this.handleAuthCallback(urlObj.searchParams);
         } else {
-          console.warn("Unknown auth subcommand:", subCommand);
+          log.warn("Unknown auth subcommand:", subCommand);
         }
       } else {
-        console.warn("Unknown DeepLink command:", command);
+        log.warn("Unknown DeepLink command:", command);
       }
     } catch (error) {
-      console.error("Error processing DeepLink:", error);
+      log.error("Error processing DeepLink:", error);
     }
   }
 
   async handleStart(params: URLSearchParams): Promise<void> {
-    console.log("Processing start command, parameters:", this.redactSearchParamsForLog(params));
+    log.info("Processing start command, parameters:", this.redactSearchParamsForLog(params));
 
     let msg = params.get("msg");
     if (!msg) {
@@ -144,7 +147,7 @@ export class DeeplinkPresenter implements IDeeplinkPresenter {
     // Security: Validate and sanitize message content
     msg = this.sanitizeMessageContent(decodeURIComponent(msg));
     if (!msg) {
-      console.warn("Message content was rejected by security filters");
+      log.warn("Message content was rejected by security filters");
       return;
     }
 
@@ -173,14 +176,14 @@ export class DeeplinkPresenter implements IDeeplinkPresenter {
     // SECURITY: Disable auto-send functionality to prevent abuse
     // The yolo parameter has been removed for security reasons
     const autoSend = false;
-    console.log("msg:", msg);
-    console.log("modelId:", modelId);
-    console.log("systemPrompt:", systemPrompt);
-    console.log("autoSend:", autoSend, "(disabled for security)");
+    log.info("msg:", msg);
+    log.info("modelId:", modelId);
+    log.info("systemPrompt:", systemPrompt);
+    log.info("autoSend:", autoSend, "(disabled for security)");
 
     const targetWindow = await this.resolveChatWindow();
     if (!targetWindow) {
-      console.error("Failed to resolve chat window for start deeplink");
+      log.error("Failed to resolve chat window for start deeplink");
       return;
     }
 
@@ -201,7 +204,7 @@ export class DeeplinkPresenter implements IDeeplinkPresenter {
    * never logged.
    */
   async handleAuthCallback(params: URLSearchParams): Promise<void> {
-    console.log("[DeepLink] Processing auth/callback (params redacted)");
+    log.info("[DeepLink] Processing auth/callback (params redacted)");
 
     const token = params.get("token") ?? undefined;
     const state = params.get("state") ?? undefined;
@@ -257,32 +260,32 @@ export class DeeplinkPresenter implements IDeeplinkPresenter {
         });
       }
     } catch (error) {
-      console.error("Error ensuring chat window ready:", error);
+      log.error("Error ensuring chat window ready:", error);
     }
   }
 
   async handleMcpInstall(params: URLSearchParams): Promise<void> {
-    console.log("Processing mcp/install command, parameters:", this.redactSearchParamsForLog(params));
+    log.info("Processing mcp/install command, parameters:", this.redactSearchParamsForLog(params));
 
     // Get JSON data
     const jsonBase64 = params.get("code");
     if (!jsonBase64) {
-      console.error("Missing 'code' parameter");
+      log.error("Missing 'code' parameter");
       return;
     }
 
-    console.log("Found code parameter, processing MCP config");
+    log.info("Found code parameter, processing MCP config");
 
     try {
       // Decode Base64 and parse JSON
       const jsonString = Buffer.from(jsonBase64, "base64").toString("utf-8");
       const mcpConfig = JSON.parse(jsonString) as MCPInstallConfig;
 
-      console.log("Parsed MCP config:", this.redactValueForLog(mcpConfig));
+      log.info("Parsed MCP config:", this.redactValueForLog(mcpConfig));
 
       // Check if MCP config is valid
       if (!mcpConfig || !mcpConfig.mcpServers) {
-        console.error("Invalid MCP configuration: missing mcpServers field");
+        log.error("Invalid MCP configuration: missing mcpServers field");
         return;
       }
 
@@ -301,15 +304,15 @@ export class DeeplinkPresenter implements IDeeplinkPresenter {
             determinedType = serverConfig.type;
             // Validate required fields based on explicit type
             if (determinedType === "stdio" && !determinedCommand) {
-              console.error(`Server ${serverName} is type 'stdio' but missing required 'command' field`);
+              log.error(`Server ${serverName} is type 'stdio' but missing required 'command' field`);
               continue;
             }
             if (determinedType === "sse" && !determinedUrl) {
-              console.error(`Server ${serverName} is type 'sse' but missing required 'url' field`);
+              log.error(`Server ${serverName} is type 'sse' but missing required 'url' field`);
               continue;
             }
           } else {
-            console.error(
+            log.error(
               `Server ${serverName} provided invalid 'type' value: ${serverConfig.type}, should be 'stdio' or 'sse'`,
             );
             continue;
@@ -320,7 +323,7 @@ export class DeeplinkPresenter implements IDeeplinkPresenter {
           const hasUrl = !!determinedUrl && determinedUrl.trim() !== "";
 
           if (hasCommand && hasUrl) {
-            console.error(
+            log.error(
               `Server ${serverName} provides both 'command' and 'url' fields, but 'type' is not specified. Please explicitly set 'type' to 'stdio' or 'sse'.`,
             );
             continue;
@@ -329,14 +332,14 @@ export class DeeplinkPresenter implements IDeeplinkPresenter {
           } else if (hasUrl) {
             determinedType = "sse";
           } else {
-            console.error(`Server ${serverName} must provide either 'command' (for stdio) or 'url' (for sse) field`);
+            log.error(`Server ${serverName} must provide either 'command' (for stdio) or 'url' (for sse) field`);
             continue;
           }
         }
 
         // Safeguard check (should not be reached if logic is correct)
         if (!determinedType) {
-          console.error(`Cannot determine server ${serverName} type ('stdio' or 'sse')`);
+          log.error(`Cannot determine server ${serverName} type ('stdio' or 'sse')`);
           continue;
         }
 
@@ -374,7 +377,7 @@ export class DeeplinkPresenter implements IDeeplinkPresenter {
         };
 
         // Add server config to the full config
-        console.log(
+        log.info(
           `Preparing to install MCP server: ${serverName} (type: ${determinedType})`,
           this.redactValueForLog(finalConfig),
         );
@@ -382,13 +385,13 @@ export class DeeplinkPresenter implements IDeeplinkPresenter {
       }
 
       if (Object.keys(completeMcpConfig.mcpServers).length === 0) {
-        console.error("No valid MCP servers found in deeplink payload");
+        log.error("No valid MCP servers found in deeplink payload");
         return;
       }
 
       const settingsWindowId = await presenter.windowPresenter.navigateToSettings();
       if (!settingsWindowId) {
-        console.error("Failed to navigate to settings for MCP install deeplink");
+        log.error("Failed to navigate to settings for MCP install deeplink");
         return;
       }
 
@@ -396,14 +399,14 @@ export class DeeplinkPresenter implements IDeeplinkPresenter {
         mcpConfig: JSON.stringify(completeMcpConfig),
       });
 
-      console.log("All MCP servers processing completed");
+      log.info("All MCP servers processing completed");
     } catch (error) {
-      console.error("Error parsing or processing MCP configuration:", error);
+      log.error("Error parsing or processing MCP configuration:", error);
     }
   }
 
   async handleProviderInstall(params: URLSearchParams): Promise<void> {
-    console.log("Processing provider/install command, parameters:", this.redactSearchParamsForLog(params));
+    log.info("Processing provider/install command, parameters:", this.redactSearchParamsForLog(params));
 
     try {
       const preview = this.parseProviderInstallParams(params);
@@ -420,7 +423,7 @@ export class DeeplinkPresenter implements IDeeplinkPresenter {
       presenter.windowPresenter.sendToWindow(settingsWindowId, SETTINGS_EVENTS.PROVIDER_INSTALL);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Invalid provider deeplink.";
-      console.error("Error parsing provider install deeplink:", error);
+      log.error("Error parsing provider install deeplink:", error);
       this.notifyProviderImportError(message);
     }
   }
@@ -634,7 +637,7 @@ export class DeeplinkPresenter implements IDeeplinkPresenter {
     // Length limit
     if (content.length > 50000) {
       // 50KB limit for messages
-      console.warn("Message content exceeds length limit");
+      log.warn("Message content exceeds length limit");
       return "";
     }
 
@@ -658,7 +661,7 @@ export class DeeplinkPresenter implements IDeeplinkPresenter {
     // Check whether dangerous patterns are present
     for (const pattern of dangerousPatterns) {
       if (pattern.test(content)) {
-        console.warn("Dangerous pattern detected in message content:", pattern.source);
+        log.warn("Dangerous pattern detected in message content:", pattern.source);
         return "";
       }
     }
@@ -683,7 +686,7 @@ export class DeeplinkPresenter implements IDeeplinkPresenter {
 
       for (const dangerousPattern of artifactDangerousPatterns) {
         if (dangerousPattern.test(artifactContent)) {
-          console.warn("Dangerous pattern detected in antArtifact content:", dangerousPattern.source);
+          log.warn("Dangerous pattern detected in antArtifact content:", dangerousPattern.source);
           return "";
         }
       }

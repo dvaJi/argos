@@ -319,7 +319,7 @@ export class Presenter implements IPresenter {
             return normalized;
           }
         } catch (error) {
-          console.warn("[Presenter] Failed to resolve new session workdir:", {
+          log.warn("Failed to resolve new session workdir:", {
             conversationId,
             error,
           });
@@ -537,7 +537,7 @@ export class Presenter implements IPresenter {
         try {
           void this.floatingButtonPresenter.refreshWidgetState();
         } catch (error) {
-          console.warn("[Presenter] Failed to refresh floating widget state:", error);
+          log.warn("Failed to refresh floating widget state:", error);
         }
       },
     };
@@ -790,7 +790,7 @@ export class Presenter implements IPresenter {
     try {
       await this.acpDaemonPortField?.clearAcpSession(conversationId);
     } catch (error) {
-      console.warn("[Presenter] Failed to clear ACP session:", error);
+      log.warn("Failed to clear ACP session:", error);
     }
   }
 
@@ -839,7 +839,7 @@ export class Presenter implements IPresenter {
     });
   }
   setupTray() {
-    console.info("setupTray", !!this.trayPresenter);
+    log.info("setupTray", !!this.trayPresenter);
     if (!this.trayPresenter) {
       this.trayPresenter = new TrayPresenter();
     }
@@ -849,7 +849,7 @@ export class Presenter implements IPresenter {
   // Application initialization logic (called once the main window is ready)
   init() {
     if (this.hasInitialized) {
-      console.info("[Startup][Main] Presenter.init skipped because startup already ran");
+      log.info("[Startup][Main] Presenter.init skipped because startup already ran");
       return;
     }
 
@@ -857,7 +857,7 @@ export class Presenter implements IPresenter {
 
     // Persist the LLMProviderPresenter providers data
     const providers = this.configPresenter.getProviders();
-    console.info(`[Startup][Main] Presenter.init begin providers=${providers.length}`);
+    log.info(`[Startup][Main] Presenter.init begin providers=${providers.length}`);
     this.llmproviderPresenter.setProviders(providers);
 
     // Start background memory maintenance (consolidation, reflection sweeps)
@@ -956,7 +956,7 @@ export class Presenter implements IPresenter {
         });
       })
       .catch((error) => {
-        console.error("Failed to schedule idle provider warmup:", error);
+        log.error("Failed to schedule idle provider warmup:", error);
       });
   }
 
@@ -964,18 +964,18 @@ export class Presenter implements IPresenter {
   private async initializeFloatingButton() {
     try {
       await this.floatingButtonPresenter.initialize();
-      console.log("FloatingButtonPresenter initialized successfully");
+      log.info("FloatingButtonPresenter initialized successfully");
     } catch (error) {
-      console.error("Failed to initialize FloatingButtonPresenter:", error);
+      log.error("Failed to initialize FloatingButtonPresenter:", error);
     }
   }
 
   private async initializeYoBrowser() {
     try {
       await this.yoBrowserPresenter.initialize();
-      console.log("YoBrowserPresenter initialized");
+      log.info("YoBrowserPresenter initialized");
     } catch (error) {
-      console.error("Failed to initialize YoBrowserPresenter:", error);
+      log.error("Failed to initialize YoBrowserPresenter:", error);
     }
   }
 
@@ -983,14 +983,14 @@ export class Presenter implements IPresenter {
     try {
       const { enableSkills } = this.configPresenter.getSkillSettings();
       if (!enableSkills) {
-        console.log("SkillPresenter disabled by config");
+        log.info("SkillPresenter disabled by config");
         return;
       }
       await (this.skillPresenter as SkillPresenter).initialize();
-      console.log("SkillPresenter initialized");
+      log.info("SkillPresenter initialized");
       await this.skillSyncPresenter.initialize();
     } catch (error) {
-      console.error("Failed to initialize SkillPresenter:", error);
+      log.error("Failed to initialize SkillPresenter:", error);
     }
   }
 
@@ -1002,9 +1002,9 @@ export class Presenter implements IPresenter {
       }
       await this.skillSyncPresenter.initialize();
       await this.skillSyncPresenter.scanAndDetectNewDiscoveries();
-      console.log("SkillSyncPresenter background scan completed");
+      log.info("SkillSyncPresenter background scan completed");
     } catch (error) {
-      console.error("Failed to run SkillSyncPresenter background scan:", error);
+      log.error("Failed to run SkillSyncPresenter background scan:", error);
     }
   }
 
@@ -1012,13 +1012,13 @@ export class Presenter implements IPresenter {
     try {
       await this.pluginPresenter.initialize();
     } catch (error) {
-      console.error("[PluginHost] Failed to initialize plugins:", error);
+      log.error("[PluginHost] Failed to initialize plugins:", error);
     }
 
     try {
       await this.mcpPresenter.initialize();
     } catch (error) {
-      console.error("Failed to initialize McpPresenter:", error);
+      log.error("Failed to initialize McpPresenter:", error);
     }
   }
 
@@ -1026,7 +1026,7 @@ export class Presenter implements IPresenter {
     try {
       await this.#remoteControlPresenter.initialize();
     } catch (error) {
-      console.error("RemoteControlPresenter.initialize failed:", error);
+      log.error("RemoteControlPresenter.initialize failed:", error);
     }
   }
 
@@ -1041,7 +1041,7 @@ export class Presenter implements IPresenter {
       return;
     }
 
-    console.info(`[Startup][Main] startup.provider.warmup.deferred begin providers=${enabledProviders.length}`);
+    log.info(`[Startup][Main] startup.provider.warmup.deferred begin providers=${enabledProviders.length}`);
 
     for (const [index, providerId] of enabledProviders.entries()) {
       if (taskContext.signal.aborted) {
@@ -1062,7 +1062,7 @@ export class Presenter implements IPresenter {
       await taskContext.yield();
     }
 
-    console.info(`[Startup][Main] startup.provider.warmup.deferred done providers=${enabledProviders.length}`);
+    log.info(`[Startup][Main] startup.provider.warmup.deferred done providers=${enabledProviders.length}`);
   }
 
   async callRemoteControl(method: keyof IRemoteControlPresenter, ...payloads: unknown[]): Promise<unknown> {
@@ -1083,13 +1083,13 @@ export class Presenter implements IPresenter {
     try {
       await this.pluginPresenter.shutdown();
     } catch (error) {
-      console.error("PluginPresenter.shutdown failed during presenter destroy:", error);
+      log.error("PluginPresenter.shutdown failed during presenter destroy:", error);
     }
 
     try {
       await this.mcpPresenter.shutdown();
     } catch (error) {
-      console.error("McpPresenter.shutdown failed during presenter destroy:", error);
+      log.error("McpPresenter.shutdown failed during presenter destroy:", error);
     }
 
     await this.destroyRemoteControl();
@@ -1104,7 +1104,7 @@ export class Presenter implements IPresenter {
     try {
       await this.memoryPresenter.dispose(); // Stop memory maintenance and close vector stores
     } catch (error) {
-      console.error("MemoryPresenter.dispose failed during presenter destroy:", error);
+      log.error("MemoryPresenter.dispose failed during presenter destroy:", error);
     }
     // Note: trayPresenter.destroy() is handled in the will-quit event in main/index.ts
     // trayPresenter is not destroyed here; its lifecycle is managed by main/index.ts
@@ -1114,7 +1114,7 @@ export class Presenter implements IPresenter {
     try {
       await this.#remoteControlPresenter.destroy();
     } catch (error) {
-      console.error("RemoteControlPresenter.destroy failed:", error);
+      log.error("RemoteControlPresenter.destroy failed:", error);
     }
   }
 }
@@ -1172,6 +1172,10 @@ export function getInstance(lifecycleManager: ILifecycleManager): Presenter {
 registerMainKernelRoutes(ipcMain, () => (presenter ? getMainKernelRouteRuntime() : undefined));
 
 import { registerDaemonPortHandler } from "#/routes/daemonPortHandler";
+import { createLogger } from "@argos/shared/logger";
+
+const log = createLogger("Presenter");
+
 registerDaemonPortHandler();
 
 // Guard: Rolldown may bundle this module twice due to circular imports,
@@ -1205,13 +1209,13 @@ if (!_alreadyRegistered) {
 
         // Log the invocation
         if (process.env.VITE_LOG_IPC_CALL === "1") {
-          console.log(
+          log.info(
             `[IPC Call] WebContents:${context.webContentsId} Window:${context.windowId || "unknown"} -> ${context.presenterName}.${context.methodName}`,
           );
         }
 
         if (!Presenter.DISPATCHABLE_PRESENTERS.has(name as keyof IPresenter)) {
-          console.warn(`[IPC Warning] WebContents:${context.webContentsId} blocked presenter access: ${name}`);
+          log.warn(`[IPC Warning] WebContents:${context.webContentsId} blocked presenter access: ${name}`);
           return { error: `Presenter "${name}" is not accessible via generic dispatcher` };
         }
 
@@ -1222,7 +1226,7 @@ if (!_alreadyRegistered) {
         let resolvedPayloads = payloads;
 
         if (!calledPresenter) {
-          console.warn(`[IPC Warning] WebContents:${context.webContentsId} calling wrong presenter: ${name}`);
+          log.warn(`[IPC Warning] WebContents:${context.webContentsId} calling wrong presenter: ${name}`);
           return { error: `Presenter "${name}" not found` };
         }
 
@@ -1236,7 +1240,7 @@ if (!_alreadyRegistered) {
             methodName: method,
           });
         } else {
-          console.warn(
+          log.warn(
             `[IPC Warning] WebContents:${context.webContentsId} called method is not a function or does not exist: ${name}.${method}`,
           );
           return { error: `Method "${method}" not found or not a function on "${name}"` };
@@ -1262,13 +1266,13 @@ if (!_alreadyRegistered) {
         const windowId = BrowserWindow.fromWebContents(event.sender)?.id;
 
         if (process.env.VITE_LOG_IPC_CALL === "1") {
-          console.log(
+          log.info(
             `[IPC Call] WebContents:${webContentsId} Window:${windowId || "unknown"} -> remoteControlPresenter.${method}`,
           );
         }
 
         if (!Presenter.REMOTE_CONTROL_METHODS.has(method as keyof IRemoteControlPresenter)) {
-          console.warn(`[IPC Warning] WebContents:${webContentsId} blocked remote control method: ${method}`);
+          log.warn(`[IPC Warning] WebContents:${webContentsId} blocked remote control method: ${method}`);
           return { error: `Method "${method}" is not allowed on "remoteControlPresenter"` };
         }
 

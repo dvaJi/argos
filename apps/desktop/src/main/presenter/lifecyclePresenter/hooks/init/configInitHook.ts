@@ -6,10 +6,12 @@
  */
 
 import { LifecycleHook, LifecycleContext } from "@argos/shared/presenter";
-import { setLoggingEnabled } from "@argos/shared/logger";
+import { createLogger, setLoggingEnabled } from "@argos/shared/logger";
 import { proxyConfig, ProxyMode } from "#/presenter/proxyConfig";
 import { ConfigPresenter } from "#/presenter/configPresenter";
 import { LifecyclePhase } from "@argos/shared/lifecycle";
+
+const log = createLogger("Config");
 
 export const configInitHook: LifecycleHook = {
   name: "config-initialization",
@@ -17,12 +19,12 @@ export const configInitHook: LifecycleHook = {
   priority: 1, // first in init phase
   critical: true,
   execute: async (context: LifecycleContext) => {
-    console.log("configInitHook: Initializing application configuration");
+    log.info("Initializing application configuration");
 
     // Ensure presenter is available (should be initialized by database hook)
-    console.log("configInitHook: creating ConfigPresenter");
+    log.info("Creating ConfigPresenter");
     const configPresenter = new ConfigPresenter();
-    console.log("configInitHook: ConfigPresenter created");
+    log.info("ConfigPresenter created");
 
     // Read logging settings from config and apply
     const loggingEnabled = configPresenter.getLoggingEnabled();
@@ -36,6 +38,6 @@ export const configInitHook: LifecycleHook = {
     // Store config in context for other hooks
     context.config = configPresenter;
 
-    console.log("configInitHook: Application configuration initialized successfully");
+    log.info("Application configuration initialized successfully");
   },
 };

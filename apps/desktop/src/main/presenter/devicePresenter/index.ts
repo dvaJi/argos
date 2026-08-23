@@ -12,6 +12,9 @@ import { eventBus, SendTarget } from "../../eventbus";
 import { NOTIFICATION_EVENTS } from "../../events";
 import { invokeDaemonRoute } from "#/routes/daemonRouteProxy";
 import { svgSanitizer } from "@argos/backend-core";
+import { createLogger } from "@argos/shared/logger";
+
+const log = createLogger("Device");
 
 // Lazy-loaded to avoid a circular dependency: this module is imported by
 // baseProvider, which the #/presenter barrel re-exports. Eagerly importing the
@@ -195,7 +198,7 @@ export class DevicePresenter implements IDevicePresenter {
       // Handle Base64 image
       return this.cacheImageFromBase64(imageData, cacheDir, fileName);
     } else {
-      console.warn("Unsupported image format");
+      log.warn("Unsupported image format");
       return imageData; // Return original data
     }
   }
@@ -229,7 +232,7 @@ export class DevicePresenter implements IDevicePresenter {
       // Return imgcache protocol URL
       return `imgcache://${saveFileName}`;
     } catch (error) {
-      console.error("Failed to download image:", error);
+      log.error("Failed to download image:", error);
       // Return original URL on download failure
       return url;
     }
@@ -247,7 +250,7 @@ export class DevicePresenter implements IDevicePresenter {
       // Parse MIME type and actual Base64 data
       const matches = base64Data.match(/^data:([^;]+);base64,(.*)$/);
       if (!matches || matches.length !== 3) {
-        console.warn("Invalid Base64 image data");
+        log.warn("Invalid Base64 image data");
         return base64Data;
       }
 
@@ -267,7 +270,7 @@ export class DevicePresenter implements IDevicePresenter {
       // Return imgcache protocol URL
       return `imgcache://${saveFileName}`;
     } catch (error) {
-      console.error("Failed to save Base64 image:", error);
+      log.error("Failed to save Base64 image:", error);
       return base64Data; // Return original data on error
     }
   }
@@ -303,7 +306,7 @@ export class DevicePresenter implements IDevicePresenter {
           app.exit();
           resolve();
         } catch (err) {
-          console.error("softReset failed");
+          log.error("softReset failed");
           reject(err);
           return;
         }
@@ -342,24 +345,24 @@ export class DevicePresenter implements IDevicePresenter {
       switch (resetType) {
         case "chat": {
           // Delete chat data
-          console.log("Resetting chat data...");
+          log.info("Resetting chat data...");
           try {
             const presenter = await getPresenter();
             if (presenter.sqlitePresenter) {
               presenter.sqlitePresenter.close();
-              console.log("SQLite database connection closed");
+              log.info("SQLite database connection closed");
             }
             await new Promise((resolve) => setTimeout(resolve, 500));
           } catch (closeError) {
-            console.warn("Error closing SQLite connection:", closeError);
+            log.warn("Error closing SQLite connection:", closeError);
           }
           const appDbPath = path.join(userDataPath, "app_db");
           const mainDbFile = path.join(appDbPath, "agent.db");
           try {
             removeFile(mainDbFile);
-            console.log("Removed chat database file");
+            log.info("Removed chat database file");
           } catch (error) {
-            console.warn("Failed to remove chat database file:", error);
+            log.warn("Failed to remove chat database file:", error);
           }
           const auxiliaryFiles = ["agent.db-wal", "agent.db-shm"];
           auxiliaryFiles.forEach((fileName) => {
@@ -367,9 +370,9 @@ export class DevicePresenter implements IDevicePresenter {
             if (fs.existsSync(filePath)) {
               try {
                 removeFile(filePath);
-                console.log("Cleaned up auxiliary file:", fileName);
+                log.info("Cleaned up auxiliary file:", fileName);
               } catch (error) {
-                console.warn("Failed to clean auxiliary file:", fileName, error);
+                log.warn("Failed to clean auxiliary file:", fileName, error);
               }
             }
           });
@@ -380,12 +383,12 @@ export class DevicePresenter implements IDevicePresenter {
           // Delete knowledge base data. The engine (DuckDB stores) is
           // daemon-owned: reset through the daemon route so stores are closed
           // before their files are removed. See docs/architecture/daemon-knowledge-runtime.
-          console.log("Resetting knowledge base data...");
+          log.info("Resetting knowledge base data...");
           try {
             await invokeDaemonRoute("mcp.stopServer", { serverName: "builtinKnowledge" });
             await invokeDaemonRoute("knowledge.reset", {});
           } catch (resetError) {
-            console.warn("Error resetting daemon knowledge data:", resetError);
+            log.warn("Error resetting daemon knowledge data:", resetError);
             // Fallback for a daemon that predates the knowledge.reset route:
             // attempt a local removal of the (shared) storage directory.
             const knowledgeDbPath = path.join(userDataPath, "app_db", "KnowledgeBase");
@@ -396,7 +399,7 @@ export class DevicePresenter implements IDevicePresenter {
 
         case "config": {
           // Delete configuration files
-          console.log("Resetting configuration files");
+          log.info("Resetting configuration files");
           const configFiles = [
             path.join(userDataPath, "app-settings.json"),
             path.join(userDataPath, "mcp-settings.json"),
@@ -407,36 +410,36 @@ export class DevicePresenter implements IDevicePresenter {
           configFiles.forEach((filePath) => {
             try {
               removeFile(filePath);
-              console.log("Removed config file:", filePath);
+              log.info("Removed config file:", filePath);
             } catch (error) {
-              console.warn("Failed to remove config file:", filePath, error);
+              log.warn("Failed to remove config file:", filePath, error);
             }
           });
 
           try {
             removeDirectory(path.join(userDataPath, "provider_models"));
-            console.log("Removed provider_models directory");
+            log.info("Removed provider_models directory");
           } catch (error) {
-            console.warn("Failed to remove provider_models directory:", error);
+            log.warn("Failed to remove provider_models directory:", error);
           }
           break;
         }
 
         case "all": {
           // Delete entire user data directory
-          console.log("Performing complete reset of user data...");
+          log.info("Performing complete reset of user data...");
           try {
             const presenter = await getPresenter();
             if (presenter.sqlitePresenter) {
               presenter.sqlitePresenter.close();
-              console.log("SQLite database connection closed");
+              log.info("SQLite database connection closed");
             }
             await invokeDaemonRoute("mcp.stopServer", { serverName: "builtinKnowledge" }).catch(() => {});
             await new Promise((resolve) => setTimeout(resolve, 1000));
           } catch (closeError) {
-            console.warn("Error closing database connections:", closeError);
+            log.warn("Error closing database connections:", closeError);
           }
-          console.log("Removing user data directory:", userDataPath);
+          log.info("Removing user data directory:", userDataPath);
           removeDirectory(userDataPath);
           break;
         }
@@ -447,7 +450,7 @@ export class DevicePresenter implements IDevicePresenter {
 
       this.restartAppWithDelay();
     } catch (error) {
-      console.error("resetDataByType failed:", error);
+      log.error("resetDataByType failed:", error);
       throw error;
     }
   }
@@ -455,7 +458,7 @@ export class DevicePresenter implements IDevicePresenter {
   private restartAppWithDelay(): void {
     try {
       if (is.dev) {
-        console.log("Data reset complete in dev mode, sending notification to renderer");
+        log.info("Data reset complete in dev mode, sending notification to renderer");
         eventBus.sendToRenderer(NOTIFICATION_EVENTS.DATA_RESET_COMPLETE_DEV, SendTarget.ALL_WINDOWS);
         return;
       }
@@ -465,7 +468,7 @@ export class DevicePresenter implements IDevicePresenter {
         app.exit();
       }, 1000);
     } catch (error) {
-      console.error("Restart failed:", error);
+      log.error("Restart failed:", error);
       throw error;
     }
   }
@@ -503,7 +506,7 @@ export class DevicePresenter implements IDevicePresenter {
    * Restart the application
    */
   restartApp(): Promise<void> {
-    console.log("restartApp");
+    log.info("restartApp");
     app.relaunch();
     app.exit();
     return Promise.resolve();
@@ -516,26 +519,26 @@ export class DevicePresenter implements IDevicePresenter {
    */
   async sanitizeSvgContent(svgContent: string): Promise<string | null> {
     try {
-      console.log("Sanitizing SVG content, length:", svgContent.length);
+      log.info("Sanitizing SVG content, length:", svgContent.length);
       // Debug: Show first 100 characters of SVG
-      console.log("SVG preview:", svgContent.substring(0, 100) + "...");
+      log.info("SVG preview:", svgContent.substring(0, 100) + "...");
 
       // Process content with SVG sanitizer
       const sanitizedContent = svgSanitizer.sanitize(svgContent);
 
       if (sanitizedContent) {
-        console.log("SVG content sanitized successfully, output length:", sanitizedContent.length);
-        console.log("Comments preserved:", /<!--/.test(sanitizedContent));
+        log.info("SVG content sanitized successfully, output length:", sanitizedContent.length);
+        log.info("Comments preserved:", /<!--/.test(sanitizedContent));
         return sanitizedContent;
       } else {
-        console.warn("SVG content was rejected by sanitizer");
+        log.warn("SVG content was rejected by sanitizer");
         // Debug: Check which specific step failed
-        console.log("Debug: SVG starts with <svg:", svgContent.trim().startsWith("<svg"));
-        console.log("Debug: SVG contains dangerous content:", svgContent.includes("<script"));
+        log.info("Debug: SVG starts with <svg:", svgContent.trim().startsWith("<svg"));
+        log.info("Debug: SVG contains dangerous content:", svgContent.includes("<script"));
         return null;
       }
     } catch (error) {
-      console.error("Error sanitizing SVG content:", error);
+      log.error("Error sanitizing SVG content:", error);
       return null;
     }
   }

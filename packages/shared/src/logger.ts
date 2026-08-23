@@ -2,6 +2,11 @@
 // electron-log in the Electron main process (process.type === "browser") when
 // available. There are intentionally NO top-level electron imports so the web
 // bundle never pulls electron into the client.
+//
+// The console.patch only happens in the Electron main (browser) process: the
+// Bun daemon imports this module for scoped logging, and replacing console.*
+// there would swallow the daemon's own process-wide logging (everything is
+// already routed through `logger` / `createLogger` directly).
 
 function isDev(): boolean {
   try {
@@ -98,8 +103,42 @@ const logger = {
   log: (...params: unknown[]) => forward("info", ...params),
 };
 
-// Intercept console methods and redirect to logger
+/**
+ * Scoped logger: prefixes every message with `[scope]` so logs show which
+ * module/feature they come from. Falls back to the base logger (electron-log
+ * in the main process, console elsewhere).
+ */
+export function createLogger(scope: string) {
+  const prefix = `[${scope}]`;
+
+  const withScope = (params: unknown[]): unknown[] => {
+    const [first, ...rest] = params;
+    if (typeof first === "string") {
+      return [`${prefix} ${first}`, ...rest];
+    }
+    return [prefix, ...params];
+  };
+
+  return {
+    error: (...params: unknown[]) => logger.error(...withScope(params)),
+    warn: (...params: unknown[]) => logger.warn(...withScope(params)),
+    info: (...params: unknown[]) => logger.info(...withScope(params)),
+    verbose: (...params: unknown[]) => logger.verbose(...withScope(params)),
+    debug: (...params: unknown[]) => logger.debug(...withScope(params)),
+    silly: (...params: unknown[]) => logger.silly(...withScope(params)),
+    log: (...params: unknown[]) => logger.log(...withScope(params)),
+  };
+}
+
+// Intercept console methods and redirect to logger. Only meaningful in the
+// Electron main process (electron-log transport + logging toggle); in the Bun
+// daemon / browser the raw console is left untouched.
 function hookConsole() {
+  const proc: any = typeof process !== "undefined" ? process : undefined;
+  if (!proc || proc.type !== "browser") {
+    return unhookedConsole;
+  }
+
   // Replace console methods
   console.log = (...args: unknown[]) => {
     if (loggingEnabled || isDev()) {

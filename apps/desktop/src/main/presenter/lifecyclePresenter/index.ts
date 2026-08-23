@@ -27,6 +27,9 @@ import {
 import { is } from "@electron-toolkit/utils";
 import { presenter } from "#/presenter";
 import { normalizeLifecycleHookDelayMs } from "./lifecycleDelay";
+import { createLogger } from "@argos/shared/logger";
+
+const log = createLogger("Lifecycle");
 
 export { registerCoreHooks } from "./coreHooks";
 
@@ -130,7 +133,7 @@ export class LifecycleManager implements ILifecycleManager {
       phaseHooks.splice(insertIndex, 0, { id: hookId, hook });
     }
 
-    console.log(`Registered lifecycle hook '${hook.name}' for phase '${phase}' with priority ${priority}`);
+    log.info(`Registered lifecycle hook '${hook.name}' for phase '${phase}' with priority ${priority}`);
     return hookId;
   }
 
@@ -221,8 +224,8 @@ export class LifecycleManager implements ILifecycleManager {
             if (hookResult.hook.critical) {
               if (isShutdownPhase) {
                 // For shutdown phases, log critical errors but continue
-                console.error(
-                  `[LifecycleManager] Critical shutdown hook '${hookResult.hook.name}' failed, but continuing shutdown:`,
+                log.error(
+                  `Critical shutdown hook '${hookResult.hook.name}' failed, but continuing shutdown:`,
                   hookResult.error?.message || "Unknown error",
                 );
               } else {
@@ -231,8 +234,8 @@ export class LifecycleManager implements ILifecycleManager {
               }
             } else {
               // Non-critical hook failure - log and continue
-              console.warn(
-                `[LifecycleManager] Non-critical hook '${hookResult.hook.name}' failed:`,
+              log.warn(
+                `Non-critical hook '${hookResult.hook.name}' failed:`,
                 hookResult.error?.message || "Unknown error",
               );
             }
@@ -244,7 +247,7 @@ export class LifecycleManager implements ILifecycleManager {
           }
         } else {
           // Promise itself was rejected (shouldn't happen with our error handling, but just in case)
-          console.error("[LifecycleManager] Unexpected promise rejection in hook execution:", promiseResult.reason);
+          log.error("Unexpected promise rejection in hook execution:", promiseResult.reason);
         }
       }
 
@@ -402,7 +405,7 @@ export class LifecycleManager implements ILifecycleManager {
       if (!this.state.isShuttingDown) {
         // Check if update installation is in progress
         if (this.isUpdateInProgress) {
-          console.log("LifecycleManager: Update installation in progress, allowing quit without hooks");
+          log.info("Update installation in progress, allowing quit without hooks");
           return; // Allow normal quit without executing hooks
         }
 
@@ -412,18 +415,13 @@ export class LifecycleManager implements ILifecycleManager {
 
         try {
           if (presenter?.windowPresenter) {
-            console.log("LifecycleManager: Setting application quitting flag via presenter");
+            log.info("Setting application quitting flag via presenter");
             presenter.windowPresenter.setApplicationQuitting(true);
           } else {
-            console.log(
-              "LifecycleManager: Presenter not available during shutdown, will be handled by hook if presenter initializes",
-            );
+            log.info("Presenter not available during shutdown, will be handled by hook if presenter initializes");
           }
         } catch (error) {
-          console.log(
-            "LifecycleManager: Could not access presenter during shutdown, will rely on hook fallback:",
-            error,
-          );
+          log.info("Could not access presenter during shutdown, will rely on hook fallback:", error);
         }
 
         const canShutdown = await this.requestShutdown();
@@ -436,7 +434,7 @@ export class LifecycleManager implements ILifecycleManager {
               presenter.windowPresenter.setApplicationQuitting(false);
             }
           } catch (error) {
-            console.log("LifecycleManager: Failed to reset isQuitting flag after cancelled shutdown:", error);
+            log.info("Failed to reset isQuitting flag after cancelled shutdown:", error);
           }
         }
       }
@@ -444,7 +442,7 @@ export class LifecycleManager implements ILifecycleManager {
 
     // Listen for the force-quit event (e.g. triggered from the menu), set the quitting flag and call app.quit()
     eventBus.on(WINDOW_EVENTS.FORCE_QUIT_APP, () => {
-      console.log("Force quitting application.");
+      log.info("Force quitting application.");
       this.forceShutdown();
     });
   }
@@ -455,39 +453,37 @@ export class LifecycleManager implements ILifecycleManager {
   private setupLifecycleEventListeners(): void {
     // Listen to phase started events for debugging
     eventBus.on(LIFECYCLE_EVENTS.PHASE_STARTED, (data: PhaseStartedEventData) => {
-      console.log(`[LifecycleManager] Starting lifecycle phase '${data.phase}' with ${data.hookCount} hooks`);
+      log.info(`Starting lifecycle phase '${data.phase}' with ${data.hookCount} hooks`);
     });
 
     // Listen to phase completed events for debugging
     eventBus.on(LIFECYCLE_EVENTS.PHASE_COMPLETED, (data: PhaseCompletedEventData) => {
-      console.log(`[LifecycleManager] Completed lifecycle phase: ${data.phase} (${data.duration}ms)`);
+      log.info(`Completed lifecycle phase: ${data.phase} (${data.duration}ms)`);
     });
 
     // Listen to hook executed events
     eventBus.on(LIFECYCLE_EVENTS.HOOK_EXECUTED, (data: HookExecutedEventData) => {
-      console.log(
-        `[LifecycleManager] Hook executed: ${data.name} [priority: ${data.priority}, critical: ${data.critical}]`,
-      );
+      log.info(`Hook executed: ${data.name} [priority: ${data.priority}, critical: ${data.critical}]`);
     });
 
     // Listen to hook completed events
     eventBus.on(LIFECYCLE_EVENTS.HOOK_COMPLETED, (data: HookExecutedEventData) => {
-      console.log(`[LifecycleManager] Hook completed: ${data.name}`);
+      log.info(`Hook completed: ${data.name}`);
     });
 
     // Listen to hook failed events
     eventBus.on(LIFECYCLE_EVENTS.HOOK_FAILED, (data: HookFailedEventData) => {
-      console.log(`[LifecycleManager] Hook failed: ${data.name}`, data.error);
+      log.error(`Hook failed: ${data.name}`, data.error);
     });
 
     // Listen to error events for monitoring
     eventBus.on(LIFECYCLE_EVENTS.ERROR_OCCURRED, (data: ErrorOccurredEventData) => {
-      console.error(`[LifecycleManager] Error in ${data.phase}: ${data.reason}`);
+      log.error(`Error in ${data.phase}: ${data.reason}`);
     });
 
     // Listen to progress updates for monitoring
     eventBus.on(LIFECYCLE_EVENTS.PROGRESS_UPDATED, (data: ProgressUpdatedEventData) => {
-      console.log(`[LifecycleManager] Progress update: ${data.phase} - ${data.progress}% - ${data.message}`);
+      log.info(`Progress update: ${data.phase} - ${data.progress}% - ${data.message}`);
     });
   }
 
@@ -518,7 +514,7 @@ export class LifecycleManager implements ILifecycleManager {
   }
 
   private forceShutdown(): void {
-    console.log("Force shutdown requested");
+    log.info("Force shutdown requested");
     this.state.isShuttingDown = true;
     app.quit(); // Main exit: force quit
   }
@@ -528,7 +524,7 @@ export class LifecycleManager implements ILifecycleManager {
    */
   private setupUpdateStateListener(): void {
     eventBus.on(UPDATE_EVENTS.STATE_CHANGED, (data: { isUpdating: boolean }) => {
-      console.log(`LifecycleManager: Update state changed to ${data.isUpdating}`);
+      log.info(`Update state changed to ${data.isUpdating}`);
       this.isUpdateInProgress = data.isUpdating;
     });
   }

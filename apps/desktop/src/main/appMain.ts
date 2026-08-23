@@ -2,12 +2,14 @@ import { app, dialog } from "electron";
 import { LifecycleManager, registerCoreHooks } from "./presenter/lifecyclePresenter";
 import { getInstance, Presenter } from "./presenter";
 import { electronApp } from "@electron-toolkit/utils";
-import log from "electron-log";
+import { createLogger } from "@argos/shared/logger";
 import { eventBus, SendTarget } from "./eventbus";
 import { NOTIFICATION_EVENTS } from "./events";
 import { findDeepLinkArg, findStartupDeepLink, isDeepLinkUrl, storeStartupDeepLink } from "./lib/startupDeepLink";
 import { isInsecureTlsAllowed } from "./lib/insecureTls";
 import { activateAppOnMac, ensureRegularAppOnMac } from "./lib/activateApp";
+
+const log = createLogger("App");
 
 let appStarted = false;
 const APP_NAME = "Argos";
@@ -81,7 +83,7 @@ export function startApp(): void {
 
   const gotSingleInstanceLock = app.requestSingleInstanceLock();
   if (!gotSingleInstanceLock) {
-    console.log("Another Argos instance is already running. Exiting current process.");
+    log.info("Another Argos instance is already running. Exiting current process.");
     app.quit();
     return;
   }
@@ -89,14 +91,14 @@ export function startApp(): void {
   // Initialize presenter after ready
   let presenter: Presenter | undefined;
 
-  console.log("Main process starting, checking for deeplink...");
-  console.log("Startup arguments received", { argc: process.argv.length });
+  log.info("Main process starting, checking for deeplink...");
+  log.info("Startup arguments received", { argc: process.argv.length });
   const startupDeepLink = findStartupDeepLink(process.argv, process.env);
   if (startupDeepLink) {
-    console.log("Found startup deeplink during initialization");
+    log.info("Found startup deeplink during initialization");
     storeStartupDeepLink(startupDeepLink);
   } else {
-    console.log("No startup deeplink detected during initialization");
+    log.info("No startup deeplink detected during initialization");
   }
 
   const focusExistingAppWindow = () => {
@@ -118,7 +120,7 @@ export function startApp(): void {
       return;
     }
 
-    console.log(source);
+    log.info(source);
     const normalizedUrl = storeStartupDeepLink(url);
     if (!normalizedUrl) {
       return;
@@ -139,7 +141,7 @@ export function startApp(): void {
   // Also listen for second-instance events (Windows/Linux)
   if (gotSingleInstanceLock) {
     app.on("second-instance", (_event, commandLine) => {
-      console.log("Received second-instance event", { argc: commandLine.length });
+      log.info("Received second-instance event", { argc: commandLine.length });
       focusExistingAppWindow();
 
       const deepLinkUrl = findDeepLinkArg(commandLine);
@@ -167,12 +169,12 @@ export function startApp(): void {
     // Set app user model id for windows
     electronApp.setAppUserModelId("com.wefonk.argos");
     try {
-      console.log("main: Application lifecycle startup");
+      log.info("Application lifecycle startup");
       await lifecycleManager.start();
       presenter = getInstance(lifecycleManager);
-      console.log("main: Application lifecycle startup completed successfully");
+      log.info("Application lifecycle startup completed successfully");
     } catch (error) {
-      console.error("main: Application lifecycle startup failed:", error);
+      log.error("Application lifecycle startup failed:", error);
       dialog.showErrorBox("Application startup failed", error instanceof Error ? error.message : String(error));
       app.quit(); // Serious error, exit the program
     }
@@ -192,7 +194,7 @@ export function startApp(): void {
 
     if (mainWindows.length === 0) {
       // When only floating button windows exist, quit app on non-macOS platforms
-      console.log("main: All main windows closed, requesting shutdown");
+      log.info("All main windows closed, requesting shutdown");
       app.quit(); // Keep this event to avoid unexpected situations
     }
   });
