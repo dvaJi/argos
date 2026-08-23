@@ -27,6 +27,7 @@ const T3_EFFORT_OPTIONS: Array<{ value: ReasoningEffort; label: string; t3Label:
 
 const labelForEffort = (effort?: ReasoningEffort | null) => {
   if (!effort) return "Medium";
+  if (effort === "minimal") return "Low";
   const hit = T3_EFFORT_OPTIONS.find((o) => o.value === effort);
   return hit?.t3Label ?? effort;
 };
@@ -56,6 +57,7 @@ const ComposerEffortPicker = () => {
   const activeSession = getActiveSession();
 
   const [supportsReasoning, setSupportsReasoning] = useState<boolean | null>(null);
+  const [availableEfforts, setAvailableEfforts] = useState<ReasoningEffort[]>([]);
   const [generationReasoningEffort, setGenerationReasoningEffort] = useState<ReasoningEffort | undefined>(undefined);
   const [serviceTier, setServiceTier] = useState<ServiceTier>("standard");
 
@@ -68,6 +70,7 @@ const ComposerEffortPicker = () => {
     let cancelled = false;
     if (!effectiveProviderId || !effectiveModelId || isAcpSession) {
       setSupportsReasoning(false);
+      setAvailableEfforts([]);
       return;
     }
     void (async () => {
@@ -79,8 +82,13 @@ const ComposerEffortPicker = () => {
         const fallback = meta?.reasoning === true;
         // If portrait says unsupported but meta says reasoning, trust meta (covers models where capability not yet indexed)
         setSupportsReasoning(supported || fallback);
+        const options = getEffortOptions(portrait);
+        setAvailableEfforts(options.length > 0 ? options : T3_EFFORT_OPTIONS.map((o) => o.value));
       } catch {
-        if (!cancelled) setSupportsReasoning(null);
+        if (!cancelled) {
+          setSupportsReasoning(null);
+          setAvailableEfforts([]);
+        }
       }
     })();
     return () => {
@@ -120,7 +128,7 @@ const ComposerEffortPicker = () => {
     async (effort: ReasoningEffort) => {
       if (hasActiveSession && activeSession?.id) {
         try {
-          await sessionClient.updateSessionGenerationSettings(activeSession.id, { reasoningEffort: effort } as any);
+          await sessionClient.updateSessionGenerationSettings(activeSession.id, { reasoningEffort: effort });
           setGenerationReasoningEffort(effort);
         } catch {}
       } else {
@@ -135,7 +143,7 @@ const ComposerEffortPicker = () => {
     async (tier: ServiceTier) => {
       if (hasActiveSession && activeSession?.id) {
         try {
-          await sessionClient.updateSessionGenerationSettings(activeSession.id, { serviceTier: tier } as any);
+          await sessionClient.updateSessionGenerationSettings(activeSession.id, { serviceTier: tier });
           setServiceTier(tier);
         } catch {}
       } else {
@@ -164,27 +172,29 @@ const ComposerEffortPicker = () => {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-64 p-2">
         <div className="px-2 py-1 text-xs font-semibold text-muted-foreground">Reasoning</div>
-        {T3_EFFORT_OPTIONS.map((opt) => {
-          const isActive =
-            generationReasoningEffort === opt.value || (!generationReasoningEffort && opt.value === "medium");
-          return (
-            <DropdownMenuItem
-              key={opt.value}
-              className={`flex items-center justify-between ${isActive ? "bg-accent" : ""}`}
-              onClick={() => void handleSelectEffort(opt.value)}
-            >
-              <span className="flex items-center gap-2">
-                <span>{opt.t3Label}</span>
-                {opt.value === "medium" && (
-                  <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                    Default
-                  </span>
-                )}
-              </span>
-              {isActive && <Icon icon="lucide:check" className="h-3.5 w-3.5" />}
-            </DropdownMenuItem>
-          );
-        })}
+        {T3_EFFORT_OPTIONS.filter((opt) => availableEfforts.length === 0 || availableEfforts.includes(opt.value)).map(
+          (opt) => {
+            const isActive =
+              generationReasoningEffort === opt.value || (!generationReasoningEffort && opt.value === "medium");
+            return (
+              <DropdownMenuItem
+                key={opt.value}
+                className={`flex items-center justify-between ${isActive ? "bg-accent" : ""}`}
+                onClick={() => void handleSelectEffort(opt.value)}
+              >
+                <span className="flex items-center gap-2">
+                  <span>{opt.t3Label}</span>
+                  {opt.value === "medium" && (
+                    <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                      Default
+                    </span>
+                  )}
+                </span>
+                {isActive && <Icon icon="lucide:check" className="h-3.5 w-3.5" />}
+              </DropdownMenuItem>
+            );
+          },
+        )}
         <div className="my-2 h-px bg-border" />
         <div className="px-2 py-1 text-xs font-semibold text-muted-foreground">Service Tier</div>
         <DropdownMenuItem

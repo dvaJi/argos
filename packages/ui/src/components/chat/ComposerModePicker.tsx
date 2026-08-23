@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import {
@@ -18,6 +18,8 @@ type ModeOption = {
   label: string;
   description: string;
   icon: string;
+  /** v1 only supports `default`/`full_access`; interim labels are disabled until the enum expands. */
+  disabled?: boolean;
 };
 
 const MODE_OPTIONS: ModeOption[] = [
@@ -32,12 +34,14 @@ const MODE_OPTIONS: ModeOption[] = [
     label: "Auto-accept edits",
     description: "Auto-approve edits, ask before other actions.",
     icon: "lucide:pencil",
+    disabled: true,
   },
   {
     value: "full_access",
     label: "Auto",
     description: "Smart providers approve routine actions; others still ask.",
     icon: "lucide:sparkles",
+    disabled: true,
   },
   {
     value: "full_access",
@@ -55,7 +59,7 @@ const ComposerModePicker = () => {
   void sessionState;
   const draftState = useDraftStore();
   void draftState;
-  const sessionClient = createSessionClient();
+  const sessionClient = useMemo(() => createSessionClient(), []);
 
   const hasActiveSession = getHasActiveSession();
   const activeSession = getActiveSession();
@@ -131,12 +135,18 @@ const ComposerModePicker = () => {
           return (
             <DropdownMenuItem
               key={opt.label}
+              disabled={opt.disabled}
               className={`flex flex-col items-start gap-1 rounded-md px-3 py-2 ${isActive ? "bg-accent" : ""}`}
               onClick={() => void handleSelect(opt.value)}
             >
               <span className="flex w-full items-center gap-2 font-medium">
                 <Icon icon={opt.icon} className="h-3.5 w-3.5 shrink-0" />
                 <span>{opt.label}</span>
+                {opt.disabled && (
+                  <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                    soon
+                  </span>
+                )}
                 {isActive && <Icon icon="lucide:check" className="ml-auto h-3.5 w-3.5" />}
               </span>
               <span className="pl-5 text-xs text-muted-foreground">{opt.description}</span>

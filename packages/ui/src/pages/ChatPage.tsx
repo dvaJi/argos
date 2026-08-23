@@ -8,11 +8,13 @@ import type {
   DisplayMessage,
   DisplayMessageUsage,
 } from "#/components/chat/messageListItems";
+import { ErrorBoundary } from "#/components/ErrorBoundary";
 import ChatInputBox from "#/components/chat/ChatInputBox";
 import ChatInputToolbar from "#/components/chat/ChatInputToolbar";
 import ComposerFooterBar from "#/components/chat/ComposerFooterBar";
 import AgentProgressFloat from "#/components/chat/AgentProgressFloat";
 import PendingInputLane from "#/components/chat/PendingInputLane";
+import ChatStatusBar from "#/components/chat/ChatStatusBar";
 import ChatToolInteractionOverlay from "#/components/chat/ChatToolInteractionOverlay";
 import TraceDialog from "#/components/trace/TraceDialog";
 import { useToast } from "#/components/use-toast";
@@ -1209,6 +1211,9 @@ function ChatPage({ sessionId }: ChatPageProps) {
                         />
                       }
                     />
+                    <ErrorBoundary>
+                      <ChatStatusBar maxWidthClass="max-w-4xl" />
+                    </ErrorBoundary>
                   </div>
                 )}
               </div>

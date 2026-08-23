@@ -20,7 +20,7 @@ const ComposerModelPicker = () => {
   const draftState = useDraftStore();
   void draftState;
   const themeStore = useThemeStore();
-  const sessionClient = createSessionClient();
+  const sessionClient = useMemo(() => createSessionClient(), []);
 
   const [open, setOpen] = useState(false);
   const [keyword, setKeyword] = useState("");
@@ -77,7 +77,10 @@ const ComposerModelPicker = () => {
   const modelGroups = useMemo(() => {
     if (!modelStore.initialized) return [];
     return getChatSelectableModelGroups();
-  }, [modelStore.initialized]);
+    // enabledModels drives the group list; recompute when it changes (models
+    // can become available after init without `initialized` flipping again).
+    // eslint-disable-next-line react-compiler/no-manual-memoization
+  }, [modelStore.initialized, modelStore.enabledModels]);
 
   const filteredGroups = useMemo(() => {
     const kw = keyword.trim().toLowerCase();

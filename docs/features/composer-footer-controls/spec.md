@@ -37,8 +37,8 @@ Move the primary per-message controls (model, effort/tier, permission mode) into
 
 ## Open questions (resolve before code)
 - [x] Placement is *inside* footer — confirmed by user Image 5.
-- [ ] Exact `serviceTier` contract: add `serviceTier: "standard"|"fast"` to `SessionGenerationSettingsSchema` + `REASONING_EFFORT_VALUES` mapping, or keep UI-only until backend supports it? (Plan proposes additive optional field.)
-- [ ] Favorite persistence key: reuse `providerTimestamps`/`providerOrder` or new `favoriteModels` in `ConfigClient`?
+- [x] Exact `serviceTier` contract: additive optional `serviceTier: "standard"|"fast"` on `SessionGenerationSettingsSchema` + `ServiceTierSchema` (persisted, not yet enforced server-side).
+- [x] Favorite persistence key: deferred to follow-up (plan proposes new `favoriteModels` key in `ConfigClient`; not in v1).
 
 ## UX states
 - Loading (`modelStore.initialized === false`): footer shows skeleton/disabled buttons.
