@@ -9,6 +9,7 @@ import type {
 } from "@argos/shared/presenter";
 import { resolveAcpAgentAlias, SVGSanitizer } from "@argos/backend-core";
 import { AcpConfHelper, AcpLaunchSpecService, AcpRegistryService } from "@argos/acp-runtime";
+import logger from "@argos/shared/logger";
 import { createJsonStoreFactory } from "./jsonStoreFactory";
 
 export interface DaemonAcpConfigDeps {
@@ -41,7 +42,7 @@ export class DaemonAcpConfig {
     this.acpLaunchSpecService = new AcpLaunchSpecService(path.join(deps.dataDir, "acp-registry"));
     void this.acpRegistryService
       .initialize()
-      .catch((error) => console.warn("[ACP] daemon registry initialize failed:", error));
+      .catch((error) => logger.warn("[ACP] daemon registry initialize failed:", error));
   }
 
   async getAcpEnabled(): Promise<boolean> {
@@ -95,6 +96,7 @@ export class DaemonAcpConfig {
     const resolvedId = resolveAcpAgentAlias(agentId);
     const manualAgent = this.acpConfHelper.getManualAgents().find((agent) => agent.id === resolvedId);
     if (manualAgent) {
+      logger.debug(`[ACP Update] ensure install: ${resolvedId} is manual agent, nothing to install`);
       return {
         status: "installed",
         distributionType: "manual",
@@ -103,11 +105,18 @@ export class DaemonAcpConfig {
     }
     const registryAgent = this.getRegistryAgentOrThrow(resolvedId);
     const currentState = this.acpConfHelper.getInstallState(resolvedId);
+    logger.debug(
+      `[ACP Update] Ensuring install for ${resolvedId} (installed v${currentState?.version ?? "none"} → registry v${registryAgent.version})`,
+    );
     try {
       const installed = await this.acpLaunchSpecService.ensureRegistryAgentInstalled(registryAgent, currentState);
       this.acpConfHelper.setInstallState(resolvedId, installed);
+      if (installed.status === "error") {
+        logger.warn(`[ACP Update] Ensure failed for ${resolvedId}: ${installed.error}`);
+      }
       return installed;
     } catch (error) {
+      logger.warn(`[ACP Update] Ensure threw for ${resolvedId}:`, error);
       this.acpConfHelper.setInstallState(resolvedId, {
         status: "error",
         version: registryAgent.version,
@@ -125,10 +134,18 @@ export class DaemonAcpConfig {
     const resolvedId = resolveAcpAgentAlias(agentId);
     const registryAgent = this.getRegistryAgentOrThrow(resolvedId);
     const currentState = this.acpConfHelper.getInstallState(resolvedId);
+    logger.info(
+      `[ACP Update] Repair requested for ${resolvedId} (installed v${currentState?.version ?? "none"} → registry v${registryAgent.version})`,
+    );
     const repaired = await this.acpLaunchSpecService.ensureRegistryAgentInstalled(registryAgent, currentState, {
       repair: true,
     });
     this.acpConfHelper.setInstallState(resolvedId, repaired);
+    if (repaired.status === "error") {
+      logger.warn(`[ACP Update] Repair failed for ${resolvedId}: ${repaired.error}`);
+    } else {
+      logger.info(`[ACP Update] Repaired ${resolvedId} v${registryAgent.version}`);
+    }
     return repaired;
   }
 
@@ -136,10 +153,15 @@ export class DaemonAcpConfig {
     const resolvedId = resolveAcpAgentAlias(agentId);
     const registryAgent = this.getRegistryAgentOrThrow(resolvedId);
     const selection = this.acpLaunchSpecService.selectRegistryDistribution(registryAgent);
+    const currentStateForLog = this.acpConfHelper.getInstallState(resolvedId);
+    logger.info(
+      `[ACP Update] Update requested for ${resolvedId} (installed v${currentStateForLog?.version ?? "none"} → registry v${registryAgent.version}, dist ${selection?.type ?? "none"})`,
+    );
 
     // npx/uvx runners resolve the latest package at launch time, so there is
     // nothing to download. Report the current state as "up to date".
     if (!selection || selection.type !== "binary") {
+      logger.info(`[ACP Update] ${resolvedId} uses ${selection?.type ?? "unknown"} runner — no download needed`);
       return (
         this.acpConfHelper.getInstallState(resolvedId) ?? {
           status: "installed",
@@ -175,8 +197,10 @@ export class DaemonAcpConfig {
         throw new Error(installedState.error ?? "Agent update failed");
       }
       this.acpConfHelper.setInstallState(resolvedId, installedState);
+      logger.info(`[ACP Update] Updated ${resolvedId} to v${registryAgent.version}`);
       return installedState;
     } catch (error) {
+      logger.warn(`[ACP Update] Failed to update ${resolvedId}:`, error);
       this.acpConfHelper.setInstallState(resolvedId, {
         status: "error",
         version: registryAgent.version,
@@ -194,7 +218,11 @@ export class DaemonAcpConfig {
     const resolvedId = resolveAcpAgentAlias(agentId);
     const registryAgent = this.getRegistryAgentOrThrow(resolvedId);
     const currentState = this.acpConfHelper.getInstallState(resolvedId);
+    logger.info(
+      `[ACP Update] Uninstall requested for ${resolvedId} (was v${currentState?.version ?? "unknown"}, dist ${currentState?.distributionType ?? "unknown"})`,
+    );
     await this.acpLaunchSpecService.uninstallRegistryAgent(registryAgent, currentState);
+    logger.info(`[ACP Update] Uninstalled ${resolvedId}`);
     this.acpConfHelper.setInstallState(resolvedId, {
       status: "not_installed",
       version: registryAgent.version,
@@ -243,7 +271,7 @@ export class DaemonAcpConfig {
       // A registry fetch failure must not break agent listing (manual + argos
       // agents should still be enumerable).
       this.listAcpRegistryAgents().catch((error) => {
-        console.warn("[ACP] Failed to list registry agents:", error);
+        logger.warn("[ACP] Failed to list registry agents:", error);
         return [] as AcpRegistryAgent[];
       }),
       this.listManualAcpAgents(),

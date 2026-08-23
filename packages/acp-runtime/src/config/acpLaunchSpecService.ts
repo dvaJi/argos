@@ -3,6 +3,7 @@ import os from "os";
 import path from "path";
 import { execFileSync } from "child_process";
 import { unzipSync } from "fflate";
+import logger from "@argos/shared/logger";
 import type {
   AcpAgentConfig,
   AcpAgentInstallState,
@@ -149,6 +150,9 @@ export class AcpLaunchSpecService {
     const lastCheckedAt = Date.now();
 
     if (!selection) {
+      logger.warn(
+        `[ACP Install] No compatible distribution for ${agent.id} v${agent.version} on ${process.platform}/${process.arch}`,
+      );
       return {
         status: "error",
         version: agent.version,
@@ -159,6 +163,9 @@ export class AcpLaunchSpecService {
     }
 
     if (selection.type !== "binary") {
+      logger.debug(
+        `[ACP Install] ${agent.id} uses ${selection.type} runner (${selection.runner.package}) — no local install needed (target v${agent.version})`,
+      );
       return {
         status: "installed",
         distributionType: selection.type,
@@ -175,6 +182,7 @@ export class AcpLaunchSpecService {
     const commandPath = this.resolveInstalledBinaryPath(installDir, binaryConfig.cmd);
 
     if (!options?.repair && commandPath) {
+      logger.debug(`[ACP Install] ${agent.id} v${agent.version} already installed at ${installDir}`);
       this.sweepStaleInstallDirs(agent.id);
       return {
         status: "installed",
@@ -190,6 +198,9 @@ export class AcpLaunchSpecService {
     let swappedDir: string | null = null;
 
     try {
+      logger.info(
+        `[ACP Install] Installing ${agent.id} v${agent.version} → ${installDir}${options?.repair ? " (repair)" : ""}`,
+      );
       if (options?.repair && fs.existsSync(installDir)) {
         swappedDir = this.replaceInstallDir(installDir);
       }
@@ -210,6 +221,7 @@ export class AcpLaunchSpecService {
 
       this.sweepStaleInstallDirs(agent.id);
 
+      logger.info(`[ACP Install] Installed ${agent.id} v${agent.version} at ${installDir}`);
       return {
         status: "installed",
         distributionType: "binary",
@@ -220,6 +232,10 @@ export class AcpLaunchSpecService {
         error: null,
       };
     } catch (error) {
+      logger.warn(
+        `[ACP Install] Failed to install ${agent.id} v${agent.version}:`,
+        error instanceof Error ? error.message : String(error),
+      );
       if (swappedDir) {
         this.restoreSwappedInstallDir(swappedDir, installDir);
       }
@@ -238,8 +254,12 @@ export class AcpLaunchSpecService {
   async uninstallRegistryAgent(agent: AcpRegistryAgent, installState: AcpAgentInstallState | null): Promise<void> {
     const selection = this.selectRegistryDistribution(agent);
     if (selection?.type !== "binary") {
+      logger.debug(
+        `[ACP Install] Skip uninstall for ${agent.id} (distribution ${selection?.type ?? "none"} has no local dir)`,
+      );
       return;
     }
+    logger.info(`[ACP Install] Uninstalling ${agent.id} v${agent.version}`);
 
     const candidateDirs = new Set<string>();
     if (typeof installState?.installDir === "string" && installState.installDir.trim()) {
@@ -361,6 +381,7 @@ export class AcpLaunchSpecService {
     }
 
     fs.rmSync(resolvedInstallDir, { recursive: true, force: true });
+    logger.info(`[ACP Install] Removed install dir ${resolvedInstallDir}`);
   }
 
   /**
@@ -383,6 +404,7 @@ export class AcpLaunchSpecService {
 
       const swappedDir = `${installDir}.old-${Date.now()}`;
       fs.renameSync(installDir, swappedDir);
+      logger.info(`[ACP Install] Install dir locked, swapped aside ${installDir} → ${swappedDir}`);
       return swappedDir;
     }
   }
@@ -398,6 +420,7 @@ export class AcpLaunchSpecService {
     try {
       if (!fs.existsSync(installDir)) {
         fs.renameSync(swappedDir, installDir);
+        logger.info(`[ACP Install] Restored swapped dir ${swappedDir} → ${installDir} after failed install`);
       }
     } catch {
       // Best effort; a later sweep removes the stale dir.
@@ -429,7 +452,9 @@ export class AcpLaunchSpecService {
       }
 
       try {
-        fs.rmSync(path.join(agentRoot, entry), { recursive: true, force: true });
+        const stalePath = path.join(agentRoot, entry);
+        fs.rmSync(stalePath, { recursive: true, force: true });
+        logger.debug(`[ACP Install] Swept stale install dir ${stalePath}`);
       } catch {
         // Still locked by a running process; retried on the next sweep.
       }
