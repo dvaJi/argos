@@ -9,6 +9,9 @@ import type { UpdateInfo } from "electron-updater";
 import { compare } from "compare-versions";
 import fs from "fs";
 import path from "path";
+import { createLogger } from "@argos/shared/logger";
+
+const log = createLogger("Upgrade");
 
 const { autoUpdater } = electronUpdater;
 
@@ -141,7 +144,7 @@ export class UpgradePresenter implements IUpgradePresenter {
 
     // Error handling
     autoUpdater.on("error", (e) => {
-      console.log("Auto-update failed", e.message);
+      log.info("Auto-update failed", e.message);
       this._lock = false;
       this._status = "error";
       this._error = e.message;
@@ -154,12 +157,12 @@ export class UpgradePresenter implements IUpgradePresenter {
 
     // Check update status
     autoUpdater.on("checking-for-update", () => {
-      console.log("Checking for updates");
+      log.info("Checking for updates");
     });
 
     // No update available
     autoUpdater.on("update-not-available", () => {
-      console.log("No updates available");
+      log.info("No updates available");
       this._lock = false;
       this._status = "not-available";
       this._error = null;
@@ -173,7 +176,7 @@ export class UpgradePresenter implements IUpgradePresenter {
 
     // Update available
     autoUpdater.on("update-available", (info) => {
-      console.log("Detected new version", info);
+      log.info("Detected new version", info);
       this._lock = false;
 
       // Version fallback guard: when channels are mismatched, electron-updater may "update" the current beta install to an older stable version.
@@ -190,12 +193,12 @@ export class UpgradePresenter implements IUpgradePresenter {
           isDowngradeOrSame = true;
         }
       } catch (e) {
-        console.warn("Version comparison failed; skipping this update prompt", currentVersion, remoteVersion, e);
+        log.warn("Version comparison failed; skipping this update prompt", currentVersion, remoteVersion, e);
         isDowngradeOrSame = true;
       }
 
       if (isDowngradeOrSame) {
-        console.log("Ignoring downgrade or same-version update prompt", {
+        log.info("Ignoring downgrade or same-version update prompt", {
           current: currentVersion,
           remote: remoteVersion,
         });
@@ -215,7 +218,7 @@ export class UpgradePresenter implements IUpgradePresenter {
       this._progress = null;
 
       if (this._previousUpdateFailed) {
-        console.log("Previous update failed, skipping auto-update and falling back to manual update");
+        log.info("Previous update failed, skipping auto-update and falling back to manual update");
         this._status = "error";
         this._error = "Auto-update may be unstable, please download the update manually";
         this.emitStatusChanged({
@@ -256,7 +259,7 @@ export class UpgradePresenter implements IUpgradePresenter {
 
     // Download complete
     autoUpdater.on("update-downloaded", (info) => {
-      console.log("Update download completed", info);
+      log.info("Update download completed", info);
       this.markUpdateDownloaded(info);
     });
 
@@ -274,7 +277,7 @@ export class UpgradePresenter implements IUpgradePresenter {
         const content = fs.readFileSync(this._updateMarkerPath, "utf8");
         const updateInfo = JSON.parse(content);
         const currentVersion = app.getVersion();
-        console.log("Checking for unfinished update", updateInfo, currentVersion);
+        log.info("Checking for unfinished update", updateInfo, currentVersion);
 
         // If the current version matches the target version, the update is complete
         if (updateInfo.version === currentVersion) {
@@ -290,7 +293,7 @@ export class UpgradePresenter implements IUpgradePresenter {
           const markerIsPre = isPrereleaseVersion(markerVersion);
           const currentIsPre = isPrereleaseVersion(currentVersion);
           if (markerIsPre !== currentIsPre) {
-            console.log("Ignoring old update marker from a different channel", {
+            log.info("Ignoring old update marker from a different channel", {
               marker: markerVersion,
               currentVersion,
             });
@@ -300,7 +303,7 @@ export class UpgradePresenter implements IUpgradePresenter {
         }
 
         // Otherwise the previous update failed; mark as error state
-        console.log("Detected unfinished update", updateInfo.version);
+        log.info("Detected unfinished update", updateInfo.version);
         this._status = "error";
         this._error = "Last auto-update was not completed";
         this._versionInfo = updateInfo;
@@ -323,14 +326,14 @@ export class UpgradePresenter implements IUpgradePresenter {
         });
       }
     } catch (error) {
-      console.error("Failed to check for unfinished update", error);
+      log.error("Failed to check for unfinished update", error);
       // On error, attempt to delete the marker file
       try {
         if (fs.existsSync(this._updateMarkerPath)) {
           fs.unlinkSync(this._updateMarkerPath);
         }
       } catch (e) {
-        console.error("Failed to delete update marker file", e);
+        log.error("Failed to delete update marker file", e);
       }
     }
   }
@@ -348,9 +351,9 @@ export class UpgradePresenter implements IUpgradePresenter {
       };
 
       fs.writeFileSync(this._updateMarkerPath, JSON.stringify(updateInfo, null, 2), "utf8");
-      console.log("Wrote update marker file successfully", this._updateMarkerPath);
+      log.info("Wrote update marker file successfully", this._updateMarkerPath);
     } catch (error) {
-      console.error("Failed to write update marker file", error);
+      log.error("Failed to write update marker file", error);
     }
   }
 
@@ -366,7 +369,7 @@ export class UpgradePresenter implements IUpgradePresenter {
     }
 
     if (!this._versionInfo) {
-      console.warn("Downloaded update is missing version info, skipping renderer broadcast.");
+      log.warn("Downloaded update is missing version info, skipping renderer broadcast.");
       return;
     }
 
@@ -474,7 +477,7 @@ export class UpgradePresenter implements IUpgradePresenter {
         .downloadUpdate()
         .then(() => {
           if (this._status !== "downloaded") {
-            console.log("downloadUpdate resolved before update-downloaded event, applying fallback downloaded status");
+            log.info("downloadUpdate resolved before update-downloaded event, applying fallback downloaded status");
             this.markUpdateDownloaded();
           }
         })
@@ -502,23 +505,23 @@ export class UpgradePresenter implements IUpgradePresenter {
 
   // Execute quit and install update for all platforms
   private _doQuitAndInstall(): void {
-    console.log("Preparing to quit and install update");
+    log.info("Preparing to quit and install update");
     this.beginInstallFlow(() => {
       if (process.platform === "darwin") {
-        console.log("macOS update: calling quitAndInstall with forceRunAfter=true");
+        log.info("macOS update: calling quitAndInstall with forceRunAfter=true");
         autoUpdater.quitAndInstall(false, true); // silent=false, forceRunAfter=true
         return;
       }
 
-      console.log(`${process.platform} update: calling quitAndInstall`);
+      log.info(`${process.platform} update: calling quitAndInstall`);
       autoUpdater.quitAndInstall();
     });
   }
 
   private _doMockQuitAndInstall(): void {
-    console.log("Preparing to run mock update restart flow");
+    log.info("Preparing to run mock update restart flow");
     this.beginInstallFlow(() => {
-      console.log("Mock update: relaunching app instead of invoking installer");
+      log.info("Mock update: relaunching app instead of invoking installer");
       app.relaunch();
       app.exit();
     });
@@ -528,7 +531,7 @@ export class UpgradePresenter implements IUpgradePresenter {
     try {
       this.emitWillRestart();
 
-      console.log("Update installation: setting application state for proper quit behavior");
+      log.info("Update installation: setting application state for proper quit behavior");
       this.setUpdatingFlag(true);
       this.prepareFloatingUiForUpdateInstall();
       eventBus.sendToMain(WINDOW_EVENTS.SET_APPLICATION_QUITTING, { isQuitting: true });
@@ -538,14 +541,14 @@ export class UpgradePresenter implements IUpgradePresenter {
       }, 500);
 
       setTimeout(() => {
-        console.log("Update installation timeout, force quit");
+        log.info("Update installation timeout, force quit");
         app.quit(); // Exit trigger: upgrade
       }, 30000);
     } catch (e) {
-      console.error("Failed to start update installation flow", e);
+      log.error("Failed to start update installation flow", e);
       this.setUpdatingFlag(false);
 
-      console.log("Resetting application quitting flag after update error");
+      log.info("Resetting application quitting flag after update error");
       eventBus.sendToMain(WINDOW_EVENTS.SET_APPLICATION_QUITTING, { isQuitting: false });
 
       this.emitError(e instanceof Error ? e.message : String(e));
@@ -554,26 +557,26 @@ export class UpgradePresenter implements IUpgradePresenter {
 
   private prepareFloatingUiForUpdateInstall(): void {
     if (!presenter) {
-      console.log("Update installation: presenter not ready, skipping floating UI cleanup");
+      log.info("Update installation: presenter not ready, skipping floating UI cleanup");
       return;
     }
 
     try {
       presenter.windowPresenter.setApplicationQuitting(true);
     } catch (error) {
-      console.warn("Update installation: failed to set application quitting flag directly", error);
+      log.warn("Update installation: failed to set application quitting flag directly", error);
     }
 
     try {
       presenter.windowPresenter.destroyFloatingChatWindow();
     } catch (error) {
-      console.warn("Update installation: failed to destroy floating chat window", error);
+      log.warn("Update installation: failed to destroy floating chat window", error);
     }
 
     try {
       presenter.floatingButtonPresenter.destroy();
     } catch (error) {
-      console.warn("Update installation: failed to destroy floating button window", error);
+      log.warn("Update installation: failed to destroy floating button window", error);
     }
   }
 
@@ -620,7 +623,7 @@ export class UpgradePresenter implements IUpgradePresenter {
 
   // Restart and update
   restartToUpdate(): boolean {
-    console.log("Restart and update");
+    log.info("Restart and update");
     if (this._status !== "downloaded") {
       this.emitError("Update has not finished downloading");
       return false;
@@ -634,7 +637,7 @@ export class UpgradePresenter implements IUpgradePresenter {
       this._doQuitAndInstall();
       return true;
     } catch (e) {
-      console.error("Restart for update failed", e);
+      log.error("Restart for update failed", e);
       this.emitError(e instanceof Error ? e.message : String(e));
       return false;
     }
@@ -651,7 +654,7 @@ export class UpgradePresenter implements IUpgradePresenter {
         app.exit();
       }, 1000);
     } catch (e) {
-      console.error("Restart failed", e);
+      log.error("Restart failed", e);
       this.emitError(e instanceof Error ? e.message : String(e));
     }
   }

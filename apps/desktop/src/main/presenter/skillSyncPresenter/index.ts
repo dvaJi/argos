@@ -32,6 +32,9 @@ import { eventBus, SendTarget } from "#/eventbus";
 import { SKILL_SYNC_EVENTS } from "#/events";
 import { isValidToolId, isValidConflictStrategy, checkWritePermission } from "./security";
 import { scanAndDetectDiscoveriesInWorker, scanExternalToolsInWorker } from "./scanWorker";
+import { createLogger } from "@argos/shared/logger";
+
+const log = createLogger("SkillSync");
 
 // ============================================================================
 // SkillSyncPresenter Implementation
@@ -102,7 +105,7 @@ export class SkillSyncPresenter implements ISkillSyncPresenter {
    * This is the main method called on app startup
    */
   async scanAndDetectNewDiscoveries(): Promise<NewDiscovery[]> {
-    console.log("[SkillSync] Starting background scan for new discoveries");
+    log.info("Starting background scan for new discoveries");
 
     // 1. Get cached scan results
     const cache = await this.getScanCache();
@@ -123,12 +126,12 @@ export class SkillSyncPresenter implements ISkillSyncPresenter {
     // 6. Emit event if there are new discoveries
     if (newDiscoveries.length > 0) {
       const totalNewSkills = newDiscoveries.reduce((sum, d) => sum + d.newSkills.length, 0);
-      console.log(`[SkillSync] Found ${totalNewSkills} new skills from ${newDiscoveries.length} tools`);
+      log.info(`Found ${totalNewSkills} new skills from ${newDiscoveries.length} tools`);
       eventBus.sendToRenderer(SKILL_SYNC_EVENTS.NEW_DISCOVERIES, SendTarget.ALL_WINDOWS, {
         discoveries: newDiscoveries,
       });
     } else {
-      console.log("[SkillSync] No new discoveries found");
+      log.info("No new discoveries found");
     }
 
     return newDiscoveries;
@@ -245,7 +248,7 @@ export class SkillSyncPresenter implements ISkillSyncPresenter {
         projectRoot: this.syncContext.projectRoot,
       });
     } catch (error) {
-      console.warn("[SkillSync] Worker scan failed, falling back to main thread:", error);
+      log.warn("Worker scan failed, falling back to main thread:", error);
       return await toolScanner.scanExternalTools(this.syncContext.projectRoot);
     }
   }
@@ -262,7 +265,7 @@ export class SkillSyncPresenter implements ISkillSyncPresenter {
         existingSkillNames: [...existingSkillNames],
       });
     } catch (error) {
-      console.warn("[SkillSync] Worker discovery scan failed, falling back to main thread:", error);
+      log.warn("Worker discovery scan failed, falling back to main thread:", error);
       const scanResults = await toolScanner.scanExternalTools(this.syncContext.projectRoot);
       return {
         scanResults,
@@ -283,7 +286,7 @@ export class SkillSyncPresenter implements ISkillSyncPresenter {
 
     // Security: Validate tool ID
     if (!isValidToolId(toolId)) {
-      console.warn(`Invalid tool ID: ${toolId}`);
+      log.warn(`Invalid tool ID: ${toolId}`);
       return [];
     }
 
@@ -326,7 +329,7 @@ export class SkillSyncPresenter implements ISkillSyncPresenter {
           warnings,
         });
       } catch (error) {
-        console.error(`Error parsing skill ${skillName}:`, error);
+        log.error(`Error parsing skill ${skillName}:`, error);
         // Add error preview
         previews.push({
           skill: {
@@ -350,7 +353,7 @@ export class SkillSyncPresenter implements ISkillSyncPresenter {
     // Security: Validate all strategies
     for (const [skillName, strategy] of Object.entries(strategies)) {
       if (!isValidConflictStrategy(strategy)) {
-        console.warn(`Invalid conflict strategy for ${skillName}: ${strategy}`);
+        log.warn(`Invalid conflict strategy for ${skillName}: ${strategy}`);
         return {
           success: false,
           imported: 0,
@@ -466,18 +469,18 @@ export class SkillSyncPresenter implements ISkillSyncPresenter {
     targetToolId: string,
     options?: Record<string, unknown>,
   ): Promise<ExportPreview[]> {
-    console.log(`[SkillSync] Preview export: skills=${skillNames.join(", ")}, tool=${targetToolId}`);
+    log.info(`Preview export: skills=${skillNames.join(", ")}, tool=${targetToolId}`);
     const previews: ExportPreview[] = [];
 
     // Security: Validate tool ID
     if (!isValidToolId(targetToolId)) {
-      console.warn(`[SkillSync] Invalid target tool ID: ${targetToolId}`);
+      log.warn(`Invalid target tool ID: ${targetToolId}`);
       return [];
     }
 
     const tool = toolScanner.getTool(targetToolId);
     if (!tool) {
-      console.warn(`[SkillSync] Tool not found: ${targetToolId}`);
+      log.warn(`Tool not found: ${targetToolId}`);
       return [];
     }
 
@@ -485,9 +488,9 @@ export class SkillSyncPresenter implements ISkillSyncPresenter {
     let targetDir: string;
     try {
       targetDir = resolveSkillsDir(tool, this.syncContext.projectRoot);
-      console.log(`[SkillSync] Target directory: ${targetDir}`);
+      log.info(`Target directory: ${targetDir}`);
     } catch (error) {
-      console.error(`[SkillSync] Failed to resolve target directory:`, error);
+      log.error(`Failed to resolve target directory:`, error);
       return [];
     }
 
@@ -496,12 +499,12 @@ export class SkillSyncPresenter implements ISkillSyncPresenter {
 
     // Process each skill
     for (const skillName of skillNames) {
-      console.log(`[SkillSync] Processing skill: ${skillName}`);
+      log.info(`Processing skill: ${skillName}`);
       try {
         // Load skill from Argos
         const skill = await this.loadArgosSkill(skillName);
         if (!skill) {
-          console.warn(`[SkillSync] Skill not found: ${skillName}`);
+          log.warn(`Skill not found: ${skillName}`);
           previews.push({
             skillName,
             targetTool: targetToolId,
@@ -512,15 +515,15 @@ export class SkillSyncPresenter implements ISkillSyncPresenter {
           });
           continue;
         }
-        console.log(`[SkillSync] Loaded skill: ${skillName}, instructions length: ${skill.instructions?.length ?? 0}`);
+        log.info(`Loaded skill: ${skillName}, instructions length: ${skill.instructions?.length ?? 0}`);
 
         // Convert to target format with options
         const convertedContent = formatConverter.serializeToExternal(skill, targetToolId, options);
-        console.log(`[SkillSync] Converted content length: ${convertedContent.length}`);
+        log.info(`Converted content length: ${convertedContent.length}`);
 
         // Determine target path
         const targetPath = this.getExportTargetPath(skillName, targetDir, tool);
-        console.log(`[SkillSync] Target path: ${targetPath}`);
+        log.info(`Target path: ${targetPath}`);
 
         // Check for conflicts
         const hasConflict = existingFiles.has(path.basename(targetPath));
@@ -564,7 +567,7 @@ export class SkillSyncPresenter implements ISkillSyncPresenter {
     // Security: Validate all strategies
     for (const [skillName, strategy] of Object.entries(strategies)) {
       if (!isValidConflictStrategy(strategy)) {
-        console.warn(`Invalid conflict strategy for ${skillName}: ${strategy}`);
+        log.warn(`Invalid conflict strategy for ${skillName}: ${strategy}`);
         return {
           success: false,
           imported: 0,
@@ -590,8 +593,8 @@ export class SkillSyncPresenter implements ISkillSyncPresenter {
     let processed = 0;
     for (const preview of previews) {
       if (!preview.targetPath || !preview.convertedContent) {
-        console.error(
-          `[SkillSync] Invalid export preview for ${preview.skillName}: targetPath=${preview.targetPath}, contentLength=${preview.convertedContent?.length ?? 0}`,
+        log.error(
+          `Invalid export preview for ${preview.skillName}: targetPath=${preview.targetPath}, contentLength=${preview.convertedContent?.length ?? 0}`,
         );
         result.failed.push({
           skill: preview.skillName,
@@ -626,30 +629,30 @@ export class SkillSyncPresenter implements ISkillSyncPresenter {
 
       try {
         let targetPath = preview.targetPath;
-        console.log(`[SkillSync] Exporting skill: ${preview.skillName} to ${targetPath}`);
+        log.info(`Exporting skill: ${preview.skillName} to ${targetPath}`);
 
         // Handle rename strategy
         if (preview.conflict && strategy === ConflictStrategy.RENAME) {
           targetPath = await this.generateUniqueFilePath(preview.targetPath);
-          console.log(`[SkillSync] Renamed to: ${targetPath}`);
+          log.info(`Renamed to: ${targetPath}`);
         }
 
         // Security: Check write permission
         if (!(await checkWritePermission(targetPath))) {
           const err = `No write permission for: ${targetPath}`;
-          console.error(`[SkillSync] ${err}`);
+          log.error(`${err}`);
           throw new Error(err);
         }
 
         // Ensure target directory exists
         const targetDir = path.dirname(targetPath);
-        console.log(`[SkillSync] Creating directory: ${targetDir}`);
+        log.info(`Creating directory: ${targetDir}`);
         await fs.promises.mkdir(targetDir, { recursive: true });
 
         // Write the file
-        console.log(`[SkillSync] Writing file, content length: ${preview.convertedContent.length}`);
+        log.info(`Writing file, content length: ${preview.convertedContent.length}`);
         await fs.promises.writeFile(targetPath, preview.convertedContent, "utf-8");
-        console.log(`[SkillSync] Successfully exported: ${preview.skillName}`);
+        log.info(`Successfully exported: ${preview.skillName}`);
 
         result.exported++;
         processed++;
@@ -661,7 +664,7 @@ export class SkillSyncPresenter implements ISkillSyncPresenter {
         });
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
-        console.error(`[SkillSync] Export failed for ${preview.skillName}:`, error);
+        log.error(`Export failed for ${preview.skillName}:`, error);
         result.failed.push({
           skill: preview.skillName,
           reason,
@@ -677,8 +680,8 @@ export class SkillSyncPresenter implements ISkillSyncPresenter {
     }
 
     result.success = result.failed.length === 0;
-    console.log(
-      `[SkillSync] Export completed: ${result.exported} exported, ${result.skipped} skipped, ${result.failed.length} failed`,
+    log.info(
+      `Export completed: ${result.exported} exported, ${result.skipped} skipped, ${result.failed.length} failed`,
     );
 
     eventBus.sendToRenderer(SKILL_SYNC_EVENTS.EXPORT_COMPLETED, SendTarget.ALL_WINDOWS, { result });
@@ -752,22 +755,22 @@ export class SkillSyncPresenter implements ISkillSyncPresenter {
    * Load a Argos skill for export
    */
   private async loadArgosSkill(skillName: string): Promise<CanonicalSkill | null> {
-    console.log(`[SkillSync] loadArgosSkill: ${skillName}`);
+    log.info(`loadArgosSkill: ${skillName}`);
     const metadata = await this.skillPresenter.getMetadataList();
-    console.log(`[SkillSync] Available skills: ${metadata.map((s) => s.name).join(", ")}`);
+    log.info(`Available skills: ${metadata.map((s) => s.name).join(", ")}`);
     const skillMeta = metadata.find((s) => s.name === skillName);
     if (!skillMeta) {
-      console.warn(`[SkillSync] Skill metadata not found: ${skillName}`);
+      log.warn(`Skill metadata not found: ${skillName}`);
       return null;
     }
-    console.log(`[SkillSync] Found skill metadata: path=${skillMeta.path}, root=${skillMeta.skillRoot}`);
+    log.info(`Found skill metadata: path=${skillMeta.path}, root=${skillMeta.skillRoot}`);
 
     const content = await this.skillPresenter.loadSkillContent(skillName);
     if (!content) {
-      console.warn(`[SkillSync] Skill content not loaded: ${skillName}`);
+      log.warn(`Skill content not loaded: ${skillName}`);
       return null;
     }
-    console.log(`[SkillSync] Loaded skill content, length: ${content.content.length}`);
+    log.info(`Loaded skill content, length: ${content.content.length}`);
 
     // Parse the Argos skill (Claude Code format)
     const skillFilePath = skillMeta.path;
@@ -775,14 +778,14 @@ export class SkillSyncPresenter implements ISkillSyncPresenter {
 
     try {
       const fileContent = await fs.promises.readFile(skillFilePath, "utf-8");
-      console.log(`[SkillSync] Read skill file, length: ${fileContent.length}`);
+      log.info(`Read skill file, length: ${fileContent.length}`);
       return formatConverter.parseExternal(
         fileContent,
         { toolId: "claude-code", filePath: skillFilePath, folderPath },
         { includeSubfolders: true },
       );
     } catch (error) {
-      console.error(`[SkillSync] Failed to read/parse skill file:`, error);
+      log.error(`Failed to read/parse skill file:`, error);
       return null;
     }
   }

@@ -98,6 +98,33 @@ const logger = {
   log: (...params: unknown[]) => forward("info", ...params),
 };
 
+/**
+ * Scoped logger: prefixes every message with `[scope]` so logs show which
+ * module/feature they come from. Falls back to the base logger (electron-log
+ * in the main process, console elsewhere).
+ */
+export function createLogger(scope: string) {
+  const prefix = `[${scope}]`;
+
+  const withScope = (params: unknown[]): unknown[] => {
+    const [first, ...rest] = params;
+    if (typeof first === "string") {
+      return [`${prefix} ${first}`, ...rest];
+    }
+    return [prefix, ...params];
+  };
+
+  return {
+    error: (...params: unknown[]) => logger.error(...withScope(params)),
+    warn: (...params: unknown[]) => logger.warn(...withScope(params)),
+    info: (...params: unknown[]) => logger.info(...withScope(params)),
+    verbose: (...params: unknown[]) => logger.verbose(...withScope(params)),
+    debug: (...params: unknown[]) => logger.debug(...withScope(params)),
+    silly: (...params: unknown[]) => logger.silly(...withScope(params)),
+    log: (...params: unknown[]) => logger.log(...withScope(params)),
+  };
+}
+
 // Intercept console methods and redirect to logger
 function hookConsole() {
   // Replace console methods

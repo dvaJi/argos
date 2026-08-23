@@ -99,6 +99,9 @@ import {
   SENSITIVE_APP_SETTING_KEYS,
 } from "./configDbStores";
 import type { StoreLike, StoreFactory } from "@argos/backend-core";
+import { createLogger } from "@argos/shared/logger";
+
+const log = createLogger("Config");
 
 function createElectronStoreFactory(): StoreFactory {
   return <T>(options: { name: string; defaults?: T }) => {
@@ -510,7 +513,7 @@ export class ConfigPresenter implements IConfigPresenter {
         this.notifyAcpAgentsChanged();
       })
       .catch((error) => {
-        console.error("[ACP] Failed to initialize registry service:", error);
+        log.error("[ACP] Failed to initialize registry service:", error);
       });
 
     // Initialize model configuration helper
@@ -538,7 +541,7 @@ export class ConfigPresenter implements IConfigPresenter {
     // Initialize the Provider DB (external aggregated JSON, with the built-in bundle as fallback)
     providerDbLoader.setPrivacyModeResolver(() => this.getPrivacyModeEnabled());
     providerDbLoader.initialize().catch((error) => {
-      console.warn("[ConfigPresenter] Failed to initialize provider DB:", error);
+      log.warn("[ConfigPresenter] Failed to initialize provider DB:", error);
     });
 
     // If application version is updated, update appVersion
@@ -578,7 +581,7 @@ export class ConfigPresenter implements IConfigPresenter {
       this.migrateSensitiveConfigStoresToSqlite(sqlitePresenter);
       this.attachDbBackedConfigStores(sqlitePresenter);
     } catch (error) {
-      console.error("[Config] Failed to attach sqlite-backed config storage:", error);
+      log.error("Failed to attach sqlite-backed config storage:", error);
       throw error;
     }
   }
@@ -821,11 +824,11 @@ export class ConfigPresenter implements IConfigPresenter {
       }
       this.store.set("knowledgeConfigsMigratedToDaemon", 1);
       if (localConfigs.length > 0) {
-        console.log("[Config] Knowledge configs migrated to the daemon store");
+        log.info("Knowledge configs migrated to the daemon store");
       }
     } catch (error) {
       // Daemon not ready yet or transient failure; retry on next launch.
-      console.warn("[Config] Knowledge config migration deferred:", error);
+      log.warn("Knowledge config migration deferred:", error);
     }
   }
 
@@ -852,7 +855,7 @@ export class ConfigPresenter implements IConfigPresenter {
       this.store.set("argosCustomAgentsMigratedToDaemon", 1);
     } catch (error) {
       // Daemon not ready yet or transient failure; retry on next launch.
-      console.warn("[Config] Argos custom agent migration deferred:", error);
+      log.warn("Argos custom agent migration deferred:", error);
     }
   }
 
@@ -942,7 +945,7 @@ export class ConfigPresenter implements IConfigPresenter {
         legacyInstallStateById,
       );
     } catch (error) {
-      console.warn("[Agents] Failed to sync ACP registry agents into sqlite:", error);
+      log.warn("[Agents] Failed to sync ACP registry agents into sqlite:", error);
     }
   }
 
@@ -1247,7 +1250,7 @@ export class ConfigPresenter implements IConfigPresenter {
           this.systemPromptsStore.set("prompts", prompts);
         }
       } catch (e) {
-        console.warn("Failed to migrate legacy default_system_prompt:", e);
+        log.warn("Failed to migrate legacy default_system_prompt:", e);
       }
     }
 
@@ -1392,7 +1395,7 @@ export class ConfigPresenter implements IConfigPresenter {
       }
       return this.getSettingsStoreForKey(key).get<T>(key);
     } catch (error) {
-      console.error(`[Config] Failed to get setting ${key}:`, error);
+      log.error(`Failed to get setting ${key}:`, error);
       return undefined;
     }
   }
@@ -1440,7 +1443,7 @@ export class ConfigPresenter implements IConfigPresenter {
         });
       }
     } catch (error) {
-      console.error(`[Config] Failed to set setting ${key}:`, error);
+      log.error(`Failed to set setting ${key}:`, error);
     }
   }
 
@@ -1711,7 +1714,7 @@ export class ConfigPresenter implements IConfigPresenter {
     try {
       presenter.floatingButtonPresenter.refreshLanguage();
     } catch (error) {
-      console.error("Failed to refresh floating widget language:", error);
+      log.error("Failed to refresh floating widget language:", error);
     }
   }
 
@@ -1808,7 +1811,7 @@ export class ConfigPresenter implements IConfigPresenter {
 
   // Set sync function status
   setSyncEnabled(enabled: boolean): void {
-    console.log("setSyncEnabled", enabled);
+    log.info("setSyncEnabled", enabled);
     this.setSetting("syncEnabled", enabled);
     eventBus.send(CONFIG_EVENTS.SYNC_SETTINGS_CHANGED, SendTarget.ALL_WINDOWS, { enabled });
   }
@@ -1881,7 +1884,7 @@ export class ConfigPresenter implements IConfigPresenter {
     try {
       return safeStorage.decryptString(Buffer.from(wrapped, "base64"));
     } catch (error) {
-      console.error("[Config] Failed to decrypt cloud sync secret:", error);
+      log.error("Failed to decrypt cloud sync secret:", error);
       return "";
     }
   }
@@ -1942,7 +1945,7 @@ export class ConfigPresenter implements IConfigPresenter {
             this.deleteCloudSyncSetting(this.CLOUD_SYNC_SECRET_KEY);
           }
         } catch (rollbackError) {
-          console.error("[Config] Failed to rollback cloud sync secret:", rollbackError);
+          log.error("Failed to rollback cloud sync secret:", rollbackError);
         }
       }
       throw error;
@@ -2013,7 +2016,7 @@ export class ConfigPresenter implements IConfigPresenter {
       }
       return [];
     } catch (error) {
-      console.error("Failed to get custom search engines:", error);
+      log.error("Failed to get custom search engines:", error);
       return [];
     }
   }
@@ -2025,7 +2028,7 @@ export class ConfigPresenter implements IConfigPresenter {
       // Send event to notify search engine update (need to notify all tabs)
       eventBus.send(CONFIG_EVENTS.SEARCH_ENGINES_UPDATED, SendTarget.ALL_WINDOWS, engines);
     } catch (error) {
-      console.error("Failed to set custom search engines:", error);
+      log.error("Failed to set custom search engines:", error);
       throw error;
     }
   }
@@ -2206,7 +2209,7 @@ export class ConfigPresenter implements IConfigPresenter {
     try {
       presenter.floatingButtonPresenter.setEnabled(enabled);
     } catch (error) {
-      console.error("Failed to directly call floatingButtonPresenter:", error);
+      log.error("Failed to directly call floatingButtonPresenter:", error);
     }
   }
 
@@ -2284,7 +2287,7 @@ export class ConfigPresenter implements IConfigPresenter {
     if (!provider || provider.enable === enabled) {
       return;
     }
-    console.log(`[ACP] syncAcpProviderEnabled: updating provider enable state to ${enabled}`);
+    log.info(`[ACP] syncAcpProviderEnabled: updating provider enable state to ${enabled}`);
     this.updateProviderAtomic("acp", { enable: enabled });
   }
 
@@ -2296,11 +2299,11 @@ export class ConfigPresenter implements IConfigPresenter {
     const changed = this.acpConfHelper.setGlobalEnabled(enabled);
     if (!changed) return;
 
-    console.log("[ACP] setAcpEnabled: updating global toggle to", enabled);
+    log.info("[ACP] setAcpEnabled: updating global toggle to", enabled);
     this.syncAcpProviderEnabled(enabled);
 
     if (!enabled) {
-      console.log("[ACP] Disabling: clearing provider models and status cache");
+      log.info("[ACP] Disabling: clearing provider models and status cache");
       this.providerModelHelper.setProviderModels("acp", []);
       this.clearProviderModelStatusCache("acp");
     }
@@ -2351,7 +2354,7 @@ export class ConfigPresenter implements IConfigPresenter {
 
     if (enabled) {
       void this.ensureAcpAgentInstalled(resolvedId).catch((error) => {
-        console.warn(`[ACP] Failed to preinstall registry agent ${resolvedId}:`, error);
+        log.warn(`[ACP] Failed to preinstall registry agent ${resolvedId}:`, error);
       });
     }
   }
@@ -2642,7 +2645,7 @@ export class ConfigPresenter implements IConfigPresenter {
       });
       daemonArgos = result.agents ?? [];
     } catch (error) {
-      console.warn("[Config] Failed to list Argos agents from daemon:", error);
+      log.warn("Failed to list Argos agents from daemon:", error);
     }
     return [...daemonArgos, ...localAcp];
   }
@@ -2658,7 +2661,7 @@ export class ConfigPresenter implements IConfigPresenter {
       });
       return result.agents?.[0] ?? null;
     } catch (error) {
-      console.warn("[Config] Failed to get agent from daemon:", error);
+      log.warn("Failed to get agent from daemon:", error);
       return local ?? null;
     }
   }
@@ -2675,7 +2678,7 @@ export class ConfigPresenter implements IConfigPresenter {
       const agent = result.agents?.[0];
       return agent ? (agent.type ?? null) : null;
     } catch (error) {
-      console.warn("[Config] Failed to resolve agent type from daemon:", error);
+      log.warn("Failed to resolve agent type from daemon:", error);
       return local ?? null;
     }
   }
@@ -2702,7 +2705,7 @@ export class ConfigPresenter implements IConfigPresenter {
       });
       return result.config;
     } catch (error) {
-      console.warn("[Config] Failed to resolve Argos agent config from daemon:", error);
+      log.warn("Failed to resolve Argos agent config from daemon:", error);
       return this.getAgentRepositoryOrThrow().resolveArgosAgentConfig(BUILTIN_ARGOS_AGENT_ID);
     }
   }
@@ -2737,7 +2740,7 @@ export class ConfigPresenter implements IConfigPresenter {
           updates: updates as never,
         });
       } catch (error) {
-        console.warn("[Config] Failed to mirror builtin agent update to daemon:", error);
+        log.warn("Failed to mirror builtin agent update to daemon:", error);
       }
       if (updated) this.notifyAcpAgentsChanged();
       return updated;
@@ -2826,7 +2829,7 @@ export class ConfigPresenter implements IConfigPresenter {
   }
 
   private notifyAcpAgentsChanged(agentIds?: string[]) {
-    console.log('[ACP] notifyAcpAgentsChanged: sending MODEL_LIST_CHANGED event for provider "acp"');
+    log.info('[ACP] notifyAcpAgentsChanged: sending MODEL_LIST_CHANGED event for provider "acp"');
     eventBus.send(CONFIG_EVENTS.MODEL_LIST_CHANGED, SendTarget.ALL_WINDOWS, "acp");
     eventBus.send(CONFIG_EVENTS.AGENTS_CHANGED, SendTarget.ALL_WINDOWS, { agentIds });
     eventBus.sendToRendererIfAvailable(SESSION_EVENTS.LIST_UPDATED, SendTarget.ALL_WINDOWS);
@@ -2939,7 +2942,7 @@ export class ConfigPresenter implements IConfigPresenter {
       try {
         presenter.windowPresenter.syncWindowTitleBarAppearance();
       } catch (error) {
-        console.error("Failed to sync window controls overlay theme:", error);
+        log.error("Failed to sync window controls overlay theme:", error);
       }
       // Only notify the renderer of system theme changes when the theme is set to "system"
       if (nativeTheme.themeSource === "system") {
@@ -2948,7 +2951,7 @@ export class ConfigPresenter implements IConfigPresenter {
         try {
           void presenter.floatingButtonPresenter.refreshTheme();
         } catch (error) {
-          console.error("Failed to refresh floating widget theme:", error);
+          log.error("Failed to refresh floating widget theme:", error);
         }
       }
     });
@@ -2961,7 +2964,7 @@ export class ConfigPresenter implements IConfigPresenter {
     try {
       presenter.windowPresenter.syncWindowTitleBarAppearance();
     } catch (error) {
-      console.error("Failed to sync window title bar appearance:", error);
+      log.error("Failed to sync window title bar appearance:", error);
     }
     // Notify all windows that the theme has changed
     eventBus.send(CONFIG_EVENTS.THEME_CHANGED, SendTarget.ALL_WINDOWS, theme);
@@ -2969,7 +2972,7 @@ export class ConfigPresenter implements IConfigPresenter {
     try {
       void presenter.floatingButtonPresenter.refreshTheme();
     } catch (error) {
-      console.error("Failed to refresh floating widget theme:", error);
+      log.error("Failed to refresh floating widget theme:", error);
     }
 
     return nativeTheme.shouldUseDarkColors;
@@ -3000,10 +3003,10 @@ export class ConfigPresenter implements IConfigPresenter {
         ? this.getSetting<Prompt[]>("customPrompts") || []
         : this.customPromptsStore.get("prompts") || [];
       this.customPromptsCache = prompts;
-      console.log(`[Config] Custom prompts cache loaded: ${prompts.length} prompts`);
+      log.info(`Custom prompts cache loaded: ${prompts.length} prompts`);
       return prompts;
     } catch (error) {
-      console.error("[Config] Failed to load custom prompts:", error);
+      log.error("Failed to load custom prompts:", error);
       this.customPromptsCache = [];
       return [];
     }
@@ -3017,7 +3020,7 @@ export class ConfigPresenter implements IConfigPresenter {
       await this.customPromptsStore.set("prompts", prompts);
     }
     this.clearCustomPromptsCache();
-    console.log(`[Config] Custom prompts cache updated: ${prompts.length} prompts`);
+    log.info(`Custom prompts cache updated: ${prompts.length} prompts`);
     // Notify all windows about custom prompts change
     eventBus.send(CONFIG_EVENTS.CUSTOM_PROMPTS_CHANGED, SendTarget.ALL_WINDOWS, {
       count: prompts.length,
@@ -3029,7 +3032,7 @@ export class ConfigPresenter implements IConfigPresenter {
     const prompts = await this.getCustomPrompts();
     const updatedPrompts = [...prompts, prompt]; // Create new array
     await this.setCustomPrompts(updatedPrompts);
-    console.log(`[Config] Added custom prompt: ${prompt.name}`);
+    log.info(`Added custom prompt: ${prompt.name}`);
   }
 
   // Update a single prompt (optimized with cache)
@@ -3040,9 +3043,9 @@ export class ConfigPresenter implements IConfigPresenter {
       const updatedPrompts = [...prompts]; // Create new array
       updatedPrompts[index] = { ...updatedPrompts[index], ...updates };
       await this.setCustomPrompts(updatedPrompts);
-      console.log(`[Config] Updated custom prompt: ${promptId}`);
+      log.info(`Updated custom prompt: ${promptId}`);
     } else {
-      console.warn(`[Config] Custom prompt not found for update: ${promptId}`);
+      log.warn(`Custom prompt not found for update: ${promptId}`);
     }
   }
 
@@ -3053,12 +3056,12 @@ export class ConfigPresenter implements IConfigPresenter {
     const filteredPrompts = prompts.filter((p) => p.id !== promptId);
 
     if (filteredPrompts.length === initialCount) {
-      console.warn(`[Config] Custom prompt not found for deletion: ${promptId}`);
+      log.warn(`Custom prompt not found for deletion: ${promptId}`);
       return;
     }
 
     await this.setCustomPrompts(filteredPrompts);
-    console.log(`[Config] Deleted custom prompt: ${promptId}`);
+    log.info(`Deleted custom prompt: ${promptId}`);
   }
 
   /**
@@ -3066,7 +3069,7 @@ export class ConfigPresenter implements IConfigPresenter {
    * Forces a reload on the next access
    */
   clearCustomPromptsCache(): void {
-    console.log("[Config] Clearing custom prompts cache");
+    log.info("Clearing custom prompts cache");
     this.customPromptsCache = null;
   }
 
@@ -3299,7 +3302,7 @@ export class ConfigPresenter implements IConfigPresenter {
         });
       })
       .catch((error) => {
-        console.error("Failed to notify MCP config change after knowledge config update:", error);
+        log.error("Failed to notify MCP config change after knowledge config update:", error);
       });
   }
 
@@ -3394,7 +3397,7 @@ export class ConfigPresenter implements IConfigPresenter {
         timeout: number;
       } | null;
     } catch (error) {
-      console.error("[Config] Failed to get nowledge-mem config:", error);
+      log.error("Failed to get nowledge-mem config:", error);
       return null;
     }
   }
@@ -3404,7 +3407,7 @@ export class ConfigPresenter implements IConfigPresenter {
       this.getSettingsStoreForKey("nowledgeMemConfig").set("nowledgeMemConfig", config);
       eventBus.sendToRenderer(CONFIG_EVENTS.NOWLEDGE_MEM_CONFIG_UPDATED, SendTarget.ALL_WINDOWS, config);
     } catch (error) {
-      console.error("[Config] Failed to set nowledge-mem config:", error);
+      log.error("Failed to set nowledge-mem config:", error);
       throw error;
     }
   }

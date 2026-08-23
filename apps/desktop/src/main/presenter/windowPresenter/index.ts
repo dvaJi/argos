@@ -35,6 +35,9 @@ import type { ProviderInstallPreview } from "@argos/shared/providerDeeplink";
 import { StartupWorkloadCoordinator } from "../startupWorkloadCoordinator";
 import { openExternalUrl } from "#/lib/externalUrl";
 import { activateAppOnMac } from "#/lib/activateApp";
+import { createLogger } from "@argos/shared/logger";
+
+const log = createLogger("Window");
 
 type PendingSettingsMessage = {
   channel: string;
@@ -125,7 +128,7 @@ export class WindowPresenter implements IWindowPresenter {
 
     // Listen for shortcut event: create new window
     eventBus.on(SHORTCUT_EVENTS.CREATE_NEW_WINDOW, () => {
-      console.log("Creating new app window via shortcut.");
+      log.info("Creating new app window via shortcut.");
       this.createAppWindow();
     });
 
@@ -134,7 +137,7 @@ export class WindowPresenter implements IWindowPresenter {
       try {
         await this.navigateToSettings();
       } catch (err) {
-        console.error("Failed to navigate to settings via eventBus:", err);
+        log.error("Failed to navigate to settings via eventBus:", err);
       }
     });
 
@@ -143,7 +146,7 @@ export class WindowPresenter implements IWindowPresenter {
       try {
         await this.navigateToSettings();
       } catch (err) {
-        console.error("Failed to open/focus settings window via IPC:", err);
+        log.error("Failed to open/focus settings window via IPC:", err);
       }
     });
 
@@ -153,24 +156,24 @@ export class WindowPresenter implements IWindowPresenter {
 
     // Listen for system theme updates and notify all window renderers
     eventBus.on(SYSTEM_EVENTS.SYSTEM_THEME_UPDATED, (isDark: boolean) => {
-      console.log("System theme updated, notifying all windows.");
+      log.info("System theme updated, notifying all windows.");
       this.windows.forEach((window) => {
         if (!window.isDestroyed()) {
           window.webContents.send("system-theme-updated", isDark);
         } else {
-          console.warn(`Skipping theme update for destroyed window ${window.id}.`);
+          log.warn(`Skipping theme update for destroyed window ${window.id}.`);
         }
       });
     });
 
     // Listen for content protection changes: update all windows and restart the app
     eventBus.on(CONFIG_EVENTS.CONTENT_PROTECTION_CHANGED, (enabled: boolean) => {
-      console.log(`Content protection setting changed to ${enabled}, restarting application.`);
+      log.info(`Content protection setting changed to ${enabled}, restarting application.`);
       this.windows.forEach((window) => {
         if (!window.isDestroyed()) {
           this.updateContentProtection(window, enabled);
         } else {
-          console.warn(`Skipping content protection update for destroyed window ${window.id}.`);
+          log.warn(`Skipping content protection update for destroyed window ${window.id}.`);
         }
       });
       // Content protection changes usually require an app restart to fully take effect
@@ -181,7 +184,7 @@ export class WindowPresenter implements IWindowPresenter {
 
     // Listen for the updater setting the app quitting state
     eventBus.on(WINDOW_EVENTS.SET_APPLICATION_QUITTING, (data: { isQuitting: boolean }) => {
-      console.log(`WindowPresenter: Setting application quitting state to ${data.isQuitting}`);
+      log.info(`Setting application quitting state to ${data.isQuitting}`);
       this.setApplicationQuitting(data.isQuitting);
     });
   }
@@ -199,7 +202,7 @@ export class WindowPresenter implements IWindowPresenter {
    * This method is kept for backward compatibility.
    */
   public async openOrFocusSettingsTab(_windowId: number): Promise<void> {
-    console.warn("openOrFocusSettingsTab is deprecated. Use navigateToSettings() instead.");
+    log.warn("openOrFocusSettingsTab is deprecated. Use navigateToSettings() instead.");
     await this.navigateToSettings();
   }
 
@@ -211,11 +214,11 @@ export class WindowPresenter implements IWindowPresenter {
   public async navigateToSettings(navigation?: SettingsNavigationPayload): Promise<number | null> {
     const mainWindow = this.mainWindow;
     if (!mainWindow || mainWindow.isDestroyed()) {
-      console.warn("Cannot navigate to settings: no valid main window found.");
+      log.warn("Cannot navigate to settings: no valid main window found.");
       return null;
     }
 
-    console.log("Navigating main window to settings.");
+    log.info("Navigating main window to settings.");
     mainWindow.show();
     mainWindow.focus();
     activateAppOnMac();
@@ -260,14 +263,14 @@ export class WindowPresenter implements IWindowPresenter {
     }
 
     if (targetWindow && !targetWindow.isDestroyed()) {
-      console.log(`Previewing file: ${filePath}`);
+      log.info(`Previewing file: ${filePath}`);
       if (process.platform === "darwin") {
         targetWindow.previewFile(filePath);
       } else {
         shell.openPath(filePath); // Open with the system default app
       }
     } else {
-      console.warn("Cannot preview file, no valid window found.");
+      log.warn("Cannot preview file, no valid window found.");
     }
   }
 
@@ -278,10 +281,10 @@ export class WindowPresenter implements IWindowPresenter {
   minimize(windowId: number): void {
     const window = this.windows.get(windowId);
     if (window && !window.isDestroyed()) {
-      console.log(`Minimizing window ${windowId}.`);
+      log.info(`Minimizing window ${windowId}.`);
       window.minimize();
     } else {
-      console.warn(`Failed to minimize window ${windowId}, window does not exist or is destroyed.`);
+      log.warn(`Failed to minimize window ${windowId}, window does not exist or is destroyed.`);
     }
   }
 
@@ -292,7 +295,7 @@ export class WindowPresenter implements IWindowPresenter {
   maximize(windowId: number): void {
     const window = this.windows.get(windowId);
     if (window && !window.isDestroyed()) {
-      console.log(`Maximizing/unmaximizing window ${windowId}.`);
+      log.info(`Maximizing/unmaximizing window ${windowId}.`);
       if (window.isMaximized()) {
         window.unmaximize();
       } else {
@@ -300,10 +303,10 @@ export class WindowPresenter implements IWindowPresenter {
       }
       // Trigger restore logic so the active tab bounds are updated
       this.handleWindowRestore(windowId).catch((error) => {
-        console.error(`Error handling restore logic after maximizing/unmaximizing window ${windowId}:`, error);
+        log.error(`Error handling restore logic after maximizing/unmaximizing window ${windowId}:`, error);
       });
     } else {
-      console.warn(`Failed to maximize/unmaximize window ${windowId}, window does not exist or is destroyed.`);
+      log.warn(`Failed to maximize/unmaximize window ${windowId}, window does not exist or is destroyed.`);
     }
   }
 
@@ -315,10 +318,10 @@ export class WindowPresenter implements IWindowPresenter {
   close(windowId: number): void {
     const window = this.windows.get(windowId);
     if (window && !window.isDestroyed()) {
-      console.log(`Requesting to close window ${windowId}, calling window.close().`);
+      log.info(`Requesting to close window ${windowId}, calling window.close().`);
       window.close(); // Triggers the 'close' event
     } else {
-      console.warn(`Failed to request close for window ${windowId}, window does not exist or is destroyed.`);
+      log.warn(`Failed to request close for window ${windowId}, window does not exist or is destroyed.`);
     }
   }
 
@@ -329,12 +332,12 @@ export class WindowPresenter implements IWindowPresenter {
    * @param forceClose Whether to force close (the current impl is driven by the isQuitting flag; this param is unused).
    */
   async closeWindow(windowId: number, forceClose: boolean = false): Promise<void> {
-    console.log(`closeWindow(${windowId}, ${forceClose}) called.`);
+    log.info(`closeWindow(${windowId}, ${forceClose}) called.`);
     const window = this.windows.get(windowId);
     if (window && !window.isDestroyed()) {
       window.close(); // Triggers the 'close' event
     } else {
-      console.warn(`Failed to close window ${windowId} in closeWindow, window does not exist or is destroyed.`);
+      log.warn(`Failed to close window ${windowId} in closeWindow, window does not exist or is destroyed.`);
     }
     return Promise.resolve();
   }
@@ -346,26 +349,26 @@ export class WindowPresenter implements IWindowPresenter {
   hide(windowId: number): void {
     const window = this.windows.get(windowId);
     if (window && !window.isDestroyed()) {
-      console.log(`Hiding window ${windowId}.`);
+      log.info(`Hiding window ${windowId}.`);
       // Handle the black screen issue when hiding a fullscreen window
       if (window.isFullScreen()) {
-        console.log(`Window ${windowId} is fullscreen, exiting fullscreen before hiding.`);
+        log.info(`Window ${windowId} is fullscreen, exiting fullscreen before hiding.`);
         // Wait for leave-full-screen before hiding after exiting fullscreen
         window.once("leave-full-screen", () => {
-          console.log(`Window ${windowId} left fullscreen, proceeding with hide.`);
+          log.info(`Window ${windowId} left fullscreen, proceeding with hide.`);
           if (!window.isDestroyed()) {
             window.hide();
           } else {
-            console.warn(`Window ${windowId} was destroyed after leaving fullscreen, cannot hide.`);
+            log.warn(`Window ${windowId} was destroyed after leaving fullscreen, cannot hide.`);
           }
         });
         window.setFullScreen(false); // Request exiting fullscreen
       } else {
-        console.log(`Window ${windowId} is not fullscreen, hiding directly.`);
+        log.info(`Window ${windowId} is not fullscreen, hiding directly.`);
         window.hide(); // Hide directly
       }
     } else {
-      console.warn(`Failed to hide window ${windowId}, window does not exist or is destroyed.`);
+      log.warn(`Failed to hide window ${windowId}, window does not exist or is destroyed.`);
     }
   }
 
@@ -380,17 +383,17 @@ export class WindowPresenter implements IWindowPresenter {
       // No ID given: fall back to the focused window or the first window
       targetWindow = this.getFocusedWindow() || this.getAllWindows()[0];
       if (targetWindow && !targetWindow.isDestroyed()) {
-        console.log(`Showing default window ${targetWindow.id}.`);
+        log.info(`Showing default window ${targetWindow.id}.`);
       } else {
-        console.warn("No window found to show.");
+        log.warn("No window found to show.");
         return;
       }
     } else {
       targetWindow = this.windows.get(windowId);
       if (targetWindow && !targetWindow.isDestroyed()) {
-        console.log(`Showing window ${windowId}.`);
+        log.info(`Showing window ${windowId}.`);
       } else {
-        console.warn(`Failed to show window ${windowId}, window does not exist or is destroyed.`);
+        log.warn(`Failed to show window ${windowId}, window does not exist or is destroyed.`);
         return;
       }
     }
@@ -402,7 +405,7 @@ export class WindowPresenter implements IWindowPresenter {
     }
     // Trigger restore logic so the active tab is visible and positioned correctly
     this.handleWindowRestore(targetWindow.id).catch((error) => {
-      console.error(`Error handling restore logic after showing window ${targetWindow!.id}:`, error);
+      log.error(`Error handling restore logic after showing window ${targetWindow!.id}:`, error);
     });
   }
 
@@ -411,10 +414,10 @@ export class WindowPresenter implements IWindowPresenter {
    * @param windowId Window ID.
    */
   private async handleWindowRestore(windowId: number): Promise<void> {
-    console.log(`Handling restore/show logic for window ${windowId}.`);
+    log.info(`Handling restore/show logic for window ${windowId}.`);
     const window = this.windows.get(windowId);
     if (!window || window.isDestroyed()) {
-      console.warn(`Cannot handle restore/show logic for window ${windowId}, window does not exist or is destroyed.`);
+      log.warn(`Cannot handle restore/show logic for window ${windowId}, window does not exist or is destroyed.`);
       return;
     }
   }
@@ -466,10 +469,10 @@ export class WindowPresenter implements IWindowPresenter {
             }
           }
         } catch (error) {
-          console.error(`Error sending message "${channel}" to tabs of window ${window.id}:`, error);
+          log.error(`Error sending message "${channel}" to tabs of window ${window.id}:`, error);
         }
       } else {
-        console.warn(`Skipping sending message "${channel}" to destroyed window ${window.id}.`);
+        log.warn(`Skipping sending message "${channel}" to destroyed window ${window.id}.`);
       }
     }
 
@@ -477,7 +480,7 @@ export class WindowPresenter implements IWindowPresenter {
       try {
         this.settingsWindow.webContents.send(channel, ...args);
       } catch (error) {
-        console.error(`Error sending message "${channel}" to settings window:`, error);
+        log.error(`Error sending message "${channel}" to settings window:`, error);
       }
     }
 
@@ -487,7 +490,7 @@ export class WindowPresenter implements IWindowPresenter {
         try {
           floatingWindow.webContents.send(channel, ...args);
         } catch (error) {
-          console.error(`Error sending message "${channel}" to floating chat window:`, error);
+          log.error(`Error sending message "${channel}" to floating chat window:`, error);
         }
       }
     }
@@ -501,7 +504,7 @@ export class WindowPresenter implements IWindowPresenter {
    * @returns true if the message was attempted; otherwise false.
    */
   sendToWindow(windowId: number, channel: string, ...args: unknown[]): boolean {
-    console.log(`Sending message "${channel}" to window ${windowId}.`);
+    log.info(`Sending message "${channel}" to window ${windowId}.`);
 
     if (this.settingsWindow && !this.settingsWindow.isDestroyed() && this.settingsWindow.id === windowId) {
       if (this.tryNavigateSettingsWindowByUrl(channel, args)) {
@@ -516,7 +519,7 @@ export class WindowPresenter implements IWindowPresenter {
         this.settingsWindow.webContents.send(channel, ...args);
         return true;
       } catch (error) {
-        console.error(`Error sending message "${channel}" to settings window ${windowId}:`, error);
+        log.error(`Error sending message "${channel}" to settings window ${windowId}:`, error);
         return false;
       }
     }
@@ -541,11 +544,11 @@ export class WindowPresenter implements IWindowPresenter {
           }
         })
         .catch((error) => {
-          console.error(`Error sending message "${channel}" to tabs of window ${windowId}:`, error);
+          log.error(`Error sending message "${channel}" to tabs of window ${windowId}:`, error);
         });
       return true;
     } else {
-      console.warn(`Failed to send message "${channel}" to window ${windowId}, window does not exist or is destroyed.`);
+      log.warn(`Failed to send message "${channel}" to window ${windowId}, window does not exist or is destroyed.`);
     }
     return false;
   }
@@ -610,7 +613,7 @@ export class WindowPresenter implements IWindowPresenter {
     x?: number;
     y?: number;
   }): Promise<number | null> {
-    console.log("Creating window via deprecated createShellWindow wrapper.");
+    log.info("Creating window via deprecated createShellWindow wrapper.");
     return await this.createManagedWindow(options);
   }
 
@@ -698,7 +701,7 @@ export class WindowPresenter implements IWindowPresenter {
     });
 
     if (!appWindow) {
-      console.error("Failed to create application window.");
+      log.error("Failed to create application window.");
       return null;
     }
 
@@ -750,7 +753,7 @@ export class WindowPresenter implements IWindowPresenter {
 
     // Show the window once it is ready
     appWindow.on("ready-to-show", () => {
-      console.log(`Window ${windowId} is ready to show.`);
+      log.info(`Window ${windowId} is ready to show.`);
       if (!appWindow.isDestroyed()) {
         appWindow.show();
         appWindow.focus();
@@ -760,13 +763,13 @@ export class WindowPresenter implements IWindowPresenter {
           isMainWindow: windowId === this.mainWindowId,
         });
       } else {
-        console.warn(`Window ${windowId} was destroyed before ready-to-show.`);
+        log.warn(`Window ${windowId} was destroyed before ready-to-show.`);
       }
     });
 
     // Window gained focus
     appWindow.on("focus", () => {
-      console.log(`Window ${windowId} gained focus.`);
+      log.info(`Window ${windowId} gained focus.`);
       this.focusedWindowId = windowId;
       eventBus.sendToMain(WINDOW_EVENTS.WINDOW_FOCUSED, windowId);
       if (!appWindow.isDestroyed()) {
@@ -776,7 +779,7 @@ export class WindowPresenter implements IWindowPresenter {
 
     // Window lost focus
     appWindow.on("blur", () => {
-      console.log(`Window ${windowId} lost focus.`);
+      log.info(`Window ${windowId} lost focus.`);
       if (this.focusedWindowId === windowId) {
         this.focusedWindowId = null; // Only clear when the blurred window is the recorded focus window
       }
@@ -788,35 +791,35 @@ export class WindowPresenter implements IWindowPresenter {
 
     // Window maximized
     appWindow.on("maximize", () => {
-      console.log(`Window ${windowId} maximized.`);
+      log.info(`Window ${windowId} maximized.`);
       if (!appWindow.isDestroyed()) {
         appWindow.webContents.send(WINDOW_EVENTS.WINDOW_MAXIMIZED);
         eventBus.sendToMain(WINDOW_EVENTS.WINDOW_MAXIMIZED, windowId);
         // Trigger restore logic to update tab bounds
         this.handleWindowRestore(windowId).catch((error) => {
-          console.error(`Error handling restore logic after maximizing window ${windowId}:`, error);
+          log.error(`Error handling restore logic after maximizing window ${windowId}:`, error);
         });
       }
     });
 
     // Window unmaximized
     appWindow.on("unmaximize", () => {
-      console.log(`Window ${windowId} unmaximized.`);
+      log.info(`Window ${windowId} unmaximized.`);
       if (!appWindow.isDestroyed()) {
         appWindow.webContents.send(WINDOW_EVENTS.WINDOW_UNMAXIMIZED);
         eventBus.sendToMain(WINDOW_EVENTS.WINDOW_UNMAXIMIZED, windowId);
         // Trigger restore logic to update tab bounds
         this.handleWindowRestore(windowId).catch((error) => {
-          console.error(`Error handling restore logic after unmaximizing window ${windowId}:`, error);
+          log.error(`Error handling restore logic after unmaximizing window ${windowId}:`, error);
         });
       }
     });
 
     // Window restored from minimized (or shown explicitly via show())
     const handleRestore = async () => {
-      console.log(`Window ${windowId} restored.`);
+      log.info(`Window ${windowId} restored.`);
       this.handleWindowRestore(windowId).catch((error) => {
-        console.error(`Error handling restore logic for window ${windowId}:`, error);
+        log.error(`Error handling restore logic for window ${windowId}:`, error);
       });
       appWindow.webContents.send(WINDOW_EVENTS.WINDOW_UNMAXIMIZED);
       eventBus.sendToMain(WINDOW_EVENTS.WINDOW_RESTORED, windowId);
@@ -825,26 +828,26 @@ export class WindowPresenter implements IWindowPresenter {
 
     // Window entered fullscreen
     appWindow.on("enter-full-screen", () => {
-      console.log(`Window ${windowId} entered fullscreen.`);
+      log.info(`Window ${windowId} entered fullscreen.`);
       if (!appWindow.isDestroyed()) {
         appWindow.webContents.send(WINDOW_EVENTS.WINDOW_ENTER_FULL_SCREEN);
         eventBus.sendToMain(WINDOW_EVENTS.WINDOW_ENTER_FULL_SCREEN, windowId);
         // Trigger restore logic to update tab bounds
         this.handleWindowRestore(windowId).catch((error) => {
-          console.error(`Error handling restore logic after entering fullscreen for window ${windowId}:`, error);
+          log.error(`Error handling restore logic after entering fullscreen for window ${windowId}:`, error);
         });
       }
     });
 
     // Window left fullscreen
     appWindow.on("leave-full-screen", () => {
-      console.log(`Window ${windowId} left fullscreen.`);
+      log.info(`Window ${windowId} left fullscreen.`);
       if (!appWindow.isDestroyed()) {
         appWindow.webContents.send(WINDOW_EVENTS.WINDOW_LEAVE_FULL_SCREEN);
         eventBus.sendToMain(WINDOW_EVENTS.WINDOW_LEAVE_FULL_SCREEN, windowId);
         // Trigger restore logic to update tab bounds
         this.handleWindowRestore(windowId).catch((error) => {
-          console.error(`Error handling restore logic after leaving fullscreen for window ${windowId}:`, error);
+          log.error(`Error handling restore logic after leaving fullscreen for window ${windowId}:`, error);
         });
       }
     });
@@ -857,7 +860,7 @@ export class WindowPresenter implements IWindowPresenter {
     // 'close' event: the user tried to close the window (clicked the close button, etc.).
     // This handler decides whether to hide the window or let it close/destroy.
     appWindow.on("close", (event) => {
-      console.log(`Window ${windowId} close event. isQuitting: ${this.isQuitting}, Platform: ${process.platform}.`);
+      log.info(`Window ${windowId} close event. isQuitting: ${this.isQuitting}, Platform: ${process.platform}.`);
 
       // If the app is not in the process of quitting...
       if (!this.isQuitting) {
@@ -869,40 +872,40 @@ export class WindowPresenter implements IWindowPresenter {
         const shouldPreventDefault = windowId === this.mainWindowId && !shouldQuitOnClose;
 
         if (shouldPreventDefault) {
-          console.log(`Window ${windowId}: Preventing default close behavior, hiding instead.`);
+          log.info(`Window ${windowId}: Preventing default close behavior, hiding instead.`);
           event.preventDefault(); // Prevent the default window close behavior
 
           // Handle the black screen issue when hiding a fullscreen window (same as hide())
           if (appWindow.isFullScreen()) {
-            console.log(`Window ${windowId} is fullscreen, exiting fullscreen before hiding (close event).`);
+            log.info(`Window ${windowId} is fullscreen, exiting fullscreen before hiding (close event).`);
             appWindow.once("leave-full-screen", () => {
-              console.log(`Window ${windowId} left fullscreen, proceeding with hide (close event).`);
+              log.info(`Window ${windowId} left fullscreen, proceeding with hide (close event).`);
               if (!appWindow.isDestroyed()) {
                 appWindow.hide();
               } else {
-                console.warn(`Window ${windowId} was destroyed after leaving fullscreen, cannot hide (close event).`);
+                log.warn(`Window ${windowId} was destroyed after leaving fullscreen, cannot hide (close event).`);
               }
             });
             appWindow.setFullScreen(false);
           } else {
-            console.log(`Window ${windowId} is not fullscreen, hiding directly (close event).`);
+            log.info(`Window ${windowId} is not fullscreen, hiding directly (close event).`);
             appWindow.hide();
           }
         } else {
           // Allow the default close behavior. This triggers the 'closed' event.
-          console.log(
+          log.info(
             `Window ${windowId}: Allowing default close behavior (app is quitting or macOS last window configured to quit).`,
           );
         }
       } else {
         // When isQuitting is true the app is quitting intentionally: allow the window to close normally
-        console.log(`Window ${windowId}: isQuitting is true, allowing default close behavior.`);
+        log.info(`Window ${windowId}: isQuitting is true, allowing default close behavior.`);
       }
     });
 
     // 'closed' event: fired when the window is actually closed and destroyed (after 'close', if not prevented)
     appWindow.on("closed", () => {
-      console.log(
+      log.info(
         `Window ${windowId} closed event triggered. isQuitting: ${this.isQuitting}, Map size BEFORE delete: ${this.windows.size}`,
       );
       const windowIdBeingClosed = windowId; // Capture the ID
@@ -913,14 +916,14 @@ export class WindowPresenter implements IWindowPresenter {
       this.windows.delete(windowIdBeingClosed); // Remove from the Map
       managedWindowState.unmanage(); // Stop managing window state
       eventBus.sendToMain(WINDOW_EVENTS.WINDOW_CLOSED, windowIdBeingClosed);
-      console.log(`Window ${windowIdBeingClosed} closed event handled. Map size AFTER delete: ${this.windows.size}`);
+      log.info(`Window ${windowIdBeingClosed} closed event handled. Map size AFTER delete: ${this.windows.size}`);
 
       // On non-macOS platforms, warn if the last window was closed while the app is not quitting.
       // Under the hide-to-tray logic, the 'closed' event should only fire when isQuitting is true.
       if (this.windows.size === 0 && process.platform !== "darwin") {
-        console.log(`Last window closed on non-macOS platform.`);
+        log.info(`Last window closed on non-macOS platform.`);
         if (!this.isQuitting) {
-          console.warn(
+          log.warn(
             `Warning: Last window on non-macOS platform triggered closed event, but app is not marked as quitting. This might indicate window destruction instead of hiding.`,
           );
         }
@@ -939,7 +942,7 @@ export class WindowPresenter implements IWindowPresenter {
       appWindow.webContents.openDevTools({ mode: "detach" });
     }
 
-    console.log(`Window ${windowId} created successfully.`);
+    log.info(`Window ${windowId} created successfully.`);
 
     if (this.mainWindowId == null) {
       this.mainWindowId = windowId; // First window becomes the main window
@@ -956,25 +959,25 @@ export class WindowPresenter implements IWindowPresenter {
   private async loadUiUrl(window: BrowserWindow, route: string): Promise<void> {
     if (getDevServerBase()) {
       const url = resolveUiUrl(route);
-      console.log(`[window] Loading UI route from dev server: ${url}`);
+      log.info(`[window] Loading UI route from dev server: ${url}`);
       try {
         await window.loadURL(url);
       } catch (error) {
-        console.error(`[window] Failed to load UI route ${url}:`, error);
+        log.error(`[window] Failed to load UI route ${url}:`, error);
       }
       return;
     }
 
     const port = await waitForDaemonPort(30000);
     if (getSidecarHandle() && !port) {
-      console.warn("[window] Daemon port unavailable after timeout");
+      log.warn("[window] Daemon port unavailable after timeout");
     }
     const url = resolveUiUrl(route);
-    console.log(`[window] Loading UI route from daemon: ${url}`);
+    log.info(`[window] Loading UI route from daemon: ${url}`);
     try {
       await window.loadURL(url);
     } catch (error) {
-      console.error(`[window] Failed to load UI route ${url}:`, error);
+      log.error(`[window] Failed to load UI route ${url}:`, error);
     }
   }
 
@@ -985,10 +988,10 @@ export class WindowPresenter implements IWindowPresenter {
    */
   private updateContentProtection(window: BrowserWindow, enabled: boolean): void {
     if (window.isDestroyed()) {
-      console.warn(`Attempted to update content protection settings on a destroyed window.`);
+      log.warn(`Attempted to update content protection settings on a destroyed window.`);
       return;
     }
-    console.log(`Updating content protection for window ${window.id}: ${enabled}`);
+    log.info(`Updating content protection for window ${window.id}: ${enabled}`);
 
     // setContentProtection blocks screenshots/screen recording
     window.setContentProtection(enabled);
@@ -1015,7 +1018,7 @@ export class WindowPresenter implements IWindowPresenter {
 
     if (electronFocusedWindow) {
       const windowId = electronFocusedWindow.id;
-      console.log(this.windows);
+      log.info(this.windows);
       const ourWindow = this.windows.get(windowId);
 
       // Verify the Electron-reported window is managed by us and still valid
@@ -1030,7 +1033,7 @@ export class WindowPresenter implements IWindowPresenter {
         }
       } else {
         // The Electron-reported window is not in the Map or is destroyed
-        console.warn(`Electron reported window ${windowId} focused, but it is not managed or is destroyed.`);
+        log.warn(`Electron reported window ${windowId} focused, but it is not managed or is destroyed.`);
         this.focusedWindowId = null;
         return undefined;
       }
@@ -1067,7 +1070,7 @@ export class WindowPresenter implements IWindowPresenter {
       try {
         window.setTitleBarOverlay(overlay);
       } catch (error) {
-        console.error("Failed to re-apply window controls overlay:", error);
+        log.error("Failed to re-apply window controls overlay:", error);
       }
     }
   }
@@ -1080,7 +1083,7 @@ export class WindowPresenter implements IWindowPresenter {
   async getActiveTabId(windowId: number): Promise<number | undefined> {
     const window = this.windows.get(windowId);
     if (!window || window.isDestroyed()) {
-      console.warn(`Cannot get active tab ID for window ${windowId}, window does not exist or is destroyed.`);
+      log.warn(`Cannot get active tab ID for window ${windowId}, window does not exist or is destroyed.`);
       return undefined;
     }
     const tabPresenterInstance = presenter.tabPresenter as TabPresenter;
@@ -1097,27 +1100,27 @@ export class WindowPresenter implements IWindowPresenter {
    * @returns true if the event was sent to a valid active tab; otherwise false.
    */
   async sendToActiveTab(windowId: number, channel: string, ...args: unknown[]): Promise<boolean> {
-    console.log(`Sending event "${channel}" to active tab of window ${windowId}.`);
+    log.info(`Sending event "${channel}" to active tab of window ${windowId}.`);
     const tabPresenterInstance = presenter.tabPresenter as TabPresenter;
     const activeTabId = await tabPresenterInstance.getActiveTabId(windowId);
     if (activeTabId) {
       const tab = await tabPresenterInstance.getTab(activeTabId);
       if (tab && !tab.webContents.isDestroyed()) {
         tab.webContents.send(channel, ...args);
-        console.log(`  - Event sent to tab ${activeTabId}.`);
+        log.info(`  - Event sent to tab ${activeTabId}.`);
         return true;
       } else {
-        console.warn(`  - Active tab ${activeTabId} does not exist or is destroyed, cannot send event.`);
+        log.warn(`  - Active tab ${activeTabId} does not exist or is destroyed, cannot send event.`);
       }
     } else {
       // Fallback: chat windows have no tabs, send directly to BrowserWindow webContents
       const targetWindow = BrowserWindow.fromId(windowId);
       if (targetWindow && !targetWindow.isDestroyed() && !targetWindow.webContents.isDestroyed()) {
         targetWindow.webContents.send(channel, ...args);
-        console.log(`  - No active tab, sent event directly to window ${windowId} webContents.`);
+        log.info(`  - No active tab, sent event directly to window ${windowId} webContents.`);
         return true;
       }
-      console.warn(`No active tab found in window ${windowId}, cannot send event "${channel}".`);
+      log.warn(`No active tab found in window ${windowId}, cannot send event "${channel}".`);
     }
     return false;
   }
@@ -1131,7 +1134,7 @@ export class WindowPresenter implements IWindowPresenter {
    * @returns true if the message was sent; otherwise false.
    */
   async sendToDefaultTab(channel: string, switchToTarget: boolean = false, ...args: unknown[]): Promise<boolean> {
-    console.log(`Sending message "${channel}" to default tab. Switch to target: ${switchToTarget}.`);
+    log.info(`Sending message "${channel}" to default tab. Switch to target: ${switchToTarget}.`);
     try {
       // Prefer the currently focused window
       let targetWindow = this.getFocusedWindow();
@@ -1139,17 +1142,17 @@ export class WindowPresenter implements IWindowPresenter {
 
       if (targetWindow) {
         windowId = targetWindow.id;
-        console.log(`  - Using focused window ${windowId}`);
+        log.info(`  - Using focused window ${windowId}`);
       } else {
         // With no focused window, use the first valid window
         const windows = this.getAllWindows();
         if (windows.length === 0) {
-          console.warn("No window found to send message to.");
+          log.warn("No window found to send message to.");
           return false;
         }
         targetWindow = windows[0];
         windowId = targetWindow.id;
-        console.log(`  - No focused window, using first window ${windowId}`);
+        log.info(`  - No focused window, using first window ${windowId}`);
       }
 
       // Get all tabs of the target window
@@ -1159,14 +1162,14 @@ export class WindowPresenter implements IWindowPresenter {
         // Fallback: chat windows have no tabs, send directly to BrowserWindow webContents
         if (targetWindow && !targetWindow.isDestroyed() && !targetWindow.webContents.isDestroyed()) {
           targetWindow.webContents.send(channel, ...args);
-          console.log(`  - Window ${windowId} has no tabs, sent message directly to window webContents.`);
+          log.info(`  - Window ${windowId} has no tabs, sent message directly to window webContents.`);
           if (switchToTarget) {
             targetWindow.show();
             targetWindow.focus();
           }
           return true;
         }
-        console.warn(`Window ${windowId} has no tabs and window is unavailable.`);
+        log.warn(`Window ${windowId} has no tabs and window is unavailable.`);
         return false;
       }
 
@@ -1177,53 +1180,53 @@ export class WindowPresenter implements IWindowPresenter {
       if (targetTab && !targetTab.webContents.isDestroyed()) {
         // Send the message to the target tab
         targetTab.webContents.send(channel, ...args);
-        console.log(`  - Message sent to tab ${targetTabData.id} in window ${windowId}.`);
+        log.info(`  - Message sent to tab ${targetTabData.id} in window ${windowId}.`);
 
         // If requested, switch to the target window and tab
         if (switchToTarget) {
           try {
             // Activate the target window
             if (targetWindow && !targetWindow.isDestroyed()) {
-              console.log(`  - Switching to window ${windowId}`);
+              log.info(`  - Switching to window ${windowId}`);
               targetWindow.show(); // Ensure the window is visible
               targetWindow.focus(); // Bring the window to the foreground
             }
 
             // Switch if the target tab is not the active tab
             if (!targetTabData.isActive) {
-              console.log(`  - Switching to tab ${targetTabData.id}`);
+              log.info(`  - Switching to tab ${targetTabData.id}`);
               await tabPresenterInstance.switchTab(targetTabData.id);
             }
             // switchTab already calls bringViewToFront to set focus; no extra call needed
           } catch (error) {
-            console.error("Error switching to target window/tab:", error);
+            log.error("Error switching to target window/tab:", error);
             // Continue, since the message was sent successfully
           }
         }
 
         return true; // Message sent successfully
       } else {
-        console.warn(`Target tab ${targetTabData.id} in window ${windowId} is unavailable or destroyed.`);
+        log.warn(`Target tab ${targetTabData.id} in window ${windowId} is unavailable or destroyed.`);
         return false; // Target tab invalid
       }
     } catch (error) {
-      console.error("Error sending message to default tab:", error);
+      log.error("Error sending message to default tab:", error);
       return false; // Error during the process
     }
   }
 
   public async createFloatingChatWindow(): Promise<void> {
     if (this.floatingChatWindow) {
-      console.log("FloatingChatWindow already exists");
+      log.info("FloatingChatWindow already exists");
       return;
     }
 
     try {
       this.floatingChatWindow = new FloatingChatWindow();
       await this.floatingChatWindow.create();
-      console.log("FloatingChatWindow created successfully");
+      log.info("FloatingChatWindow created successfully");
     } catch (error) {
-      console.error("Failed to create FloatingChatWindow:", error);
+      log.error("Failed to create FloatingChatWindow:", error);
       this.floatingChatWindow = null;
       throw error;
     }
@@ -1241,14 +1244,14 @@ export class WindowPresenter implements IWindowPresenter {
 
     if (this.floatingChatWindow) {
       this.floatingChatWindow.show(floatingButtonPosition);
-      console.log("FloatingChatWindow shown");
+      log.info("FloatingChatWindow shown");
     }
   }
 
   public hideFloatingChatWindow(): void {
     if (this.floatingChatWindow) {
       this.floatingChatWindow.hide();
-      console.log("FloatingChatWindow hidden");
+      log.info("FloatingChatWindow hidden");
     }
   }
 
@@ -1264,7 +1267,7 @@ export class WindowPresenter implements IWindowPresenter {
 
     if (this.floatingChatWindow) {
       this.floatingChatWindow.toggle(floatingButtonPosition);
-      console.log("FloatingChatWindow toggled");
+      log.info("FloatingChatWindow toggled");
     }
   }
 
@@ -1272,7 +1275,7 @@ export class WindowPresenter implements IWindowPresenter {
     if (this.floatingChatWindow) {
       this.floatingChatWindow.destroy();
       this.floatingChatWindow = null;
-      console.log("FloatingChatWindow destroyed");
+      log.info("FloatingChatWindow destroyed");
     }
   }
 
@@ -1289,7 +1292,7 @@ export class WindowPresenter implements IWindowPresenter {
    * Create or show Settings Window (singleton pattern)
    */
   public async createSettingsWindow(navigation?: SettingsNavigationPayload): Promise<number | null> {
-    console.warn("createSettingsWindow is deprecated. Use navigateToSettings() instead.");
+    log.warn("createSettingsWindow is deprecated. Use navigateToSettings() instead.");
     return this.navigateToSettings(navigation);
   }
 
@@ -1342,7 +1345,7 @@ export class WindowPresenter implements IWindowPresenter {
    */
   public closeSettingsWindow(): void {
     if (this.settingsWindow && !this.settingsWindow.isDestroyed()) {
-      console.log("Closing settings window.");
+      log.info("Closing settings window.");
       const windowId = this.settingsWindow.id;
       this.windows.delete(windowId);
       this.settingsWindow.close();
@@ -1373,7 +1376,7 @@ export class WindowPresenter implements IWindowPresenter {
     }
 
     this.settingsWindowReady = true;
-    console.info(`[Startup][Settings][Main] SETTINGS_EVENTS.READY windowId=${this.settingsWindow.id}`);
+    log.info(`[Startup][Settings][Main] SETTINGS_EVENTS.READY windowId=${this.settingsWindow.id}`);
     this.startupWorkloadCoordinator?.replayTarget("settings");
     this.flushPendingSettingsMessages();
   }
@@ -1409,8 +1412,8 @@ export class WindowPresenter implements IWindowPresenter {
     }
 
     this.pendingSettingsMessages.push({ channel, args: [navigation] });
-    console.log(`Reloading settings window to target URL: ${targetUrl}`);
-    console.info("[Startup][Settings][Main] loadURL start", targetUrl);
+    log.info(`Reloading settings window to target URL: ${targetUrl}`);
+    log.info("[Startup][Settings][Main] loadURL start", targetUrl);
     this.handleSettingsWindowNavigationStart(this.settingsWindow.id, true, false);
     void this.settingsWindow.webContents
       .loadURL(targetUrl)
@@ -1419,10 +1422,10 @@ export class WindowPresenter implements IWindowPresenter {
           return;
         }
 
-        console.info(`[Startup][Settings][Main] loadURL end windowId=${this.settingsWindow.id} target=${targetUrl}`);
+        log.info(`[Startup][Settings][Main] loadURL end windowId=${this.settingsWindow.id} target=${targetUrl}`);
       })
       .catch((error) => {
-        console.error(`Failed to reload settings window for navigation: ${targetUrl}`, error);
+        log.error(`Failed to reload settings window for navigation: ${targetUrl}`, error);
       });
     return true;
   }
@@ -1489,7 +1492,7 @@ export class WindowPresenter implements IWindowPresenter {
       try {
         this.settingsWindow?.webContents.send(channel, ...args);
       } catch (error) {
-        console.error(`Error flushing settings message "${channel}":`, error);
+        log.error(`Error flushing settings message "${channel}":`, error);
       }
     });
   }
@@ -1527,7 +1530,7 @@ export class WindowPresenter implements IWindowPresenter {
     const isXValid = x >= workArea.x && x + width <= workArea.x + workArea.width;
     const isYValid = y >= workArea.y && y + height <= workArea.y + workArea.height;
     if (!isXValid || !isYValid) {
-      console.log(
+      log.info(
         `Window position out of bounds (x: ${x}, y: ${y}, width: ${width}, height: ${height}), centering window`,
       );
       return {

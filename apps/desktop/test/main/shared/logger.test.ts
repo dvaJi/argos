@@ -27,4 +27,30 @@ describe("logger", () => {
     expect(error).toHaveBeenCalledOnce();
     expect(error).toHaveBeenCalledWith("fallback error");
   });
+
+  it("createLogger prefixes messages with the scope", async () => {
+    const log = vi.fn();
+    console.log = log;
+
+    const { createLogger } = await import("@argos/shared/logger");
+
+    const logger = createLogger("Lifecycle");
+    logger.info("startup complete", { durationMs: 12 });
+
+    expect(log).toHaveBeenCalledOnce();
+    expect(log).toHaveBeenCalledWith("[Lifecycle] startup complete", { durationMs: 12 });
+  });
+
+  it("createLogger prefixes non-string messages with a bare scope marker", async () => {
+    const log = vi.fn();
+    console.log = log;
+
+    const { createLogger } = await import("@argos/shared/logger");
+
+    const logger = createLogger("Config");
+    logger.info({ event: "reload" });
+
+    expect(log).toHaveBeenCalledOnce();
+    expect(log).toHaveBeenCalledWith("[Config]", { event: "reload" });
+  });
 });
