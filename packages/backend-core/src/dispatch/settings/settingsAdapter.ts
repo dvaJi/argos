@@ -31,6 +31,7 @@ export const readSettingsSnapshot = (configPresenter: IConfigPresenter): Setting
   copyWithCotEnabled: configPresenter.getCopyWithCotEnabled(),
   loggingEnabled: configPresenter.getLoggingEnabled(),
   showContinueIndicator: configPresenter.getSetting<boolean>("showContinueIndicator") ?? false,
+  hideReasoningOnFinishedTurn: configPresenter.getSetting<boolean>("hideReasoningOnFinishedTurn") ?? false,
 });
 
 export const pickSettingsSnapshot = (
@@ -96,6 +97,9 @@ export const applySettingChange = (configPresenter: IConfigPresenter, change: Se
       return;
     case "showContinueIndicator":
       configPresenter.setSetting("showContinueIndicator", change.value);
+      return;
+    case "hideReasoningOnFinishedTurn":
+      configPresenter.setSetting("hideReasoningOnFinishedTurn", change.value);
       return;
   }
 };

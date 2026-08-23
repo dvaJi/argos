@@ -7,6 +7,7 @@ import {
   setCopyWithCotEnabled,
   setTraceDebugEnabled,
   setShowContinueIndicator,
+  setHideReasoningOnFinishedTurn,
 } from "#/stores/uiSettingsStore";
 import ProxySettingsSection from "./common/ProxySettingsSection";
 import LoggingSettingsSection from "./common/LoggingSettingsSection";
@@ -17,8 +18,14 @@ import SettingsPageShell from "./control-center/SettingsPageShell";
 export default function CommonSettings() {
   const uiSettingsStore = useUiSettingsStore();
 
-  const { autoScrollEnabled, copyWithCotEnabled, traceDebugEnabled, showContinueIndicator, launchAtLoginEnabled } =
-    uiSettingsStore;
+  const {
+    autoScrollEnabled,
+    copyWithCotEnabled,
+    traceDebugEnabled,
+    showContinueIndicator,
+    hideReasoningOnFinishedTurn,
+    launchAtLoginEnabled,
+  } = uiSettingsStore;
 
   return (
     <SettingsPageShell title="General" eyebrow="Setup" data-testid="settings-general-page">
@@ -59,6 +66,13 @@ export default function CommonSettings() {
           label="Show 'Continued' Indicator"
           modelValue={showContinueIndicator}
           onUpdateModelValue={setShowContinueIndicator}
+        />
+        <SettingToggleRow
+          id="hide-reasoning-on-finished-turn-switch"
+          icon="hugeicons:brain-01"
+          label="Hide thinking on finished turns"
+          modelValue={hideReasoningOnFinishedTurn}
+          onUpdateModelValue={setHideReasoningOnFinishedTurn}
         />
         <LoggingSettingsSection />
       </div>

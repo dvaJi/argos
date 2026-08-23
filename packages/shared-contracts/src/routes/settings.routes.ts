@@ -18,6 +18,7 @@ export const SETTINGS_KEYS = [
   "copyWithCotEnabled",
   "loggingEnabled",
   "showContinueIndicator",
+  "hideReasoningOnFinishedTurn",
 ] as const;
 
 export const SettingsKeySchema = zod.enum(SETTINGS_KEYS);
@@ -39,6 +40,7 @@ export const SettingsSnapshotValuesSchema = zod.object({
   copyWithCotEnabled: zod.boolean(),
   loggingEnabled: zod.boolean(),
   showContinueIndicator: zod.boolean(),
+  hideReasoningOnFinishedTurn: zod.boolean(),
 });
 
 export const SettingsChangeSchema = zod.discriminatedUnion("key", [
@@ -104,6 +106,10 @@ export const SettingsChangeSchema = zod.discriminatedUnion("key", [
   }),
   zod.object({
     key: zod.literal("showContinueIndicator"),
+    value: zod.boolean(),
+  }),
+  zod.object({
+    key: zod.literal("hideReasoningOnFinishedTurn"),
     value: zod.boolean(),
   }),
 ]);

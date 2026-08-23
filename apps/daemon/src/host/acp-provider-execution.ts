@@ -28,6 +28,7 @@ import { createDaemonAcpSqlitePresenter } from "./daemonAcpSqlite";
 import { sessionsStatusChangedEvent } from "@argos/shared-contracts";
 import { methods as acpMethods, PROTOCOL_VERSION } from "@agentclientprotocol/sdk";
 import type { AcpConfigState, AcpAgentDiagnostics, AcpDebugRequest, AcpDebugRunResult } from "@argos/shared/presenter";
+import { summarizeFileChangesFromBlocks } from "./acpFileChanges";
 
 const ACP_PROVIDER_ID = "acp";
 
@@ -507,6 +508,15 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
       }
 
       const replyBlocks = blocks.map((b) => (b.type === "content" ? { ...b, status: "success" } : b));
+      const fileChanges = summarizeFileChangesFromBlocks(replyBlocks as Array<Record<string, unknown>>, workdir);
+      if (fileChanges.files.length > 0) {
+        replyBlocks.push({
+          type: "file_changes",
+          status: "success",
+          timestamp: Date.now(),
+          file_changes: fileChanges,
+        });
+      }
       const usageMetadata = lastUsage ? { usage: lastUsage } : {};
       // Close an unclosed reasoning window (turn ended while still thinking).
       if (reasoningStartTime !== undefined) {

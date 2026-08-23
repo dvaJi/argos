@@ -39,6 +39,7 @@ export const uiSettingsStore = new Store({
   notificationsEnabled: true,
   loggingEnabled: false,
   showContinueIndicator: false,
+  hideReasoningOnFinishedTurn: false,
 });
 
 export const getFontSizeClass = (fontSizeLevel?: number) =>
@@ -98,6 +99,9 @@ const applySettingsValues = (values: Partial<SettingsSnapshotValues>) => {
   }
   if (typeof values.showContinueIndicator === "boolean") {
     patch.showContinueIndicator = values.showContinueIndicator;
+  }
+  if (typeof values.hideReasoningOnFinishedTurn === "boolean") {
+    patch.hideReasoningOnFinishedTurn = values.hideReasoningOnFinishedTurn;
   }
   if (Object.keys(patch).length > 0) {
     uiSettingsStore.setState((s) => ({ ...s, ...patch }));
@@ -254,6 +258,12 @@ export const setShowContinueIndicator = async (enabled: boolean) => {
   const nextValue = Boolean(enabled);
   uiSettingsStore.setState((s) => ({ ...s, showContinueIndicator: nextValue }));
   await updateSettings([{ key: "showContinueIndicator", value: nextValue }]);
+};
+
+export const setHideReasoningOnFinishedTurn = async (enabled: boolean) => {
+  const nextValue = Boolean(enabled);
+  uiSettingsStore.setState((s) => ({ ...s, hideReasoningOnFinishedTurn: nextValue }));
+  await updateSettings([{ key: "hideReasoningOnFinishedTurn", value: nextValue }]);
 };
 
 const setupListeners = () => {
