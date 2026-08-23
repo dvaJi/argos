@@ -959,25 +959,25 @@ export class WindowPresenter implements IWindowPresenter {
   private async loadUiUrl(window: BrowserWindow, route: string): Promise<void> {
     if (getDevServerBase()) {
       const url = resolveUiUrl(route);
-      log.info(`[window] Loading UI route from dev server: ${url}`);
+      log.info(`Loading UI route from dev server: ${url}`);
       try {
         await window.loadURL(url);
       } catch (error) {
-        log.error(`[window] Failed to load UI route ${url}:`, error);
+        log.error(`Failed to load UI route ${url}:`, error);
       }
       return;
     }
 
     const port = await waitForDaemonPort(30000);
     if (getSidecarHandle() && !port) {
-      log.warn("[window] Daemon port unavailable after timeout");
+      log.warn("Daemon port unavailable after timeout");
     }
     const url = resolveUiUrl(route);
-    log.info(`[window] Loading UI route from daemon: ${url}`);
+    log.info(`Loading UI route from daemon: ${url}`);
     try {
       await window.loadURL(url);
     } catch (error) {
-      log.error(`[window] Failed to load UI route ${url}:`, error);
+      log.error(`Failed to load UI route ${url}:`, error);
     }
   }
 

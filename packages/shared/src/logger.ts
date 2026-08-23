@@ -2,6 +2,11 @@
 // electron-log in the Electron main process (process.type === "browser") when
 // available. There are intentionally NO top-level electron imports so the web
 // bundle never pulls electron into the client.
+//
+// The console.patch only happens in the Electron main (browser) process: the
+// Bun daemon imports this module for scoped logging, and replacing console.*
+// there would swallow the daemon's own process-wide logging (everything is
+// already routed through `logger` / `createLogger` directly).
 
 function isDev(): boolean {
   try {
@@ -125,8 +130,15 @@ export function createLogger(scope: string) {
   };
 }
 
-// Intercept console methods and redirect to logger
+// Intercept console methods and redirect to logger. Only meaningful in the
+// Electron main process (electron-log transport + logging toggle); in the Bun
+// daemon / browser the raw console is left untouched.
 function hookConsole() {
+  const proc: any = typeof process !== "undefined" ? process : undefined;
+  if (!proc || proc.type !== "browser") {
+    return unhookedConsole;
+  }
+
   // Replace console methods
   console.log = (...args: unknown[]) => {
     if (loggingEnabled || isDev()) {

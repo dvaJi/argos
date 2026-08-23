@@ -2829,7 +2829,7 @@ export class ConfigPresenter implements IConfigPresenter {
   }
 
   private notifyAcpAgentsChanged(agentIds?: string[]) {
-    log.info('[ACP] notifyAcpAgentsChanged: sending MODEL_LIST_CHANGED event for provider "acp"');
+    log.info("[ACP] notifyAcpAgentsChanged: sending MODEL_LIST_CHANGED event for provider acp");
     eventBus.send(CONFIG_EVENTS.MODEL_LIST_CHANGED, SendTarget.ALL_WINDOWS, "acp");
     eventBus.send(CONFIG_EVENTS.AGENTS_CHANGED, SendTarget.ALL_WINDOWS, { agentIds });
     eventBus.sendToRendererIfAvailable(SESSION_EVENTS.LIST_UPDATED, SendTarget.ALL_WINDOWS);

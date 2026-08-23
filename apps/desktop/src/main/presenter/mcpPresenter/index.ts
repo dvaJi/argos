@@ -51,7 +51,7 @@ export class McpPresenter implements IMCPPresenter {
     try {
       this.mcprouter = new McpRouterManager(this.configPresenter);
     } catch (e) {
-      log.warn("[MCP] McpRouterManager init failed:", e);
+      log.warn("McpRouterManager init failed:", e);
     }
   }
 
@@ -94,30 +94,30 @@ export class McpPresenter implements IMCPPresenter {
 
       // Initialize npm registry (prefer cache if available)
       if (this.isPrivacyModeEnabled()) {
-        log.info("[MCP] Privacy mode enabled, skipping automatic npm registry detection");
+        log.info("Privacy mode enabled, skipping automatic npm registry detection");
       } else {
-        log.info("[MCP] Initializing npm registry...");
+        log.info("Initializing npm registry...");
         try {
           await this.serverManager.testNpmRegistrySpeed(true);
-          log.info(`[MCP] npm registry initialized: ${this.serverManager.getNpmRegistry()}`);
+          log.info(`npm registry initialized: ${this.serverManager.getNpmRegistry()}`);
         } catch (error) {
-          log.error("[MCP] npm registry initialization failed:", error);
+          log.error("npm registry initialization failed:", error);
         }
       }
 
       // Check and start argos-inmemory/custom-prompts-server
       const customPromptsServerName = "argos-inmemory/custom-prompts-server";
       if (mcpEnabled && servers[customPromptsServerName]) {
-        log.info(`[MCP] Attempting to start custom prompts server: ${customPromptsServerName}`);
+        log.info(`Attempting to start custom prompts server: ${customPromptsServerName}`);
 
         try {
           await this.serverManager.startServer(customPromptsServerName);
-          log.info(`[MCP] Custom prompts server ${customPromptsServerName} started successfully`);
+          log.info(`Custom prompts server ${customPromptsServerName} started successfully`);
 
           // Notify renderer process that server has started
           eventBus.send(MCP_EVENTS.SERVER_STARTED, SendTarget.ALL_WINDOWS, customPromptsServerName);
         } catch (error) {
-          log.error(`[MCP] Failed to start custom prompts server ${customPromptsServerName}:`, error);
+          log.error(`Failed to start custom prompts server ${customPromptsServerName}:`, error);
         }
       }
 
@@ -125,16 +125,16 @@ export class McpPresenter implements IMCPPresenter {
         for (const serverName of enabledServers) {
           const serverConfig = servers[serverName];
           if (serverConfig && (mcpEnabled || this.isPluginOwnedServerConfig(serverConfig))) {
-            log.info(`[MCP] Attempting to start enabled server: ${serverName}`);
+            log.info(`Attempting to start enabled server: ${serverName}`);
 
             try {
               await this.serverManager.startServer(serverName);
-              log.info(`[MCP] Enabled server ${serverName} started successfully`);
+              log.info(`Enabled server ${serverName} started successfully`);
 
               // Notify renderer process that server has started
               eventBus.send(MCP_EVENTS.SERVER_STARTED, SendTarget.ALL_WINDOWS, serverName);
             } catch (error) {
-              log.error(`[MCP] Failed to start enabled server ${serverName}:`, error);
+              log.error(`Failed to start enabled server ${serverName}:`, error);
             }
           }
         }
@@ -142,12 +142,12 @@ export class McpPresenter implements IMCPPresenter {
 
       // Mark initialization complete and emit event
       this.isInitialized = true;
-      log.info("[MCP] Initialization completed");
+      log.info("Initialization completed");
       eventBus.send(MCP_EVENTS.INITIALIZED, SendTarget.ALL_WINDOWS);
 
       this.scheduleBackgroundRegistryUpdate();
     } catch (error) {
-      log.error("[MCP] Initialization failed:", error);
+      log.error("Initialization failed:", error);
       // Mark as complete even if initialization fails to avoid system stuck in uninitialized state
       this.isInitialized = true;
       eventBus.send(MCP_EVENTS.INITIALIZED, SendTarget.ALL_WINDOWS);
@@ -239,7 +239,7 @@ export class McpPresenter implements IMCPPresenter {
       try {
         await this.serverManager.updateNpmRegistryInBackground();
       } catch (error) {
-        log.error("[MCP] Background registry update failed:", error);
+        log.error("Background registry update failed:", error);
       }
     }, 5000);
   }
@@ -318,7 +318,7 @@ export class McpPresenter implements IMCPPresenter {
             }));
           }
         } catch (error) {
-          log.error(`[MCP] Failed to get prompt templates for client ${client.serverName}:`, error);
+          log.error(`Failed to get prompt templates for client ${client.serverName}:`, error);
         }
       }
 
@@ -330,7 +330,7 @@ export class McpPresenter implements IMCPPresenter {
             clientObj.resources = resources;
           }
         } catch (error) {
-          log.error(`[MCP] Failed to get resources for client ${client.serverName}:`, error);
+          log.error(`Failed to get resources for client ${client.serverName}:`, error);
         }
       }
 
@@ -364,7 +364,7 @@ export class McpPresenter implements IMCPPresenter {
   async addMcpServer(serverName: string, config: MCPServerConfig): Promise<boolean> {
     const existingServers = await this.getMcpServers();
     if (existingServers[serverName]) {
-      log.error(`[MCP] Failed to add server: Server name "${serverName}" already exists.`);
+      log.error(`Failed to add server: Server name "${serverName}" already exists.`);
       eventBus.sendToRenderer(NOTIFICATION_EVENTS.SHOW_ERROR, SendTarget.ALL_WINDOWS, {
         title: "Failed to Add Server",
         message: `Server name "${serverName}" already exists. Please choose a different name.`,
@@ -384,13 +384,13 @@ export class McpPresenter implements IMCPPresenter {
 
     // If server was previously running, restart it to apply new configuration
     if (wasRunning) {
-      log.info(`[MCP] Configuration updated, restarting server: ${serverName}`);
+      log.info(`Configuration updated, restarting server: ${serverName}`);
       try {
         await this.stopServer(serverName); // stopServer will emit SERVER_STOPPED event
         await this.startServer(serverName); // startServer will emit SERVER_STARTED event
-        log.info(`[MCP] Server ${serverName} restarted successfully`);
+        log.info(`Server ${serverName} restarted successfully`);
       } catch (error) {
-        log.error(`[MCP] Failed to restart server ${serverName}:`, error);
+        log.error(`Failed to restart server ${serverName}:`, error);
         // Even if restart fails, ensure correct state by marking as not running
         eventBus.send(MCP_EVENTS.SERVER_STOPPED, SendTarget.ALL_WINDOWS, serverName);
       }
@@ -432,7 +432,7 @@ export class McpPresenter implements IMCPPresenter {
         try {
           await this.stopServer(client.serverName);
         } catch (error) {
-          log.error(`[MCP] Failed to stop server ${client.serverName} during shutdown:`, error);
+          log.error(`Failed to stop server ${client.serverName} during shutdown:`, error);
         }
       }),
     );
@@ -487,7 +487,7 @@ export class McpPresenter implements IMCPPresenter {
             promptsList.push(...clientPrompts);
           }
         } catch (error) {
-          log.error(`[MCP] Failed to get prompt templates for client ${client.serverName}:`, error);
+          log.error(`Failed to get prompt templates for client ${client.serverName}:`, error);
         }
       }
     }
@@ -523,7 +523,7 @@ export class McpPresenter implements IMCPPresenter {
             resourcesList.push(...clientResources);
           }
         } catch (error) {
-          log.error(`[MCP] Failed to get resources for client ${client.serverName}:`, error);
+          log.error(`Failed to get resources for client ${client.serverName}:`, error);
         }
       }
     }
@@ -645,7 +645,7 @@ export class McpPresenter implements IMCPPresenter {
 
     const pending = this.pendingSamplingRequests.get(decision.requestId);
     if (!pending) {
-      log.warn(`[MCP] Sampling request ${decision.requestId} not found when submitting decision`);
+      log.warn(`Sampling request ${decision.requestId} not found when submitting decision`);
       return;
     }
 
@@ -702,7 +702,7 @@ export class McpPresenter implements IMCPPresenter {
         try {
           await this.startServer(serverName);
         } catch (error) {
-          log.error(`[MCP] Failed to start enabled server ${serverName}:`, error);
+          log.error(`Failed to start enabled server ${serverName}:`, error);
         }
       }
       return;
@@ -717,7 +717,7 @@ export class McpPresenter implements IMCPPresenter {
       try {
         await this.stopServer(client.serverName);
       } catch (error) {
-        log.error(`[MCP] Failed to stop server ${client.serverName}:`, error);
+        log.error(`Failed to stop server ${client.serverName}:`, error);
       }
     }
   }
@@ -731,7 +731,7 @@ export class McpPresenter implements IMCPPresenter {
   async getPrompt(prompt: PromptListEntry, args?: Record<string, unknown>): Promise<unknown> {
     // Check if this is a custom prompt from argos/custom-prompts-server
     if (prompt.client.name === "argos/custom-prompts-server") {
-      log.info(`[MCP] Getting custom prompt: ${prompt.name}`);
+      log.info(`Getting custom prompt: ${prompt.name}`);
       try {
         const customPrompts = await this.configPresenter.getCustomPrompts();
         const foundPrompt = customPrompts.find((p) => p.name === prompt.name);
@@ -749,7 +749,7 @@ export class McpPresenter implements IMCPPresenter {
           throw new Error(`Custom prompt "${prompt.name}" not found`);
         }
       } catch (error) {
-        log.error(`[MCP] Failed to get custom prompt "${prompt.name}":`, error);
+        log.error(`Failed to get custom prompt "${prompt.name}":`, error);
         throw error;
       }
     }
@@ -787,12 +787,12 @@ export class McpPresenter implements IMCPPresenter {
   ): Promise<void> {
     try {
       log.info(
-        `[MCP] Granting ${permissionType} permission for server: ${serverName}, remember: ${remember}, conversationId: ${conversationId}`,
+        `Granting ${permissionType} permission for server: ${serverName}, remember: ${remember}, conversationId: ${conversationId}`,
       );
       await this.toolManager.grantPermission(serverName, permissionType, remember, conversationId);
-      log.info(`[MCP] Successfully granted ${permissionType} permission for server: ${serverName}`);
+      log.info(`Successfully granted ${permissionType} permission for server: ${serverName}`);
     } catch (error) {
-      log.error(`[MCP] Failed to grant permission for server ${serverName}:`, error);
+      log.error(`Failed to grant permission for server ${serverName}:`, error);
       throw error;
     }
   }
@@ -832,9 +832,9 @@ export class McpPresenter implements IMCPPresenter {
   async setCustomNpmRegistry(registry: string | undefined): Promise<void> {
     this.configPresenter.setCustomNpmRegistry?.(registry);
     if (registry) {
-      log.info(`[MCP] Setting custom NPM registry: ${registry}`);
+      log.info(`Setting custom NPM registry: ${registry}`);
     } else {
-      log.info("[MCP] Clearing custom NPM registry");
+      log.info("Clearing custom NPM registry");
     }
     this.serverManager.loadRegistryFromCache();
   }
@@ -848,7 +848,7 @@ export class McpPresenter implements IMCPPresenter {
 
   async clearNpmRegistryCache(): Promise<void> {
     this.configPresenter.clearNpmRegistryCache?.();
-    log.info("[MCP] NPM Registry cache cleared");
+    log.info("NPM Registry cache cleared");
   }
 
   // Get npm registry (for ACP and other internal use)
