@@ -352,7 +352,9 @@ function NewThreadPage() {
         // branch FIRST, then bind the session to it. The base repo checkout is
         // never touched (server-side `git worktree add -b <branch> <path> <ref>`).
         let sessionProjectDir = projectState.selectedProjectPath ?? undefined;
-        if (worktreeDraft.enabled) {
+        if (worktreeDraft.reuseWorktreePath) {
+          sessionProjectDir = worktreeDraft.reuseWorktreePath;
+        } else if (worktreeDraft.enabled) {
           if (isCreatingWorktree) return;
           const repoPath = projectState.selectedProjectPath;
           if (!repoPath || !worktreeDraft.baseBranch) {
@@ -389,7 +391,7 @@ function NewThreadPage() {
           sessionProjectDir = created.worktreePath;
         }
 
-        if (isAcp && acpDraftSessionId && !createdWorktree) {
+        if (isAcp && acpDraftSessionId && !createdWorktree && !worktreeDraft.reuseWorktreePath) {
           await selectSession(acpDraftSessionId);
           await sendMessage(acpDraftSessionId, { text, files });
           void fetchSessions();

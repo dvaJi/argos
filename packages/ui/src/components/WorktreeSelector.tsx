@@ -5,17 +5,8 @@ import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
 import { Label } from "#shadcn/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "#shadcn/components/ui/popover";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from "#shadcn/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#shadcn/components/ui/select";
 import { Spinner } from "#shadcn/components/ui/spinner";
-import { Switch } from "#shadcn/components/ui/switch";
 import { createWorkspaceClient } from "#api/WorkspaceClient";
 import { useToast } from "#/components/use-toast";
 import type { WorktreeDraftConfig } from "./worktreeConfig";
@@ -56,8 +47,6 @@ function abbreviatePath(targetPath: string): string {
 async function fetchGitSummary(
   workspacePath: string,
 ): Promise<{ isRepo: boolean; branches: BranchInfo[]; worktrees: WorktreeInfo[] }> {
-  // The project dir is not necessarily registered yet (registration usually
-  // happens when a session runs in it) — register before querying git.
   await workspaceClient.registerWorkspace(workspacePath);
   const [branchResult, worktreeList] = await Promise.all([
     workspaceClient.gitListBranches(workspacePath),
@@ -80,9 +69,8 @@ async function removeWorktreeViaDaemon(input: {
 }
 
 /**
- * Base-branch picker for isolated git worktree sessions (t3code-style).
- * The worktree itself is created at submit time from the selected base ref —
- * the user's current checkout is never touched.
+ * Worktree selector with T3 parity: workspace mode first, then searchable branch origin.
+ * The worktree itself is created at submit time — current checkout is never touched.
  */
 export default function WorktreeSelector({ workspacePath, value, onChange, disabled }: WorktreeSelectorProps) {
   const { toast } = useToast();
@@ -92,6 +80,7 @@ export default function WorktreeSelector({ workspacePath, value, onChange, disab
   const [isRepo, setIsRepo] = useState(true);
   const [worktrees, setWorktrees] = useState<WorktreeInfo[]>([]);
   const [removingPath, setRemovingPath] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const loadSeqRef = useRef(0);
 
   const refresh = useCallback(async () => {
@@ -118,8 +107,6 @@ export default function WorktreeSelector({ workspacePath, value, onChange, disab
     void refresh();
   }, [open, refresh]);
 
-  // Pick a sensible default base branch once branches load: prefer the
-  // default branch's origin ref, then any origin ref, then the local default.
   const defaultBaseBranch = useMemo(() => {
     if (branches.length === 0) return null;
     const defaultRemote = branches.find((b) => b.kind === "remote" && b.isDefault && b.name.startsWith("origin/"));
@@ -131,31 +118,71 @@ export default function WorktreeSelector({ workspacePath, value, onChange, disab
     return null;
   }, [branches]);
 
-  // Apply the default selection only when the user hasn't picked one yet —
-  // derived state applied on user intent, not live parent sync.
   useEffect(() => {
     if (!open || !defaultBaseBranch || value.baseBranch) return;
+    // Only auto-apply default when in New worktree mode (enabled) and no previous reuse
+    if (!value.enabled || value.reuseWorktreePath) return;
     onChange({ ...value, baseBranch: defaultBaseBranch.name, fromRemote: defaultBaseBranch.fromRemote });
   }, [open, defaultBaseBranch, value, onChange]);
 
-  const remoteBranches = useMemo(() => branches.filter((b) => b.kind === "remote"), [branches]);
-  const localBranches = useMemo(() => branches.filter((b) => b.kind === "local"), [branches]);
-  // Only daemon-managed worktrees are listed/removable here.
   const managedWorktrees = useMemo(() => worktrees.filter((w) => w.isManaged), [worktrees]);
 
-  const selectedValue = value.baseBranch
-    ? value.fromRemote && remoteBranches.some((b) => b.name === `origin/${value.baseBranch}`)
-      ? `origin/${value.baseBranch}`
-      : value.baseBranch
-    : "";
+  const mode = useMemo<"current" | "new" | "previous">(() => {
+    if (value.reuseWorktreePath) return "previous";
+    if (value.enabled) return "new";
+    return "current";
+  }, [value.enabled, value.reuseWorktreePath]);
+
+  const baseRefLabel = value.baseBranch ? (value.fromRemote ? `origin/${value.baseBranch}` : value.baseBranch) : "";
+
+  const triggerLabel = useMemo(() => {
+    if (mode === "previous" && value.reuseWorktreePath) {
+      const wt = managedWorktrees.find((w) => w.path === value.reuseWorktreePath);
+      return wt?.branch ? `Previous · ${wt.branch}` : "Previous worktree";
+    }
+    if (mode === "new" && baseRefLabel) return `Worktree · ${baseRefLabel}`;
+    if (mode === "new") return "New worktree";
+    return "Worktree";
+  }, [mode, baseRefLabel, value.reuseWorktreePath, managedWorktrees]);
+
+  const handleModeChange = (nextMode: "current" | "new" | "previous" | null) => {
+    if (nextMode === "current") {
+      onChange({ ...value, enabled: false, reuseWorktreePath: null });
+    } else if (nextMode === "new") {
+      onChange({ ...value, enabled: true, reuseWorktreePath: null });
+    } else if (nextMode === "previous") {
+      // Pick the most recent managed worktree by default, user can change below
+      const first = managedWorktrees[0]?.path ?? null;
+      onChange({ ...value, enabled: true, reuseWorktreePath: first });
+    }
+  };
+
+  const allBranchesForSearch = useMemo(() => {
+    // Merge remote and local for searchable list, remote first
+    const remote = branches.filter((b) => b.kind === "remote");
+    const local = branches.filter((b) => b.kind === "local");
+    return [...remote, ...local];
+  }, [branches]);
+
+  const filteredBranches = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return allBranchesForSearch;
+    return allBranchesForSearch.filter((b) => b.name.toLowerCase().includes(q));
+  }, [allBranchesForSearch, searchQuery]);
 
   const handleSelectBranch = (selected: string) => {
     if (selected.startsWith("origin/")) {
-      onChange({ ...value, baseBranch: selected.slice("origin/".length), fromRemote: true });
+      onChange({ ...value, baseBranch: selected.slice("origin/".length), fromRemote: true, reuseWorktreePath: null });
     } else {
-      onChange({ ...value, baseBranch: selected, fromRemote: false });
+      onChange({ ...value, baseBranch: selected, fromRemote: false, reuseWorktreePath: null });
     }
   };
+
+  const selectedValue = value.baseBranch
+    ? value.fromRemote && branches.some((b) => b.name === `origin/${value.baseBranch}`)
+      ? `origin/${value.baseBranch}`
+      : value.baseBranch
+    : "";
 
   const handleRemoveWorktree = async (worktree: WorktreeInfo) => {
     if (!workspacePath || !worktree.branch) return;
@@ -163,7 +190,6 @@ export default function WorktreeSelector({ workspacePath, value, onChange, disab
     const removed = await removeWorktreeViaDaemon({
       workspacePath,
       worktreePath: worktree.path,
-      // Only auto-managed `argos/…` branches are safe to drop with the tree.
       deleteBranch: worktree.branch.startsWith("argos/"),
     })
       .then(() => true)
@@ -175,18 +201,23 @@ export default function WorktreeSelector({ workspacePath, value, onChange, disab
         });
         return false;
       });
-    if (removed) await refresh();
+    if (removed) {
+      await refresh();
+      // If the removed worktree was the selected "Previous worktree",
+      // drop the selection so the draft falls back to current checkout.
+      if (value.reuseWorktreePath === worktree.path) {
+        onChange({ ...value, enabled: false, reuseWorktreePath: null });
+      }
+    }
     setRemovingPath(null);
   };
-
-  const baseRefLabel = value.baseBranch ? (value.fromRemote ? `origin/${value.baseBranch}` : value.baseBranch) : "";
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
         render={
           <Button
-            variant={value.enabled ? "secondary" : "ghost"}
+            variant={mode !== "current" ? "secondary" : "ghost"}
             size="sm"
             disabled={disabled || !workspacePath}
             data-testid="worktree-selector-trigger"
@@ -195,24 +226,44 @@ export default function WorktreeSelector({ workspacePath, value, onChange, disab
         }
       >
         <Icon icon="lucide:git-branch" className="size-3.5" />
-        <span>{value.enabled && baseRefLabel ? `Worktree · ${baseRefLabel}` : "Worktree"}</span>
+        <span>{triggerLabel}</span>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80 p-3 text-xs" data-testid="worktree-selector-content">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex flex-col gap-0.5">
-            <span className="font-medium text-foreground">Run in a git worktree</span>
-            <span className="text-[11px] leading-snug text-muted-foreground">
-              The agent works in an isolated checkout created from the selected branch. Your current checkout is never
-              touched.
-            </span>
-          </div>
-          <Switch
-            checked={value.enabled}
-            disabled={!isRepo || disabled}
-            aria-label="Run in a git worktree"
-            data-testid="worktree-enabled-switch"
-            onCheckedChange={(checked) => onChange({ ...value, enabled: checked })}
-          />
+        <div className="flex flex-col gap-1.5">
+          <Label className="text-[11px] text-muted-foreground">Workspace</Label>
+          <Select value={mode} onValueChange={handleModeChange}>
+            <SelectTrigger className="h-8 text-xs" data-testid="worktree-mode-select">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="current" className="text-xs">
+                <span className="flex items-center gap-1.5">
+                  <Icon icon="lucide:folder" className="size-3.5" />
+                  Current checkout
+                </span>
+              </SelectItem>
+              <SelectItem value="new" className="text-xs">
+                <span className="flex items-center gap-1.5">
+                  <Icon icon="lucide:git-branch-plus" className="size-3.5" />
+                  New worktree
+                </span>
+              </SelectItem>
+              <SelectItem value="previous" className="text-xs" disabled={managedWorktrees.length === 0}>
+                <span className="flex items-center gap-1.5">
+                  <Icon icon="lucide:history" className="size-3.5" />
+                  Previous worktree
+                  {managedWorktrees.length > 0 && (
+                    <span className="text-[10px] text-muted-foreground">· {managedWorktrees.length}</span>
+                  )}
+                </span>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          <span className="text-[11px] leading-snug text-muted-foreground">
+            {mode === "current"
+              ? "Run in your current checkout."
+              : "The agent works in an isolated checkout created from the selected branch. Your current checkout is never touched."}
+          </span>
         </div>
 
         {loading ? (
@@ -224,54 +275,105 @@ export default function WorktreeSelector({ workspacePath, value, onChange, disab
           <div className="mt-3 rounded-md border border-border/60 bg-muted/40 px-2.5 py-2 text-[11px] text-muted-foreground">
             Not a git repository (or no branches).
           </div>
+        ) : mode === "current" ? null : mode === "previous" ? (
+          <div className="mt-3 flex flex-col gap-1">
+            <span className="text-[11px] font-medium text-muted-foreground">Select previous worktree</span>
+            {managedWorktrees.length === 0 ? (
+              <span className="text-[11px] text-muted-foreground">No previous worktrees.</span>
+            ) : (
+              <ul className="flex max-h-36 flex-col gap-1 overflow-y-auto" data-testid="worktree-list">
+                {managedWorktrees.map((worktree) => {
+                  const isSelected = value.reuseWorktreePath === worktree.path;
+                  return (
+                    <li
+                      key={worktree.path}
+                      role="button"
+                      tabIndex={0}
+                      aria-pressed={isSelected}
+                      data-testid="worktree-item"
+                      className={`flex items-center gap-2 rounded-md border px-2 py-1.5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${isSelected ? "border-primary bg-primary/5" : "border-border/60"}`}
+                      onClick={() => onChange({ ...value, enabled: true, reuseWorktreePath: worktree.path })}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          onChange({ ...value, enabled: true, reuseWorktreePath: worktree.path });
+                        }
+                      }}
+                    >
+                      <div className="flex min-w-0 flex-1 flex-col">
+                        <span className="truncate font-mono text-[11px]">{worktree.branch ?? "(detached)"}</span>
+                        <span className="truncate text-[10px] text-muted-foreground" title={worktree.path}>
+                          {abbreviatePath(worktree.path)}
+                        </span>
+                      </div>
+                      {isSelected && <Icon icon="lucide:check" className="size-3.5 text-primary" />}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-6 text-muted-foreground hover:text-destructive"
+                        disabled={removingPath === worktree.path}
+                        aria-label={`Remove worktree ${worktree.branch ?? worktree.path}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void handleRemoveWorktree(worktree);
+                        }}
+                      >
+                        {removingPath === worktree.path ? (
+                          <Spinner className="size-3" />
+                        ) : (
+                          <Icon icon="lucide:trash-2" className="size-3.5" />
+                        )}
+                      </Button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
         ) : (
           <>
             <div className="mt-3 flex flex-col gap-1.5">
-              <Label htmlFor="worktree-base-branch" className="text-[11px] text-muted-foreground">
-                Base branch
-              </Label>
-              <Select value={selectedValue} onValueChange={(v) => handleSelectBranch(v ?? "")}>
-                <SelectTrigger id="worktree-base-branch" className="h-8 text-xs" disabled={!value.enabled}>
-                  <SelectValue placeholder="Select base branch" />
-                </SelectTrigger>
-                <SelectContent className="max-h-64">
-                  {remoteBranches.length > 0 && (
-                    <SelectGroup>
-                      <SelectLabel className="text-[11px]">Remote (origin)</SelectLabel>
-                      {remoteBranches.map((branch) => (
-                        <SelectItem key={branch.name} value={branch.name} className="text-xs">
-                          <span className="flex items-center gap-1.5">
-                            {branch.name}
-                            {branch.isDefault && (
-                              <Badge variant="outline" className="h-4 px-1 text-[10px]">
-                                default
-                              </Badge>
-                            )}
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  )}
-                  <SelectGroup>
-                    <SelectLabel className="text-[11px]">Local</SelectLabel>
-                    {localBranches.map((branch) => (
-                      <SelectItem key={branch.name} value={branch.name} className="text-xs">
-                        <span className="flex items-center gap-1.5">
-                          {branch.name}
-                          {branch.isDefault && (
-                            <Badge variant="outline" className="h-4 px-1 text-[10px]">
-                              default
-                            </Badge>
-                          )}
-                          {branch.worktreePath && (
-                            <span className="text-[10px] text-muted-foreground">(in a worktree)</span>
-                          )}
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
+              <Label className="text-[11px] text-muted-foreground">Search refs…</Label>
+              <div className="relative">
+                <Icon
+                  icon="lucide:search"
+                  className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
+                />
+                <Input
+                  placeholder="Search refs…"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="h-8 pl-8 text-xs"
+                  autoFocus
+                />
+              </div>
+              <div className="max-h-48 overflow-y-auto rounded-md border border-border/60">
+                {filteredBranches.length === 0 ? (
+                  <div className="px-2.5 py-2 text-[11px] text-muted-foreground">No refs found</div>
+                ) : (
+                  filteredBranches.map((branch) => {
+                    const isSelected = selectedValue === branch.name;
+                    return (
+                      <button
+                        key={branch.name}
+                        type="button"
+                        className={`flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-xs hover:bg-muted ${isSelected ? "bg-muted font-medium" : ""}`}
+                        onClick={() => handleSelectBranch(branch.name)}
+                      >
+                        <span className="flex-1 truncate">{branch.name}</span>
+                        {branch.isDefault && (
+                          <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                            default
+                          </Badge>
+                        )}
+                        {branch.worktreePath && <span className="text-[10px] text-muted-foreground">worktree</span>}
+                        {branch.isHead && <span className="text-[10px] text-muted-foreground">current</span>}
+                        {isSelected && <Icon icon="lucide:check" className="size-3.5 text-primary" />}
+                      </button>
+                    );
+                  })
+                )}
+              </div>
             </div>
 
             <div className="mt-2.5 flex flex-col gap-1.5">
@@ -281,48 +383,10 @@ export default function WorktreeSelector({ workspacePath, value, onChange, disab
               <Input
                 id="worktree-branch-name"
                 value={value.branchName}
-                disabled={!value.enabled}
                 placeholder="argos/<auto>"
                 className="h-8 text-xs"
                 onChange={(event) => onChange({ ...value, branchName: event.target.value })}
               />
-            </div>
-
-            <div className="mt-3 flex flex-col gap-1">
-              <span className="text-[11px] font-medium text-muted-foreground">Existing worktrees</span>
-              {managedWorktrees.length === 0 ? (
-                <span className="text-[11px] text-muted-foreground">None yet.</span>
-              ) : (
-                <ul className="flex max-h-36 flex-col gap-1 overflow-y-auto" data-testid="worktree-list">
-                  {managedWorktrees.map((worktree) => (
-                    <li
-                      key={worktree.path}
-                      className="flex items-center gap-2 rounded-md border border-border/60 px-2 py-1.5"
-                    >
-                      <div className="flex min-w-0 flex-1 flex-col">
-                        <span className="truncate font-mono text-[11px]">{worktree.branch ?? "(detached)"}</span>
-                        <span className="truncate text-[10px] text-muted-foreground" title={worktree.path}>
-                          {abbreviatePath(worktree.path)}
-                        </span>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-6 text-muted-foreground hover:text-destructive"
-                        disabled={removingPath === worktree.path}
-                        aria-label={`Remove worktree ${worktree.branch ?? worktree.path}`}
-                        onClick={() => void handleRemoveWorktree(worktree)}
-                      >
-                        {removingPath === worktree.path ? (
-                          <Spinner className="size-3" />
-                        ) : (
-                          <Icon icon="lucide:trash-2" className="size-3.5" />
-                        )}
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-              )}
             </div>
           </>
         )}

@@ -7,6 +7,8 @@ export type WorktreeDraftConfig = {
   fromRemote: boolean;
   /** Custom branch name for the worktree; empty means auto `argos/<8hex>`. */
   branchName: string;
+  /** When set, reuse this existing managed worktree path instead of creating a new one. */
+  reuseWorktreePath?: string | null;
 };
 
 export const emptyWorktreeDraft: WorktreeDraftConfig = {
@@ -14,4 +16,5 @@ export const emptyWorktreeDraft: WorktreeDraftConfig = {
   baseBranch: "",
   fromRemote: true,
   branchName: "",
+  reuseWorktreePath: null,
 };
