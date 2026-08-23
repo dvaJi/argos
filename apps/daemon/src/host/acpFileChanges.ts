@@ -55,18 +55,6 @@ const toWorkspaceRelativePath = (rawPath: string, workdir: string | undefined): 
   return normalizedPath;
 };
 
-/** Counts added/deleted lines in a unified diff, skipping file headers. */
-const countUnifiedDiffLines = (patchText: string): DiffStat => {
-  let additions = 0;
-  let deletions = 0;
-  for (const line of patchText.split("\n")) {
-    if (line.startsWith("+++") || line.startsWith("---")) continue;
-    if (line.startsWith("+")) additions += 1;
-    else if (line.startsWith("-")) deletions += 1;
-  }
-  return { additions, deletions };
-};
-
 /**
  * Approximate line diff between two texts (additions/deletions only) using
  * LCS; large inputs degrade to a set-based count to avoid O(n*m) blowups.

@@ -251,8 +251,6 @@ const fileIcon = (path: string): string => {
     "sh",
     "bash",
     "zsh",
-    "md",
-    "mdx",
   ]);
   if (codeExtensions.has(extension)) return "lucide:file-code-2";
   if (extension === "md" || extension === "mdx") return "lucide:file-text";
@@ -282,7 +280,7 @@ export const MessageBlockFileChanges = memo(function MessageBlockFileChanges({
   messageId,
   threadId,
 }: MessageBlockFileChangesProps) {
-  const files = block.file_changes?.files ?? [];
+  const files = useMemo(() => block.file_changes?.files ?? [], [block]);
   const summaryStat = useMemo(() => summarizeTurnDiffStats(files), [files]);
   const [expanded, setExpanded] = useState(() => shouldAutoExpand(files));
   const [allDirectoriesExpanded, setAllDirectoriesExpanded] = useState(true);
@@ -372,7 +370,7 @@ export const MessageBlockFileChanges = memo(function MessageBlockFileChanges({
                   size="xs"
                   variant="outline"
                   aria-label="Open diff"
-                  onClick={() => handleOpenDiff(files[0]?.path)}
+                  onClick={() => handleOpenDiff()}
                 />
               }
             >
