@@ -391,7 +391,7 @@ function NewThreadPage() {
           sessionProjectDir = created.worktreePath;
         }
 
-        if (isAcp && acpDraftSessionId && !createdWorktree) {
+        if (isAcp && acpDraftSessionId && !createdWorktree && !worktreeDraft.reuseWorktreePath) {
           await selectSession(acpDraftSessionId);
           await sendMessage(acpDraftSessionId, { text, files });
           void fetchSessions();

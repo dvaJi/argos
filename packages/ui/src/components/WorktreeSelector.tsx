@@ -201,7 +201,14 @@ export default function WorktreeSelector({ workspacePath, value, onChange, disab
         });
         return false;
       });
-    if (removed) await refresh();
+    if (removed) {
+      await refresh();
+      // If the removed worktree was the selected "Previous worktree",
+      // drop the selection so the draft falls back to current checkout.
+      if (value.reuseWorktreePath === worktree.path) {
+        onChange({ ...value, enabled: false, reuseWorktreePath: null });
+      }
+    }
     setRemovingPath(null);
   };
 
@@ -280,8 +287,18 @@ export default function WorktreeSelector({ workspacePath, value, onChange, disab
                   return (
                     <li
                       key={worktree.path}
-                      className={`flex items-center gap-2 rounded-md border px-2 py-1.5 cursor-pointer ${isSelected ? "border-primary bg-primary/5" : "border-border/60"}`}
+                      role="button"
+                      tabIndex={0}
+                      aria-pressed={isSelected}
+                      data-testid="worktree-item"
+                      className={`flex items-center gap-2 rounded-md border px-2 py-1.5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${isSelected ? "border-primary bg-primary/5" : "border-border/60"}`}
                       onClick={() => onChange({ ...value, enabled: true, reuseWorktreePath: worktree.path })}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          onChange({ ...value, enabled: true, reuseWorktreePath: worktree.path });
+                        }
+                      }}
                     >
                       <div className="flex min-w-0 flex-1 flex-col">
                         <span className="truncate font-mono text-[11px]">{worktree.branch ?? "(detached)"}</span>
