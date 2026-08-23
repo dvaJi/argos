@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import logger from "@argos/shared/logger";
 import type {
   AcpRegistryAgent,
   AcpRegistryBinaryDistribution,
@@ -224,7 +225,7 @@ export class AcpRegistryService {
       fs.mkdirSync(this.cacheDir, { recursive: true });
       fs.mkdirSync(this.iconCacheDir, { recursive: true });
     } catch (error) {
-      console.warn("[ACP Registry] Failed to create cache directory:", error);
+      logger.warn("[ACP Registry] Failed to create cache directory:", error);
     }
   }
 
@@ -234,8 +235,16 @@ export class AcpRegistryService {
     if (cached) {
       this.manifest = cached;
     }
+    if (this.manifest) {
+      logger.info(
+        `[ACP Registry] Initialized ${this.manifest.agents.length} agents (manifest v${this.manifest.version}, source: ${cached ? "cache" : "built-in"})`,
+      );
+    } else {
+      logger.warn("[ACP Registry] Initialization found no usable registry snapshot");
+    }
 
     if (this.isAutomaticRefreshBlocked()) {
+      logger.debug("[ACP Registry] Automatic refresh skipped (privacy mode enabled)");
       return;
     }
 
@@ -271,7 +280,7 @@ export class AcpRegistryService {
     if (!pending) {
       pending = this.loadIconMarkupFromDisk(normalizedAgentId).catch((error) => {
         this.iconMarkupCache.delete(normalizedAgentId);
-        console.warn("[ACP Registry] Failed to load icon markup:", normalizedAgentId, error);
+        logger.warn("[ACP Registry] Failed to load icon markup:", normalizedAgentId, error);
         return null;
       });
       this.iconMarkupCache.set(normalizedAgentId, pending);
@@ -307,7 +316,7 @@ export class AcpRegistryService {
     try {
       fs.writeFileSync(this.metaFilePath, JSON.stringify(meta, null, 2), "utf-8");
     } catch (error) {
-      console.warn("[ACP Registry] Failed to write cache meta:", error);
+      logger.warn("[ACP Registry] Failed to write cache meta:", error);
     }
   }
 
@@ -335,7 +344,7 @@ export class AcpRegistryService {
           return normalized;
         }
       } catch (error) {
-        console.warn("[ACP Registry] Failed to load built-in snapshot:", candidate, error);
+        logger.warn("[ACP Registry] Failed to load built-in snapshot:", candidate, error);
       }
     }
 
@@ -357,6 +366,9 @@ export class AcpRegistryService {
     const expired = !meta || now - meta.lastUpdated > ACP_REGISTRY_CACHE_TTL_MS;
 
     if (!force && !expired && this.manifest) {
+      logger.debug(
+        `[ACP Registry] Refresh skipped (manifest v${this.manifest.version}, age ${Math.round((now - (meta?.lastUpdated ?? now)) / 60000)} min)`,
+      );
       return;
     }
 
@@ -382,6 +394,7 @@ export class AcpRegistryService {
       });
 
       if (!response.ok) {
+        logger.warn(`[ACP Registry] Refresh failed: HTTP ${response.status} ${response.statusText}`);
         if (previousMeta) {
           this.writeMeta({ ...previousMeta, lastAttemptedAt: now });
         }
@@ -390,6 +403,9 @@ export class AcpRegistryService {
 
       const text = await response.text();
       if (!text || text.length > 5 * 1024 * 1024) {
+        logger.warn(
+          `[ACP Registry] Refresh aborted: registry payload is ${text ? "too large" : "empty"} (${text.length} bytes)`,
+        );
         if (previousMeta) {
           this.writeMeta({ ...previousMeta, lastAttemptedAt: now });
         }
@@ -398,6 +414,7 @@ export class AcpRegistryService {
 
       const normalized = normalizeManifest(JSON.parse(text));
       if (!normalized) {
+        logger.warn("[ACP Registry] Refresh aborted: registry payload is malformed");
         if (previousMeta) {
           this.writeMeta({ ...previousMeta, lastAttemptedAt: now });
         }
@@ -411,7 +428,7 @@ export class AcpRegistryService {
       try {
         await this.syncIconCache(normalized);
       } catch (error) {
-        console.warn("[ACP Registry] Failed to sync icon cache after manifest refresh:", error);
+        logger.warn("[ACP Registry] Failed to sync icon cache after manifest refresh:", error);
       }
 
       this.writeMeta({
@@ -421,12 +438,18 @@ export class AcpRegistryService {
         sourceUrl: ACP_REGISTRY_URL,
       });
 
+      const versionTransition =
+        previousMeta?.version && previousMeta.version !== normalized.version
+          ? `v${previousMeta.version} → v${normalized.version}`
+          : `v${normalized.version} (unchanged)`;
+      logger.info(`[ACP Registry] Refreshed manifest ${versionTransition}, ${normalized.agents.length} agents`);
+
       this.manifest = normalized;
     } catch (error) {
       if (previousMeta) {
         this.writeMeta({ ...previousMeta, lastAttemptedAt: now });
       }
-      console.warn("[ACP Registry] Failed to refresh registry manifest:", error);
+      logger.warn("[ACP Registry] Failed to refresh registry manifest:", error);
     } finally {
       clearTimeout(timeout);
     }
@@ -487,7 +510,7 @@ export class AcpRegistryService {
       }
       return this.decorateIconMarkup(sanitized);
     } catch (error) {
-      console.warn("[ACP Registry] Failed to read icon from disk:", iconPath, error);
+      logger.warn("[ACP Registry] Failed to read icon from disk:", iconPath, error);
       return null;
     }
   }
@@ -552,7 +575,7 @@ export class AcpRegistryService {
         fs.rmSync(path.join(this.iconCacheDir, file), { force: true });
       }
     } catch (error) {
-      console.warn("[ACP Registry] Failed to prune stale icon cache:", error);
+      logger.warn("[ACP Registry] Failed to prune stale icon cache:", error);
     }
   }
 
