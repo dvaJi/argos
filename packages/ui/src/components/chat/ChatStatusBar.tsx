@@ -1331,6 +1331,13 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
       openModelSettings,
     }));
 
+    // When the composer footer owns the ACP controls, nothing remains for this
+    // bar to show (model/mode chips moved up, MCP chip is argos-only) — hide
+    // the whole row and save the vertical space.
+    if (footerOwnsAcpControls) {
+      return null;
+    }
+
     return (
       <div className={`w-full ${maxWidthClass}`}>
         <div className="flex w-full items-center justify-between px-1 py-2">

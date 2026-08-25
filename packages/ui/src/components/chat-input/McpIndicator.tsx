@@ -83,7 +83,6 @@ export default function McpIndicator({
 
   const enabledServers = getEnabledServers();
   const enabledPluginServers = getEnabledPluginServers();
-  const enabledServerCount = getEnabledServerCount();
   const availableAgents = Array.isArray(agentStore.agents) ? agentStore.agents : [];
 
   const isArgosContext = useMemo(() => {
@@ -315,8 +314,14 @@ export default function McpIndicator({
     };
   }, [isArgosContext, argosSessionId, skillClient, loadArgosTools]);
 
-  const triggerTitle = isArgosContext ? "Advanced Settings" : "MCP Tools";
-  const triggerLabel = `MCP (${enabledServerCount})`;
+  const triggerTitle = "Advanced Settings";
+
+  // ACP sessions have no interactive controls here — the panel would be a
+  // read-only list of MCP servers (already visible in Settings → MCP).
+  // Render nothing for ACP contexts.
+  if (!isArgosContext) {
+    return null;
+  }
 
   return (
     <Popover open={panelOpen} onOpenChange={setPanelOpen}>
@@ -325,222 +330,141 @@ export default function McpIndicator({
           <Button
             variant="ghost"
             size="sm"
-            className={
-              isArgosContext
-                ? "h-6 w-6 p-0 text-muted-foreground hover:text-foreground backdrop-blur-lg"
-                : "h-6 px-2 gap-1 text-xs text-muted-foreground hover:text-foreground backdrop-blur-lg"
-            }
+            className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground backdrop-blur-lg"
             title={triggerTitle}
             aria-label={triggerTitle}
           />
         }
       >
-        {isArgosContext ? (
-          <Icon icon="lucide:sliders-horizontal" className="h-3.5 w-3.5" />
-        ) : (
-          <>
-            <span>{triggerLabel}</span>
-            <Icon icon="lucide:chevron-down" className="h-3 w-3" />
-          </>
-        )}
+        <Icon icon="lucide:sliders-horizontal" className="h-3.5 w-3.5" />
       </PopoverTrigger>
 
       <PopoverContent align="end" className="w-80 overflow-hidden p-0">
-        {isArgosContext ? (
-          <>
-            <div className="border-b px-3 py-2">
-              <div className="flex items-center justify-between gap-2">
-                <div className="text-sm font-medium">Advanced Settings</div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 w-7 p-0 text-muted-foreground"
-                  title="Open Settings"
-                  aria-label="Open Settings"
-                  onClick={openSettings}
-                >
-                  <Icon icon="lucide:settings-2" className="h-3.5 w-3.5" />
-                </Button>
-              </div>
+        <div className="border-b px-3 py-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-sm font-medium">Advanced Settings</div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 w-7 p-0 text-muted-foreground"
+              title="Open Settings"
+              aria-label="Open Settings"
+              onClick={openSettings}
+            >
+              <Icon icon="lucide:settings-2" className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+        <div className="max-h-[24rem] overflow-y-auto">
+          {showSystemPromptSection && (
+            <div className="border-b px-3 py-3">
+              <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">System Prompt</div>
+              <Select value={selectedSystemPromptId} onValueChange={(v) => onSelectSystemPrompt?.(v ?? "")}>
+                <SelectTrigger className="mt-3 h-8 text-xs">
+                  <SelectValue placeholder="Select system prompt" />
+                </SelectTrigger>
+                <SelectContent>
+                  {systemPromptOptions.map((option) => (
+                    <SelectItem key={option.id} value={option.id} disabled={option.disabled}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <div className="max-h-[24rem] overflow-y-auto">
-              {showSystemPromptSection && (
-                <div className="border-b px-3 py-3">
-                  <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                    System Prompt
-                  </div>
-                  <Select value={selectedSystemPromptId} onValueChange={(v) => onSelectSystemPrompt?.(v ?? "")}>
-                    <SelectTrigger className="mt-3 h-8 text-xs">
-                      <SelectValue placeholder="Select system prompt" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {systemPromptOptions.map((option) => (
-                        <SelectItem key={option.id} value={option.id} disabled={option.disabled}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
+          )}
 
-              <div className="border-b px-3 py-3">
-                <div className="mb-3 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Tools</div>
-                {toolsLoading ? (
-                  <div className="text-xs text-muted-foreground">Loading tools...</div>
-                ) : groupedAgentTools.length === 0 ? (
-                  <div className="rounded-lg border border-dashed px-3 py-3 text-xs text-muted-foreground">
-                    No built-in tools available
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {groupedAgentTools.map((group) => (
-                      <div key={group.name} className="space-y-2">
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                            {group.label}
-                          </div>
-                          <Switch
-                            checked={isGroupEnabled(group)}
-                            disabled={isGroupPending(group)}
-                            aria-label={group.label}
-                            onCheckedChange={(v) => void setGroupEnabled(group, v)}
-                          />
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {group.items.map((item) => (
-                            <Button
-                              key={item.id}
-                              variant="outline"
-                              size="sm"
-                              className={`h-7 rounded-md px-2.5 text-xs shadow-none transition-colors${
-                                isGroupItemEnabled(item)
-                                  ? " border-primary/40 bg-primary/10 text-foreground hover:bg-primary/15"
-                                  : " border-border bg-background text-muted-foreground hover:bg-muted"
-                              }`}
-                              disabled={isGroupItemPending(item)}
-                              onClick={() => void toggleGroupItem(item)}
-                            >
-                              {item.label}
-                            </Button>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+          <div className="border-b px-3 py-3">
+            <div className="mb-3 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Tools</div>
+            {toolsLoading ? (
+              <div className="text-xs text-muted-foreground">Loading tools...</div>
+            ) : groupedAgentTools.length === 0 ? (
+              <div className="rounded-lg border border-dashed px-3 py-3 text-xs text-muted-foreground">
+                No built-in tools available
               </div>
-
-              <div className={enabledPluginServers.length > 0 ? "border-b px-3 py-3" : "px-3 py-3"}>
-                <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                  MCP Servers
-                </div>
-                {enabledServers.length === 0 ? (
-                  <div className="rounded-lg border border-dashed px-3 py-3 text-xs text-muted-foreground">
-                    No MCP servers configured
-                  </div>
-                ) : (
-                  <div className="space-y-1">
-                    {enabledServers.map((server) => (
-                      <div key={server.name} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs">
-                        <span className="shrink-0">{server.icons}</span>
-                        <span className="min-w-0 flex-1 truncate" title={getServerLabel(server.name)}>
-                          {getServerLabel(server.name)}
-                        </span>
-                        <span className="shrink-0 text-muted-foreground">{getServerToolsCount(server.name)}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {enabledPluginServers.length > 0 && (
-                <div className="px-3 py-3">
-                  <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                    Plugins
-                  </div>
-                  <div className="space-y-1">
-                    {enabledPluginServers.map((server) => (
-                      <div key={server.name} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs">
-                        {server.icons === "plugin" ? (
-                          <Icon icon="lucide:puzzle" className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                        ) : (
-                          <span className="shrink-0">{server.icons}</span>
-                        )}
-                        <span className="min-w-0 flex-1 truncate" title={getPluginServerLabel(server)}>
-                          {getPluginServerLabel(server)}
-                        </span>
-                        <span className="shrink-0 text-muted-foreground">{getPluginServerToolsCount(server.name)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="border-b px-3 py-2">
-              <div className="flex items-center justify-between gap-2">
-                <div className="text-sm font-medium">MCP Tools</div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 w-7 p-0 text-muted-foreground"
-                  title="Open Settings"
-                  aria-label="Open Settings"
-                  onClick={openSettings}
-                >
-                  <Icon icon="lucide:settings-2" className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </div>
-            {enabledServers.length === 0 && enabledPluginServers.length === 0 ? (
-              <div className="px-3 py-4 text-xs text-muted-foreground">No MCP servers configured</div>
             ) : (
-              <div className="max-h-64 space-y-3 overflow-y-auto px-2 py-2">
-                {enabledServers.length > 0 && (
-                  <div className="space-y-1">
-                    {enabledPluginServers.length > 0 && (
-                      <div className="px-2 pb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                        MCP Servers
+              <div className="space-y-4">
+                {groupedAgentTools.map((group) => (
+                  <div key={group.name} className="space-y-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                        {group.label}
                       </div>
-                    )}
-                    {enabledServers.map((server) => (
-                      <div key={server.name} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs">
-                        <span className="shrink-0">{server.icons}</span>
-                        <span className="min-w-0 flex-1 truncate" title={getServerLabel(server.name)}>
-                          {getServerLabel(server.name)}
-                        </span>
-                        <span className="shrink-0 text-muted-foreground">{getServerToolsCount(server.name)}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {enabledPluginServers.length > 0 && (
-                  <div className="space-y-1">
-                    <div className="px-2 pb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                      Plugins
+                      <Switch
+                        checked={isGroupEnabled(group)}
+                        disabled={isGroupPending(group)}
+                        aria-label={group.label}
+                        onCheckedChange={(v) => void setGroupEnabled(group, v)}
+                      />
                     </div>
-                    {enabledPluginServers.map((server) => (
-                      <div key={server.name} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs">
-                        {server.icons === "plugin" ? (
-                          <Icon icon="lucide:puzzle" className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                        ) : (
-                          <span className="shrink-0">{server.icons}</span>
-                        )}
-                        <span className="min-w-0 flex-1 truncate" title={getPluginServerLabel(server)}>
-                          {getPluginServerLabel(server)}
-                        </span>
-                        <span className="shrink-0 text-muted-foreground">{getPluginServerToolsCount(server.name)}</span>
-                      </div>
-                    ))}
+                    <div className="flex flex-wrap gap-2">
+                      {group.items.map((item) => (
+                        <Button
+                          key={item.id}
+                          variant="outline"
+                          size="sm"
+                          className={`h-7 rounded-md px-2.5 text-xs shadow-none transition-colors${
+                            isGroupItemEnabled(item)
+                              ? " border-primary/40 bg-primary/10 text-foreground hover:bg-primary/15"
+                              : " border-border bg-background text-muted-foreground hover:bg-muted"
+                          }`}
+                          disabled={isGroupItemPending(item)}
+                          onClick={() => void toggleGroupItem(item)}
+                        >
+                          {item.label}
+                        </Button>
+                      ))}
+                    </div>
                   </div>
-                )}
+                ))}
               </div>
             )}
-          </>
-        )}
+          </div>
+
+          <div className={enabledPluginServers.length > 0 ? "border-b px-3 py-3" : "px-3 py-3"}>
+            <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              MCP Servers
+            </div>
+            {enabledServers.length === 0 ? (
+              <div className="rounded-lg border border-dashed px-3 py-3 text-xs text-muted-foreground">
+                No MCP servers configured
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {enabledServers.map((server) => (
+                  <div key={server.name} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs">
+                    <span className="shrink-0">{server.icons}</span>
+                    <span className="min-w-0 flex-1 truncate" title={getServerLabel(server.name)}>
+                      {getServerLabel(server.name)}
+                    </span>
+                    <span className="shrink-0 text-muted-foreground">{getServerToolsCount(server.name)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {enabledPluginServers.length > 0 && (
+            <div className="px-3 py-3">
+              <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Plugins</div>
+              <div className="space-y-1">
+                {enabledPluginServers.map((server) => (
+                  <div key={server.name} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs">
+                    {server.icons === "plugin" ? (
+                      <Icon icon="lucide:puzzle" className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    ) : (
+                      <span className="shrink-0">{server.icons}</span>
+                    )}
+                    <span className="min-w-0 flex-1 truncate" title={getPluginServerLabel(server)}>
+                      {getPluginServerLabel(server)}
+                    </span>
+                    <span className="shrink-0 text-muted-foreground">{getPluginServerToolsCount(server.name)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </PopoverContent>
     </Popover>
   );
