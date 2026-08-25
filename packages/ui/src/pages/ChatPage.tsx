@@ -1226,7 +1226,7 @@ function ChatPage({ sessionId }: ChatPageProps) {
                       }
                     />
                     <ErrorBoundary>
-                      <ChatStatusBar maxWidthClass="max-w-4xl" />
+                      <ChatStatusBar maxWidthClass="max-w-4xl" composerFooterActive />
                     </ErrorBoundary>
                   </div>
                 )}

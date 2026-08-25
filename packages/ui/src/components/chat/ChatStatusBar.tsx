@@ -170,10 +170,17 @@ function normalizeTopP(value: unknown): number | undefined {
 interface ChatStatusBarProps {
   acpDraftSessionId?: string | null;
   maxWidthClass?: string;
+  /**
+   * The composer footer bar (model / effort / mode pickers) is rendered next to
+   * this status bar. Suppresses the controls it already owns so model and
+   * permission are not shown twice. ACP surfaces (agent badge, inline options,
+   * advanced settings) are never duplicated by the footer and always render.
+   */
+  composerFooterActive?: boolean;
 }
 
 const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
-  ({ acpDraftSessionId = null, maxWidthClass = "max-w-2xl" }, ref) => {
+  ({ acpDraftSessionId = null, maxWidthClass = "max-w-2xl", composerFooterActive = false }, ref) => {
     const themeStore = useThemeStore();
     const modelStore = useModelStore();
     const providerStore = useProviderStore();
@@ -1511,7 +1518,7 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                   );
                 })}
               </>
-            ) : showModelPopover ? (
+            ) : showModelPopover && !composerFooterActive ? (
               <Popover open={isModelPanelOpen} onOpenChange={setIsModelPanelOpen}>
                 <PopoverTrigger
                   render={
@@ -2106,7 +2113,7 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                   </div>
                 </PopoverContent>
               </Popover>
-            ) : (
+            ) : !composerFooterActive ? (
               <Button
                 variant="ghost"
                 size="sm"
@@ -2116,7 +2123,7 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                 <ModelIcon modelId={displayIconId} customClass="w-3.5 h-3.5" isDark={themeStore.isDark} />
                 <span>{displayModelText}</span>
               </Button>
-            )}
+            ) : null}
           </div>
 
           <div className="flex items-center gap-1">
@@ -2144,7 +2151,7 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
               onToggleSubagents={onSubagentToggle}
             />
 
-            {!isAcpAgent && (
+            {!isAcpAgent && !composerFooterActive && (
               <DropdownMenu>
                 <DropdownMenuTrigger
                   render={
