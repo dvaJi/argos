@@ -51,6 +51,12 @@ export function useMarkdownLinkNavigation(options: UseMarkdownLinkNavigationOpti
     async (href: string, event?: MouseEvent | null): Promise<boolean> => {
       const linkContext = options.linkContext;
 
+      // Degenerate hrefs (empty/whitespace) have no target; bail instead of
+      // failing route validation downstream.
+      if (!href.trim()) {
+        return false;
+      }
+
       const getSessionContext = (): SessionContext => {
         const resolvedSessionId = linkContext?.sessionId ?? sessionStore.state.activeSessionId;
         const session =

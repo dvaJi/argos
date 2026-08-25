@@ -18,8 +18,14 @@ export function LinkNode({ node, linkContext, children }: LinkNodeProps) {
     linkContext,
   });
 
-  const href = node.href ?? node.url ?? "";
+  const href = (node.href ?? node.url ?? "").trim();
   const linkText = node.text?.trim() || href;
+
+  // Degenerate links (empty href, e.g. `[label]()`) have nowhere to go —
+  // render plain text instead of a dead anchor that errors on click.
+  if (!href) {
+    return <span className="text-foreground">{children ?? linkText}</span>;
+  }
 
   const target = classifyMarkdownLink(href);
   const isLocalOrFragment = target.kind === "local-file" || target.kind === "fragment";
