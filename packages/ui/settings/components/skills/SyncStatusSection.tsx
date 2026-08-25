@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { useToast } from "#/components/use-toast";
@@ -6,13 +6,14 @@ import { createSkillSyncClient } from "#api/SkillSyncClient";
 import type { ScanResult } from "@argos/shared/types/skillSync";
 import SyncStatusCard from "./SyncStatusCard";
 
+const skillSyncClient = createSkillSyncClient();
+
 interface SyncStatusSectionProps {
   onImport: (toolId: string, skills: string[]) => void;
 }
 
 export default function SyncStatusSection({ onImport }: SyncStatusSectionProps) {
   const { toast } = useToast();
-  const skillSyncClient = useMemo(() => createSkillSyncClient(), []);
 
   const [tools, setTools] = useState<ScanResult[]>([]);
   const [scanning, setScanning] = useState(false);

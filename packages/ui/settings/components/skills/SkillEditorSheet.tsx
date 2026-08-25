@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef, memo } from "react";
+import { useState, useEffect, useCallback, useRef, memo } from "react";
 import { nanoid } from "nanoid";
 import * as yaml from "yaml";
 import { Icon } from "@iconify/react";
@@ -22,6 +22,8 @@ import type {
   SkillScriptDescriptor,
 } from "@argos/shared/types/skill";
 import SkillFolderTree from "./SkillFolderTree";
+
+const skillClient = createSkillClient();
 
 type EnvRow = { id: string; key: string; value: string };
 type EditableScript = SkillScriptDescriptor & { description: string };
@@ -59,7 +61,6 @@ function parseSkillContent(content: string | null): string {
 const SkillEditorForm = memo(function SkillEditorForm({ skill, onSaved, onClose }: SkillEditorFormProps) {
   const { toast } = useToast();
   const skillsStore = useSkillsStore();
-  const skillClient = useMemo(() => createSkillClient(), []);
 
   const [editName] = useState(skill.name);
   const [editDescription, setEditDescription] = useState(skill.description);

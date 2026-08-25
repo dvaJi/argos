@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
@@ -6,13 +6,13 @@ import { Label } from "#shadcn/components/ui/label";
 import type { LLM_PROVIDER } from "@argos/shared/presenter";
 import { createProviderClient } from "#api/ProviderClient";
 
+const providerClient = createProviderClient();
+
 interface ModelScopeMcpSyncProps {
   provider: LLM_PROVIDER;
 }
 
 export default function ModelScopeMcpSync({ provider }: ModelScopeMcpSyncProps) {
-  const providerClient = useMemo(() => createProviderClient(), []);
-
   const [isSyncing, setIsSyncing] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [syncResult, setSyncResult] = useState<{

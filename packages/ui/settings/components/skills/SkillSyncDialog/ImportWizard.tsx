@@ -9,6 +9,8 @@ import ToolSelector from "./ToolSelector";
 import SkillSelector from "./SkillSelector";
 import ConflictResolver, { type ConflictItem } from "./ConflictResolver";
 
+const skillSyncClient = createSkillSyncClient();
+
 interface ImportWizardProps {
   currentStep: number;
   initialToolId?: string;
@@ -27,7 +29,6 @@ const ImportWizard: FC<ImportWizardProps> = ({
   onCancel,
 }) => {
   const { toast } = useToast();
-  const skillSyncClient = useMemo(() => createSkillSyncClient(), []);
 
   const [scanning, setScanning] = useState(false);
   const [loading, setLoading] = useState(false);

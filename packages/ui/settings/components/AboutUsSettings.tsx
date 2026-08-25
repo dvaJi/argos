@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Icon } from "@iconify/react";
 import { openRuntimeExternal, onIpcChannel } from "#api/runtime";
 import { Button } from "#shadcn/components/ui/button";
@@ -22,13 +22,14 @@ import { SETTINGS_EVENTS } from "#/events";
 import SettingsPageShell from "./control-center/SettingsPageShell";
 import logoImg from "#/assets/logo.png";
 
+const configClient = createConfigClient();
+const deviceClient = createDeviceClient();
+const windowClient = createWindowClient();
+
 export default function AboutUsSettings() {
   const { toast } = useToast();
   const themeStore = useThemeStore();
   const languageStore = useLanguageStore();
-  const deviceClient = useMemo(() => createDeviceClient(), []);
-  const configClient = useMemo(() => createConfigClient(), []);
-  const windowClient = useMemo(() => createWindowClient(), []);
   const upgrade = useUpgradeStore();
 
   const [appVersion, setAppVersion] = useState("");
@@ -79,12 +80,17 @@ export default function AboutUsSettings() {
   useEffect(() => {
     const handler = () => void handleExternalCheckUpdate();
     const unsubscribe = onIpcChannel(SETTINGS_EVENTS.CHECK_FOR_UPDATES, handler);
+    let cancelled = false;
     void (async () => {
-      setAppVersion(await deviceClient.getAppVersion());
-      setUpdateChannel(await configClient.getUpdateChannel());
+      const version = await deviceClient.getAppVersion();
+      const channel = await configClient.getUpdateChannel();
+      if (cancelled) return;
+      setAppVersion(version);
+      setUpdateChannel(channel);
       await upgrade.refreshStatus();
     })();
     return () => {
+      cancelled = true;
       unsubscribe();
     };
   }, [deviceClient, configClient, upgrade, handleExternalCheckUpdate]);

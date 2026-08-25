@@ -13,6 +13,8 @@ import type { ExternalToolConfig, ExportPreview, KiroInclusionMode } from "@argo
 import { ConflictStrategy } from "@argos/shared/types/skillSync";
 import ConflictResolver, { type ConflictItem } from "./ConflictResolver";
 
+const skillSyncClient = createSkillSyncClient();
+
 interface ExportWizardProps {
   currentStep: number;
   onStepChange: (value: number) => void;
@@ -22,7 +24,6 @@ interface ExportWizardProps {
 
 const ExportWizard: FC<ExportWizardProps> = ({ currentStep, onStepChange, onComplete, onCancel }) => {
   const { toast } = useToast();
-  const skillSyncClient = useMemo(() => createSkillSyncClient(), []);
   const skillsStore = useSkillsStore();
   const localSkills = skillsStore.skills;
   const loadingSkills = skillsStore.loading;

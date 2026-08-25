@@ -24,6 +24,8 @@ import { createWindowClient } from "#api/WindowClient";
 import { continueGuidedOnboardingFromSettings } from "../lib/guidedOnboardingSettings";
 import { useStartupWorkloadStore } from "#/stores/startupWorkloadStore";
 
+const windowClient = createWindowClient();
+
 interface ModelProviderSettingsProps {
   providerId?: string;
 }
@@ -100,7 +102,6 @@ export default function ModelProviderSettings({ providerId: routeProviderId }: M
   const providerStore = useProviderStore();
   const modelStore = useModelStore();
   const themeStore = useThemeStore();
-  const windowClient = useMemo(() => createWindowClient(), []);
   const router = useRouter();
 
   const providerDetailRef = useRef<HTMLDivElement | null>(null);

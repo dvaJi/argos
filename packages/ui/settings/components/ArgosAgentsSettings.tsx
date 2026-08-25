@@ -38,6 +38,10 @@ import {
   normalizeArgosSubagentSlots,
 } from "@argos/shared/lib/argosSubagents";
 
+const configClient = createConfigClient();
+const sessionClient = createSessionClient();
+const toolClient = createToolClient();
+
 type AgentConfigForm = {
   name: string;
   description: string;
@@ -225,9 +229,6 @@ const buildFormFromAgent = (agent: Agent | null): AgentConfigForm => {
 // react-doctor-disable-next-line react-doctor/prefer-useReducer
 export default function ArgosAgentsSettings() {
   const { toast } = useToast();
-  const configClient = useMemo(() => createConfigClient(), []);
-  const sessionClient = useMemo(() => createSessionClient(), []);
-  const toolClient = useMemo(() => createToolClient(), []);
   const modelStore = useModelStore();
 
   const [agents, setAgents] = useState<Agent[]>([]);

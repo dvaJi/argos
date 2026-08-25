@@ -23,13 +23,14 @@ import { useToast } from "#/components/use-toast";
 import { continueGuidedOnboardingFromSettings } from "../lib/guidedOnboardingSettings";
 import { useRouter, useRouterState } from "@tanstack/react-router";
 
+const windowClient = createWindowClient();
+
 export default function McpSettings() {
   const languageStore = useLanguageStore();
   const mcpStore = useMcpStore();
   const { toast } = useToast();
   const router = useRouter();
   const routerState = useRouterState();
-  const windowClient = useMemo(() => createWindowClient(), []);
   const mcpServersRef = useRef<McpServersRef | null>(null);
   const [guideRootEl, setGuideRootEl] = useState<HTMLDivElement | null>(null);
   const [mcpActionsEl, setMcpActionsEl] = useState<HTMLDivElement | null>(null);

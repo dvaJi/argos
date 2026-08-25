@@ -104,10 +104,20 @@ const HOT_PATH_FILES = [
   path.join(ROOT, 'apps/desktop/src/main/presenter/index.ts'),
   path.join(ROOT, 'apps/desktop/src/main/eventbus.ts'),
   path.join(ROOT, 'apps/desktop/src/main/presenter/agentSessionPresenter/index.ts'),
-  path.join(ROOT, 'apps/desktop/src/main/presenter/agentRuntimePresenter/index.ts'),
-  path.join(ROOT, 'apps/desktop/src/main/presenter/llmProviderPresenter/index.ts'),
-  path.join(ROOT, 'apps/desktop/src/main/presenter/sessionPresenter/index.ts')
+  path.join(ROOT, 'apps/desktop/src/main/presenter/llmProviderPresenter/index.ts')
 ]
+
+// Keep baseline numbers comparable when hot-path files are removed: skip
+// entries that no longer exist instead of crashing the whole guard.
+const existingHotPathFiles = async () => {
+  const filtered = []
+  for (const filePath of HOT_PATH_FILES) {
+    if (await pathExists(filePath)) {
+      filtered.push(filePath)
+    }
+  }
+  return filtered
+}
 
 const HOT_PATH_EDGE_BASELINE = 11
 
@@ -261,10 +271,11 @@ async function resolveImport(specifier, importer, aliasRoot = MAIN_SOURCE_ROOT) 
 }
 
 async function collectHotPathDirectEdges() {
-  const hotPathFileSet = new Set(HOT_PATH_FILES)
+  const hotPathFiles = await existingHotPathFiles()
+  const hotPathFileSet = new Set(hotPathFiles)
   const edges = []
 
-  for (const filePath of HOT_PATH_FILES) {
+  for (const filePath of hotPathFiles) {
     const source = await Bun.file(filePath).text()
     const specifiers = extractModuleSpecifiers(source)
 

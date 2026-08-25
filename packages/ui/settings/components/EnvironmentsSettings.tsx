@@ -14,6 +14,8 @@ import {
 import type { EnvironmentSummary } from "@argos/shared/types/agent-interface";
 import SettingsPageShell from "./control-center/SettingsPageShell";
 
+const projectClient = createProjectClient();
+
 type EnvironmentListItem = EnvironmentSummary & {
   isSyntheticDefault?: boolean;
 };
@@ -21,7 +23,6 @@ type EnvironmentListItem = EnvironmentSummary & {
 export default function EnvironmentsSettings() {
   const { toast } = useToast();
   const projectStore = useProjectStore();
-  const projectClient = useMemo(() => createProjectClient(), []);
 
   const [isLoading, setIsLoading] = useState(false);
   const [showMissing, setShowMissing] = useState(false);

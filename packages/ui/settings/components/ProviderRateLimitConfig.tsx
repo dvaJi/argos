@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { createIpcSubscriptionScope } from "#api/runtime";
 import { Switch } from "#shadcn/components/ui/switch";
 import { Input } from "#shadcn/components/ui/input";
@@ -18,6 +18,8 @@ import {
   AlertDialogTitle,
 } from "#shadcn/components/ui/alert-dialog";
 
+const providerClient = createProviderClient();
+
 interface ProviderRateLimitConfigProps {
   provider: LLM_PROVIDER;
   onConfigChanged?: () => void;
@@ -32,7 +34,6 @@ function convertIntervalToQps(interval: number): number {
 }
 
 export default function ProviderRateLimitConfig({ provider, onConfigChanged }: ProviderRateLimitConfigProps) {
-  const providerClient = useMemo(() => createProviderClient(), []);
   const { toast } = useToast();
 
   const [rateLimitEnabled, setRateLimitEnabled] = useState(provider.rateLimit?.enabled ?? false);

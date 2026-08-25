@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
@@ -6,8 +6,9 @@ import { Label } from "#shadcn/components/ui/label";
 import { useToast } from "#/components/use-toast";
 import { createNowledgeMemClient } from "#api/NowledgeMemClient";
 
+const nowledgeMemClient = createNowledgeMemClient();
+
 export default function NowledgeMemSettings() {
-  const nowledgeMemClient = useMemo(() => createNowledgeMemClient(), []);
   const { toast } = useToast();
 
   const [testingConnection, setTestingConnection] = useState(false);

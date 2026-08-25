@@ -41,7 +41,6 @@ import {
   pullFromCloud,
 } from "#/stores/sync";
 import { useLanguageStore } from "#/stores/language";
-import { createConfigClient } from "#api/ConfigClient";
 import { createDeviceClient } from "#api/DeviceClient";
 import { createProviderClient } from "#api/ProviderClient";
 import { createOnboardingClient } from "#api/OnboardingClient";
@@ -54,6 +53,9 @@ import SettingsPageShell from "./control-center/SettingsPageShell";
 import ProviderConfigImportDialog from "./ProviderConfigImportDialog";
 import type { DatabaseRepairReport } from "@argos/shared/presenter";
 import type { ProviderImportApplyResult } from "@argos/shared/providerImport";
+
+const deviceClient = createDeviceClient();
+const providerClient = createProviderClient();
 
 const PUBLIC_PROVIDER_CONF_URL = "https://github.com/dvaJi/PublicProviderConf";
 const CLOUDFLARE_R2_S3_DOCS_URL = "https://developers.cloudflare.com/r2/api/s3/api/";
@@ -131,8 +133,6 @@ export default function DataSettings() {
   const { toast } = useToast();
   const languageStore = useLanguageStore();
   const syncStore = useSyncStore();
-  const deviceClient = useMemo(() => createDeviceClient(), []);
-  const providerClient = useMemo(() => createProviderClient(), []);
   const onboardingClient = createOnboardingClient();
   const databaseSecurityClient = createDatabaseSecurityClient();
   const browserClient = createBrowserClient();

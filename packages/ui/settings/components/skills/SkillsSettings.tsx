@@ -28,10 +28,11 @@ import SyncPromptDialog from "./SyncPromptDialog";
 import { SkillSyncDialog } from "./SkillSyncDialog";
 import SettingsPageShell from "../control-center/SettingsPageShell";
 
+const configClient = createConfigClient();
+
 export default function SkillsSettings() {
   const { toast } = useToast();
   const skillsStore = useSkillsStore();
-  const configClient = useMemo(() => createConfigClient(), []);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<string>("all");
@@ -67,8 +68,10 @@ export default function SkillsSettings() {
   }, [skills, activeTab, searchQuery]);
 
   useEffect(() => {
+    let cancelled = false;
     const init = async () => {
       const enabled = await configClient.getSkillDraftSuggestionsEnabled().catch(() => false);
+      if (cancelled) return;
       setDraftSuggestionsEnabled(enabled ?? false);
       await loadSkills();
     };
@@ -81,6 +84,7 @@ export default function SkillsSettings() {
       onIpcChannel("skill:metadata-updated", handleSkillEvent),
     ];
     return () => {
+      cancelled = true;
       unsubscribers.forEach((unsubscribe) => unsubscribe());
     };
   }, [configClient]);

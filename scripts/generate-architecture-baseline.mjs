@@ -37,9 +37,7 @@ const HOT_PATH_FILES = [
   path.join(ROOT, 'apps/desktop/src/main/presenter/index.ts'),
   path.join(ROOT, 'apps/desktop/src/main/eventbus.ts'),
   path.join(ROOT, 'apps/desktop/src/main/presenter/agentSessionPresenter/index.ts'),
-  path.join(ROOT, 'apps/desktop/src/main/presenter/agentRuntimePresenter/index.ts'),
-  path.join(ROOT, 'apps/desktop/src/main/presenter/llmProviderPresenter/index.ts'),
-  path.join(ROOT, 'apps/desktop/src/main/presenter/sessionPresenter/index.ts')
+  path.join(ROOT, 'apps/desktop/src/main/presenter/llmProviderPresenter/index.ts')
 ]
 
 const MIGRATED_RAW_CHANNEL_GUARD_PATHS = [
@@ -443,10 +441,18 @@ async function collectMigratedRawChannelCounts() {
 }
 
 async function collectHotPathDirectEdges() {
-  const hotPathFileSet = new Set(HOT_PATH_FILES)
+  const existingHotPathFiles = []
+  for (const file of HOT_PATH_FILES) {
+    try {
+      await fs.access(file)
+      existingHotPathFiles.push(file)
+    } catch {}
+  }
+
+  const hotPathFileSet = new Set(existingHotPathFiles)
   const edges = []
 
-  for (const file of HOT_PATH_FILES) {
+  for (const file of existingHotPathFiles) {
     const source = await Bun.file(file).text()
     for (const specifier of extractSpecifiers(source)) {
       const resolved = await resolveImport(specifier, file, MAIN_SOURCE_ROOT)

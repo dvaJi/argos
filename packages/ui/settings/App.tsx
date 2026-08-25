@@ -45,6 +45,8 @@ import type { SettingsNavigationPayload } from "@argos/shared/settingsNavigation
 import { useStartupWorkloadStore } from "#/stores/startupWorkloadStore";
 import { useStore } from "@tanstack/react-store";
 
+const windowClient = createWindowClient();
+
 const DATABASE_REPAIR_SECTION = "database-repair";
 const SETTINGS_SECTION_EVENT = "argos:settings-section";
 const SETTINGS_STARTUP_LOG_PREFIX = "[Startup][Settings][Renderer]";
@@ -89,8 +91,6 @@ export default function SettingsApp() {
   const routerState = useRouterState();
   const { isMacOS, isWinMacOS } = useDeviceVersion();
   useFontManager();
-
-  const windowClient = useMemo(() => createWindowClient(), []);
 
   const themeState = useStore(themeStore);
   const modelCheckState = useStore(modelCheckStore);

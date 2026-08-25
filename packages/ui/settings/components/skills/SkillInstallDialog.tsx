@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
@@ -18,6 +18,8 @@ import { useToast } from "#/components/use-toast";
 import { useSkillsStore, installFromFolder, installFromZip, installFromUrl } from "#/stores/skillsStore";
 import { createDeviceClient } from "#api/DeviceClient";
 
+const deviceClient = createDeviceClient();
+
 interface SkillInstallDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -27,7 +29,6 @@ interface SkillInstallDialogProps {
 export default function SkillInstallDialog({ open, onOpenChange, onInstalled }: SkillInstallDialogProps) {
   const { toast } = useToast();
   const skillsStore = useSkillsStore();
-  const deviceClient = useMemo(() => createDeviceClient(), []);
 
   const [activeTab, setActiveTab] = useState("folder");
   const [installUrl, setInstallUrl] = useState("");

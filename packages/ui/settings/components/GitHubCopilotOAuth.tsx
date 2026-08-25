@@ -8,6 +8,8 @@ import { useProviderStore } from "#/stores/providerStore";
 import type { LLM_PROVIDER } from "@argos/shared/presenter";
 import { useModelCheckStore } from "#/stores/modelCheck";
 
+const oauthClient = createOAuthClient();
+
 interface GitHubCopilotOAuthProps {
   provider: LLM_PROVIDER;
   onAuthSuccess?: () => void;
@@ -15,7 +17,6 @@ interface GitHubCopilotOAuthProps {
 }
 
 export default function GitHubCopilotOAuth({ provider, onAuthSuccess, onAuthError }: GitHubCopilotOAuthProps) {
-  const oauthClient = useMemo(() => createOAuthClient(), []);
   const providerStore = useProviderStore();
   const modelCheckStore = useModelCheckStore();
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, type FocusEvent } from "react";
+import { useState, useEffect, useCallback, type FocusEvent } from "react";
 import { Label } from "#shadcn/components/ui/label";
 import { Input } from "#shadcn/components/ui/input";
 import { Button } from "#shadcn/components/ui/button";
@@ -10,6 +10,8 @@ import { useToast } from "#/components/use-toast";
 import { useModelCheckStore } from "#/stores/modelCheck";
 import type { LLM_PROVIDER, KeyStatus } from "@argos/shared/presenter";
 import { isProviderDbBackedProvider } from "@argos/shared/providerDeeplink";
+
+const providerClient = createProviderClient();
 
 interface ProviderWebsites {
   official: string;
@@ -52,7 +54,6 @@ export default function ProviderApiConfig({
   onOAuthSuccess,
   onOAuthError,
 }: ProviderApiConfigProps) {
-  const providerClient = useMemo(() => createProviderClient(), []);
   const modelCheckStore = useModelCheckStore();
   const { toast } = useToast();
 

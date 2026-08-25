@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#shadcn/components/ui/select";
@@ -17,6 +17,8 @@ import type {
   HooksNotificationsSettings,
 } from "@argos/shared/hooksNotifications";
 import { DEFAULT_IMPORTANT_HOOK_EVENTS, HOOK_EVENT_NAMES } from "@argos/shared/hooksNotifications";
+
+const configClient = createConfigClient();
 
 const PREVIEW_LIMIT = 200;
 
@@ -86,7 +88,6 @@ const eventLabels: Record<string, string> = Object.fromEntries(HOOK_EVENT_NAMES.
 
 export default function NotificationsHooksSettings() {
   const { toast } = useToast();
-  const configClient = useMemo(() => createConfigClient(), []);
 
   const [config, setConfig] = useState<HooksNotificationsSettings | null>(null);
   const [isLoading, setIsLoading] = useState(false);

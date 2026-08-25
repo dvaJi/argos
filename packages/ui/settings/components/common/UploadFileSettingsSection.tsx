@@ -1,14 +1,15 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
 import { createConfigClient } from "#api/ConfigClient";
 
+const configClient = createConfigClient();
+
 const MIN_SIZE = 1;
 const MAX_SIZE = 1024;
 
 export default function UploadFileSettingsSection() {
-  const configClient = useMemo(() => createConfigClient(), []);
   const [fileMaxSize, setFileMaxSize] = useState(30);
   const [isEditing, setIsEditing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);

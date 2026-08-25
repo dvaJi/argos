@@ -4,7 +4,6 @@ import { Input } from "#shadcn/components/ui/input";
 import { Badge } from "#shadcn/components/ui/badge";
 import { Icon } from "@iconify/react";
 import type { AcpDebugEventEntry, AcpDebugRequest } from "@argos/shared/presenter";
-import { getRuntimeWebContentsId } from "#api/runtime";
 import { createProviderClient } from "#api/ProviderClient";
 import { createConfigClient } from "#api/ConfigClient";
 import { useToast } from "#/components/use-toast";
@@ -51,7 +50,6 @@ export default function AcpDebugDialog({ open, onOpenChange, agentId, agentName 
   const [customMethod, setCustomMethod] = useState("");
   const [debugSessionId, setDebugSessionId] = useState(createDebugSessionId());
   const seenIds = useRef(new Set<string>());
-  const webContentsId = getRuntimeWebContentsId();
 
   const requiresCustomMethod = useMemo(
     () => ["extMethod", "extNotification"].includes(selectedMethod),

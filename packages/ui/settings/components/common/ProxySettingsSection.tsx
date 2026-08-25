@@ -1,9 +1,11 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { Input } from "#shadcn/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#shadcn/components/ui/select";
 import { createConfigClient } from "#api/ConfigClient";
 import { languageStore } from "#/stores/language";
+
+const configClient = createConfigClient();
 
 const PROXY_MODES = [
   { value: "system", label: "System proxy" },
@@ -15,7 +17,6 @@ const URL_PATTERN =
   /^(http|https):\/\/(?:([^:#/]+)(?::([^#/]*))?@)?([a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(:[0-9]+)?(\/[^\s]*)?$/;
 
 export default function ProxySettingsSection() {
-  const configClient = useMemo(() => createConfigClient(), []);
   const [selectedProxyMode, setSelectedProxyMode] = useState("system");
   const [customProxyUrl, setCustomProxyUrl] = useState("");
   const [showUrlError, setShowUrlError] = useState(false);
@@ -53,9 +54,10 @@ export default function ProxySettingsSection() {
   }, [selectedProxyMode]);
 
   useEffect(() => {
+    let cancelled = false;
     const init = async () => {
-      const mode = await configClient.getProxyMode();
-      const url = await configClient.getCustomProxyUrl();
+      const [mode, url] = await Promise.all([configClient.getProxyMode(), configClient.getCustomProxyUrl()]);
+      if (cancelled) return;
       setSelectedProxyMode(mode ?? "none");
       setCustomProxyUrl(url ?? "");
       if (mode === "custom" && url) {
@@ -63,6 +65,9 @@ export default function ProxySettingsSection() {
       }
     };
     init();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (

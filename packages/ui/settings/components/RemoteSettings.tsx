@@ -8,6 +8,8 @@ import { ChannelOverviewCard, type ChannelStatus } from "./remote/ChannelOvervie
 import { ChannelConfigPanel, type ChannelConfigHandlers } from "./remote/ChannelConfigPanel";
 import "./remote/remote-channels.css";
 
+const configClient = createConfigClient();
+
 function deriveStatus(
   channel: ChannelKey,
   telegramSettings: TelegramRemoteSettings | null,
@@ -23,7 +25,6 @@ function deriveStatus(
 export default function RemoteSettings() {
   const { toast } = useToast();
   const remoteControlPresenter = useRemoteControlPresenter();
-  const configClient = useMemo(() => createConfigClient(), []);
 
   const [isLoading, setIsLoading] = useState(true);
   const [activeChannel, setActiveChannel] = useState<ChannelKey>("telegram");

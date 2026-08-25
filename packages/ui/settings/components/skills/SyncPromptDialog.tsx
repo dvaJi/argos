@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Icon } from "@iconify/react";
 import {
   Dialog,
@@ -14,6 +14,8 @@ import { createSkillSyncClient } from "#api/SkillSyncClient";
 import { onIpcChannel } from "#api/runtime";
 import type { NewDiscovery } from "@argos/shared/types/skillSync";
 import { SKILL_SYNC_EVENTS } from "#/events";
+
+const skillSyncClient = createSkillSyncClient();
 
 interface SyncPromptDialogProps {
   onImport: (toolIds: string[]) => void;
@@ -49,7 +51,6 @@ const toolIconBgs: Record<string, string> = {
 };
 
 export default function SyncPromptDialog({ onImport, onClose }: SyncPromptDialogProps) {
-  const skillSyncClient = useMemo(() => createSkillSyncClient(), []);
   const [isOpen, setIsOpen] = useState(false);
   const [discoveries, setDiscoveries] = useState<NewDiscovery[]>([]);
   const [selectedTools, setSelectedTools] = useState<Set<string>>(new Set());
