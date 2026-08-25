@@ -28,9 +28,6 @@ const ANALYSIS_TARGETS = [
 
 const MAIN_SOURCE_ROOT = path.join(ROOT, 'apps/desktop/src/main')
 const RENDERER_SOURCE_ROOT = path.join(ROOT, 'packages/ui/src')
-const RENDERER_QUARANTINE_ROOT = path.join(ROOT, 'packages/ui/api/legacy')
-const RENDERER_QUARANTINE_ROOTS = [RENDERER_QUARANTINE_ROOT]
-const RENDERER_QUARANTINE_EXIT_MAX_FILES = 3
 const BRIDGE_REGISTER_PATH = path.join(
   ROOT,
   'docs/architecture/baselines/main-kernel-bridge-register.json'
@@ -121,15 +118,6 @@ function isUnder(targetPath, parentPath) {
 
 async function ensureDir(dirPath) {
   await fs.mkdir(dirPath, { recursive: true })
-}
-
-async function pathExists(targetPath) {
-  try {
-    await fs.stat(targetPath)
-    return true
-  } catch {
-    return false
-  }
 }
 
 async function walk(dirPath, output = []) {
@@ -431,30 +419,9 @@ async function collectPresenterFamilyCounts(files, presenterNames) {
   return counts
 }
 
-function combineCountMaps(...maps) {
-  const combined = new Map()
-
-  for (const currentMap of maps) {
-    for (const [file, count] of currentMap) {
-      combined.set(file, (combined.get(file) ?? 0) + count)
-    }
-  }
-
-  return combined
-}
-
-async function collectRendererPatternCountsByLayer(pattern) {
+async function collectRendererPatternCounts(pattern) {
   const businessFiles = await walk(RENDERER_SOURCE_ROOT)
-  const quarantineFiles = await collectFilesFromTargets(RENDERER_QUARANTINE_ROOTS)
-
-  const business = await collectPatternCounts(businessFiles, pattern)
-  const quarantine = await collectPatternCounts(quarantineFiles, pattern)
-
-  return {
-    business,
-    quarantine,
-    total: combineCountMaps(business, quarantine)
-  }
+  return collectPatternCounts(businessFiles, pattern)
 }
 
 async function collectMigratedRawChannelCounts() {
@@ -699,8 +666,7 @@ function renderTopCountSection(lines, title, summary) {
 function renderBoundaryBaselineReport({
   currentPhase,
   metrics,
-  rendererLegacySplit,
-  quarantineSourceFiles,
+  rendererCounts,
   phaseGates,
   usePresenterSummary,
   windowElectronSummary,
@@ -720,15 +686,8 @@ function renderBoundaryBaselineReport({
     '| Metric | Value |',
     '| --- | --- |',
     `| \`renderer.usePresenter.count\` | ${metrics['renderer.usePresenter.count']} |`,
-    `| \`renderer.business.usePresenter.count\` | ${metrics['renderer.business.usePresenter.count']} |`,
-    `| \`renderer.quarantine.usePresenter.count\` | ${metrics['renderer.quarantine.usePresenter.count']} |`,
     `| \`renderer.windowElectron.count\` | ${metrics['renderer.windowElectron.count']} |`,
-    `| \`renderer.business.windowElectron.count\` | ${metrics['renderer.business.windowElectron.count']} |`,
-    `| \`renderer.quarantine.windowElectron.count\` | ${metrics['renderer.quarantine.windowElectron.count']} |`,
     `| \`renderer.windowApi.count\` | ${metrics['renderer.windowApi.count']} |`,
-    `| \`renderer.business.windowApi.count\` | ${metrics['renderer.business.windowApi.count']} |`,
-    `| \`renderer.quarantine.windowApi.count\` | ${metrics['renderer.quarantine.windowApi.count']} |`,
-    `| \`renderer.quarantine.sourceFile.count\` | ${metrics['renderer.quarantine.sourceFile.count']} |`,
     `| \`hotpath.presenterEdge.count\` | ${metrics['hotpath.presenterEdge.count']} |`,
     `| \`runtime.rawTimer.count\` | ${metrics['runtime.rawTimer.count']} |`,
     `| \`migrated.rawChannel.count\` | ${metrics['migrated.rawChannel.count']} |`,
@@ -737,43 +696,15 @@ function renderBoundaryBaselineReport({
     ''
   ]
 
-  lines.push('## Renderer Single-Track Split')
+  lines.push('## Renderer Legacy Surfaces')
   lines.push('')
   lines.push('- Business layer: `packages/ui/src/**`')
-  lines.push('- Quarantine layer: `packages/ui/api/legacy/**`')
   lines.push('')
-  lines.push('| Legacy surface | Business layer | Quarantine layer | Total |')
-  lines.push('| --- | --- | --- | --- |')
-  lines.push(
-    `| legacy presenter helper | ${rendererLegacySplit.usePresenter.business.total} | ${rendererLegacySplit.usePresenter.quarantine.total} | ${rendererLegacySplit.usePresenter.total.total} |`
-  )
-  lines.push(
-    `| \`window.electron\` | ${rendererLegacySplit.windowElectron.business.total} | ${rendererLegacySplit.windowElectron.quarantine.total} | ${rendererLegacySplit.windowElectron.total.total} |`
-  )
-  lines.push(
-    `| \`window.api\` | ${rendererLegacySplit.windowApi.business.total} | ${rendererLegacySplit.windowApi.quarantine.total} | ${rendererLegacySplit.windowApi.total.total} |`
-  )
-  lines.push('')
-
-  lines.push('## Quarantine Exit Snapshot')
-  lines.push('')
-  lines.push('- Retained capability family: `renderer legacy transport`')
-  lines.push(
-    `- Source files: ${quarantineSourceFiles.length} / ${RENDERER_QUARANTINE_EXIT_MAX_FILES}`
-  )
-  lines.push(
-    '- Delete condition: remove after settings compatibility surfaces stop importing the quarantine adapters.'
-  )
-  lines.push('')
-
-  if (quarantineSourceFiles.length === 0) {
-    lines.push('- None')
-  } else {
-    for (const file of quarantineSourceFiles) {
-      lines.push(`- \`${file}\``)
-    }
-  }
-
+  lines.push('| Legacy surface | Count |')
+  lines.push('| --- | --- |')
+  lines.push(`| legacy presenter helper | ${rendererCounts.usePresenter.total} |`)
+  lines.push(`| \`window.electron\` | ${rendererCounts.windowElectron.total} |`)
+  lines.push(`| \`window.api\` | ${rendererCounts.windowApi.total} |`)
   lines.push('')
 
   lines.push('## Phase Gates')
@@ -884,13 +815,9 @@ async function main() {
   const archiveReferences = await collectArchiveReferences()
   const mainAndRendererFiles = await collectFilesFromTargets([MAIN_SOURCE_ROOT, RENDERER_SOURCE_ROOT])
   const rendererBusinessFiles = await walk(RENDERER_SOURCE_ROOT)
-  const quarantineExists = await pathExists(RENDERER_QUARANTINE_ROOT)
-  const quarantineSourceFiles = await collectFilesFromTargets(RENDERER_QUARANTINE_ROOTS)
-  const usePresenterCountsByLayer = await collectRendererPatternCountsByLayer(
-    LEGACY_PRESENTER_HELPER_CALL_PATTERN
-  )
-  const windowElectronCountsByLayer = await collectRendererPatternCountsByLayer(WINDOW_ELECTRON_PATTERN)
-  const windowApiCountsByLayer = await collectRendererPatternCountsByLayer(WINDOW_API_PATTERN)
+  const usePresenterCounts = await collectRendererPatternCounts(LEGACY_PRESENTER_HELPER_CALL_PATTERN)
+  const windowElectronCounts = await collectRendererPatternCounts(WINDOW_ELECTRON_PATTERN)
+  const windowApiCounts = await collectRendererPatternCounts(WINDOW_API_PATTERN)
   const rawTimerCounts = await collectPatternCounts(mainAndRendererFiles, RAW_TIMER_PATTERN)
   const migratedRawChannelCounts = await collectMigratedRawChannelCounts()
   const hotPathEdges = await collectHotPathDirectEdges()
@@ -909,35 +836,16 @@ async function main() {
     PRESENTER_PHASE_GATES.P4
   )
 
-  const rendererLegacySplit = {
-    usePresenter: {
-      business: summarizeCounts(usePresenterCountsByLayer.business),
-      quarantine: summarizeCounts(usePresenterCountsByLayer.quarantine),
-      total: summarizeCounts(usePresenterCountsByLayer.total)
-    },
-    windowElectron: {
-      business: summarizeCounts(windowElectronCountsByLayer.business),
-      quarantine: summarizeCounts(windowElectronCountsByLayer.quarantine),
-      total: summarizeCounts(windowElectronCountsByLayer.total)
-    },
-    windowApi: {
-      business: summarizeCounts(windowApiCountsByLayer.business),
-      quarantine: summarizeCounts(windowApiCountsByLayer.quarantine),
-      total: summarizeCounts(windowApiCountsByLayer.total)
-    }
+  const rendererCounts = {
+    usePresenter: summarizeCounts(usePresenterCounts),
+    windowElectron: summarizeCounts(windowElectronCounts),
+    windowApi: summarizeCounts(windowApiCounts)
   }
 
   const metrics = {
-    'renderer.usePresenter.count': rendererLegacySplit.usePresenter.total.total,
-    'renderer.business.usePresenter.count': rendererLegacySplit.usePresenter.business.total,
-    'renderer.quarantine.usePresenter.count': rendererLegacySplit.usePresenter.quarantine.total,
-    'renderer.windowElectron.count': rendererLegacySplit.windowElectron.total.total,
-    'renderer.business.windowElectron.count': rendererLegacySplit.windowElectron.business.total,
-    'renderer.quarantine.windowElectron.count': rendererLegacySplit.windowElectron.quarantine.total,
-    'renderer.windowApi.count': rendererLegacySplit.windowApi.total.total,
-    'renderer.business.windowApi.count': rendererLegacySplit.windowApi.business.total,
-    'renderer.quarantine.windowApi.count': rendererLegacySplit.windowApi.quarantine.total,
-    'renderer.quarantine.sourceFile.count': quarantineSourceFiles.length,
+    'renderer.usePresenter.count': rendererCounts.usePresenter.total,
+    'renderer.windowElectron.count': rendererCounts.windowElectron.total,
+    'renderer.windowApi.count': rendererCounts.windowApi.total,
     'hotpath.presenterEdge.count': hotPathEdges.length,
     'runtime.rawTimer.count': summarizeCounts(rawTimerCounts).total,
     'migrated.rawChannel.count': summarizeCounts(migratedRawChannelCounts).total,
@@ -945,37 +853,27 @@ async function main() {
     'bridge.expired.count': bridgeSummary.expiredCount
   }
 
-  const usePresenterSummary = rendererLegacySplit.usePresenter.total
-  const windowElectronSummary = rendererLegacySplit.windowElectron.total
-  const windowApiSummary = rendererLegacySplit.windowApi.total
+  const usePresenterSummary = rendererCounts.usePresenter
+  const windowElectronSummary = rendererCounts.windowElectron
+  const windowApiSummary = rendererCounts.windowApi
   const rawTimerSummary = summarizeCounts(rawTimerCounts)
   const migratedRawChannelSummary = summarizeCounts(migratedRawChannelCounts)
   const p1Ready =
-    metrics['renderer.business.usePresenter.count'] === 0 &&
-    metrics['renderer.business.windowElectron.count'] === 0 &&
-    metrics['renderer.business.windowApi.count'] === 0
+    metrics['renderer.usePresenter.count'] === 0 &&
+    metrics['renderer.windowElectron.count'] === 0 &&
+    metrics['renderer.windowApi.count'] === 0
   const p2Ready = Object.values(p2PresenterCounts).every((count) => count === 0)
   const p3Ready = Object.values(p3PresenterCounts).every((count) => count === 0)
   const p4Ready = Object.values(p4PresenterCounts).every((count) => count === 0)
-  const p5Ready = p1Ready && quarantineSourceFiles.length <= RENDERER_QUARANTINE_EXIT_MAX_FILES
   const phaseGates = [
-    {
-      phase: 'P0',
-      indicator:
-        'Fixed quarantine path `packages/ui/api/legacy/**` exists and baseline emits business/quarantine split metrics',
-      current: quarantineExists
-        ? '`packages/ui/api/legacy/**` exists; split metrics emitted'
-        : '`packages/ui/api/legacy/**` missing',
-      status: quarantineExists ? 'ready' : 'blocked'
-    },
     {
       phase: 'P1',
       indicator:
-        'Business layer direct legacy presenter helper / `window.electron` / `window.api` counts must reach `0`',
+        'Business layer legacy presenter helper / `window.electron` / `window.api` counts must reach `0`',
       current:
-        `legacyPresenter=${metrics['renderer.business.usePresenter.count']}, ` +
-        `window.electron=${metrics['renderer.business.windowElectron.count']}, ` +
-        `window.api=${metrics['renderer.business.windowApi.count']}`,
+        `legacyPresenter=${metrics['renderer.usePresenter.count']}, ` +
+        `window.electron=${metrics['renderer.windowElectron.count']}, ` +
+        `window.api=${metrics['renderer.windowApi.count']}`,
       status: p1Ready ? 'ready' : 'pending'
     },
     {
@@ -1017,13 +915,12 @@ async function main() {
     {
       phase: 'P5',
       indicator:
-        'Business layer direct legacy access must be `0`, and quarantine source files must satisfy the exit standard (`<= 3` source files)',
+        'Business layer direct legacy access must be `0` (legacy presenter helper / `window.electron` / `window.api`)',
       current:
-        `businessLegacy=${metrics['renderer.business.usePresenter.count']}/` +
-        `${metrics['renderer.business.windowElectron.count']}/` +
-        `${metrics['renderer.business.windowApi.count']}, ` +
-        `quarantineSourceFiles=${quarantineSourceFiles.length}/${RENDERER_QUARANTINE_EXIT_MAX_FILES}`,
-      status: p5Ready ? 'ready' : 'pending'
+        `businessLegacy=${metrics['renderer.usePresenter.count']}/` +
+        `${metrics['renderer.windowElectron.count']}/` +
+        `${metrics['renderer.windowApi.count']}`,
+      status: p1Ready ? 'ready' : 'pending'
     }
   ]
 
@@ -1055,8 +952,7 @@ async function main() {
       `${renderBoundaryBaselineReport({
         currentPhase: bridgeRegister.currentPhase,
         metrics,
-        rendererLegacySplit,
-        quarantineSourceFiles: quarantineSourceFiles.map((file) => relativePath(file)),
+        rendererCounts,
         phaseGates,
         usePresenterSummary,
         windowElectronSummary,

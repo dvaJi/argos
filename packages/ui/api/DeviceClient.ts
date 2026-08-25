@@ -5,6 +5,8 @@ import {
   deviceRestartAppRoute,
   deviceSanitizeSvgRoute,
   deviceSelectDirectoryRoute,
+  deviceSelectFilesRoute,
+  deviceResetDataByTypeRoute,
 } from "@argos/shared-contracts/routes";
 import { getArgosBridge } from "./core";
 import { copyRuntimeImage, copyRuntimeText, readRuntimeClipboardText } from "./runtime";
@@ -22,6 +24,15 @@ export function createDeviceClient(bridge: ArgosBridge = getArgosBridge()) {
 
   async function selectDirectory() {
     return await bridge.invoke(deviceSelectDirectoryRoute.name, {});
+  }
+
+  async function selectFiles(options?: { filters?: { name: string; extensions: string[] }[]; multiple?: boolean }) {
+    return await bridge.invoke(deviceSelectFilesRoute.name, options ?? {});
+  }
+
+  async function resetDataByType(type: "chat" | "knowledge" | "config" | "all") {
+    const result = await bridge.invoke(deviceResetDataByTypeRoute.name, { types: [type] });
+    return result.success;
   }
 
   async function restartApp() {
@@ -49,6 +60,8 @@ export function createDeviceClient(bridge: ArgosBridge = getArgosBridge()) {
     getAppVersion,
     getDeviceInfo,
     selectDirectory,
+    selectFiles,
+    resetDataByType,
     restartApp,
     sanitizeSvgContent,
     copyText,

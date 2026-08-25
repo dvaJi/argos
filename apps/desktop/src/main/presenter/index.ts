@@ -1,6 +1,5 @@
-import path from "path";
 import { DialogPresenter } from "./dialogPresenter/index";
-import { BrowserWindow, ipcMain, IpcMainInvokeEvent, app } from "electron";
+import { BrowserWindow, ipcMain, IpcMainInvokeEvent } from "electron";
 import { WindowPresenter } from "./windowPresenter";
 import { ShortcutPresenter } from "./shortcutPresenter";
 import {
@@ -15,10 +14,7 @@ import {
   INotificationPresenter,
   IPresenter,
   IShortcutPresenter,
-  ISQLitePresenter,
-  ISyncPresenter,
   ITabPresenter,
-  IConversationExporter,
   IUpgradePresenter,
   IWindowPresenter,
   IToolPresenter,
@@ -26,18 +22,14 @@ import {
   ISkillPresenter,
   ISkillSyncPresenter,
   IAgentSessionPresenter,
-  IProjectPresenter,
   IRemoteControlPresenter,
 } from "@argos/shared/presenter";
 import { eventBus } from "#/eventbus";
 import { LLMProviderPresenter } from "./llmProviderPresenter";
-import { SessionPresenter } from "./sessionPresenter";
-import { MessageManager } from "./sessionPresenter/managers/messageManager";
 import { DevicePresenter } from "./devicePresenter";
 import { UpgradePresenter } from "./upgradePresenter";
 import { FilePresenter } from "./filePresenter/FilePresenter";
 import { McpPresenter } from "./mcpPresenter";
-import { SyncPresenter } from "./syncPresenter";
 import { DeeplinkPresenter } from "./deeplinkPresenter";
 import { NotificationPresenter } from "./notificationPresenter";
 import { TabPresenter } from "./tabPresenter";
@@ -53,24 +45,18 @@ import { FilePermissionService } from "./permission/filePermissionService";
 import { SettingsPermissionService } from "./permission/settingsPermissionService";
 import type { AgentToolRuntimePort } from "./toolPresenter/runtimePorts";
 
-import { ConversationExporterService } from "./exporter";
 import { SkillPresenter, type SkillSessionStatePort } from "@argos/skills-runtime";
 import { createDesktopSkillPorts } from "./skillPresenter/desktopSkillPorts";
 import { SkillSyncPresenter } from "./skillSyncPresenter";
 import { HooksNotificationsService } from "./hooksNotifications";
-import { NewSessionHooksBridge } from "./hooksNotifications/newSessionBridge";
 import { ScheduledTasksService } from "./scheduledTasks";
 import { AgentSessionPresenter } from "./agentSessionPresenter";
-import { AgentRuntimePresenter } from "./agentRuntimePresenter";
-import { MemoryPresenter, MemoryVectorStore } from "@argos/memory-runtime";
-import { ProjectPresenter } from "./projectPresenter";
 import { RemoteControlPresenter } from "./remoteControlPresenter";
 import type { RemoteControlPresenterLike } from "./remoteControlPresenter/interface";
 import { PluginPresenter } from "./pluginPresenter";
 import { AgentRepository } from "./agentRepository";
-import type { SQLitePresenter } from "./sqlitePresenter";
 import { normalizeArgosSubagentSlots } from "@argos/shared/lib/argosSubagents";
-import { subscribeArgosInternalSessionUpdates } from "./agentRuntimePresenter/internalSessionEvents";
+import { subscribeArgosInternalSessionUpdates } from "./internalSessionEvents";
 import {
   sessionsGetAcpSessionCommandsRoute,
   sessionsGetAcpSessionConfigOptionsRoute,
@@ -98,19 +84,22 @@ import {
   providersGetAcpWorkdirRoute,
   providersGetAcpProcessModesRoute,
   providersSetAcpPreferredProcessModeRoute,
+  chatSendMessageRoute,
+  chatStopStreamRoute,
+  chatSteerActiveTurnRoute,
 } from "@argos/shared-contracts/routes";
 import type {
   AcpDaemonPort,
   DaemonSessionActionPort,
   DaemonSessionQueryPort,
-  ProviderCatalogPort,
   SessionPermissionPort,
   SessionUiPort,
 } from "./runtimePorts";
+import type { IAgentImplementation } from "@argos/shared/types/agent-interface";
 import { handlePresenterCallError, handlePresenterCallResult } from "./presenterCallErrorHandler";
 import { createMainKernelRouteRuntime, registerMainKernelRoutes } from "#/routes";
 import { invokeDaemonRoute } from "#/routes/daemonRouteProxy";
-import { setupLegacyTypedEventBridge } from "#/routes/legacyTypedEventBridge";
+import { setupWindowEventBridge } from "#/routes/windowEventBridge";
 import { StartupWorkloadCoordinator } from "./startupWorkloadCoordinator";
 import type { StartupWorkloadTaskContext } from "./startupWorkloadCoordinator";
 
@@ -132,16 +121,13 @@ export class Presenter implements IPresenter {
   private static instance: Presenter;
   static readonly DISPATCHABLE_PRESENTERS = new Set<keyof IPresenter>([
     "windowPresenter",
-    "sqlitePresenter",
     "llmproviderPresenter",
     "configPresenter",
-    "exporter",
     "devicePresenter",
     "upgradePresenter",
     "shortcutPresenter",
     "filePresenter",
     "mcpPresenter",
-    "syncPresenter",
     "deeplinkPresenter",
     "notificationPresenter",
     "tabPresenter",
@@ -152,7 +138,6 @@ export class Presenter implements IPresenter {
     "skillPresenter",
     "skillSyncPresenter",
     "agentSessionPresenter",
-    "projectPresenter",
   ]);
 
   static readonly REMOTE_CONTROL_METHODS = new Set<keyof IRemoteControlPresenter>([
@@ -186,17 +171,14 @@ export class Presenter implements IPresenter {
   ]);
 
   windowPresenter: IWindowPresenter;
-  sqlitePresenter: ISQLitePresenter;
   llmproviderPresenter: ILlmProviderPresenter;
   configPresenter: IConfigPresenter;
 
-  exporter: IConversationExporter;
   devicePresenter: IDevicePresenter;
   upgradePresenter: IUpgradePresenter;
   shortcutPresenter: IShortcutPresenter;
   filePresenter: IFilePresenter;
   mcpPresenter: IMCPPresenter;
-  syncPresenter: ISyncPresenter;
   deeplinkPresenter: IDeeplinkPresenter;
   notificationPresenter: INotificationPresenter;
   tabPresenter: ITabPresenter;
@@ -211,18 +193,13 @@ export class Presenter implements IPresenter {
   skillPresenter: ISkillPresenter;
   skillSyncPresenter: ISkillSyncPresenter;
   agentSessionPresenter: IAgentSessionPresenter;
-  projectPresenter: IProjectPresenter;
   pluginPresenter: PluginPresenter;
-  memoryPresenter: MemoryPresenter;
   hooksNotifications: HooksNotificationsService;
   scheduledTasks: ScheduledTasksService;
   commandPermissionService: CommandPermissionService;
   filePermissionService: FilePermissionService;
   settingsPermissionService: SettingsPermissionService;
   startupWorkloadCoordinator: StartupWorkloadCoordinator;
-  private sessionMessageManager: MessageManager;
-  private sessionPresenterInternal?: SessionPresenter;
-  private daemonSessionQueryPortField?: DaemonSessionQueryPort;
   private acpDaemonPortField?: AcpDaemonPort;
   private hasInitialized = false;
   #remoteControlPresenter: RemoteControlPresenterLike;
@@ -234,24 +211,18 @@ export class Presenter implements IPresenter {
     this.lifecycleManager = lifecycleManager;
     const context = lifecycleManager.getLifecycleContext();
     this.configPresenter = context.config as IConfigPresenter;
-    this.sqlitePresenter = context.database as ISQLitePresenter;
-    const agentRepository = new AgentRepository(this.sqlitePresenter as unknown as SQLitePresenter);
+    const agentRepository = new AgentRepository();
     (
       this.configPresenter as IConfigPresenter & {
         setAgentRepository?: (repository: AgentRepository) => void;
       }
     ).setAgentRepository?.(agentRepository);
-    (
-      this.configPresenter as IConfigPresenter & {
-        setSQLitePresenter?: (sqlitePresenter: SQLitePresenter) => void;
-      }
-    ).setSQLitePresenter?.(this.sqlitePresenter as unknown as SQLitePresenter);
     this.startupWorkloadCoordinator = new StartupWorkloadCoordinator();
 
     // Initialize each Presenter instance and its dependencies
     this.windowPresenter = new WindowPresenter(this.configPresenter, this.startupWorkloadCoordinator);
     this.tabPresenter = new TabPresenter(this.windowPresenter);
-    this.llmproviderPresenter = new LLMProviderPresenter(this.configPresenter, this.sqlitePresenter, {
+    this.llmproviderPresenter = new LLMProviderPresenter(this.configPresenter, {
       getNpmRegistry: () => this.mcpPresenter.getNpmRegistry?.() ?? null,
       getUvRegistry: () => this.mcpPresenter.getUvRegistry?.() ?? null,
     });
@@ -259,18 +230,11 @@ export class Presenter implements IPresenter {
     this.commandPermissionService = commandPermissionHandler;
     this.filePermissionService = new FilePermissionService();
     this.settingsPermissionService = new SettingsPermissionService();
-    const messageManager = new MessageManager(this.sqlitePresenter);
-    this.sessionMessageManager = messageManager;
     this.devicePresenter = new DevicePresenter();
-    this.exporter = new ConversationExporterService({
-      sqlitePresenter: this.sqlitePresenter,
-      configPresenter: this.configPresenter,
-    });
     this.mcpPresenter = new McpPresenter(this.configPresenter, (data) => this.devicePresenter.cacheImage(data));
     this.upgradePresenter = new UpgradePresenter(this.configPresenter);
     this.shortcutPresenter = new ShortcutPresenter(this.configPresenter);
     this.filePresenter = new FilePresenter(this.configPresenter);
-    this.syncPresenter = new SyncPresenter(this.configPresenter, this.sqlitePresenter);
     this.deeplinkPresenter = new DeeplinkPresenter();
     this.notificationPresenter = new NotificationPresenter();
     this.oauthPresenter = new OAuthPresenter();
@@ -285,30 +249,6 @@ export class Presenter implements IPresenter {
     // Workspace shell actions (reveal/open). All other workspace.* routes are
     // daemon-owned; desktop only keeps the Electron shell integrations.
     this.workspaceShell = new ElectronWorkspaceShellPresenter();
-
-    // Initialize Memory presenter (long-term agent memory: extraction, recall, persona evolution)
-    const memoryVectorDir = path.join(app.getPath("userData"), "memory_vectors");
-    const memoryPresenter = new MemoryPresenter({
-      repository: (this.sqlitePresenter as unknown as SQLitePresenter).agentMemoryTable,
-      resolveAgentConfig: (agentId) => agentRepository.resolveArgosAgentConfig(agentId),
-      getEmbeddings: (providerId, modelId, texts) =>
-        this.llmproviderPresenter.getEmbeddings(providerId, modelId, texts),
-      generateText: (providerId, modelId, prompt) =>
-        this.llmproviderPresenter.generateText(providerId, prompt, modelId).then((response) => response.content),
-      createVectorStore: async (agentId, embedding, dimensions) => {
-        const dbPath = path.join(memoryVectorDir, `${agentId}.duckdb`);
-        return MemoryVectorStore.create(dbPath, dimensions, embedding);
-      },
-      resetVectorStore: async (agentId) => {
-        const dbPath = path.join(memoryVectorDir, `${agentId}.duckdb`);
-        try {
-          MemoryVectorStore.destroyFile(dbPath);
-        } catch {
-          // ignore missing vector store file
-        }
-      },
-    });
-    this.memoryPresenter = memoryPresenter;
 
     const agentToolRuntime: AgentToolRuntimePort = {
       resolveConversationWorkdir: async (conversationId) => {
@@ -386,30 +326,6 @@ export class Presenter implements IPresenter {
       handoffTape: async (conversationId, name, state) => {
         return await this.agentSessionPresenter.handoffTape(conversationId, name, state);
       },
-      isMemoryEnabled: (agentId) => memoryPresenter.isEnabled(agentId),
-      rememberMemory: async (agentId, input, sourceSession, _model) => {
-        const ids = memoryPresenter.writeMemoriesSync(
-          [
-            {
-              kind: input.kind,
-              content: input.content,
-              category: input.category ?? null,
-              importance: input.importance ?? 0.7,
-            },
-          ],
-          { agentId, sourceSession: sourceSession ?? null },
-        );
-        if (ids.length > 0) {
-          void memoryPresenter.processPendingEmbeddings(agentId).catch(() => undefined);
-          return { action: "created" as const, id: ids[0] };
-        }
-        return { action: "noop" as const, reason: "duplicate" };
-      },
-      recallMemory: async (agentId, query) => {
-        const items = await memoryPresenter.recall(agentId, query);
-        return items.map((item) => ({ id: item.id, kind: item.kind, content: item.content }));
-      },
-      forgetMemory: async (agentId, memoryId) => memoryPresenter.deleteMemory(agentId, memoryId),
       createSubagentSession: async (input) => {
         const agentSessionPresenter = this.agentSessionPresenter as IAgentSessionPresenter & {
           createSubagentSession?: (createInput: typeof input) => Promise<{
@@ -485,21 +401,10 @@ export class Presenter implements IPresenter {
           return false;
         }
       },
-      getPersistedNewSessionSkills: (conversationId) =>
-        (
-          this.sqlitePresenter as unknown as import("./sqlitePresenter").SQLitePresenter
-        ).newSessionsTable?.getActiveSkills(conversationId) ?? [],
-      setPersistedNewSessionSkills: (conversationId, skills) => {
-        const sqlitePresenter = this.sqlitePresenter as unknown as import("./sqlitePresenter").SQLitePresenter;
-        sqlitePresenter.newSessionsTable?.updateActiveSkills(conversationId, skills);
-        sqlitePresenter.newEnvironmentsTable?.syncForSession(conversationId);
-      },
-      repairImportedLegacySessionSkills: async (conversationId) => {
-        const agentSessionPresenter = this.agentSessionPresenter as IAgentSessionPresenter & {
-          repairImportedLegacySessionSkills?: (sessionId: string) => Promise<string[]>;
-        };
-        return (await agentSessionPresenter.repairImportedLegacySessionSkills?.(conversationId)) ?? [];
-      },
+      // Session skills are persisted by the daemon; the desktop keeps no local store.
+      getPersistedNewSessionSkills: () => [],
+      setPersistedNewSessionSkills: () => undefined,
+      repairImportedLegacySessionSkills: async () => [],
     };
 
     // Initialize Skill presenter
@@ -526,12 +431,6 @@ export class Presenter implements IPresenter {
       notificationPresenter: this.notificationPresenter,
       windowPresenter: this.windowPresenter,
     });
-    const newSessionHooksBridge = new NewSessionHooksBridge(this.hooksNotifications);
-    const providerCatalogPort: ProviderCatalogPort = {
-      getProviderModels: (providerId) => this.configPresenter.getProviderModels?.(providerId) ?? [],
-      getCustomModels: (providerId) => this.configPresenter.getCustomModels?.(providerId) ?? [],
-      getAgentType: async (agentId) => await this.configPresenter.getAgentType(agentId),
-    };
     const sessionUiPort: SessionUiPort = {
       refreshSessionUi: () => {
         try {
@@ -729,27 +628,44 @@ export class Presenter implements IPresenter {
     };
 
     // Initialize new agent architecture presenters
-    const agentRuntimePresenter = new AgentRuntimePresenter(
-      this.llmproviderPresenter as unknown as ILlmProviderPresenter,
-      this.configPresenter,
-      this.sqlitePresenter as unknown as import("./sqlitePresenter").SQLitePresenter,
-      this.toolPresenter,
-      newSessionHooksBridge,
-      {
-        providerCatalogPort,
-        sessionPermissionPort,
-        sessionUiPort,
-        cacheImage: (data) => this.devicePresenter.cacheImage(data),
-        skillPresenter: this.skillPresenter,
-        memoryPort: memoryPresenter,
-        resolveAgentPermission: acpDaemonPort.resolveAgentPermission,
+    // Argos agent execution is daemon-owned (Pi worker); the shell's argos
+    // "implementation" delegates to the session/chat routes instead of running
+    // a local harness (docs/archives/desktop-sqlite-removal).
+    const agentRuntimePresenter: IAgentImplementation = {
+      async initSession() {},
+      async setSessionAgentContext() {},
+      async destroySession() {},
+      async getSessionState() {
+        return null;
       },
-    );
+      async getMessages() {
+        return [];
+      },
+      async getMessageIds() {
+        return [];
+      },
+      async getMessage() {
+        return null;
+      },
+      async processMessage(sessionId, content) {
+        const result = await invokeDaemonRoute<{
+          accepted: boolean;
+          requestId: string | null;
+          messageId: string | null;
+        }>(chatSendMessageRoute.name, { sessionId, content });
+        return { requestId: result.requestId, messageId: result.messageId };
+      },
+      async cancelGeneration(sessionId) {
+        await invokeDaemonRoute(chatStopStreamRoute.name, { sessionId });
+      },
+      async steerActiveTurn(sessionId, content) {
+        await invokeDaemonRoute(chatSteerActiveTurnRoute.name, { sessionId, content });
+      },
+    };
     this.agentSessionPresenter = new AgentSessionPresenter(
       agentRuntimePresenter,
       this.llmproviderPresenter as unknown as ILlmProviderPresenter,
       this.configPresenter,
-      this.sqlitePresenter as unknown as import("./sqlitePresenter").SQLitePresenter,
       this.skillPresenter,
       undefined,
       {
@@ -760,12 +676,7 @@ export class Presenter implements IPresenter {
         acpDaemonPort,
       },
     );
-    this.daemonSessionQueryPortField = daemonSessionQueryPort;
     this.acpDaemonPortField = acpDaemonPort;
-    this.projectPresenter = new ProjectPresenter(
-      this.sqlitePresenter as unknown as import("./sqlitePresenter").SQLitePresenter,
-      this.devicePresenter,
-    );
     this.#remoteControlPresenter = new RemoteControlPresenter();
     this.#remoteControlBridge = this.#remoteControlPresenter;
 
@@ -779,11 +690,7 @@ export class Presenter implements IPresenter {
   }
 
   getActiveConversationIdSync(webContentsId: number): string | null {
-    return this.sessionPresenterInternal?.getActiveConversationIdSync(webContentsId) ?? null;
-  }
-
-  async broadcastConversationThreadListUpdate(): Promise<void> {
-    await this.getSessionPresenter().broadcastThreadListUpdate();
+    return this.agentSessionPresenter.getActiveSessionId(webContentsId);
   }
 
   async cleanupConversationRuntimeArtifacts(conversationId: string): Promise<void> {
@@ -792,24 +699,6 @@ export class Presenter implements IPresenter {
     } catch (error) {
       log.warn("Failed to clear ACP session:", error);
     }
-  }
-
-  private getSessionPresenter(): SessionPresenter {
-    if (!this.sessionPresenterInternal) {
-      this.sessionPresenterInternal = new SessionPresenter({
-        messageManager: this.sessionMessageManager,
-        sqlitePresenter: this.sqlitePresenter,
-        llmProviderPresenter: this.llmproviderPresenter,
-        configPresenter: this.configPresenter,
-        exporter: this.exporter,
-        commandPermissionService: this.commandPermissionService,
-        daemonSessionQueryPort: this.daemonSessionQueryPortField,
-        acpDaemonPort: this.acpDaemonPortField,
-      });
-    }
-
-    this.sessionPresenterInternal.initializeLegacyRuntime();
-    return this.sessionPresenterInternal;
   }
 
   public static getInstance(lifecycleManager: ILifecycleManager): Presenter {
@@ -860,8 +749,6 @@ export class Presenter implements IPresenter {
     log.info(`[Startup][Main] Presenter.init begin providers=${providers.length}`);
     this.llmproviderPresenter.setProviders(providers);
 
-    // Start background memory maintenance (consolidation, reflection sweeps)
-    this.memoryPresenter.startBackgroundMaintenance();
     const mainRunId = this.startupWorkloadCoordinator.createRun("main");
 
     void this.startupWorkloadCoordinator.scheduleTask({
@@ -1095,17 +982,10 @@ export class Presenter implements IPresenter {
     await this.destroyRemoteControl();
     this.floatingButtonPresenter.destroy(); // Destroy the floating button
     this.tabPresenter.destroy();
-    this.sqlitePresenter.close(); // Close the database connection
     this.shortcutPresenter.destroy(); // Destroy the shortcut key listeners
-    this.syncPresenter.destroy(); // Release sync-related resources
     this.notificationPresenter.clearAllNotifications(); // Clear all notifications
     (this.skillPresenter as SkillPresenter).destroy(); // Release Skills-related resources
     (this.skillSyncPresenter as SkillSyncPresenter).destroy(); // Release Skill Sync resources
-    try {
-      await this.memoryPresenter.dispose(); // Stop memory maintenance and close vector stores
-    } catch (error) {
-      log.error("MemoryPresenter.dispose failed during presenter destroy:", error);
-    }
     // Note: trayPresenter.destroy() is handled in the will-quit event in main/index.ts
     // trayPresenter is not destroyed here; its lifecycle is managed by main/index.ts
   }
@@ -1130,14 +1010,11 @@ const buildMainKernelRouteRuntime = () =>
     agentSessionPresenter: presenter.agentSessionPresenter,
     skillPresenter: presenter.skillPresenter,
     mcpPresenter: presenter.mcpPresenter,
-    syncPresenter: presenter.syncPresenter,
     upgradePresenter: presenter.upgradePresenter,
     dialogPresenter: presenter.dialogPresenter,
     toolPresenter: presenter.toolPresenter,
-    sqlitePresenter: presenter.sqlitePresenter,
     windowPresenter: presenter.windowPresenter,
     devicePresenter: presenter.devicePresenter,
-    projectPresenter: presenter.projectPresenter,
     filePresenter: presenter.filePresenter,
     workspaceShell: presenter.workspaceShell,
     yoBrowserPresenter: presenter.yoBrowserPresenter,
@@ -1145,7 +1022,8 @@ const buildMainKernelRouteRuntime = () =>
     startupWorkloadCoordinator: presenter.startupWorkloadCoordinator,
     pluginPresenter: presenter.pluginPresenter,
     scheduledTasks: presenter.scheduledTasks,
-    memoryPresenter: presenter.memoryPresenter,
+    skillSyncPresenter: presenter.skillSyncPresenter,
+    oauthPresenter: presenter.oauthPresenter,
   });
 
 export function getMainKernelRouteRuntime(): ReturnType<typeof createMainKernelRouteRuntime> {
@@ -1162,10 +1040,7 @@ export function getMainKernelRouteRuntime(): ReturnType<typeof createMainKernelR
 export function getInstance(lifecycleManager: ILifecycleManager): Presenter {
   // only allow initialize once
   if (presenter == null) presenter = Presenter.getInstance(lifecycleManager);
-  setupLegacyTypedEventBridge({
-    configPresenter: presenter.configPresenter,
-    llmProviderPresenter: presenter.llmproviderPresenter,
-  });
+  setupWindowEventBridge();
   return presenter;
 }
 

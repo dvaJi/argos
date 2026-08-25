@@ -1,6 +1,6 @@
 /**
  * Browser bootstrap — constructs window.argos from WebSocketBridge
- * and installs a window.api shim using Web APIs.
+ * and installs the browser local-API shim.
  *
  * This entry runs when the Argos UI is served by the daemon (--web).
  * The daemon serving the page is the daemon to connect to.
@@ -28,8 +28,10 @@ declare global {
 
 window.__argosRuntimeKind = "browser";
 
-window.api = browserLocalApi;
-window.electron = undefined;
+// Install the browser local-API surface and clear any Electron bridge so the
+// LocalApi facade resolves the Web-APIs implementation.
+(window as unknown as { api?: unknown }).api = browserLocalApi;
+(window as unknown as { electron?: unknown }).electron = undefined;
 
 const root = document.getElementById("root");
 

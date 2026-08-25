@@ -1,17 +1,17 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
 import { Label } from "#shadcn/components/ui/label";
 import type { LLM_PROVIDER } from "@argos/shared/presenter";
-import { usePresenter } from "#api/presenterBridge";
+import { createProviderClient } from "#api/ProviderClient";
 
 interface ModelScopeMcpSyncProps {
   provider: LLM_PROVIDER;
 }
 
 export default function ModelScopeMcpSync({ provider }: ModelScopeMcpSyncProps) {
-  const llmP = usePresenter("llmproviderPresenter");
+  const providerClient = useMemo(() => createProviderClient(), []);
 
   const [isSyncing, setIsSyncing] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -37,7 +37,7 @@ export default function ModelScopeMcpSync({ provider }: ModelScopeMcpSyncProps) 
     setSyncResult(null);
 
     try {
-      const result = await llmP.syncModelScopeMcpServers(provider.id, syncOptions);
+      const result = await providerClient.syncModelScopeMcpServers(provider.id);
       setSyncResult(result);
     } catch (error) {
       console.error("MCP sync error:", error);

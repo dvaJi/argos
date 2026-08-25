@@ -51,3 +51,27 @@ export const windowPreviewFileRoute = defineRouteContract({
     previewed: zod.boolean(),
   }),
 });
+
+export const windowFocusMainRoute = defineRouteContract({
+  name: "window.focusMain",
+  input: zod.object({}).default({}),
+  output: zod.object({
+    focused: zod.boolean(),
+  }),
+});
+
+export const windowCloseSettingsRoute = defineRouteContract({
+  name: "window.closeSettings",
+  input: zod.object({}).default({}),
+  output: zod.object({
+    closed: zod.boolean(),
+  }),
+});
+
+export const windowDevStartGuidedOnboardingRoute = defineRouteContract({
+  name: "window.devStartGuidedOnboarding",
+  input: zod.object({}).default({}),
+  output: zod.object({
+    sent: zod.boolean(),
+  }),
+});

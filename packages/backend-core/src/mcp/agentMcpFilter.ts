@@ -2,13 +2,12 @@ import type { IConfigPresenter, MCPToolDefinition } from "@argos/shared/presente
 
 export async function getAgentFilteredTools(
   agentId: string,
-  isBuiltin: boolean | undefined,
   allTools: MCPToolDefinition[],
   configPresenter: IConfigPresenter,
 ): Promise<MCPToolDefinition[]> {
   if (!agentId) return [];
 
-  const selections = await configPresenter.getAgentMcpSelections(agentId, isBuiltin);
+  const selections = await configPresenter.getAgentMcpSelections(agentId);
   if (!selections?.length) return [];
 
   const selectionSet = new Set(selections);

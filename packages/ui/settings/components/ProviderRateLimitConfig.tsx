@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { createIpcSubscriptionScope } from "#api/runtime";
 import { Switch } from "#shadcn/components/ui/switch";
 import { Input } from "#shadcn/components/ui/input";
 import { Label } from "#shadcn/components/ui/label";
-import { usePresenter } from "#api/presenterBridge";
+import { createProviderClient } from "#api/ProviderClient";
 import { RATE_LIMIT_EVENTS } from "#/events";
 import type { LLM_PROVIDER } from "@argos/shared/presenter";
 import { useToast } from "#/components/use-toast";
@@ -32,7 +32,7 @@ function convertIntervalToQps(interval: number): number {
 }
 
 export default function ProviderRateLimitConfig({ provider, onConfigChanged }: ProviderRateLimitConfigProps) {
-  const llmPresenter = usePresenter("llmproviderPresenter");
+  const providerClient = useMemo(() => createProviderClient(), []);
   const { toast } = useToast();
 
   const [rateLimitEnabled, setRateLimitEnabled] = useState(provider.rateLimit?.enabled ?? false);
@@ -52,7 +52,7 @@ export default function ProviderRateLimitConfig({ provider, onConfigChanged }: P
 
   const loadStatus = useCallback(async () => {
     try {
-      const rateLimitStatus = await llmPresenter.getProviderRateLimitStatus(provider.id);
+      const rateLimitStatus = await providerClient.getProviderRateLimitStatus(provider.id);
       setStatus({
         currentQps: rateLimitStatus.currentQps,
         queueLength: rateLimitStatus.queueLength,
@@ -61,7 +61,7 @@ export default function ProviderRateLimitConfig({ provider, onConfigChanged }: P
     } catch (error) {
       console.error("Failed to load rate limit status:", error);
     }
-  }, [llmPresenter, provider.id]);
+  }, [providerClient, provider.id]);
 
   const startStatusPolling = useCallback(() => {
     if (statusIntervalRef.current) {
@@ -123,7 +123,7 @@ export default function ProviderRateLimitConfig({ provider, onConfigChanged }: P
   const updateRateLimitConfig = async (enabled: boolean, interval: number) => {
     try {
       const qpsValue = convertIntervalToQps(interval);
-      await llmPresenter.updateProviderRateLimit(provider.id, enabled, qpsValue);
+      await providerClient.updateProviderRateLimit(provider.id, enabled, qpsValue);
       onConfigChanged?.();
       await loadStatus();
     } catch (error) {

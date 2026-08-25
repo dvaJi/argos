@@ -66,7 +66,12 @@ export function createAcpRuntime(deps: {
   const processManager = new AcpProcessManager({
     providerId: provider.id,
     ports,
-    resolveLaunchSpec: (agentId, workdir) => configPresenter.resolveAcpLaunchSpec(agentId, workdir),
+    resolveLaunchSpec: (agentId, workdir) => {
+      if (!configPresenter.resolveAcpLaunchSpec) {
+        throw new Error("Config presenter does not resolve ACP launch specs (daemon-only capability)");
+      }
+      return configPresenter.resolveAcpLaunchSpec(agentId, workdir);
+    },
     getAgentState: (agentId) => configPresenter.getAcpAgentState(agentId),
     getNpmRegistry: ports.mcp?.getNpmRegistry,
     getUvRegistry: ports.mcp?.getUvRegistry,

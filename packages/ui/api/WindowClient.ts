@@ -3,10 +3,14 @@ import { windowStateChangedEvent } from "@argos/shared-contracts/events";
 import {
   windowCloseCurrentRoute,
   windowCloseFloatingCurrentRoute,
+  windowCloseSettingsRoute,
   windowGetCurrentStateRoute,
   windowMinimizeCurrentRoute,
   windowPreviewFileRoute,
   windowToggleMaximizeCurrentRoute,
+  windowFocusMainRoute,
+  windowDevStartGuidedOnboardingRoute,
+  settingsReadyRoute,
   systemConsumePendingProviderInstallRoute,
   systemSetPendingProviderInstallRoute,
 } from "@argos/shared-contracts/routes";
@@ -36,6 +40,28 @@ export function createWindowClient(bridge: ArgosBridge = getArgosBridge()) {
 
   async function closeFloatingCurrent() {
     return await bridge.invoke(windowCloseFloatingCurrentRoute.name, {});
+  }
+
+  async function closeSettings() {
+    const result = await bridge.invoke(windowCloseSettingsRoute.name, {});
+    return result.closed;
+  }
+
+  async function focusMain() {
+    const result = await bridge.invoke(windowFocusMainRoute.name, {});
+    return result.focused;
+  }
+
+  /** DEV-only: re-trigger the guided onboarding flow in the main window. */
+  async function devStartGuidedOnboarding() {
+    const result = await bridge.invoke(windowDevStartGuidedOnboardingRoute.name, {});
+    return result.sent;
+  }
+
+  /** Notify desktop main that this (settings) window finished bootstrapping. */
+  async function notifyReady() {
+    const result = await bridge.invoke(settingsReadyRoute.name, {});
+    return result.ok;
   }
 
   async function previewFile(filePath: string) {
@@ -91,6 +117,10 @@ export function createWindowClient(bridge: ArgosBridge = getArgosBridge()) {
     toggleMaximizeCurrent,
     closeCurrent,
     closeFloatingCurrent,
+    closeSettings,
+    focusMain,
+    devStartGuidedOnboarding,
+    notifyReady,
     previewFile,
     consumePendingSettingsProviderInstall,
     setPendingSettingsProviderInstall,

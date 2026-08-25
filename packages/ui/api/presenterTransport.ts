@@ -69,7 +69,7 @@ function createLegacyProxy(channel: string, safeCall: boolean, presenterName?: s
               console.warn(`[Renderer IPC] ipcRenderer not available for ${callTarget}`);
               return null;
             }
-            throw new Error("window.electron.ipcRenderer is not available");
+            throw new Error("ipcRenderer is not available");
           }
 
           const webContentsId = getRuntimeWebContentsId();
@@ -126,6 +126,3 @@ export function getRemoteControlPresenterTransport(options?: UsePresenterOptions
   const safeCall = options?.safeCall ?? true;
   return getCachedLegacyProxy<IRemoteControlPresenter>("remoteControlPresenter:call", safeCall);
 }
-
-export const usePresenterTransport = getPresenterTransport;
-export const useRemoteControlPresenterTransport = getRemoteControlPresenterTransport;

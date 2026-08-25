@@ -3,10 +3,9 @@ import { invokeDaemonRoute } from "#/routes/daemonRouteProxy";
 import type { RemoteControlPresenterLike } from "./interface";
 
 /**
- * Legacy presenter compatibility surface.
- *
- * The daemon owns all remote-control state and long-lived channel runtimes;
- * Electron only forwards existing presenter calls to typed daemon routes.
+ * Remote-control shell facade: extends the typed daemon route client and
+ * satisfies the Electron-side port surface. State and channel runtimes are
+ * daemon-owned.
  */
 export class RemoteControlPresenter extends RemoteControlRouteClient implements RemoteControlPresenterLike {
   constructor() {

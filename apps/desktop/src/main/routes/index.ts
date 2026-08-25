@@ -1,4 +1,4 @@
-import { BrowserWindow, type IpcMain, type IpcMainInvokeEvent } from "electron";
+import { BrowserWindow, type IpcMain, type IpcMainInvokeEvent, shell } from "electron";
 import type {
   IAgentSessionPresenter,
   IConfigPresenter,
@@ -7,16 +7,17 @@ import type {
   IFilePresenter,
   ILlmProviderPresenter,
   IMCPPresenter,
-  IProjectPresenter,
-  ISQLitePresenter,
   ISkillPresenter,
-  ISyncPresenter,
   ITabPresenter,
   IToolPresenter,
   IUpgradePresenter,
   IWindowPresenter,
   IYoBrowserPresenter,
+  ISkillSyncPresenter,
 } from "@argos/shared/presenter";
+import fs from "fs";
+import { OAuthPresenter } from "#/presenter/oauthPresenter";
+import { NowledgeMemPresenter } from "#/presenter/nowledgeMemPresenter";
 import { ARGOS_ROUTE_INVOKE_CHANNEL } from "@argos/shared-contracts/channels";
 import {
   browserAttachCurrentWindowRoute,
@@ -111,8 +112,6 @@ import {
   pluginsGetRoute,
   pluginsInvokeActionRoute,
   pluginsListRoute,
-  projectListEnvironmentsRoute,
-  projectListRecentRoute,
   projectOpenDirectoryRoute,
   projectSelectDirectoryRoute,
   modelsSetBatchStatusRoute,
@@ -186,6 +185,7 @@ import {
   settingsGetSnapshotRoute,
   settingsListSystemFontsRoute,
   settingsUpdateRoute,
+  settingsReadyRoute,
   startupGetBootstrapRoute,
   usageGetStatsRoute,
   skillsGetActiveRoute,
@@ -203,11 +203,7 @@ import {
   skillsSetActiveRoute,
   skillsUninstallRoute,
   skillsUpdateFileRoute,
-  syncGetBackupStatusRoute,
-  syncImportRoute,
-  syncListBackupsRoute,
   syncOpenFolderRoute,
-  syncStartBackupRoute,
   syncGetCloudConfigRoute,
   syncSetCloudConfigRoute,
   syncTestCloudRoute,
@@ -234,6 +230,42 @@ import {
   windowMinimizeCurrentRoute,
   windowPreviewFileRoute,
   windowToggleMaximizeCurrentRoute,
+  windowFocusMainRoute,
+  windowCloseSettingsRoute,
+  windowDevStartGuidedOnboardingRoute,
+  configGetUpdateChannelRoute,
+  configSetUpdateChannelRoute,
+  configGetProxyModeRoute,
+  configSetProxyModeRoute,
+  configGetCustomProxyUrlRoute,
+  configSetCustomProxyUrlRoute,
+  configOpenLoggingFolderRoute,
+  configSetMaxFileSizeRoute,
+  configGetMaxFileSizeRoute,
+  configGetSkillDraftSuggestionsEnabledRoute,
+  configSetSkillDraftSuggestionsEnabledRoute,
+  configGetHooksNotificationsConfigRoute,
+  configSetHooksNotificationsConfigRoute,
+  configTestHookCommandRoute,
+  deviceSelectFilesRoute,
+  deviceResetDataByTypeRoute,
+  projectPathExistsRoute,
+  providersGetKeyStatusRoute,
+  providersUpdateRateLimitRoute,
+  providersSyncModelScopeMcpServersRoute,
+  skillsReadSkillFileRoute,
+  skillsyncScanExternalToolsRoute,
+  skillsyncGetRegisteredToolsRoute,
+  skillsyncPreviewImportRoute,
+  skillsyncExecuteImportRoute,
+  skillsyncPreviewExportRoute,
+  skillsyncExecuteExportRoute,
+  skillsyncAcknowledgeDiscoveriesRoute,
+  oauthStartGithubCopilotLoginRoute,
+  oauthStartGithubCopilotDeviceFlowLoginRoute,
+  nowledgeMemGetConfigRoute,
+  nowledgeMemUpdateConfigRoute,
+  nowledgeMemTestConnectionRoute,
   workspaceExpandDirectoryRoute,
   workspaceGetGitDiffRoute,
   workspaceGetGitStatusRoute,
@@ -258,6 +290,7 @@ import {
   workspaceDeletePathRoute,
   type SettingsActivityInput,
 } from "@argos/shared-contracts/routes";
+import { DEV_EVENTS } from "#/events";
 import { ChatService } from "./chat/chatService";
 import { invokeDaemonRoute } from "./daemonRouteProxy";
 import { dispatchConfigRoute } from "./config/configRouteHandler";
@@ -281,7 +314,6 @@ import type { StartupWorkloadCoordinator } from "#/presenter/startupWorkloadCoor
 import type { WorkspaceShellPresenter } from "#/presenter/workspaceShellPresenter";
 import type { PluginPresenter } from "#/presenter/pluginPresenter";
 import type { ScheduledTasksService } from "#/presenter/scheduledTasks";
-import type { MemoryPresenter } from "@argos/memory-runtime";
 import {
   scheduledTasksDeleteRoute,
   scheduledTasksFireNowRoute,
@@ -296,19 +328,16 @@ export type MainKernelRouteRuntime = {
   agentSessionPresenter: IAgentSessionPresenter;
   skillPresenter: ISkillPresenter;
   mcpPresenter: IMCPPresenter;
-  syncPresenter: ISyncPresenter;
   upgradePresenter: IUpgradePresenter;
   dialogPresenter: IDialogPresenter;
   toolPresenter: IToolPresenter;
   settingsHandler: ReturnType<typeof createSettingsRouteHandler>;
-  sqlitePresenter: ISQLitePresenter;
   sessionService: SessionService;
   chatService: ChatService;
   providerService: ProviderService;
   providerImportService: ProviderImportService;
   windowPresenter: IWindowPresenter;
   devicePresenter: IDevicePresenter;
-  projectPresenter: IProjectPresenter;
   filePresenter: IFilePresenter;
   workspaceShell: WorkspaceShellPresenter;
   yoBrowserPresenter: IYoBrowserPresenter;
@@ -316,7 +345,9 @@ export type MainKernelRouteRuntime = {
   startupWorkloadCoordinator: StartupWorkloadCoordinator;
   pluginPresenter: PluginPresenter;
   scheduledTasks: ScheduledTasksService;
-  memoryPresenter: MemoryPresenter;
+  skillSyncPresenter: ISkillSyncPresenter;
+  oauthPresenter: OAuthPresenter;
+  nowledgeMemPresenter: NowledgeMemPresenter;
 };
 
 export function createMainKernelRouteRuntime(deps: {
@@ -325,14 +356,11 @@ export function createMainKernelRouteRuntime(deps: {
   agentSessionPresenter: IAgentSessionPresenter;
   skillPresenter: ISkillPresenter;
   mcpPresenter: IMCPPresenter;
-  syncPresenter: ISyncPresenter;
   upgradePresenter: IUpgradePresenter;
   dialogPresenter: IDialogPresenter;
   toolPresenter: IToolPresenter;
-  sqlitePresenter?: ISQLitePresenter;
   windowPresenter: IWindowPresenter;
   devicePresenter: IDevicePresenter;
-  projectPresenter: IProjectPresenter;
   filePresenter: IFilePresenter;
   workspaceShell: WorkspaceShellPresenter;
   yoBrowserPresenter: IYoBrowserPresenter;
@@ -340,7 +368,8 @@ export function createMainKernelRouteRuntime(deps: {
   startupWorkloadCoordinator: StartupWorkloadCoordinator;
   pluginPresenter: PluginPresenter;
   scheduledTasks: ScheduledTasksService;
-  memoryPresenter: MemoryPresenter;
+  skillSyncPresenter: ISkillSyncPresenter;
+  oauthPresenter: OAuthPresenter;
 }): MainKernelRouteRuntime {
   const scheduler = createNodeScheduler();
   const hotPathPorts = createPresenterHotPathPorts({
@@ -396,29 +425,10 @@ export function createMainKernelRouteRuntime(deps: {
     agentSessionPresenter: deps.agentSessionPresenter,
     skillPresenter: deps.skillPresenter,
     mcpPresenter: deps.mcpPresenter,
-    syncPresenter: deps.syncPresenter,
     upgradePresenter: deps.upgradePresenter,
     dialogPresenter: deps.dialogPresenter,
     toolPresenter: deps.toolPresenter,
     settingsHandler: createSettingsRouteHandler(createSettingsRouteAdapter(deps.configPresenter)),
-    sqlitePresenter:
-      deps.sqlitePresenter ??
-      ({
-        recordSettingsActivity: async (input: SettingsActivityInput) => ({
-          id: "noop",
-          category: input.category,
-          action: input.action,
-          targetType: input.targetType,
-          targetId: input.targetId ?? null,
-          targetLabel: input.targetLabel ?? "",
-          routeName: input.routeName ?? null,
-          routeParams: input.routeParams ?? {},
-          summaryKey: input.summaryKey,
-          summaryParams: input.summaryParams ?? {},
-          createdAt: Date.now(),
-        }),
-        listSettingsActivity: async () => [],
-      } as unknown as ISQLitePresenter),
     sessionService,
     chatService,
     providerService: new ProviderService({
@@ -429,7 +439,6 @@ export function createMainKernelRouteRuntime(deps: {
     providerImportService: new ProviderImportService(deps.configPresenter),
     windowPresenter: deps.windowPresenter,
     devicePresenter: deps.devicePresenter,
-    projectPresenter: deps.projectPresenter,
     filePresenter: deps.filePresenter,
     workspaceShell: deps.workspaceShell,
     yoBrowserPresenter: deps.yoBrowserPresenter,
@@ -437,7 +446,9 @@ export function createMainKernelRouteRuntime(deps: {
     startupWorkloadCoordinator: deps.startupWorkloadCoordinator,
     pluginPresenter: deps.pluginPresenter,
     scheduledTasks: deps.scheduledTasks,
-    memoryPresenter: deps.memoryPresenter,
+    skillSyncPresenter: deps.skillSyncPresenter,
+    oauthPresenter: deps.oauthPresenter,
+    nowledgeMemPresenter: new NowledgeMemPresenter(deps.configPresenter),
   };
 }
 
@@ -1146,30 +1157,20 @@ export async function dispatchArgosRoute(
       });
     }
 
-    case projectListRecentRoute.name: {
-      const input = projectListRecentRoute.input.parse(rawInput);
-      return projectListRecentRoute.output.parse({
-        projects: await runtime.projectPresenter.getRecentProjects(input.limit ?? 20),
-      });
-    }
-
-    case projectListEnvironmentsRoute.name: {
-      projectListEnvironmentsRoute.input.parse(rawInput);
-      return projectListEnvironmentsRoute.output.parse({
-        environments: await runtime.projectPresenter.getEnvironments(),
-      });
-    }
-
     case projectOpenDirectoryRoute.name: {
       const input = projectOpenDirectoryRoute.input.parse(rawInput);
-      await runtime.projectPresenter.openDirectory(input.path);
+      const errorMessage = await shell.openPath(input.path);
+      if (errorMessage) {
+        throw new Error(errorMessage);
+      }
       return projectOpenDirectoryRoute.output.parse({ opened: true });
     }
 
     case projectSelectDirectoryRoute.name: {
       projectSelectDirectoryRoute.input.parse(rawInput);
+      const result = await runtime.devicePresenter.selectDirectory();
       return projectSelectDirectoryRoute.output.parse({
-        path: await runtime.projectPresenter.selectDirectory(),
+        path: result.canceled || result.filePaths.length === 0 ? null : result.filePaths[0],
       });
     }
 
@@ -2334,61 +2335,16 @@ export async function dispatchArgosRoute(
       );
     }
 
-    case syncGetBackupStatusRoute.name: {
-      syncGetBackupStatusRoute.input.parse(rawInput);
-      const status = await runtime.syncPresenter.getBackupStatus();
-      return syncGetBackupStatusRoute.output.parse({ status });
-    }
-
-    case syncListBackupsRoute.name: {
-      syncListBackupsRoute.input.parse(rawInput);
-      const backups = await runtime.syncPresenter.listBackups();
-      return syncListBackupsRoute.output.parse({ backups });
-    }
-
-    case syncStartBackupRoute.name: {
-      syncStartBackupRoute.input.parse(rawInput);
-      const backup = await runtime.syncPresenter.startBackup();
-      if (backup) {
-        recordSettingsActivity(runtime, {
-          category: "data",
-          action: "backup_created",
-          targetType: "backup",
-          targetId: backup.fileName,
-          targetLabel: backup.fileName,
-          routeName: "settings-database",
-          summaryKey: "settings.controlCenter.activity.backupCreated",
-          summaryParams: {
-            name: backup.fileName,
-          },
-        });
-      }
-      return syncStartBackupRoute.output.parse({ backup });
-    }
-
-    case syncImportRoute.name: {
-      const input = syncImportRoute.input.parse(rawInput);
-      const result = await runtime.syncPresenter.importFromSync(input.backupFile, input.mode);
-      if (result?.success) {
-        recordSettingsActivity(runtime, {
-          category: "data",
-          action: "imported",
-          targetType: "backup",
-          targetId: input.backupFile,
-          targetLabel: input.backupFile,
-          routeName: "settings-database",
-          summaryKey: "settings.controlCenter.activity.backupImported",
-          summaryParams: {
-            name: input.backupFile,
-          },
-        });
-      }
-      return syncImportRoute.output.parse({ result });
-    }
-
     case syncOpenFolderRoute.name: {
       const input = syncOpenFolderRoute.input.parse(rawInput);
-      await runtime.syncPresenter.openSyncFolder(input.folderPath);
+      const syncFolderPath = input.folderPath?.trim();
+      if (syncFolderPath) {
+        fs.mkdirSync(syncFolderPath, { recursive: true });
+        const errorMessage = await shell.openPath(syncFolderPath);
+        if (errorMessage) {
+          throw new Error(errorMessage);
+        }
+      }
       return syncOpenFolderRoute.output.parse({ opened: true });
     }
 
@@ -2616,6 +2572,250 @@ export async function dispatchArgosRoute(
     case settingsActivityRecordRoute.name: {
       const input = settingsActivityRecordRoute.input.parse(rawInput);
       return settingsActivityRecordRoute.output.parse(await invokeDaemonRoute(settingsActivityRecordRoute.name, input));
+    }
+
+    // --- Settings renderer desktop-resident surfaces ---
+
+    case settingsReadyRoute.name: {
+      settingsReadyRoute.input.parse(rawInput);
+      runtime.windowPresenter.handleSettingsWindowReady(context.webContentsId);
+      return settingsReadyRoute.output.parse({ ok: true });
+    }
+
+    case configGetUpdateChannelRoute.name: {
+      configGetUpdateChannelRoute.input.parse(rawInput);
+      return configGetUpdateChannelRoute.output.parse({ channel: runtime.configPresenter.getUpdateChannel() });
+    }
+
+    case configSetUpdateChannelRoute.name: {
+      const input = configSetUpdateChannelRoute.input.parse(rawInput);
+      runtime.configPresenter.setUpdateChannel(input.channel);
+      return configSetUpdateChannelRoute.output.parse({ success: true });
+    }
+
+    case configGetProxyModeRoute.name: {
+      configGetProxyModeRoute.input.parse(rawInput);
+      return configGetProxyModeRoute.output.parse({ mode: runtime.configPresenter.getProxyMode() });
+    }
+
+    case configSetProxyModeRoute.name: {
+      const input = configSetProxyModeRoute.input.parse(rawInput);
+      runtime.configPresenter.setProxyMode(input.mode);
+      return configSetProxyModeRoute.output.parse({ success: true });
+    }
+
+    case configGetCustomProxyUrlRoute.name: {
+      configGetCustomProxyUrlRoute.input.parse(rawInput);
+      const url = runtime.configPresenter.getCustomProxyUrl();
+      return configGetCustomProxyUrlRoute.output.parse({ url: url || null });
+    }
+
+    case configSetCustomProxyUrlRoute.name: {
+      const input = configSetCustomProxyUrlRoute.input.parse(rawInput);
+      runtime.configPresenter.setCustomProxyUrl(input.url ?? "");
+      return configSetCustomProxyUrlRoute.output.parse({ success: true });
+    }
+
+    case configOpenLoggingFolderRoute.name: {
+      configOpenLoggingFolderRoute.input.parse(rawInput);
+      await runtime.configPresenter.openLoggingFolder();
+      return configOpenLoggingFolderRoute.output.parse({ success: true });
+    }
+
+    case configSetMaxFileSizeRoute.name: {
+      const input = configSetMaxFileSizeRoute.input.parse(rawInput);
+      runtime.configPresenter.setSetting("maxFileSize", input.size);
+      return configSetMaxFileSizeRoute.output.parse({ success: true });
+    }
+
+    case configGetMaxFileSizeRoute.name: {
+      configGetMaxFileSizeRoute.input.parse(rawInput);
+      const size = runtime.configPresenter.getSetting<number>("maxFileSize");
+      return configGetMaxFileSizeRoute.output.parse({ size: typeof size === "number" ? size : null });
+    }
+
+    case configGetSkillDraftSuggestionsEnabledRoute.name: {
+      configGetSkillDraftSuggestionsEnabledRoute.input.parse(rawInput);
+      return configGetSkillDraftSuggestionsEnabledRoute.output.parse({
+        enabled: runtime.configPresenter.getSkillDraftSuggestionsEnabled(),
+      });
+    }
+
+    case configSetSkillDraftSuggestionsEnabledRoute.name: {
+      const input = configSetSkillDraftSuggestionsEnabledRoute.input.parse(rawInput);
+      runtime.configPresenter.setSkillDraftSuggestionsEnabled(input.enabled);
+      return configSetSkillDraftSuggestionsEnabledRoute.output.parse({ success: true });
+    }
+
+    case configGetHooksNotificationsConfigRoute.name: {
+      configGetHooksNotificationsConfigRoute.input.parse(rawInput);
+      return configGetHooksNotificationsConfigRoute.output.parse({
+        config: runtime.configPresenter.getHooksNotificationsConfig(),
+      });
+    }
+
+    case configSetHooksNotificationsConfigRoute.name: {
+      const input = configSetHooksNotificationsConfigRoute.input.parse(rawInput);
+      runtime.configPresenter.setHooksNotificationsConfig(input.config as never);
+      return configSetHooksNotificationsConfigRoute.output.parse({ success: true });
+    }
+
+    case configTestHookCommandRoute.name: {
+      const input = configTestHookCommandRoute.input.parse(rawInput);
+      return configTestHookCommandRoute.output.parse({
+        result: await runtime.configPresenter.testHookCommand(input.hookId),
+      });
+    }
+
+    case deviceSelectFilesRoute.name: {
+      const input = deviceSelectFilesRoute.input.parse(rawInput);
+      return deviceSelectFilesRoute.output.parse(await runtime.devicePresenter.selectFiles(input));
+    }
+
+    case deviceResetDataByTypeRoute.name: {
+      const input = deviceResetDataByTypeRoute.input.parse(rawInput);
+      const type = input.types[0] as "chat" | "knowledge" | "config" | "all" | undefined;
+      if (!type) {
+        throw new Error("device.resetDataByType requires a data type");
+      }
+      await runtime.devicePresenter.resetDataByType(type);
+      return deviceResetDataByTypeRoute.output.parse({ success: true });
+    }
+
+    case windowFocusMainRoute.name: {
+      windowFocusMainRoute.input.parse(rawInput);
+      return windowFocusMainRoute.output.parse({ focused: runtime.windowPresenter.focusMainWindow() });
+    }
+
+    case windowCloseSettingsRoute.name: {
+      windowCloseSettingsRoute.input.parse(rawInput);
+      runtime.windowPresenter.closeSettingsWindow();
+      return windowCloseSettingsRoute.output.parse({ closed: true });
+    }
+
+    case windowDevStartGuidedOnboardingRoute.name: {
+      windowDevStartGuidedOnboardingRoute.input.parse(rawInput);
+      await runtime.windowPresenter.sendToAllWindows(DEV_EVENTS.START_GUIDED_ONBOARDING);
+      runtime.windowPresenter.focusMainWindow();
+      return windowDevStartGuidedOnboardingRoute.output.parse({ sent: true });
+    }
+
+    case projectPathExistsRoute.name: {
+      const input = projectPathExistsRoute.input.parse(rawInput);
+      try {
+        await fs.promises.stat(input.path);
+        return projectPathExistsRoute.output.parse({ exists: true });
+      } catch {
+        return projectPathExistsRoute.output.parse({ exists: false });
+      }
+    }
+
+    case providersGetKeyStatusRoute.name: {
+      const input = providersGetKeyStatusRoute.input.parse(rawInput);
+      return providersGetKeyStatusRoute.output.parse({
+        status: (await runtime.llmProviderPresenter.getKeyStatus(input.providerId)) ?? null,
+      });
+    }
+
+    case providersUpdateRateLimitRoute.name: {
+      const input = providersUpdateRateLimitRoute.input.parse(rawInput);
+      runtime.llmProviderPresenter.updateProviderRateLimit(input.providerId, input.enabled, input.qpsLimit);
+      return providersUpdateRateLimitRoute.output.parse({ success: true });
+    }
+
+    case providersSyncModelScopeMcpServersRoute.name: {
+      const input = providersSyncModelScopeMcpServersRoute.input.parse(rawInput);
+      return providersSyncModelScopeMcpServersRoute.output.parse({
+        result: await runtime.llmProviderPresenter.syncModelScopeMcpServers(input.providerId, input.syncOptions),
+      });
+    }
+
+    case skillsReadSkillFileRoute.name: {
+      const input = skillsReadSkillFileRoute.input.parse(rawInput);
+      return skillsReadSkillFileRoute.output.parse({
+        content: await runtime.skillPresenter.readSkillFile(input.name),
+      });
+    }
+
+    case skillsyncScanExternalToolsRoute.name: {
+      skillsyncScanExternalToolsRoute.input.parse(rawInput);
+      return skillsyncScanExternalToolsRoute.output.parse({
+        results: await runtime.skillSyncPresenter.scanExternalTools(),
+      });
+    }
+
+    case skillsyncGetRegisteredToolsRoute.name: {
+      skillsyncGetRegisteredToolsRoute.input.parse(rawInput);
+      return skillsyncGetRegisteredToolsRoute.output.parse({
+        tools: runtime.skillSyncPresenter.getRegisteredTools(),
+      });
+    }
+
+    case skillsyncPreviewImportRoute.name: {
+      const input = skillsyncPreviewImportRoute.input.parse(rawInput);
+      return skillsyncPreviewImportRoute.output.parse({
+        previews: await runtime.skillSyncPresenter.previewImport(input.toolId, input.skillNames),
+      });
+    }
+
+    case skillsyncExecuteImportRoute.name: {
+      const input = skillsyncExecuteImportRoute.input.parse(rawInput);
+      return skillsyncExecuteImportRoute.output.parse({
+        result: await runtime.skillSyncPresenter.executeImport(input.previews as never, input.strategies as never),
+      });
+    }
+
+    case skillsyncPreviewExportRoute.name: {
+      const input = skillsyncPreviewExportRoute.input.parse(rawInput);
+      return skillsyncPreviewExportRoute.output.parse({
+        previews: await runtime.skillSyncPresenter.previewExport(input.skillNames, input.targetToolId, input.options),
+      });
+    }
+
+    case skillsyncExecuteExportRoute.name: {
+      const input = skillsyncExecuteExportRoute.input.parse(rawInput);
+      return skillsyncExecuteExportRoute.output.parse({
+        result: await runtime.skillSyncPresenter.executeExport(input.previews as never, input.strategies as never),
+      });
+    }
+
+    case skillsyncAcknowledgeDiscoveriesRoute.name: {
+      skillsyncAcknowledgeDiscoveriesRoute.input.parse(rawInput);
+      await runtime.skillSyncPresenter.acknowledgeDiscoveries();
+      return skillsyncAcknowledgeDiscoveriesRoute.output.parse({ success: true });
+    }
+
+    case oauthStartGithubCopilotLoginRoute.name: {
+      const input = oauthStartGithubCopilotLoginRoute.input.parse(rawInput);
+      return oauthStartGithubCopilotLoginRoute.output.parse({
+        started: await runtime.oauthPresenter.startGitHubCopilotLogin(input.providerId),
+      });
+    }
+
+    case oauthStartGithubCopilotDeviceFlowLoginRoute.name: {
+      const input = oauthStartGithubCopilotDeviceFlowLoginRoute.input.parse(rawInput);
+      return oauthStartGithubCopilotDeviceFlowLoginRoute.output.parse({
+        started: await runtime.oauthPresenter.startGitHubCopilotDeviceFlowLogin(input.providerId),
+      });
+    }
+
+    case nowledgeMemGetConfigRoute.name: {
+      nowledgeMemGetConfigRoute.input.parse(rawInput);
+      const config = await runtime.nowledgeMemPresenter.loadConfig();
+      return nowledgeMemGetConfigRoute.output.parse({ config });
+    }
+
+    case nowledgeMemUpdateConfigRoute.name: {
+      const input = nowledgeMemUpdateConfigRoute.input.parse(rawInput);
+      await runtime.nowledgeMemPresenter.updateConfig(input.config);
+      return nowledgeMemUpdateConfigRoute.output.parse({ success: true });
+    }
+
+    case nowledgeMemTestConnectionRoute.name: {
+      nowledgeMemTestConnectionRoute.input.parse(rawInput);
+      return nowledgeMemTestConnectionRoute.output.parse({
+        result: await runtime.nowledgeMemPresenter.testConnection(),
+      });
     }
   }
 

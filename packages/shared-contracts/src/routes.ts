@@ -89,6 +89,20 @@ import {
   configUpdateSyncSettingsRoute,
   configUpdateSystemPromptRoute,
   configUpdateVoiceAiConfigRoute,
+  configGetUpdateChannelRoute,
+  configSetUpdateChannelRoute,
+  configGetProxyModeRoute,
+  configSetProxyModeRoute,
+  configGetCustomProxyUrlRoute,
+  configSetCustomProxyUrlRoute,
+  configOpenLoggingFolderRoute,
+  configSetMaxFileSizeRoute,
+  configGetMaxFileSizeRoute,
+  configGetSkillDraftSuggestionsEnabledRoute,
+  configSetSkillDraftSuggestionsEnabledRoute,
+  configGetHooksNotificationsConfigRoute,
+  configSetHooksNotificationsConfigRoute,
+  configTestHookCommandRoute,
 } from "./routes/config.routes";
 import { dialogErrorRoute, dialogRespondRoute } from "./routes/dialog.routes";
 import {
@@ -97,6 +111,8 @@ import {
   deviceRestartAppRoute,
   deviceSanitizeSvgRoute,
   deviceSelectDirectoryRoute,
+  deviceSelectFilesRoute,
+  deviceResetDataByTypeRoute,
 } from "./routes/device.routes";
 import {
   fileCopyImageRoute,
@@ -139,6 +155,8 @@ import {
   mcpSubmitSamplingDecisionRoute,
   mcpUpdateMcpRouterServersAuthRoute,
   mcpUpdateServerRoute,
+  mcpConfigSnapshotRoute,
+  mcpApplyConfigPatchRoute,
 } from "./routes/mcp.routes";
 import {
   modelsAddCustomRoute,
@@ -155,6 +173,7 @@ import {
   modelsSetBatchStatusRoute,
   modelsSetConfigRoute,
   modelsSetStatusRoute,
+  modelsStatusSnapshotRoute,
   modelsTranscribeAudioRoute,
   modelsUpdateCustomRoute,
 } from "./routes/models.routes";
@@ -191,7 +210,9 @@ import {
   providersRefreshProviderDbRoute,
   providersRemoveRoute,
   providersReorderRoute,
+  providersReplaceAllRoute,
   providersSetByIdRoute,
+  providersSetModelsRoute,
   providersTestConnectionRoute,
   providersUpdateRoute,
   providersWarmupAcpProcessRoute,
@@ -200,6 +221,9 @@ import {
   providersGetAcpWorkdirRoute,
   providersGetAcpProcessModesRoute,
   providersSetAcpPreferredProcessModeRoute,
+  providersGetKeyStatusRoute,
+  providersUpdateRateLimitRoute,
+  providersSyncModelScopeMcpServersRoute,
 } from "./routes/providers.routes";
 import {
   remoteClearBindingsRoute,
@@ -223,6 +247,7 @@ import {
   projectListRecentRoute,
   projectOpenDirectoryRoute,
   projectSelectDirectoryRoute,
+  projectPathExistsRoute,
 } from "./routes/project.routes";
 import {
   pluginsDisableRoute,
@@ -237,6 +262,7 @@ import {
   settingsGetSnapshotRoute,
   settingsListSystemFontsRoute,
   settingsUpdateRoute,
+  settingsReadyRoute,
 } from "./routes/settings.routes";
 import { startupGetBootstrapRoute } from "./routes/startup.routes";
 import {
@@ -316,7 +342,23 @@ import {
   skillsSetActiveRoute,
   skillsUninstallRoute,
   skillsUpdateFileRoute,
+  skillsReadSkillFileRoute,
 } from "./routes/skills.routes";
+import {
+  skillsyncScanExternalToolsRoute,
+  skillsyncGetRegisteredToolsRoute,
+  skillsyncPreviewImportRoute,
+  skillsyncExecuteImportRoute,
+  skillsyncPreviewExportRoute,
+  skillsyncExecuteExportRoute,
+  skillsyncAcknowledgeDiscoveriesRoute,
+} from "./routes/skillsync.routes";
+import { oauthStartGithubCopilotLoginRoute, oauthStartGithubCopilotDeviceFlowLoginRoute } from "./routes/oauth.routes";
+import {
+  nowledgeMemGetConfigRoute,
+  nowledgeMemUpdateConfigRoute,
+  nowledgeMemTestConnectionRoute,
+} from "./routes/nowledgemem.routes";
 import {
   piPackagesGetProjectTrustRoute,
   piPackagesInstallRoute,
@@ -388,6 +430,9 @@ import {
   windowMinimizeCurrentRoute,
   windowPreviewFileRoute,
   windowToggleMaximizeCurrentRoute,
+  windowFocusMainRoute,
+  windowCloseSettingsRoute,
+  windowDevStartGuidedOnboardingRoute,
 } from "./routes/window.routes";
 import {
   workspaceBrowseDirectoryRoute,
@@ -447,6 +492,9 @@ export * from "./routes/upgrade.routes";
 export * from "./routes/usage.routes";
 export * from "./routes/window.routes";
 export * from "./routes/workspace.routes";
+export * from "./routes/skillsync.routes";
+export * from "./routes/oauth.routes";
+export * from "./routes/nowledgemem.routes";
 
 export const ARGOS_ROUTE_CATALOG = {
   [connectionDescribeEnvironmentRoute.name]: connectionDescribeEnvironmentRoute,
@@ -660,6 +708,8 @@ export const ARGOS_ROUTE_CATALOG = {
   [providersAddRoute.name]: providersAddRoute,
   [providersRemoveRoute.name]: providersRemoveRoute,
   [providersReorderRoute.name]: providersReorderRoute,
+  [providersReplaceAllRoute.name]: providersReplaceAllRoute,
+  [providersSetModelsRoute.name]: providersSetModelsRoute,
   [providersListModelsRoute.name]: providersListModelsRoute,
   [providersTestConnectionRoute.name]: providersTestConnectionRoute,
   [providersGetRateLimitStatusRoute.name]: providersGetRateLimitStatusRoute,
@@ -682,6 +732,7 @@ export const ARGOS_ROUTE_CATALOG = {
   [modelsGetProviderCatalogRoute.name]: modelsGetProviderCatalogRoute,
   [modelsListRuntimeRoute.name]: modelsListRuntimeRoute,
   [modelsSetBatchStatusRoute.name]: modelsSetBatchStatusRoute,
+  [modelsStatusSnapshotRoute.name]: modelsStatusSnapshotRoute,
   [modelsSetStatusRoute.name]: modelsSetStatusRoute,
   [modelsAddCustomRoute.name]: modelsAddCustomRoute,
   [modelsRemoveCustomRoute.name]: modelsRemoveCustomRoute,
@@ -753,6 +804,8 @@ export const ARGOS_ROUTE_CATALOG = {
   [mcpSetMcpRouterApiKeyRoute.name]: mcpSetMcpRouterApiKeyRoute,
   [mcpIsServerInstalledRoute.name]: mcpIsServerInstalledRoute,
   [mcpUpdateMcpRouterServersAuthRoute.name]: mcpUpdateMcpRouterServersAuthRoute,
+  [mcpConfigSnapshotRoute.name]: mcpConfigSnapshotRoute,
+  [mcpApplyConfigPatchRoute.name]: mcpApplyConfigPatchRoute,
   [syncGetBackupStatusRoute.name]: syncGetBackupStatusRoute,
   [syncListBackupsRoute.name]: syncListBackupsRoute,
   [syncStartBackupRoute.name]: syncStartBackupRoute,
@@ -810,6 +863,43 @@ export const ARGOS_ROUTE_CATALOG = {
   [remoteWeixinWaitForLoginRoute.name]: remoteWeixinWaitForLoginRoute,
   [remoteWeixinRemoveAccountRoute.name]: remoteWeixinRemoveAccountRoute,
   [remoteWeixinRestartAccountRoute.name]: remoteWeixinRestartAccountRoute,
+  [settingsReadyRoute.name]: settingsReadyRoute,
+  [configGetUpdateChannelRoute.name]: configGetUpdateChannelRoute,
+  [configSetUpdateChannelRoute.name]: configSetUpdateChannelRoute,
+  [configGetProxyModeRoute.name]: configGetProxyModeRoute,
+  [configSetProxyModeRoute.name]: configSetProxyModeRoute,
+  [configGetCustomProxyUrlRoute.name]: configGetCustomProxyUrlRoute,
+  [configSetCustomProxyUrlRoute.name]: configSetCustomProxyUrlRoute,
+  [configOpenLoggingFolderRoute.name]: configOpenLoggingFolderRoute,
+  [configSetMaxFileSizeRoute.name]: configSetMaxFileSizeRoute,
+  [configGetMaxFileSizeRoute.name]: configGetMaxFileSizeRoute,
+  [configGetSkillDraftSuggestionsEnabledRoute.name]: configGetSkillDraftSuggestionsEnabledRoute,
+  [configSetSkillDraftSuggestionsEnabledRoute.name]: configSetSkillDraftSuggestionsEnabledRoute,
+  [configGetHooksNotificationsConfigRoute.name]: configGetHooksNotificationsConfigRoute,
+  [configSetHooksNotificationsConfigRoute.name]: configSetHooksNotificationsConfigRoute,
+  [configTestHookCommandRoute.name]: configTestHookCommandRoute,
+  [deviceSelectFilesRoute.name]: deviceSelectFilesRoute,
+  [deviceResetDataByTypeRoute.name]: deviceResetDataByTypeRoute,
+  [windowFocusMainRoute.name]: windowFocusMainRoute,
+  [windowCloseSettingsRoute.name]: windowCloseSettingsRoute,
+  [windowDevStartGuidedOnboardingRoute.name]: windowDevStartGuidedOnboardingRoute,
+  [projectPathExistsRoute.name]: projectPathExistsRoute,
+  [providersGetKeyStatusRoute.name]: providersGetKeyStatusRoute,
+  [providersUpdateRateLimitRoute.name]: providersUpdateRateLimitRoute,
+  [providersSyncModelScopeMcpServersRoute.name]: providersSyncModelScopeMcpServersRoute,
+  [skillsReadSkillFileRoute.name]: skillsReadSkillFileRoute,
+  [skillsyncScanExternalToolsRoute.name]: skillsyncScanExternalToolsRoute,
+  [skillsyncGetRegisteredToolsRoute.name]: skillsyncGetRegisteredToolsRoute,
+  [skillsyncPreviewImportRoute.name]: skillsyncPreviewImportRoute,
+  [skillsyncExecuteImportRoute.name]: skillsyncExecuteImportRoute,
+  [skillsyncPreviewExportRoute.name]: skillsyncPreviewExportRoute,
+  [skillsyncExecuteExportRoute.name]: skillsyncExecuteExportRoute,
+  [skillsyncAcknowledgeDiscoveriesRoute.name]: skillsyncAcknowledgeDiscoveriesRoute,
+  [oauthStartGithubCopilotLoginRoute.name]: oauthStartGithubCopilotLoginRoute,
+  [oauthStartGithubCopilotDeviceFlowLoginRoute.name]: oauthStartGithubCopilotDeviceFlowLoginRoute,
+  [nowledgeMemGetConfigRoute.name]: nowledgeMemGetConfigRoute,
+  [nowledgeMemUpdateConfigRoute.name]: nowledgeMemUpdateConfigRoute,
+  [nowledgeMemTestConnectionRoute.name]: nowledgeMemTestConnectionRoute,
 } satisfies Record<string, RouteContract>;
 
 export type ArgosRouteCatalog = typeof ARGOS_ROUTE_CATALOG;

@@ -37,3 +37,13 @@ export const projectSelectDirectoryRoute = defineRouteContract({
     path: zod.string().nullable(),
   }),
 });
+
+export const projectPathExistsRoute = defineRouteContract({
+  name: "project.pathExists",
+  input: zod.object({
+    path: zod.string().min(1),
+  }),
+  output: zod.object({
+    exists: zod.boolean(),
+  }),
+});

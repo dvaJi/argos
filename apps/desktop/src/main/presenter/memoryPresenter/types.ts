@@ -6,7 +6,7 @@ import type {
   AgentMemoryListOptions,
   AgentMemoryRow,
   AgentMemoryStatus,
-} from "../sqlitePresenter/tables/agentMemory";
+} from "@argos/memory-runtime";
 
 export type { AgentMemoryInsertInput, AgentMemoryKind, AgentMemoryListOptions, AgentMemoryRow, AgentMemoryStatus };
 

@@ -24,8 +24,7 @@ const MAIN_GUARD_PATHS = [
 const RENDERER_SOURCE_ROOT = path.join(ROOT, 'packages/ui/src')
 const RENDERER_TYPED_BOUNDARY_ROOT = path.join(ROOT, 'packages/ui/api')
 const RETIRED_RENDERER_LEGACY_ENTRY_PATHS = [
-  path.join(ROOT, 'packages/ui/src/composables/usePresenter.ts'),
-  path.join(ROOT, 'packages/ui/api/legacy')
+  path.join(ROOT, 'packages/ui/src/composables/usePresenter.ts')
 ]
 const RENDERER_TYPED_BOUNDARY_WINDOW_API_ALLOWLIST = [
   path.join(ROOT, 'packages/ui/api/runtime.ts'),
@@ -176,10 +175,6 @@ function isUnder(targetPath, parentPath) {
     normalizedTarget === normalizedParent ||
     normalizedTarget.startsWith(`${normalizedParent}${path.sep}`)
   )
-}
-
-function isRendererQuarantineFile() {
-  return false
 }
 
 async function pathExists(targetPath) {
@@ -444,12 +439,14 @@ async function main() {
     }
   }
 
-  for (const filePath of await collectFiles(DESKTOP_REMOTE_CONTROL_ROOT)) {
-    const relative = path.relative(DESKTOP_REMOTE_CONTROL_ROOT, filePath)
-    if (!DESKTOP_REMOTE_CONTROL_ALLOWLIST.has(relative)) {
-      violations.push(
-        `[desktop-remote-runtime-ownership] ${relativePath(filePath)} must live in @argos/remote-control-runtime and run in the daemon`
-      )
+  if (await pathExists(DESKTOP_REMOTE_CONTROL_ROOT)) {
+    for (const filePath of await collectFiles(DESKTOP_REMOTE_CONTROL_ROOT)) {
+      const relative = path.relative(DESKTOP_REMOTE_CONTROL_ROOT, filePath)
+      if (!DESKTOP_REMOTE_CONTROL_ALLOWLIST.has(relative)) {
+        violations.push(
+          `[desktop-remote-runtime-ownership] ${relativePath(filePath)} must live in @argos/remote-control-runtime and run in the daemon`
+        )
+      }
     }
   }
 
@@ -499,7 +496,7 @@ async function main() {
       }
     }
 
-    if (isUnder(filePath, RENDERER_TYPED_BOUNDARY_ROOT) && !isRendererQuarantineFile(filePath)) {
+    if (isUnder(filePath, RENDERER_TYPED_BOUNDARY_ROOT)) {
       const file = relativePath(filePath)
       const usePresenterCount = countMatches(source, GENERIC_LEGACY_PRESENTER_CALL_PATTERN)
       const windowElectronCount = countMatches(source, WINDOW_ELECTRON_PATTERN)

@@ -16,10 +16,6 @@ import { createLogger } from "@argos/shared/logger";
 
 const log = createLogger("Device");
 
-// Lazy-loaded to avoid a circular dependency: this module is imported by
-// baseProvider, which the #/presenter barrel re-exports. Eagerly importing the
-// barrel here makes BaseLLMProvider undefined at provider class-definition time.
-const getPresenter = async () => (await import("../index")).presenter;
 const execAsync = promisify(exec);
 
 function toMimeType(value: unknown): string {
@@ -346,16 +342,6 @@ export class DevicePresenter implements IDevicePresenter {
         case "chat": {
           // Delete chat data
           log.info("Resetting chat data...");
-          try {
-            const presenter = await getPresenter();
-            if (presenter.sqlitePresenter) {
-              presenter.sqlitePresenter.close();
-              log.info("SQLite database connection closed");
-            }
-            await new Promise((resolve) => setTimeout(resolve, 500));
-          } catch (closeError) {
-            log.warn("Error closing SQLite connection:", closeError);
-          }
           const appDbPath = path.join(userDataPath, "app_db");
           const mainDbFile = path.join(appDbPath, "agent.db");
           try {
@@ -429,11 +415,6 @@ export class DevicePresenter implements IDevicePresenter {
           // Delete entire user data directory
           log.info("Performing complete reset of user data...");
           try {
-            const presenter = await getPresenter();
-            if (presenter.sqlitePresenter) {
-              presenter.sqlitePresenter.close();
-              log.info("SQLite database connection closed");
-            }
             await invokeDaemonRoute("mcp.stopServer", { serverName: "builtinKnowledge" }).catch(() => {});
             await new Promise((resolve) => setTimeout(resolve, 1000));
           } catch (closeError) {

@@ -332,3 +332,26 @@ export const mcpUpdateMcpRouterServersAuthRoute = defineRouteContract({
     updated: zod.literal(true),
   }),
 });
+
+/**
+ * Raw McpConfHelper store snapshot (servers map + sibling settings keys).
+ * Powers the desktop mirror store so the shared helper keeps its shape while
+ * the daemon owns persistence.
+ */
+export const mcpConfigSnapshotRoute = defineRouteContract({
+  name: "mcp.configSnapshot",
+  input: zod.object({}).default({}),
+  output: zod.object({
+    snapshot: zod.record(zod.string(), zod.unknown()),
+  }),
+});
+
+export const mcpApplyConfigPatchRoute = defineRouteContract({
+  name: "mcp.applyConfigPatch",
+  input: zod.object({
+    patch: zod.record(zod.string(), zod.unknown()),
+  }),
+  output: zod.object({
+    snapshot: zod.record(zod.string(), zod.unknown()),
+  }),
+});

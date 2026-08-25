@@ -753,6 +753,136 @@ export const configSetAwsBedrockCredentialRoute = defineRouteContract({
   }),
 });
 
+// --- Desktop-resident settings (updater, proxy, logging, hooks) ---
+// These settings live in the desktop config store and drive Electron-only
+// subsystems; each name is registered verbatim in DESKTOP_ONLY_ROUTE_PREFIXES.
+
+export const configGetUpdateChannelRoute = defineRouteContract({
+  name: "config.getUpdateChannel",
+  input: zod.object({}).default({}),
+  output: zod.object({
+    channel: zod.string(),
+  }),
+});
+
+export const configSetUpdateChannelRoute = defineRouteContract({
+  name: "config.setUpdateChannel",
+  input: zod.object({
+    channel: zod.enum(["stable", "beta"]),
+  }),
+  output: zod.object({
+    success: zod.boolean(),
+  }),
+});
+
+export const configGetProxyModeRoute = defineRouteContract({
+  name: "config.getProxyMode",
+  input: zod.object({}).default({}),
+  output: zod.object({
+    mode: zod.string(),
+  }),
+});
+
+export const configSetProxyModeRoute = defineRouteContract({
+  name: "config.setProxyMode",
+  input: zod.object({
+    mode: zod.string(),
+  }),
+  output: zod.object({
+    success: zod.boolean(),
+  }),
+});
+
+export const configGetCustomProxyUrlRoute = defineRouteContract({
+  name: "config.getCustomProxyUrl",
+  input: zod.object({}).default({}),
+  output: zod.object({
+    url: zod.string().optional().nullable(),
+  }),
+});
+
+export const configSetCustomProxyUrlRoute = defineRouteContract({
+  name: "config.setCustomProxyUrl",
+  input: zod.object({
+    url: zod.string().optional().nullable(),
+  }),
+  output: zod.object({
+    success: zod.boolean(),
+  }),
+});
+
+export const configOpenLoggingFolderRoute = defineRouteContract({
+  name: "config.openLoggingFolder",
+  input: zod.object({}).default({}),
+  output: zod.object({
+    success: zod.boolean(),
+  }),
+});
+
+export const configSetMaxFileSizeRoute = defineRouteContract({
+  name: "config.setMaxFileSize",
+  input: zod.object({
+    size: zod.number(),
+  }),
+  output: zod.object({
+    success: zod.boolean(),
+  }),
+});
+
+export const configGetMaxFileSizeRoute = defineRouteContract({
+  name: "config.getMaxFileSize",
+  input: zod.object({}).default({}),
+  output: zod.object({
+    size: zod.number().nullable(),
+  }),
+});
+
+export const configGetSkillDraftSuggestionsEnabledRoute = defineRouteContract({
+  name: "config.getSkillDraftSuggestionsEnabled",
+  input: zod.object({}).default({}),
+  output: zod.object({
+    enabled: zod.boolean(),
+  }),
+});
+
+export const configSetSkillDraftSuggestionsEnabledRoute = defineRouteContract({
+  name: "config.setSkillDraftSuggestionsEnabled",
+  input: zod.object({
+    enabled: zod.boolean(),
+  }),
+  output: zod.object({
+    success: zod.boolean(),
+  }),
+});
+
+export const configGetHooksNotificationsConfigRoute = defineRouteContract({
+  name: "config.getHooksNotificationsConfig",
+  input: zod.object({}).default({}),
+  output: zod.object({
+    config: ConfigValueSchema,
+  }),
+});
+
+export const configSetHooksNotificationsConfigRoute = defineRouteContract({
+  name: "config.setHooksNotificationsConfig",
+  input: zod.object({
+    config: ConfigValueSchema,
+  }),
+  output: zod.object({
+    success: zod.boolean(),
+  }),
+});
+
+export const configTestHookCommandRoute = defineRouteContract({
+  name: "config.testHookCommand",
+  input: zod.object({
+    hookId: zod.string(),
+  }),
+  output: zod.object({
+    result: zod.unknown(),
+  }),
+});
+
 export type ConfigEntryKey = zod.infer<typeof ConfigEntryKeySchema>;
 export type ConfigEntryValues = zod.infer<typeof ConfigEntryValuesSchema>;
 export type ConfigEntryChange = zod.infer<typeof ConfigEntryChangeSchema>;

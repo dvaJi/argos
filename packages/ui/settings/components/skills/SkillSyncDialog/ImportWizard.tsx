@@ -1,7 +1,7 @@
 import { type FC, useState, useEffect, useMemo } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
-import { usePresenter } from "#api/presenterBridge";
+import { createSkillSyncClient } from "#api/SkillSyncClient";
 import { useToast } from "#/components/use-toast";
 import type { ScanResult, ImportPreview } from "@argos/shared/types/skillSync";
 import { ConflictStrategy } from "@argos/shared/types/skillSync";
@@ -27,7 +27,7 @@ const ImportWizard: FC<ImportWizardProps> = ({
   onCancel,
 }) => {
   const { toast } = useToast();
-  const skillSyncPresenter = usePresenter("skillSyncPresenter");
+  const skillSyncClient = useMemo(() => createSkillSyncClient(), []);
 
   const [scanning, setScanning] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -105,7 +105,7 @@ const ImportWizard: FC<ImportWizardProps> = ({
     if (!selectedToolId) return;
     setLoading(true);
     try {
-      const previews = await skillSyncPresenter.previewImport(selectedToolId, selectedSkills);
+      const previews = await skillSyncClient.previewImport(selectedToolId, selectedSkills);
       setImportPreviews(previews);
       const strategies: Record<string, ConflictStrategy> = {};
       for (const preview of previews) {
@@ -126,7 +126,7 @@ const ImportWizard: FC<ImportWizardProps> = ({
     setImporting(true);
     setImportProgress({ current: 0, total: importPreviews.length, currentSkill: "" });
     try {
-      const result = await skillSyncPresenter.executeImport(importPreviews, conflictStrategies);
+      const result = await skillSyncClient.executeImport(importPreviews, conflictStrategies);
       if (result.success) {
         toast({
           title: "Import Successful",
@@ -163,7 +163,7 @@ const ImportWizard: FC<ImportWizardProps> = ({
   const scanTools = async () => {
     setScanning(true);
     try {
-      setScanResults(await skillSyncPresenter.scanExternalTools());
+      setScanResults(await skillSyncClient.scanExternalTools());
     } catch (error) {
       console.error("Scan error:", error);
       toast({ title: "Scan Error", description: String(error), variant: "destructive" });

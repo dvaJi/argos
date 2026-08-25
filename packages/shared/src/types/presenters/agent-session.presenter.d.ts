@@ -108,8 +108,6 @@ export interface IAgentSessionPresenter {
   mergeSubagentTape(parentSessionId: string, childSessionId: string, meta?: Record<string, unknown>): Promise<void>;
   discardSubagentTape(parentSessionId: string, childSessionId: string, meta?: Record<string, unknown>): Promise<void>;
   getSearchResults(messageId: string, searchId?: string): Promise<SearchResult[]>;
-  getLegacyImportStatus(): Promise<LegacyImportStatus>;
-  retryLegacyImport(): Promise<LegacyImportStatus>;
   listMessageTraces(messageId: string): Promise<MessageTraceRecord[]>;
   getMessageTraceCount(messageId: string): Promise<number>;
   getMessageIds(sessionId: string): Promise<string[]>;
@@ -175,5 +173,4 @@ export interface IAgentSessionPresenter {
     sessionId: string,
     settings: Partial<SessionGenerationSettings>,
   ): Promise<SessionGenerationSettings>;
-  getUsageDashboard(): Promise<UsageDashboardData>;
 }

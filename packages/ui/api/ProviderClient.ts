@@ -15,6 +15,7 @@ import {
   providersListSummariesRoute,
   providersPullOllamaModelRoute,
   providersRefreshModelsRoute,
+  providersRefreshProviderDbRoute,
   providersRemoveRoute,
   providersReorderRoute,
   providersRunAcpDebugActionRoute,
@@ -22,6 +23,9 @@ import {
   providersTestConnectionRoute,
   providersUpdateRoute,
   providersWarmupAcpProcessRoute,
+  providersGetKeyStatusRoute,
+  providersUpdateRateLimitRoute,
+  providersSyncModelScopeMcpServersRoute,
 } from "@argos/shared-contracts/routes";
 import type { ProviderImportSelection } from "@argos/shared/providerImport";
 import type { AcpDebugRequest, LLM_PROVIDER } from "@argos/shared/presenter";
@@ -130,6 +134,26 @@ export function createProviderClient(bridge: ArgosBridge = getArgosBridge()) {
     return await bridge.invoke(providersRunAcpDebugActionRoute.name, input);
   }
 
+  async function getKeyStatus(providerId: string) {
+    const result = await bridge.invoke(providersGetKeyStatusRoute.name, { providerId });
+    return result.status;
+  }
+
+  async function refreshProviderDb(force = false) {
+    const result = await bridge.invoke(providersRefreshProviderDbRoute.name, { force });
+    return result;
+  }
+
+  async function updateProviderRateLimit(providerId: string, enabled: boolean, qpsLimit: number) {
+    const result = await bridge.invoke(providersUpdateRateLimitRoute.name, { providerId, enabled, qpsLimit });
+    return result.success;
+  }
+
+  async function syncModelScopeMcpServers(providerId: string, syncOptions?: { timeout?: number; retryCount?: number }) {
+    const result = await bridge.invoke(providersSyncModelScopeMcpServersRoute.name, { providerId, syncOptions });
+    return result.result;
+  }
+
   async function getAcpAgentDiagnostics(agentId: string, workdir?: string | null) {
     const result = await bridge.invoke(providersGetAcpAgentDiagnosticsRoute.name, { agentId, workdir });
     return result.diagnostics;
@@ -212,6 +236,10 @@ export function createProviderClient(bridge: ArgosBridge = getArgosBridge()) {
     getAcpProcessConfigOptions,
     runAcpDebugAction,
     getAcpAgentDiagnostics,
+    getKeyStatus,
+    refreshProviderDb,
+    updateProviderRateLimit,
+    syncModelScopeMcpServers,
     scanProviderImports,
     applyProviderImports,
     onProvidersChanged,

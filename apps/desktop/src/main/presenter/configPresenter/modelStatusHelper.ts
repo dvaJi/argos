@@ -9,17 +9,24 @@ const MODEL_STATUS_KEY_PREFIX = "model_status_";
 interface ModelStatusHelperOptions {
   store: StoreLike<any>;
   setSetting: SetSetting;
+  /**
+   * Fired whenever statuses change, so the daemon-owned persistence
+   * (docs/architecture/desktop-config-daemon-ownership) can be updated.
+   */
+  onStatusWrite?: (providerId: string, updates: Array<{ modelId: string; enabled: boolean }>) => void;
 }
 
 export class ModelStatusHelper {
   private store: StoreLike<any>;
   private readonly setSetting: SetSetting;
+  private readonly onStatusWrite?: (providerId: string, updates: Array<{ modelId: string; enabled: boolean }>) => void;
   private readonly cache: Map<string, boolean> = new Map();
   private statusSnapshot: Map<string, boolean> | null = null;
 
   constructor(options: ModelStatusHelperOptions) {
     this.store = options.store;
     this.setSetting = options.setSetting;
+    this.onStatusWrite = options.onStatusWrite;
   }
 
   setStore(store: StoreLike<any>): void {
@@ -155,6 +162,7 @@ export class ModelStatusHelper {
     this.setSetting(statusKey, enabled);
     this.cache.set(statusKey, enabled);
     this.statusSnapshot?.set(statusKey, enabled);
+    this.onStatusWrite?.(providerId, [{ modelId, enabled }]);
     eventBus.send(CONFIG_EVENTS.MODEL_STATUS_CHANGED, SendTarget.ALL_WINDOWS, {
       providerId,
       modelId,
@@ -189,6 +197,7 @@ export class ModelStatusHelper {
     this.store.set(statusKey, enabled);
     this.cache.set(statusKey, enabled);
     this.statusSnapshot?.set(statusKey, enabled);
+    this.onStatusWrite?.(providerId, [{ modelId, enabled }]);
   }
 
   clearModelStatusCache(): void {
@@ -223,6 +232,7 @@ export class ModelStatusHelper {
     }
 
     this.store.set(persistedStatuses);
+    this.onStatusWrite?.(providerId, updates);
 
     for (const [statusKey, enabled] of Object.entries(persistedStatuses)) {
       this.cache.set(statusKey, enabled);
@@ -246,6 +256,7 @@ export class ModelStatusHelper {
     this.store.delete(statusKey);
     this.cache.delete(statusKey);
     this.statusSnapshot?.delete(statusKey);
+    this.onStatusWrite?.(providerId, [{ modelId, enabled: false }]);
   }
 
   deleteProviderModelStatuses(providerId: string): void {
@@ -275,6 +286,10 @@ export class ModelStatusHelper {
         keysToDelete.add(key);
       }
     }
+
+    // Per-key cleanup is handled daemon-side when a provider is removed
+    // (providers.remove cascades model_status rows); local deletes only clear
+    // the mirror snapshot.
 
     for (const key of keysToDelete) {
       this.store.delete(key);

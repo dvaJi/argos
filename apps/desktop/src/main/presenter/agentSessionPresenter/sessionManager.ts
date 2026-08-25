@@ -1,43 +1,27 @@
 import { nanoid } from "nanoid";
-import type { SQLitePresenter } from "../sqlitePresenter";
 import type {
   ArgosSubagentMeta,
   SessionKind,
   SessionPageCursor,
   SessionRecord,
 } from "@argos/shared/types/agent-interface";
-import type { SessionListPageCursor } from "../sqlitePresenter/tables/newSessions";
 
-const parseSubagentMeta = (raw: string | null | undefined): ArgosSubagentMeta | null => {
-  if (!raw) {
-    return null;
-  }
+interface InternalSessionRecord extends SessionRecord {
+  disabledAgentTools: string[];
+}
 
-  try {
-    const parsed = JSON.parse(raw) as Partial<ArgosSubagentMeta>;
-    if (!parsed || typeof parsed !== "object" || typeof parsed.slotId !== "string") {
-      return null;
-    }
-
-    return {
-      slotId: parsed.slotId,
-      displayName: typeof parsed.displayName === "string" ? parsed.displayName : parsed.slotId,
-      targetAgentId:
-        parsed.targetAgentId === null || typeof parsed.targetAgentId === "string" ? parsed.targetAgentId : undefined,
-    };
-  } catch {
-    return null;
-  }
-};
-
+/**
+ * In-memory session record store for the desktop shell.
+ *
+ * The daemon owns all session persistence (argos.db); this registry only tracks
+ * shell-local session state (window bindings, drafts, active sessions) so the
+ * desktop facade keeps working without any SQLite dependency.
+ */
 export class NewSessionManager {
-  private sqlitePresenter: SQLitePresenter;
+  // id → session record
+  private sessions = new Map<string, InternalSessionRecord>();
   // webContentsId → sessionId
   private windowBindings: Map<number, string | null> = new Map();
-
-  constructor(sqlitePresenter: SQLitePresenter) {
-    this.sqlitePresenter = sqlitePresenter;
-  }
 
   create(
     agentId: string,
@@ -53,34 +37,42 @@ export class NewSessionManager {
     },
   ): string {
     const id = nanoid();
-    this.sqlitePresenter.newSessionsTable.create(id, agentId, title, projectDir, {
-      isDraft: options?.isDraft,
-      disabledAgentTools: options?.disabledAgentTools,
-      subagentEnabled: options?.subagentEnabled,
-      sessionKind: options?.sessionKind,
-      parentSessionId: options?.parentSessionId,
-      subagentMetaJson: options?.subagentMeta ? JSON.stringify(options.subagentMeta) : null,
-    });
-    this.sqlitePresenter.argosSearchDocumentsTable.upsert({
-      documentKey: `session:${id}`,
-      sessionId: id,
-      documentKind: "session",
+    const now = Date.now();
+    this.sessions.set(id, {
+      id,
+      agentId,
       title,
-      content: "",
-      updatedAt: Date.now(),
+      projectDir,
+      isPinned: false,
+      isDraft: options?.isDraft ?? false,
+      sessionKind: options?.sessionKind ?? "regular",
+      parentSessionId: options?.parentSessionId ?? null,
+      subagentEnabled: options?.subagentEnabled ?? true,
+      subagentMeta: options?.subagentMeta ?? null,
+      disabledAgentTools: options?.disabledAgentTools ?? [],
+      createdAt: now,
+      updatedAt: now,
     });
-    this.sqlitePresenter.newEnvironmentsTable.syncPath(projectDir);
     return id;
   }
 
   get(id: string): SessionRecord | null {
-    const row = this.sqlitePresenter.newSessionsTable.get(id);
-    if (!row) return null;
-    return this.mapRowToRecord(row);
+    const record = this.sessions.get(id);
+    if (!record) {
+      return null;
+    }
+    return this.toPublicRecord(record);
   }
 
   getMany(ids: string[]): SessionRecord[] {
-    return this.sqlitePresenter.newSessionsTable.getMany(ids).map((row) => this.mapRowToRecord(row));
+    const records: SessionRecord[] = [];
+    for (const id of ids) {
+      const record = this.sessions.get(id);
+      if (record) {
+        records.push(this.toPublicRecord(record));
+      }
+    }
+    return records;
   }
 
   listPage(options?: {
@@ -94,20 +86,31 @@ export class NewSessionManager {
     nextCursor: SessionPageCursor | null;
     hasMore: boolean;
   } {
-    const page = this.sqlitePresenter.newSessionsTable.listPage({
-      limit: options?.limit,
-      cursor: options?.cursor as SessionListPageCursor | null | undefined,
-      agentId: options?.agentId,
-      includeSubagents: options?.includeSubagents,
-      parentSessionId: options?.parentSessionId,
-    });
-    const records = page.rows.map((row) => this.mapRowToRecord(row));
-    const lastRecord = records.at(-1);
+    const filtered = this.list(options);
+    const sorted = [...filtered].sort((a, b) => b.updatedAt - a.updatedAt || (a.id < b.id ? 1 : -1));
+
+    let startIndex = 0;
+    if (options?.cursor) {
+      startIndex = sorted.findIndex((r) => r.updatedAt === options.cursor!.updatedAt && r.id === options.cursor!.id);
+      if (startIndex < 0) {
+        startIndex = sorted.findIndex((r) => r.updatedAt < options.cursor!.updatedAt);
+      }
+      if (startIndex < 0) {
+        startIndex = sorted.length;
+      } else {
+        startIndex += 1;
+      }
+    }
+
+    const limit = options?.limit ?? 20;
+    const page = sorted.slice(startIndex, startIndex + limit);
+    const hasMore = startIndex + limit < sorted.length;
+    const lastRecord = page.at(-1);
 
     return {
-      records,
-      nextCursor: page.hasMore && lastRecord ? { updatedAt: lastRecord.updatedAt, id: lastRecord.id } : null,
-      hasMore: page.hasMore,
+      records: page,
+      nextCursor: hasMore && lastRecord ? { updatedAt: lastRecord.updatedAt, id: lastRecord.id } : null,
+      hasMore,
     };
   }
 
@@ -117,8 +120,23 @@ export class NewSessionManager {
     includeSubagents?: boolean;
     parentSessionId?: string;
   }): SessionRecord[] {
-    const rows = this.sqlitePresenter.newSessionsTable.list(filters);
-    return rows.map((row) => this.mapRowToRecord(row));
+    const records: SessionRecord[] = [];
+    for (const record of this.sessions.values()) {
+      if (filters?.agentId !== undefined && record.agentId !== filters.agentId) {
+        continue;
+      }
+      if (filters?.projectDir !== undefined && record.projectDir !== filters.projectDir) {
+        continue;
+      }
+      if (filters?.parentSessionId !== undefined && record.parentSessionId !== filters.parentSessionId) {
+        continue;
+      }
+      if (filters?.includeSubagents === false && record.sessionKind === "subagent") {
+        continue;
+      }
+      records.push(this.toPublicRecord(record));
+    }
+    return records;
   }
 
   update(
@@ -137,77 +155,53 @@ export class NewSessionManager {
       >
     >,
   ): void {
-    const current = this.sqlitePresenter.newSessionsTable.get(id);
+    const current = this.sessions.get(id);
     if (!current) {
       return;
     }
 
-    const affectedPaths = new Set(this.sqlitePresenter.newEnvironmentsTable.listPathsForSession(id));
-
-    const dbFields: {
-      title?: string;
-      project_dir?: string | null;
-      is_pinned?: number;
-      is_draft?: number;
-      subagent_enabled?: number;
-      session_kind?: SessionKind;
-      parent_session_id?: string | null;
-      subagent_meta_json?: string | null;
-    } = {};
-    if (fields.title !== undefined) dbFields.title = fields.title;
-    if (fields.projectDir !== undefined) dbFields.project_dir = fields.projectDir;
-    if (fields.isPinned !== undefined) dbFields.is_pinned = fields.isPinned ? 1 : 0;
-    if (fields.isDraft !== undefined) dbFields.is_draft = fields.isDraft ? 1 : 0;
-    if (fields.subagentEnabled !== undefined) {
-      dbFields.subagent_enabled = fields.subagentEnabled ? 1 : 0;
-    }
-    if (fields.sessionKind !== undefined) dbFields.session_kind = fields.sessionKind;
-    if (fields.parentSessionId !== undefined) {
-      dbFields.parent_session_id = fields.parentSessionId;
-    }
-    if (fields.subagentMeta !== undefined) {
-      dbFields.subagent_meta_json = fields.subagentMeta ? JSON.stringify(fields.subagentMeta) : null;
-    }
-    this.sqlitePresenter.newSessionsTable.update(id, dbFields);
-    if (fields.title !== undefined) {
-      this.sqlitePresenter.argosSearchDocumentsTable.refreshSessionTitle(id, fields.title);
-    }
-
-    for (const path of this.sqlitePresenter.newEnvironmentsTable.listPathsForSession(id)) {
-      affectedPaths.add(path);
-    }
-
-    for (const path of affectedPaths) {
-      this.sqlitePresenter.newEnvironmentsTable.syncPath(path);
-    }
+    const updated: InternalSessionRecord = {
+      ...current,
+      ...(fields.title !== undefined ? { title: fields.title } : {}),
+      ...(fields.projectDir !== undefined ? { projectDir: fields.projectDir } : {}),
+      ...(fields.isPinned !== undefined ? { isPinned: fields.isPinned } : {}),
+      ...(fields.isDraft !== undefined ? { isDraft: fields.isDraft } : {}),
+      ...(fields.sessionKind !== undefined ? { sessionKind: fields.sessionKind } : {}),
+      ...(fields.parentSessionId !== undefined ? { parentSessionId: fields.parentSessionId } : {}),
+      ...(fields.subagentEnabled !== undefined ? { subagentEnabled: fields.subagentEnabled } : {}),
+      ...(fields.subagentMeta !== undefined ? { subagentMeta: fields.subagentMeta } : {}),
+      updatedAt: Date.now(),
+    };
+    this.sessions.set(id, updated);
   }
 
   delete(id: string): void {
-    const affectedPaths = this.sqlitePresenter.newEnvironmentsTable.listPathsForSession(id);
-    this.sqlitePresenter.argosSearchDocumentsTable.deleteBySession(id);
-    this.sqlitePresenter.newSessionsTable.delete(id);
-    for (const path of affectedPaths) {
-      this.sqlitePresenter.newEnvironmentsTable.syncPath(path);
+    this.sessions.delete(id);
+    for (const [webContentsId, sessionId] of this.windowBindings) {
+      if (sessionId === id) {
+        this.windowBindings.set(webContentsId, null);
+      }
     }
   }
 
   getDisabledAgentTools(id: string): string[] {
-    return this.sqlitePresenter.newSessionsTable.getDisabledAgentTools(id);
+    return this.sessions.get(id)?.disabledAgentTools ?? [];
   }
 
   updateDisabledAgentTools(id: string, disabledAgentTools: string[]): void {
-    this.sqlitePresenter.newSessionsTable.updateDisabledAgentTools(id, disabledAgentTools);
-    this.sqlitePresenter.newEnvironmentsTable.syncForSession(id);
+    const current = this.sessions.get(id);
+    if (!current) {
+      return;
+    }
+    this.sessions.set(id, { ...current, disabledAgentTools, updatedAt: Date.now() });
   }
 
   updateAgentId(id: string, agentId: string): void {
-    const current = this.sqlitePresenter.newSessionsTable.get(id);
-    if (!current || current.agent_id === agentId) {
+    const current = this.sessions.get(id);
+    if (!current || current.agentId === agentId) {
       return;
     }
-
-    this.sqlitePresenter.newSessionsTable.updateAgentId(id, agentId);
-    this.sqlitePresenter.newEnvironmentsTable.syncForSession(id);
+    this.sessions.set(id, { ...current, agentId, updatedAt: Date.now() });
   }
 
   // Window binding management
@@ -223,33 +217,8 @@ export class NewSessionManager {
     return this.windowBindings.get(webContentsId) ?? null;
   }
 
-  private mapRowToRecord(row: {
-    id: string;
-    agent_id: string;
-    title: string;
-    project_dir: string | null;
-    is_pinned: number;
-    is_draft: number;
-    session_kind: string;
-    parent_session_id: string | null;
-    subagent_enabled: number;
-    subagent_meta_json: string | null;
-    created_at: number;
-    updated_at: number;
-  }): SessionRecord {
-    return {
-      id: row.id,
-      agentId: row.agent_id,
-      title: row.title,
-      projectDir: row.project_dir,
-      isPinned: row.is_pinned === 1,
-      isDraft: row.is_draft === 1,
-      sessionKind: row.session_kind === "subagent" ? "subagent" : "regular",
-      parentSessionId: row.parent_session_id ?? null,
-      subagentEnabled: row.subagent_enabled === 1,
-      subagentMeta: parseSubagentMeta(row.subagent_meta_json),
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-    };
+  private toPublicRecord(record: InternalSessionRecord): SessionRecord {
+    const { disabledAgentTools: _disabledAgentTools, ...publicRecord } = record;
+    return publicRecord;
   }
 }

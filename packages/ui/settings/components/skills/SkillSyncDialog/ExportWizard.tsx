@@ -6,7 +6,7 @@ import { ScrollArea } from "#shadcn/components/ui/scroll-area";
 import { Label } from "#shadcn/components/ui/label";
 import { Input } from "#shadcn/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "#shadcn/components/ui/radio-group";
-import { usePresenter } from "#api/presenterBridge";
+import { createSkillSyncClient } from "#api/SkillSyncClient";
 import { useToast } from "#/components/use-toast";
 import { useSkillsStore, loadSkills } from "#/stores/skillsStore";
 import type { ExternalToolConfig, ExportPreview, KiroInclusionMode } from "@argos/shared/types/skillSync";
@@ -22,7 +22,7 @@ interface ExportWizardProps {
 
 const ExportWizard: FC<ExportWizardProps> = ({ currentStep, onStepChange, onComplete, onCancel }) => {
   const { toast } = useToast();
-  const skillSyncPresenter = usePresenter("skillSyncPresenter");
+  const skillSyncClient = useMemo(() => createSkillSyncClient(), []);
   const skillsStore = useSkillsStore();
   const localSkills = skillsStore.skills;
   const loadingSkills = skillsStore.loading;
@@ -148,7 +148,7 @@ const ExportWizard: FC<ExportWizardProps> = ({ currentStep, onStepChange, onComp
   const loadTools = async () => {
     setScanningTools(true);
     try {
-      setAvailableTools(await skillSyncPresenter.getRegisteredTools());
+      setAvailableTools(await skillSyncClient.getRegisteredTools());
     } catch (error) {
       console.error("Load tools error:", error);
       toast({ title: "Load Tools Error", description: String(error), variant: "destructive" });
@@ -161,7 +161,7 @@ const ExportWizard: FC<ExportWizardProps> = ({ currentStep, onStepChange, onComp
     if (!selectedToolId) return;
     setLoading(true);
     try {
-      const previews = await skillSyncPresenter.previewExport(selectedSkills, selectedToolId, exportOptions);
+      const previews = await skillSyncClient.previewExport(selectedSkills, selectedToolId, exportOptions);
       setExportPreviews(previews);
       const strategies: Record<string, ConflictStrategy> = {};
       for (const preview of previews) {
@@ -180,7 +180,7 @@ const ExportWizard: FC<ExportWizardProps> = ({ currentStep, onStepChange, onComp
     setExporting(true);
     setExportProgress({ current: 0, total: exportPreviews.length, currentSkill: "" });
     try {
-      const result = await skillSyncPresenter.executeExport(exportPreviews, conflictStrategies);
+      const result = await skillSyncClient.executeExport(exportPreviews, conflictStrategies);
       if (result.success) {
         toast({
           title: "Export Successful",

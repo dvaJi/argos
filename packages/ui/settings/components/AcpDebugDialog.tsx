@@ -4,10 +4,9 @@ import { Input } from "#shadcn/components/ui/input";
 import { Badge } from "#shadcn/components/ui/badge";
 import { Icon } from "@iconify/react";
 import type { AcpDebugEventEntry, AcpDebugRequest } from "@argos/shared/presenter";
-import { getRuntimeWebContentsId } from "#api/presenterBridge";
+import { getRuntimeWebContentsId } from "#api/runtime";
 import { createProviderClient } from "#api/ProviderClient";
 import { createConfigClient } from "#api/ConfigClient";
-import { ACP_DEBUG_EVENTS } from "#/events";
 import { useToast } from "#/components/use-toast";
 import { nanoid } from "nanoid";
 
@@ -87,17 +86,6 @@ export default function AcpDebugDialog({ open, onOpenChange, agentId, agentName 
 
   const formatTime = (timestamp: number) => new Date(timestamp).toLocaleTimeString();
 
-  const handleDebugEvent = (_event: unknown, payload: unknown) => {
-    const parsed = payload as {
-      webContentsId?: number;
-      agentId?: string;
-      event?: AcpDebugEventEntry;
-    };
-    if (!parsed?.event || parsed.agentId !== agentId) return;
-    if (parsed.webContentsId && parsed.webContentsId !== webContentsId) return;
-    appendEvents([parsed.event]);
-  };
-
   useEffect(() => {
     if (open) {
       setEvents([]);
@@ -108,16 +96,6 @@ export default function AcpDebugDialog({ open, onOpenChange, agentId, agentName 
       setDebugSessionId(createDebugSessionId());
     }
   }, [open]);
-
-  useEffect(() => {
-    const ipcRenderer = window.electron?.ipcRenderer;
-    if (!ipcRenderer) return;
-
-    ipcRenderer.on(ACP_DEBUG_EVENTS.EVENT, handleDebugEvent);
-    return () => {
-      ipcRenderer.removeListener?.(ACP_DEBUG_EVENTS.EVENT, handleDebugEvent);
-    };
-  }, [agentId]);
 
   const handleSend = () => {
     setLoading(true);

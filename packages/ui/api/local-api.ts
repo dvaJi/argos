@@ -2,8 +2,9 @@
  * Local API facade — abstracts host capabilities (clipboard, paths, external
  * links, window IDs) so renderer code works in both Electron and browser mode.
  *
- * Electron implementation delegates to the preload `window.api`.
- * Browser implementation uses Web APIs with safe fallbacks.
+ * Electron implementation delegates to the preload local-API surface exposed
+ * via contextBridge (`api` global). Browser implementation uses Web APIs with
+ * safe fallbacks.
  *
  * See docs/architecture/local-api-facade/ for the full specification.
  */
@@ -21,6 +22,12 @@ export interface LocalApi {
   openExternal?(url: string): Promise<void>;
   toRelativePath?(filePath: string, baseDir?: string): string;
   formatPathForInput?(filePath: string): string;
+}
+
+/** Reads the preload-exposed local API surface without hard global references. */
+function getPreloadLocalApi(): LocalApi | undefined {
+  if (typeof window === "undefined") return undefined;
+  return (window as unknown as { api?: LocalApi }).api;
 }
 
 export const browserLocalApi: LocalApi = {
@@ -46,13 +53,15 @@ export const browserLocalApi: LocalApi = {
 };
 
 /**
- * Returns the active LocalApi — browser impl in web mode, preload `window.api`
- * in Electron mode. Throws in Electron mode if the preload has not loaded.
+ * Returns the active LocalApi — browser impl in web mode, the preload local
+ * API surface in Electron mode. Throws in Electron mode if the preload has
+ * not loaded.
  */
 export function getLocalApi(): LocalApi {
   if (isBrowserMode()) return browserLocalApi;
-  if (!window.api) {
-    throw new Error("window.api is not available");
+  const preloadApi = getPreloadLocalApi();
+  if (!preloadApi) {
+    throw new Error("preload local API is not available");
   }
-  return window.api;
+  return preloadApi;
 }

@@ -116,6 +116,10 @@ export class DaemonConfigPresenter {
       configDir,
       dataDir,
       isPrivacyModeEnabled: () => this.getPrivacyModeEnabled(),
+      hasAcpAgentSessions: (agentId) => {
+        const row = this.db?.prepare("SELECT 1 FROM acp_sessions WHERE agent_id = ? LIMIT 1").get(agentId);
+        return Boolean(row);
+      },
     });
     this.mcpConfig = new DaemonMcpConfig(configDir, this);
   }
@@ -340,6 +344,12 @@ export class DaemonConfigPresenter {
     const providers = this.getProviders().filter((p) => p.id !== providerId);
     this.store.providers = providers;
     this.save();
+    this.removeModelStatusesForProvider(providerId);
+  }
+
+  removeModelStatusesForProvider(providerId: string): void {
+    if (!this.db) return;
+    this.db.prepare("DELETE FROM model_status WHERE provider_id = ?").run(providerId);
   }
 
   updateProviderAtomic(id: string, updates: Partial<LLM_PROVIDER>): boolean {
@@ -436,6 +446,31 @@ export class DaemonConfigPresenter {
       }
     }
     return map;
+  }
+
+  /** Full status snapshot for the desktop mirror store. */
+  getAllModelStatuses(): Array<{ providerId: string; modelId: string; enabled: boolean }> {
+    if (!this.db) return [];
+    const rows = this.db.prepare("SELECT provider_id, model_id, enabled FROM model_status").all() as Array<{
+      provider_id: string;
+      model_id: string;
+      enabled: number;
+    }>;
+    return rows.map((row) => ({
+      providerId: row.provider_id,
+      modelId: row.model_id,
+      enabled: Boolean(row.enabled),
+    }));
+  }
+
+  getMcpConfigSnapshot(): Record<string, unknown> {
+    return { ...this.mcpConfig.mcpConfHelper.getStoreForMigration().store };
+  }
+
+  applyMcpConfigPatch(patch: Record<string, unknown>): Record<string, unknown> {
+    const store = this.mcpConfig.mcpConfHelper.getStoreForMigration();
+    store.set(patch as never);
+    return { ...store.store };
   }
 
   setProviderModels(providerId: string, models: MODEL_META[]): void {

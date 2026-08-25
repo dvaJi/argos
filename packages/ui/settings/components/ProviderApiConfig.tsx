@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback, type FocusEvent } from "react";
+import { useState, useEffect, useMemo, useCallback, type FocusEvent } from "react";
 import { Label } from "#shadcn/components/ui/label";
 import { Input } from "#shadcn/components/ui/input";
 import { Button } from "#shadcn/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "#shadcn/components/ui/tooltip";
 import { Icon } from "@iconify/react";
 import GitHubCopilotOAuth from "./GitHubCopilotOAuth";
-import { usePresenter } from "#api/presenterBridge";
+import { createProviderClient } from "#api/ProviderClient";
 import { useToast } from "#/components/use-toast";
 import { useModelCheckStore } from "#/stores/modelCheck";
 import type { LLM_PROVIDER, KeyStatus } from "@argos/shared/presenter";
@@ -52,7 +52,7 @@ export default function ProviderApiConfig({
   onOAuthSuccess,
   onOAuthError,
 }: ProviderApiConfigProps) {
-  const llmProviderPresenter = usePresenter("llmproviderPresenter", { safeCall: false });
+  const providerClient = useMemo(() => createProviderClient(), []);
   const modelCheckStore = useModelCheckStore();
   const { toast } = useToast();
 
@@ -152,21 +152,21 @@ export default function ProviderApiConfig({
       provider.apiKey
     ) {
       try {
-        const status = await llmProviderPresenter.getKeyStatus(provider.id);
+        const status = await providerClient.getKeyStatus(provider.id);
         setKeyStatus(status);
       } catch (error) {
         console.error("Failed to get key status:", error);
         setKeyStatus(null);
       }
     }
-  }, [provider.id, provider.apiKey, llmProviderPresenter]);
+  }, [provider.id, provider.apiKey, providerClient]);
 
   const refreshModels = async () => {
     if (isRefreshing) return;
 
     setIsRefreshing(true);
     try {
-      await llmProviderPresenter.refreshModels(provider.id);
+      await providerClient.refreshModels(provider.id);
       toast({
         title: "Models refreshed",
         description: shouldRefreshProviderDbFirst

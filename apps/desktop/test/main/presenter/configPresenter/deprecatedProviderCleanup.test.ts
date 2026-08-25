@@ -74,7 +74,6 @@ describe("getDeprecatedProviderModelSelectionKeysToClear", () => {
     const keys = getDeprecatedProviderModelSelectionKeysToClear({
       defaultModel: { providerId: "laoshi", modelId: "test-1" },
       assistantModel: { providerId: "qwenlm", modelId: "test-2" },
-      defaultVisionModel: { providerId: "openai", modelId: "gpt-4o" },
       preferredModel: { providerId: "laoshi", modelId: "test-3" },
     });
 
@@ -91,7 +90,6 @@ describe("cleanupDeprecatedBuiltinProviders", () => {
     const selectionStore = new Map<string, unknown>([
       ["defaultModel", { providerId: "laoshi", modelId: "test-default" }],
       ["assistantModel", { providerId: "laoshi", modelId: "test-assistant" }],
-      ["defaultVisionModel", { providerId: "laoshi", modelId: "test-vision" }],
       ["preferredModel", { providerId: "laoshi", modelId: "test-preferred" }],
     ]);
 
@@ -121,11 +119,9 @@ describe("cleanupDeprecatedBuiltinProviders", () => {
     expect(setProviders).toHaveBeenCalledWith([createProvider("openai")]);
     expect(store.delete).toHaveBeenCalledWith("defaultModel");
     expect(store.delete).toHaveBeenCalledWith("assistantModel");
-    expect(store.delete).toHaveBeenCalledWith("defaultVisionModel");
     expect(store.delete).toHaveBeenCalledWith("preferredModel");
     expect(eventBus.sendToMain).toHaveBeenCalledWith(CONFIG_EVENTS.SETTING_CHANGED, "defaultModel", undefined);
     expect(eventBus.sendToMain).toHaveBeenCalledWith(CONFIG_EVENTS.SETTING_CHANGED, "assistantModel", undefined);
-    expect(eventBus.sendToMain).toHaveBeenCalledWith(CONFIG_EVENTS.SETTING_CHANGED, "defaultVisionModel", undefined);
     expect(eventBus.sendToMain).toHaveBeenCalledWith(CONFIG_EVENTS.SETTING_CHANGED, "preferredModel", undefined);
   });
 
@@ -251,45 +247,10 @@ describe("reconcileLegacyBuiltinAgentSelections", () => {
     expect(eventBus.sendToMain).not.toHaveBeenCalled();
   });
 
-  it("reconciles live legacy vision selection and clears the legacy store key", () => {
-    const selectionStore = new Map<string, unknown>([
-      ["defaultVisionModel", createModelSelection("google", "gemini-2.5-flash")],
-    ]);
-    const store = {
-      get: vi.fn<(...args: any[]) => any>((key: string) => selectionStore.get(key)),
-      delete: vi.fn<(...args: any[]) => any>((key: string) => {
-        selectionStore.delete(key);
-      }),
-    };
-    const builtinConfig = {
-      visionModel: createModelSelection("qwenlm", "legacy-vision"),
-    };
-    const updateBuiltinArgosConfig = vi.fn<(...args: any[]) => any>();
-
-    const presenter = Object.assign(Object.create(ConfigPresenter.prototype), {
-      store,
-      getBuiltinArgosConfig: vi.fn<(...args: any[]) => any>(() => builtinConfig),
-      updateBuiltinArgosConfig,
-    });
-
-    (
-      presenter as ConfigPresenter & {
-        reconcileLegacyBuiltinAgentSelections: () => void;
-      }
-    ).reconcileLegacyBuiltinAgentSelections();
-
-    expect(updateBuiltinArgosConfig).toHaveBeenCalledWith({
-      visionModel: createModelSelection("google", "gemini-2.5-flash"),
-    });
-    expect(store.delete).toHaveBeenCalledWith("defaultVisionModel");
-    expect(eventBus.sendToMain).toHaveBeenCalledWith(CONFIG_EVENTS.SETTING_CHANGED, "defaultVisionModel", undefined);
-  });
-
   it("does not overwrite live builtin selections with legacy store values", () => {
     const selectionStore = new Map<string, unknown>([
       ["defaultModel", createModelSelection("openai", "gpt-4o")],
       ["assistantModel", createModelSelection("google", "gemini-2.5-pro")],
-      ["defaultVisionModel", createModelSelection("google", "gemini-2.5-flash")],
     ]);
     const store = {
       get: vi.fn<(...args: any[]) => any>((key: string) => selectionStore.get(key)),
@@ -300,7 +261,6 @@ describe("reconcileLegacyBuiltinAgentSelections", () => {
     const builtinConfig = {
       defaultModelPreset: createModelSelection("anthropic", "claude-sonnet-4"),
       assistantModel: createModelSelection("openai", "gpt-4.1-mini"),
-      visionModel: createModelSelection("google", "gemini-2.5-pro"),
     };
     const updateBuiltinArgosConfig = vi.fn<(...args: any[]) => any>();
 
@@ -317,8 +277,7 @@ describe("reconcileLegacyBuiltinAgentSelections", () => {
     ).reconcileLegacyBuiltinAgentSelections();
 
     expect(updateBuiltinArgosConfig).not.toHaveBeenCalled();
-    expect(store.delete).toHaveBeenCalledWith("defaultVisionModel");
-    expect(eventBus.sendToMain).toHaveBeenCalledWith(CONFIG_EVENTS.SETTING_CHANGED, "defaultVisionModel", undefined);
+    expect(store.delete).not.toHaveBeenCalled();
   });
 });
 

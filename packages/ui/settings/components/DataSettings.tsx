@@ -41,7 +41,9 @@ import {
   pullFromCloud,
 } from "#/stores/sync";
 import { useLanguageStore } from "#/stores/language";
-import { usePresenter } from "#api/presenterBridge";
+import { createConfigClient } from "#api/ConfigClient";
+import { createDeviceClient } from "#api/DeviceClient";
+import { createProviderClient } from "#api/ProviderClient";
 import { createOnboardingClient } from "#api/OnboardingClient";
 import { createDatabaseSecurityClient } from "#api/DatabaseSecurityClient";
 import { createBrowserClient } from "#api/BrowserClient";
@@ -129,8 +131,8 @@ export default function DataSettings() {
   const { toast } = useToast();
   const languageStore = useLanguageStore();
   const syncStore = useSyncStore();
-  const devicePresenter = usePresenter("devicePresenter");
-  const configPresenter = usePresenter("configPresenter");
+  const deviceClient = useMemo(() => createDeviceClient(), []);
+  const providerClient = useMemo(() => createProviderClient(), []);
   const onboardingClient = createOnboardingClient();
   const databaseSecurityClient = createDatabaseSecurityClient();
   const browserClient = createBrowserClient();
@@ -326,7 +328,7 @@ export default function DataSettings() {
     if (isUpdatingModelConfig) return;
     setIsUpdatingModelConfig(true);
     try {
-      const result = await configPresenter.refreshProviderDb(true);
+      const result = await providerClient.refreshProviderDb(true);
       if (!result || result.status === "error") {
         toast({
           title: "Update failed",
@@ -346,13 +348,13 @@ export default function DataSettings() {
     } finally {
       setIsUpdatingModelConfig(false);
     }
-  }, [isUpdatingModelConfig, configPresenter, toast]);
+  }, [isUpdatingModelConfig, providerClient, toast]);
 
   const handleReset = useCallback(async () => {
     if (isResetActionDisabled) return;
     setIsResetting(true);
     try {
-      await devicePresenter.resetDataByType(resetType);
+      await deviceClient.resetDataByType(resetType);
       setIsResetDialogOpen(false);
       setResetType("chat");
     } catch (error) {
@@ -360,7 +362,7 @@ export default function DataSettings() {
     } finally {
       setIsResetting(false);
     }
-  }, [isResetActionDisabled, resetType, devicePresenter]);
+  }, [isResetActionDisabled, resetType, deviceClient]);
 
   const handleClearSandboxData = useCallback(async () => {
     if (isClearingSandbox) return;

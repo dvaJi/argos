@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { Input } from "#shadcn/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#shadcn/components/ui/select";
-import { usePresenter } from "#api/presenterBridge";
+import { createConfigClient } from "#api/ConfigClient";
 import { languageStore } from "#/stores/language";
 
 const PROXY_MODES = [
@@ -15,7 +15,7 @@ const URL_PATTERN =
   /^(http|https):\/\/(?:([^:#/]+)(?::([^#/]*))?@)?([a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(:[0-9]+)?(\/[^\s]*)?$/;
 
 export default function ProxySettingsSection() {
-  const configPresenter = usePresenter("configPresenter");
+  const configClient = useMemo(() => createConfigClient(), []);
   const [selectedProxyMode, setSelectedProxyMode] = useState("system");
   const [customProxyUrl, setCustomProxyUrl] = useState("");
   const [showUrlError, setShowUrlError] = useState(false);
@@ -30,7 +30,7 @@ export default function ProxySettingsSection() {
     const isValid = URL_PATTERN.test(value);
     setShowUrlError(!isValid);
     if (isValid || !value.trim()) {
-      configPresenter.setCustomProxyUrl(value);
+      configClient.setCustomProxyUrl(value);
     }
   };
 
@@ -49,13 +49,13 @@ export default function ProxySettingsSection() {
   }, [customProxyUrl]);
 
   useEffect(() => {
-    configPresenter.setProxyMode(selectedProxyMode);
+    configClient.setProxyMode(selectedProxyMode);
   }, [selectedProxyMode]);
 
   useEffect(() => {
     const init = async () => {
-      const mode = await configPresenter.getProxyMode();
-      const url = await configPresenter.getCustomProxyUrl();
+      const mode = await configClient.getProxyMode();
+      const url = await configClient.getCustomProxyUrl();
       setSelectedProxyMode(mode ?? "none");
       setCustomProxyUrl(url ?? "");
       if (mode === "custom" && url) {

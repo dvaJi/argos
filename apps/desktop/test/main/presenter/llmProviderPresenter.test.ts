@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi, beforeAll, afterEach } from "vitest";
 import { LLMProviderPresenter } from "../../../src/main/presenter/llmProviderPresenter/index";
 import { ConfigPresenter } from "../../../src/main/presenter/configPresenter/index";
-import { LLM_PROVIDER, ChatMessage, ISQLitePresenter } from "@argos/shared/presenter";
+import { LLM_PROVIDER, ChatMessage } from "@argos/shared/presenter";
 import { AiSdkProvider } from "../../../src/main/presenter/llmProviderPresenter/providers/aiSdkProvider";
 import { ApiEndpointType, ModelType } from "@argos/shared/model";
 
@@ -101,38 +101,6 @@ vi.mock("../../../src/main/presenter/llmProviderPresenter/aiSdk", () => ({
 describe("LLMProviderPresenter Integration Tests", () => {
   let llmProviderPresenter: LLMProviderPresenter;
   let mockConfigPresenter: ConfigPresenter;
-  const mockSqlitePresenter: ISQLitePresenter = {
-    getAcpSession: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
-    upsertAcpSession: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
-    updateAcpSessionId: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
-    updateAcpWorkdir: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
-    updateAcpSessionStatus: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
-    deleteAcpSession: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
-    deleteAcpSessions: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
-    close: vi.fn<(...args: any[]) => any>(),
-    createConversation: vi.fn<(...args: any[]) => any>(),
-    deleteConversation: vi.fn<(...args: any[]) => any>(),
-    renameConversation: vi.fn<(...args: any[]) => any>(),
-    getConversation: vi.fn<(...args: any[]) => any>(),
-    updateConversation: vi.fn<(...args: any[]) => any>(),
-    getConversationList: vi.fn<(...args: any[]) => any>(),
-    getConversationCount: vi.fn<(...args: any[]) => any>(),
-    insertMessage: vi.fn<(...args: any[]) => any>(),
-    queryMessages: vi.fn<(...args: any[]) => any>(),
-    deleteAllMessages: vi.fn<(...args: any[]) => any>(),
-    runTransaction: vi.fn<(...args: any[]) => any>(),
-    getMessage: vi.fn<(...args: any[]) => any>(),
-    getMessageVariants: vi.fn<(...args: any[]) => any>(),
-    updateMessage: vi.fn<(...args: any[]) => any>(),
-    updateMessageParentId: vi.fn<(...args: any[]) => any>(),
-    deleteMessage: vi.fn<(...args: any[]) => any>(),
-    getMaxOrderSeq: vi.fn<(...args: any[]) => any>(),
-    addMessageAttachment: vi.fn<(...args: any[]) => any>(),
-    getMessageAttachments: vi.fn<(...args: any[]) => any>(),
-    getLastUserMessage: vi.fn<(...args: any[]) => any>(),
-    getMainMessageByParentId: vi.fn<(...args: any[]) => any>(),
-    deleteAllMessagesInConversation: vi.fn<(...args: any[]) => any>(),
-  } as unknown as ISQLitePresenter;
 
   // Mock OpenAI Compatible Provider config
   const mockProvider: LLM_PROVIDER = {
@@ -212,11 +180,7 @@ describe("LLMProviderPresenter Integration Tests", () => {
     mockConfigPresenter.getModelStatus = vi.fn<(...args: any[]) => any>().mockReturnValue(true);
 
     // Create new instance for each test
-    llmProviderPresenter = new LLMProviderPresenter(
-      mockConfigPresenter,
-      mockSqlitePresenter,
-      presenterRuntimeMock.mcpPresenter as any,
-    );
+    llmProviderPresenter = new LLMProviderPresenter(mockConfigPresenter, presenterRuntimeMock.mcpPresenter as any);
   });
 
   afterEach(async () => {
@@ -254,11 +218,7 @@ describe("LLMProviderPresenter Integration Tests", () => {
     it("defers provider bootstrap until a provider instance is requested", async () => {
       const fetchSpy = vi.spyOn<(...args: any[]) => any>(AiSdkProvider.prototype, "fetchModels").mockResolvedValue([]);
 
-      const presenter = new LLMProviderPresenter(
-        mockConfigPresenter,
-        mockSqlitePresenter,
-        presenterRuntimeMock.mcpPresenter as any,
-      );
+      const presenter = new LLMProviderPresenter(mockConfigPresenter, presenterRuntimeMock.mcpPresenter as any);
 
       await Promise.resolve();
       await Promise.resolve();
@@ -285,11 +245,7 @@ describe("LLMProviderPresenter Integration Tests", () => {
       mockConfigPresenter.getProviders = vi.fn<(...args: any[]) => any>().mockReturnValue([novitaProvider]);
       mockConfigPresenter.getProviderById = vi.fn<(...args: any[]) => any>().mockReturnValue(novitaProvider);
 
-      llmProviderPresenter = new LLMProviderPresenter(
-        mockConfigPresenter,
-        mockSqlitePresenter,
-        presenterRuntimeMock.mcpPresenter as any,
-      );
+      llmProviderPresenter = new LLMProviderPresenter(mockConfigPresenter, presenterRuntimeMock.mcpPresenter as any);
 
       const providerInstance = llmProviderPresenter.getProviderInstance("novita");
 
@@ -535,11 +491,7 @@ describe("LLMProviderPresenter Integration Tests", () => {
         removeCustomModel: vi.fn<(...args: any[]) => any>(),
       } as unknown as ConfigPresenter;
 
-      const invalidLlmProvider = new LLMProviderPresenter(
-        invalidMockConfig,
-        mockSqlitePresenter,
-        presenterRuntimeMock.mcpPresenter as any,
-      );
+      const invalidLlmProvider = new LLMProviderPresenter(invalidMockConfig, presenterRuntimeMock.mcpPresenter as any);
 
       const result = await invalidLlmProvider.check("invalid-test");
       expect(result.isOk).toBe(false);

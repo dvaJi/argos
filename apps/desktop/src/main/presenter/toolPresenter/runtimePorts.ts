@@ -19,7 +19,7 @@ import type {
 } from "@argos/shared/types/agent-interface";
 import type { ISkillPresenter } from "@argos/shared/types/skill";
 import type { AgentMemoryCategory } from "@argos/shared/types/agent-memory";
-import type { ArgosInternalSessionUpdate } from "../agentRuntimePresenter/internalSessionEvents";
+import type { ArgosInternalSessionUpdate } from "../internalSessionEvents";
 import type { MemoryWriteOutcome } from "../memoryPresenter/types";
 
 export interface ConversationSessionInfo {

@@ -4,7 +4,6 @@ import type {
   IDevicePresenter,
   IFilePresenter,
   ILlmProviderPresenter,
-  IProjectPresenter,
   ITabPresenter,
   IWindowPresenter,
   IYoBrowserPresenter,
@@ -69,6 +68,10 @@ vi.mock("electron", () => ({
     fromId: (windowId: number) => browserWindowState.windows.get(windowId) ?? null,
     fromWebContents: (webContents: { id: number }) =>
       [...browserWindowState.windows.values()].find((window) => window.webContents.id === webContents.id) ?? null,
+  },
+  shell: {
+    openPath: async () => "",
+    showItemInFolder: () => undefined,
   },
 }));
 
@@ -399,29 +402,6 @@ function createRuntime() {
     sanitizeSvgContent: vi.fn<(...args: any[]) => any>().mockResolvedValue("<svg />"),
   } as unknown as IDevicePresenter;
 
-  const projectPresenter = {
-    getRecentProjects: vi.fn<(...args: any[]) => any>().mockResolvedValue([
-      {
-        path: "C:/workspace",
-        name: "workspace",
-        icon: null,
-        lastAccessedAt: 123,
-      },
-    ]),
-    getEnvironments: vi.fn<(...args: any[]) => any>().mockResolvedValue([
-      {
-        path: "C:/workspace",
-        name: "workspace",
-        sessionCount: 2,
-        lastUsedAt: 456,
-        isTemp: false,
-        exists: true,
-      },
-    ]),
-    openDirectory: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
-    selectDirectory: vi.fn<(...args: any[]) => any>().mockResolvedValue("C:/selected-workspace"),
-  } as unknown as IProjectPresenter;
-
   const filePresenter = {
     getMimeType: vi.fn<(...args: any[]) => any>().mockResolvedValue("text/plain"),
     prepareFile: vi.fn<(...args: any[]) => any>().mockResolvedValue(preparedFile),
@@ -529,7 +509,6 @@ function createRuntime() {
       agentSessionPresenter,
       windowPresenter,
       devicePresenter,
-      projectPresenter,
       filePresenter,
       workspaceShell,
       yoBrowserPresenter,
@@ -550,7 +529,6 @@ function createRuntime() {
     agentSessionPresenter,
     windowPresenter,
     devicePresenter,
-    projectPresenter,
     filePresenter,
     workspaceShell,
     yoBrowserPresenter,
@@ -1101,8 +1079,8 @@ describe("dispatchArgosRoute", () => {
     expect(closeResult).toEqual({ closed: true });
   });
 
-  it("dispatches phase3 device, project, file, and workspace routes", async () => {
-    const { runtime, devicePresenter, projectPresenter, filePresenter, workspaceShell } = createRuntime();
+  it("dispatches phase3 device, file, and workspace routes", async () => {
+    const { runtime, devicePresenter, filePresenter, workspaceShell } = createRuntime();
 
     const appVersion = await dispatchArgosRoute(
       runtime,
@@ -1152,26 +1130,6 @@ describe("dispatchArgosRoute", () => {
       },
     );
 
-    const recentProjects = await dispatchArgosRoute(
-      runtime,
-      "project.listRecent",
-      {
-        limit: 5,
-      },
-      {
-        webContentsId: 42,
-        windowId: 7,
-      },
-    );
-    const environments = await dispatchArgosRoute(
-      runtime,
-      "project.listEnvironments",
-      {},
-      {
-        webContentsId: 42,
-        windowId: 7,
-      },
-    );
     const openDirectoryResult = await dispatchArgosRoute(
       runtime,
       "project.openDirectory",
@@ -1422,32 +1380,8 @@ describe("dispatchArgosRoute", () => {
     expect(restartResult).toEqual({ restarted: true });
     expect(sanitizeResult).toEqual({ content: "<svg />" });
 
-    expect(projectPresenter.getRecentProjects).toHaveBeenCalledWith(5);
-    expect(recentProjects).toEqual({
-      projects: [
-        {
-          path: "C:/workspace",
-          name: "workspace",
-          icon: null,
-          lastAccessedAt: 123,
-        },
-      ],
-    });
-    expect(environments).toEqual({
-      environments: [
-        {
-          path: "C:/workspace",
-          name: "workspace",
-          sessionCount: 2,
-          lastUsedAt: 456,
-          isTemp: false,
-          exists: true,
-        },
-      ],
-    });
-    expect(projectPresenter.openDirectory).toHaveBeenCalledWith("C:/workspace");
     expect(openDirectoryResult).toEqual({ opened: true });
-    expect(selectedDirectory).toEqual({ path: "C:/selected-workspace" });
+    expect(selectedDirectory).toEqual({ path: "C:/workspace" });
 
     expect(filePresenter.getMimeType).toHaveBeenCalledWith("/workspace/demo.txt");
     expect(mimeType).toEqual({ mimeType: "text/plain" });

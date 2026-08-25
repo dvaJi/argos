@@ -16,7 +16,7 @@ import {
 } from "#shadcn/components/ui/alert-dialog";
 import { useToast } from "#/components/use-toast";
 import { useSkillsStore, installFromFolder, installFromZip, installFromUrl } from "#/stores/skillsStore";
-import { usePresenter } from "#api/presenterBridge";
+import { createDeviceClient } from "#api/DeviceClient";
 
 interface SkillInstallDialogProps {
   open: boolean;
@@ -27,7 +27,7 @@ interface SkillInstallDialogProps {
 export default function SkillInstallDialog({ open, onOpenChange, onInstalled }: SkillInstallDialogProps) {
   const { toast } = useToast();
   const skillsStore = useSkillsStore();
-  const devicePresenter = usePresenter("devicePresenter");
+  const deviceClient = useMemo(() => createDeviceClient(), []);
 
   const [activeTab, setActiveTab] = useState("folder");
   const [installUrl, setInstallUrl] = useState("");
@@ -68,7 +68,7 @@ export default function SkillInstallDialog({ open, onOpenChange, onInstalled }: 
   const selectFolder = async () => {
     if (installing) return;
     try {
-      const result = await devicePresenter.selectDirectory();
+      const result = await deviceClient.selectDirectory();
       if (!result.canceled && result.filePaths.length > 0) {
         await tryInstallFromFolder(result.filePaths[0]);
       }
@@ -90,7 +90,7 @@ export default function SkillInstallDialog({ open, onOpenChange, onInstalled }: 
   const selectZip = async () => {
     if (installing) return;
     try {
-      const result = await devicePresenter.selectFiles({
+      const result = await deviceClient.selectFiles({
         filters: [{ name: "ZIP Files", extensions: ["zip"] }],
       });
       if (!result.canceled && result.filePaths.length > 0) {

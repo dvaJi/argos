@@ -8,7 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "#shadcn/compon
 import { Textarea } from "#shadcn/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "#shadcn/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#shadcn/components/ui/select";
-import { usePresenter } from "#api/presenterBridge";
+import { createConfigClient } from "#api/ConfigClient";
+import { createSessionClient } from "#api/SessionClient";
 import { createToolClient } from "#api/ToolClient";
 import { useToast } from "#/components/use-toast";
 import ModelSelect from "#/components/ModelSelect";
@@ -224,8 +225,8 @@ const buildFormFromAgent = (agent: Agent | null): AgentConfigForm => {
 // react-doctor-disable-next-line react-doctor/prefer-useReducer
 export default function ArgosAgentsSettings() {
   const { toast } = useToast();
-  const configPresenter = usePresenter("configPresenter");
-  const agentSessionPresenter = usePresenter("agentSessionPresenter");
+  const configClient = useMemo(() => createConfigClient(), []);
+  const sessionClient = useMemo(() => createSessionClient(), []);
   const toolClient = useMemo(() => createToolClient(), []);
   const modelStore = useModelStore();
 
@@ -271,7 +272,7 @@ export default function ArgosAgentsSettings() {
 
   const loadAgents = useCallback(async () => {
     try {
-      const allAgentList = await configPresenter.listAgents();
+      const allAgentList = await configClient.listAgents();
       const argosAgents = (allAgentList ?? []).filter((agent) => agent.type === "argos");
       setAllAgents(allAgentList ?? []);
       setAgents(argosAgents);
@@ -286,7 +287,7 @@ export default function ArgosAgentsSettings() {
     } finally {
       setLoading(false);
     }
-  }, [configPresenter]);
+  }, [configClient]);
 
   useEffect(() => {
     void loadAgents();
@@ -335,7 +336,7 @@ export default function ArgosAgentsSettings() {
   const loadSystemPromptTemplates = useCallback(async () => {
     setLoadingSystemPrompts(true);
     try {
-      const prompts = await configPresenter.getSystemPrompts();
+      const prompts = await configClient.getSystemPrompts();
       setSystemPromptTemplates(
         Array.isArray(prompts)
           ? [...prompts].sort(
@@ -350,7 +351,7 @@ export default function ArgosAgentsSettings() {
     } finally {
       setLoadingSystemPrompts(false);
     }
-  }, [configPresenter]);
+  }, [configClient]);
 
   const openSystemPromptPicker = useCallback(() => {
     setSystemPromptDialogOpen(true);
@@ -400,7 +401,7 @@ export default function ArgosAgentsSettings() {
     if (!newAgentName.trim()) return;
     setSaving(true);
     try {
-      const created = await configPresenter.createArgosAgent({ name: newAgentName.trim() });
+      const created = await configClient.createArgosAgent({ name: newAgentName.trim() });
       toast({ title: "Agent created" });
       setIsCreating(false);
       setNewAgentName("");
@@ -424,8 +425,8 @@ export default function ArgosAgentsSettings() {
 
     try {
       const [impact, list] = await Promise.all([
-        agentSessionPresenter.getAgentTransferImpact(selectedAgent.id),
-        configPresenter.listAgents(),
+        sessionClient.getAgentTransferImpact(selectedAgent.id),
+        configClient.listAgents(),
       ]);
       setTransferImpact(impact);
       setAgents(list || []);
@@ -434,11 +435,11 @@ export default function ArgosAgentsSettings() {
     } finally {
       setTransferDialogLoading(false);
     }
-  }, [selectedAgent, form.name, agentSessionPresenter, configPresenter]);
+  }, [selectedAgent, form.name, sessionClient, configClient]);
 
   const finishDeleteAgent = useCallback(
     async (agentId: string) => {
-      const removed = await configPresenter.deleteArgosAgent(agentId);
+      const removed = await configClient.deleteArgosAgent(agentId);
       if (!removed) {
         throw new Error("Agent deletion blocked — sessions may still exist");
       }
@@ -448,7 +449,7 @@ export default function ArgosAgentsSettings() {
       setPendingDeleteAgent(null);
       toast({ title: "Agent deleted" });
     },
-    [configPresenter, selectedAgentId, loadAgents, toast],
+    [configClient, selectedAgentId, loadAgents, toast],
   );
 
   const handleDeleteAgentWithMove = useCallback(
@@ -458,7 +459,7 @@ export default function ArgosAgentsSettings() {
       setTransferDialogBusy(true);
       setTransferDialogError(null);
       try {
-        await agentSessionPresenter.moveAgentSessions(pendingDeleteAgent.id, payload.targetAgentId);
+        await sessionClient.moveAgentSessions(pendingDeleteAgent.id, payload.targetAgentId);
         await finishDeleteAgent(pendingDeleteAgent.id);
       } catch (error) {
         setTransferDialogError(error instanceof Error ? error.message : String(error));
@@ -467,7 +468,7 @@ export default function ArgosAgentsSettings() {
         setTransferDialogBusy(false);
       }
     },
-    [pendingDeleteAgent, agentSessionPresenter, finishDeleteAgent],
+    [pendingDeleteAgent, sessionClient, finishDeleteAgent],
   );
 
   const handleDeleteAgentWithSessions = useCallback(async () => {
@@ -476,7 +477,7 @@ export default function ArgosAgentsSettings() {
     setTransferDialogBusy(true);
     setTransferDialogError(null);
     try {
-      await agentSessionPresenter.deleteAgentSessions(pendingDeleteAgent.id);
+      await sessionClient.deleteAgentSessions(pendingDeleteAgent.id);
       await finishDeleteAgent(pendingDeleteAgent.id);
     } catch (error) {
       setTransferDialogError(error instanceof Error ? error.message : String(error));
@@ -484,12 +485,12 @@ export default function ArgosAgentsSettings() {
       setDeleting(false);
       setTransferDialogBusy(false);
     }
-  }, [pendingDeleteAgent, agentSessionPresenter, finishDeleteAgent]);
+  }, [pendingDeleteAgent, sessionClient, finishDeleteAgent]);
 
   const handleToggleEnabled = async (agentId: string, enabled: boolean) => {
     console.log("[AgentsSettings] toggleEnabled start", { agentId, enabled });
     try {
-      const updated = await configPresenter.updateArgosAgent(agentId, { enabled });
+      const updated = await configClient.updateArgosAgent(agentId, { enabled });
       console.log("[AgentsSettings] toggleEnabled response", {
         agentId,
         updated: updated ? { id: updated.id, enabled: updated.enabled } : null,
@@ -836,7 +837,7 @@ export default function ArgosAgentsSettings() {
       sendingAvatar: avatarUnchanged ? "(keep existing)" : nextAvatar,
     });
 
-    void configPresenter
+    void configClient
       .updateArgosAgent(selectedAgent.id, {
         name: form.name.trim(),
         description: form.description.trim(),
@@ -869,7 +870,7 @@ export default function ArgosAgentsSettings() {
         toast({ title: "Save failed", description: String(error), variant: "destructive" });
       })
       .finally(() => setSaving(false));
-  }, [configPresenter, form, loadAgents, selectedAgent, toast]);
+  }, [configClient, form, loadAgents, selectedAgent, toast]);
 
   const modelFieldConfigs: Array<{
     key: "defaultModel" | "assistantModel" | "visionModel" | "imageGenerationModel";

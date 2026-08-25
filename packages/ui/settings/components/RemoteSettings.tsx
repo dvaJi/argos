@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { useRemoteControlPresenter, usePresenter } from "#api/presenterBridge";
+import { createConfigClient } from "#api/ConfigClient";
+import { useRemoteControlPresenter } from "#api/presenterBridge";
 import { useToast } from "#/components/use-toast";
 import type { TelegramRemoteSettings, TelegramPairingSnapshot } from "@argos/shared/presenter";
 import { CHANNELS, type ChannelKey } from "./remote/channelMeta";
@@ -22,7 +23,7 @@ function deriveStatus(
 export default function RemoteSettings() {
   const { toast } = useToast();
   const remoteControlPresenter = useRemoteControlPresenter();
-  const configPresenter = usePresenter("configPresenter");
+  const configClient = useMemo(() => createConfigClient(), []);
 
   const [isLoading, setIsLoading] = useState(true);
   const [activeChannel, setActiveChannel] = useState<ChannelKey>("telegram");
@@ -39,7 +40,7 @@ export default function RemoteSettings() {
         const [settings, pairing, agentList] = await Promise.all([
           remoteControlPresenter.getTelegramSettings(),
           remoteControlPresenter.getTelegramPairingSnapshot().catch(() => null),
-          configPresenter.listAgents().catch(() => []),
+          configClient.listAgents().catch(() => []),
         ]);
         if (!cancelled) {
           setTelegramSettings(settings);
@@ -58,7 +59,7 @@ export default function RemoteSettings() {
     return () => {
       cancelled = true;
     };
-  }, [remoteControlPresenter, configPresenter]);
+  }, [remoteControlPresenter, configClient]);
 
   const saveTelegram = async (next: TelegramRemoteSettings) => {
     setSaving(true);

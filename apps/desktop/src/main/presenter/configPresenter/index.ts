@@ -16,7 +16,6 @@ import {
   AcpAgentState,
   AcpManualAgent,
   AcpRegistryAgent,
-  AcpResolvedLaunchSpec,
   ProviderDbRefreshResult,
 } from "@argos/shared/presenter";
 import type { CloudSyncConfigView, CloudSyncConfigInput, ResolvedCloudSyncConfig } from "@argos/shared/presenter";
@@ -61,15 +60,22 @@ import { ModelStatusHelper } from "./modelStatusHelper";
 import { ProviderModelHelper, PROVIDER_MODELS_DIR } from "./providerModelHelper";
 import { SystemPromptHelper, DEFAULT_SYSTEM_PROMPT } from "./systemPromptHelper";
 import { UiSettingsHelper } from "./uiSettingsHelper";
-import { AcpConfHelper, AcpRegistryService, AcpLaunchSpecService } from "@argos/acp-runtime";
-import { SVGSanitizer } from "@argos/backend-core";
 import { DEFAULT_PROVIDERS, resolveAcpAgentAlias } from "@argos/backend-core";
 import { AgentRepository, BUILTIN_ARGOS_AGENT_ID } from "../agentRepository";
 import { normalizeArgosSubagentConfig } from "@argos/shared/lib/argosSubagents";
-import type { SQLitePresenter } from "../sqlitePresenter";
 import type { SettingsKey, SettingsSnapshotValues } from "@argos/shared-contracts/routes";
 import { publishArgosEvent } from "#/routes/publishArgosEvent";
 import { invokeDaemonRoute } from "#/routes/daemonRouteProxy";
+import {
+  createMcpSettingsMirror,
+  createModelConfigMirror,
+  createModelStatusMirror,
+  createProviderModelsMirror,
+  createProvidersMirror,
+  registerMirror,
+  DaemonMirrorStore,
+  fireAndForgetDaemonWrite,
+} from "./daemonMirrorStores";
 import {
   configListAgentsRoute,
   configCreateArgosAgentRoute,
@@ -77,6 +83,29 @@ import {
   configDeleteArgosAgentRoute,
   configGetKnowledgeConfigsRoute,
   configSetKnowledgeConfigsRoute,
+  configGetAcpStateRoute,
+  configSetAcpEnabledRoute,
+  configListAcpRegistryAgentsRoute,
+  configRefreshAcpRegistryRoute,
+  configGetAcpRegistryIconMarkupRoute,
+  configSetAcpAgentEnabledRoute,
+  configSetAcpAgentEnvOverrideRoute,
+  configEnsureAcpAgentInstalledRoute,
+  configRepairAcpAgentRoute,
+  configUpdateAcpAgentRoute,
+  configUninstallAcpRegistryAgentRoute,
+  configListManualAcpAgentsRoute,
+  configAddManualAcpAgentRoute,
+  configUpdateManualAcpAgentRoute,
+  configRemoveManualAcpAgentRoute,
+  configGetAgentMcpSelectionsRoute,
+  configGetAcpSharedMcpSelectionsRoute,
+  configSetAcpSharedMcpSelectionsRoute,
+  configListCustomPromptsRoute,
+  configSetCustomPromptsRoute,
+  configGetSystemPromptsRoute,
+  configSetSystemPromptsRoute,
+  modelsSetStatusRoute,
 } from "@argos/shared-contracts/routes";
 import type { HookTestResult, HooksNotificationsSettings } from "@argos/shared/hooksNotifications";
 import type {
@@ -90,14 +119,6 @@ import type { FloatingButtonBounds } from "@argos/shared/types/floating-widget";
 import { createDefaultHooksNotificationsConfig, normalizeHooksNotificationsConfig } from "../hooksNotifications/config";
 import { normalizeScheduledTasksConfig } from "../scheduledTasks/normalize";
 import { createDefaultScheduledTasksSettings, type ScheduledTasksSettings } from "@argos/shared/scheduledTasks";
-import {
-  AcpDbStore,
-  AppSettingsDbBackedStore,
-  McpDbStore,
-  ModelConfigDbStore,
-  ProviderModelDbStore,
-  SENSITIVE_APP_SETTING_KEYS,
-} from "./configDbStores";
 import type { StoreLike, StoreFactory } from "@argos/backend-core";
 import { createLogger } from "@argos/shared/logger";
 
@@ -116,7 +137,6 @@ function createElectronStoreFactory(): StoreFactory {
 interface IAppSettings {
   // Define your configuration items here, for example:
   language: string;
-  providers: LLM_PROVIDER[];
   closeToQuit: boolean; // Whether to quit the program when clicking the close button
   appVersion?: string; // Used for version checking and data migration
   proxyMode?: string; // Proxy mode: system, none, custom
@@ -146,7 +166,6 @@ interface IAppSettings {
   hooksNotifications?: HooksNotificationsSettings; // Hooks & notifications settings
   scheduledTasks?: ScheduledTasksSettings; // User-defined scheduled tasks
   defaultModel?: { providerId: string; modelId: string }; // Default model for new conversations
-  defaultVisionModel?: { providerId: string; modelId: string }; // Legacy vision model setting for migration only
   defaultProjectPath?: string | null;
   acpRegistryMigrationVersion?: number;
   unifiedAgentsMigrationVersion?: number;
@@ -169,22 +188,16 @@ const defaultProviders = DEFAULT_PROVIDERS.map((provider) => ({
 }));
 
 const PROVIDERS_STORE_KEY = "providers";
-const UNIFIED_AGENTS_MIGRATION_VERSION = 1;
 const DEPRECATED_BUILTIN_PROVIDER_IDS = ["qwenlm", "laoshi"] as const;
 type AnthropicLegacyProvider = LLM_PROVIDER & { authMode?: "apikey" | "oauth" };
 type ModelSelection = { providerId: string; modelId: string };
-type ProviderModelSettingKey = "defaultModel" | "assistantModel" | "defaultVisionModel" | "preferredModel";
-type AnthropicModelSettingKey = "defaultModel" | "assistantModel" | "defaultVisionModel";
+type ProviderModelSettingKey = "defaultModel" | "assistantModel" | "preferredModel";
+type AnthropicModelSettingKey = "defaultModel" | "assistantModel";
 
-const ANTHROPIC_MODEL_SETTING_KEYS: AnthropicModelSettingKey[] = [
-  "defaultModel",
-  "assistantModel",
-  "defaultVisionModel",
-];
+const ANTHROPIC_MODEL_SETTING_KEYS: AnthropicModelSettingKey[] = ["defaultModel", "assistantModel"];
 const DEPRECATED_PROVIDER_MODEL_SETTING_KEYS: ProviderModelSettingKey[] = [
   "defaultModel",
   "assistantModel",
-  "defaultVisionModel",
   "preferredModel",
 ];
 
@@ -387,9 +400,6 @@ export class ConfigPresenter implements IConfigPresenter {
   private userDataPath: string;
   private currentAppVersion: string;
   private mcpConfHelper: McpConfHelper; // Use MCP configuration helper
-  private acpConfHelper: AcpConfHelper;
-  private acpRegistryService: AcpRegistryService;
-  private acpLaunchSpecService: AcpLaunchSpecService;
   private modelConfigHelper: ModelConfigHelper; // Model configuration helper
   private knowledgeConfHelper: KnowledgeConfHelper; // Knowledge configuration helper
   private providerHelper: ProviderHelper;
@@ -398,7 +408,70 @@ export class ConfigPresenter implements IConfigPresenter {
   private systemPromptHelper: SystemPromptHelper;
   private uiSettingsHelper: UiSettingsHelper;
   private agentRepository: AgentRepository | null = null;
-  private dbBackedSettingsStore: AppSettingsDbBackedStore | null = null;
+  // Daemon-backed mirrors: persistence lives in the daemon; these hold sync
+  // snapshots for the desktop runtime (docs/architecture/desktop-config-daemon-ownership).
+  private readonly providersMirror = registerMirror(createProvidersMirror(defaultProviders));
+  private readonly modelStatusMirror = registerMirror(createModelStatusMirror());
+  private readonly promptsCustomMirror = registerMirror(
+    new DaemonMirrorStore<{ prompts: Prompt[] }>({
+      name: "custom-prompts",
+      defaults: { prompts: [] },
+      hydrate: async () => {
+        const result = await invokeDaemonRoute<{ prompts?: Prompt[] }>(configListCustomPromptsRoute.name, {});
+        return { prompts: result.prompts ?? [] };
+      },
+      persist: ({ next }) => {
+        fireAndForgetDaemonWrite(
+          "customPrompts",
+          invokeDaemonRoute(configSetCustomPromptsRoute.name, { prompts: next.prompts }),
+        );
+      },
+    }),
+  );
+  private readonly promptsSystemMirror = registerMirror(
+    new DaemonMirrorStore<{ prompts: SystemPrompt[] }>({
+      name: "system-prompts",
+      defaults: {
+        prompts: [
+          {
+            id: "default",
+            name: "Argos",
+            content: DEFAULT_SYSTEM_PROMPT,
+            isDefault: true,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          },
+        ],
+      },
+      hydrate: async () => {
+        const result = await invokeDaemonRoute<{ prompts: SystemPrompt[] }>(configGetSystemPromptsRoute.name, {});
+        if (result.prompts && result.prompts.length > 0) {
+          return { prompts: result.prompts };
+        }
+        return {
+          prompts: [
+            {
+              id: "default",
+              name: "Argos",
+              content: DEFAULT_SYSTEM_PROMPT,
+              isDefault: true,
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+            },
+          ],
+        };
+      },
+      persist: ({ next }) => {
+        fireAndForgetDaemonWrite(
+          "systemPrompts",
+          invokeDaemonRoute(configSetSystemPromptsRoute.name, { prompts: next.prompts }),
+        );
+      },
+    }),
+  );
+  private readonly mcpSettingsMirror = registerMirror(createMcpSettingsMirror()) as unknown as DaemonMirrorStore<
+    Record<string, unknown>
+  >;
   // Custom prompts cache for high-frequency read operations
   private customPromptsCache: Prompt[] | null = null;
 
@@ -410,7 +483,6 @@ export class ConfigPresenter implements IConfigPresenter {
       name: "app-settings",
       defaults: {
         language: "system",
-        providers: defaultProviders,
         closeToQuit: false,
         customShortKey: defaultShortcutKey,
         proxyMode: "system",
@@ -442,41 +514,36 @@ export class ConfigPresenter implements IConfigPresenter {
     });
 
     this.providerHelper = new ProviderHelper({
-      store: this.store,
+      store: this.providersMirror,
       setSetting: this.setSetting.bind(this),
       defaultProviders,
     });
 
     this.modelStatusHelper = new ModelStatusHelper({
-      store: this.store,
+      store: this.modelStatusMirror,
       setSetting: this.setSetting.bind(this),
+      onStatusWrite: (providerId, updates) => {
+        for (const update of updates) {
+          fireAndForgetDaemonWrite(
+            "models.setStatus",
+            invokeDaemonRoute(modelsSetStatusRoute.name, {
+              providerId,
+              modelId: update.modelId,
+              enabled: update.enabled,
+            }),
+          );
+        }
+      },
     });
 
     this.initTheme();
 
-    // Initialize custom prompts storage
-    this.customPromptsStore = new ElectronStore<{ prompts: Prompt[] }>({
-      name: "custom_prompts",
-      defaults: {
-        prompts: [],
-      },
-    });
+    // Initialize custom prompts storage (daemon-backed mirror)
+    this.customPromptsStore = this.promptsCustomMirror as unknown as ElectronStore<{ prompts: Prompt[] }>;
 
-    this.systemPromptsStore = new ElectronStore<{ prompts: SystemPrompt[] }>({
-      name: "system_prompts",
-      defaults: {
-        prompts: [
-          {
-            id: "default",
-            name: "Argos",
-            content: DEFAULT_SYSTEM_PROMPT,
-            isDefault: true,
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
-          },
-        ],
-      },
-    });
+    this.systemPromptsStore = this.promptsSystemMirror as unknown as ElectronStore<{
+      prompts: SystemPrompt[];
+    }>;
 
     this.systemPromptHelper = new SystemPromptHelper({
       systemPromptsStore: this.systemPromptsStore,
@@ -489,35 +556,23 @@ export class ConfigPresenter implements IConfigPresenter {
       setSetting: this.setSetting.bind(this),
     });
 
-    // Initialize MCP configuration helper
-    this.mcpConfHelper = new McpConfHelper(createElectronStoreFactory(), {
-      onChange: () => eventBus.send(MCP_EVENTS.CONFIG_CHANGED, SendTarget.ALL_WINDOWS, {}),
-    });
+    // Initialize MCP configuration helper (daemon-backed mirror)
+    this.mcpConfHelper = new McpConfHelper(
+      ((options: { name: string }) =>
+        options.name === "mcp" || options.name === "mcp-settings"
+          ? this.mcpSettingsMirror
+          : createMcpSettingsMirror()) as unknown as ReturnType<typeof createElectronStoreFactory>,
+      {
+        onChange: () => eventBus.send(MCP_EVENTS.CONFIG_CHANGED, SendTarget.ALL_WINDOWS, {}),
+      },
+    );
 
-    this.acpConfHelper = new AcpConfHelper({
-      mcpConfHelper: this.mcpConfHelper,
-      storeFactory: createElectronStoreFactory(),
-    });
-    this.acpRegistryService = new AcpRegistryService({
-      isPrivacyModeEnabled: () => this.getPrivacyModeEnabled(),
-      userDataDir: () => app.getPath("userData"),
-      appPath: () => app.getAppPath(),
-      sanitizeSvg: (svg) => new SVGSanitizer().sanitize(svg),
-    });
-    this.acpLaunchSpecService = new AcpLaunchSpecService(path.join(this.userDataPath, "acp-registry"));
-    this.syncAcpProviderEnabled(this.acpConfHelper.getGlobalEnabled());
-    void this.acpRegistryService
-      .initialize()
-      .then(() => {
-        this.syncRegistryAgentsToRepository();
-        this.notifyAcpAgentsChanged();
-      })
-      .catch((error) => {
-        log.error("[ACP] Failed to initialize registry service:", error);
-      });
+    // ACP configuration state is daemon-owned; ConfigPresenter methods proxy to
+    // it via invokeDaemonRoute (docs/archives/acp-daemon-state-ownership).
 
-    // Initialize model configuration helper
-    this.modelConfigHelper = new ModelConfigHelper(this.currentAppVersion, createElectronStoreFactory());
+    // Initialize model configuration helper (daemon-backed mirror)
+    this.modelConfigHelper = new ModelConfigHelper(this.currentAppVersion, (() =>
+      createModelConfigMirror()) as unknown as ReturnType<typeof createElectronStoreFactory>);
 
     // Initialize knowledge configuration helper
     this.knowledgeConfHelper = new KnowledgeConfHelper(createElectronStoreFactory());
@@ -527,7 +582,10 @@ export class ConfigPresenter implements IConfigPresenter {
       getModelConfig: (modelId: string, providerId?: string) => this.getModelConfig(modelId, providerId),
       setModelStatus: this.modelStatusHelper.setModelStatus.bind(this.modelStatusHelper),
       deleteModelStatus: this.modelStatusHelper.deleteModelStatus.bind(this.modelStatusHelper),
-      storeFactory: createElectronStoreFactory(),
+      storeFactory: ((providerId: string) =>
+        registerMirror(createProviderModelsMirror(providerId))) as unknown as ReturnType<
+        typeof createElectronStoreFactory
+      >,
     });
     this.providerHelper.setCleanupHooks({
       deleteProviderModelStatuses: this.modelStatusHelper.deleteProviderModelStatuses.bind(this.modelStatusHelper),
@@ -575,197 +633,19 @@ export class ConfigPresenter implements IConfigPresenter {
     this.cleanupDeprecatedBuiltinAgentSelections();
   }
 
-  setSQLitePresenter(sqlitePresenter: SQLitePresenter): void {
-    try {
-      this.migrateConfigStoresToSqlite(sqlitePresenter);
-      this.migrateSensitiveConfigStoresToSqlite(sqlitePresenter);
-      this.attachDbBackedConfigStores(sqlitePresenter);
-    } catch (error) {
-      log.error("Failed to attach sqlite-backed config storage:", error);
-      throw error;
-    }
-  }
-
-  private migrateConfigStoresToSqlite(sqlitePresenter: SQLitePresenter): void {
-    const configTables = sqlitePresenter.configTables;
-    if (configTables.hasConfigMigration()) {
-      return;
-    }
-
-    const providers = this.providerHelper.getProviders();
-    const providerIds = providers.map((provider) => provider.id);
-    const providerOrder = this.readLegacyStringArray("providerOrder") ?? providerIds;
-    const providerTimestamps = this.readLegacyNumberRecord("providerTimestamps");
-
-    configTables.replaceProviders(providers, providerOrder, providerTimestamps);
-
-    for (const provider of providers) {
-      const store = this.providerModelHelper.getProviderModelStore(provider.id);
-      const models = store.get<MODEL_META[]>("models", []);
-      const customModels = store.get<MODEL_META[]>("custom_models", []);
-      if (Array.isArray(models)) {
-        configTables.replaceProviderModels(provider.id, "provider", models);
-      }
-      if (Array.isArray(customModels)) {
-        configTables.replaceProviderModels(provider.id, "custom", customModels);
-      }
-    }
-
-    for (const [statusKey, enabled] of this.readLegacyModelStatuses()) {
-      const parsed = this.parseLegacyModelStatusKey(statusKey, providerIds);
-      configTables.setModelStatus(statusKey, parsed.providerId, parsed.modelId, enabled);
-    }
-
-    const modelConfigs = this.modelConfigHelper.exportConfigs();
-    for (const [cacheKey, config] of Object.entries(modelConfigs)) {
-      configTables.setModelConfigStoreEntry(cacheKey, config);
-    }
-
-    const mcpStore = this.mcpConfHelper.getStoreForMigration();
-    const mcpServers = mcpStore.get<Record<string, MCPServerConfig>>("mcpServers", {});
-    if (mcpServers && typeof mcpServers === "object" && !Array.isArray(mcpServers)) {
-      configTables.replaceMcpServers(mcpServers);
-    }
-
-    for (const [key, value] of Object.entries(mcpStore.store)) {
-      if (key === "mcpServers") {
-        continue;
-      }
-      if (value !== undefined) {
-        configTables.setMcpSetting(key, value);
-      }
-    }
-
-    configTables.setAgentSetting("enabled", this.acpConfHelper.getGlobalEnabled());
-    configTables.setAgentSetting("version", "4");
-    configTables.setAgentMcpSelections(this.acpConfHelper.getSharedMcpSelections());
-    configTables.markConfigMigrationApplied();
-  }
-
-  private migrateSensitiveConfigStoresToSqlite(sqlitePresenter: SQLitePresenter): void {
-    const configTables = sqlitePresenter.configTables;
-    const migrationId = "sensitive-config-sqlite-v1";
-    if (configTables.hasConfigMigration(migrationId)) {
-      return;
-    }
-
-    for (const key of SENSITIVE_APP_SETTING_KEYS) {
-      if (key === "customPrompts" || key === "systemPrompts" || key === "knowledgeConfigs") {
-        continue;
-      }
-      const value = this.store.get(key);
-      if (value !== undefined) {
-        configTables.setAppSetting(key, value, true);
-        this.store.delete(key);
-      }
-    }
-
-    const customPrompts = this.customPromptsStore.get("prompts") || [];
-    configTables.setAppSetting("customPrompts", customPrompts, true);
-    this.customPromptsStore.set("prompts", []);
-    this.customPromptsCache = null;
-
-    const systemPrompts = this.systemPromptsStore.get("prompts") || [];
-    configTables.setAppSetting("systemPrompts", systemPrompts, true);
-    this.systemPromptsStore.set("prompts", []);
-
-    const knowledgeConfigs = this.knowledgeConfHelper.getKnowledgeConfigs();
-    configTables.setAppSetting("knowledgeConfigs", knowledgeConfigs, true);
-    this.knowledgeConfHelper.setKnowledgeConfigs([]);
-
-    configTables.markConfigMigrationApplied(migrationId);
-  }
-
-  private attachDbBackedConfigStores(sqlitePresenter: SQLitePresenter): void {
-    const configTables = sqlitePresenter.configTables;
-    const legacyAppStore = this.store as unknown as StoreLike<Record<string, unknown>>;
-    const appSettingsStore = new AppSettingsDbBackedStore(legacyAppStore, configTables);
-    const legacyMcpStore = this.mcpConfHelper.getStoreForMigration();
-    const legacyAcpStore = this.acpConfHelper.getStoreForMigration();
-
-    this.providerHelper.setStore(appSettingsStore);
-    this.modelStatusHelper.setStore(appSettingsStore);
-    this.providerModelHelper.setStoreFactory((providerId) => new ProviderModelDbStore(providerId, configTables));
-    this.modelConfigHelper.setStore(new ModelConfigDbStore(configTables) as unknown as StoreLike<any>);
-    this.mcpConfHelper.setStore(new McpDbStore(legacyMcpStore, configTables) as unknown as StoreLike<any>);
-    this.acpConfHelper.setStore(new AcpDbStore(legacyAcpStore, configTables) as unknown as StoreLike<any>);
-    this.dbBackedSettingsStore = appSettingsStore;
-
-    this.providerHelper.getProviders();
-    this.syncAcpProviderEnabled(this.acpConfHelper.getGlobalEnabled());
-  }
-
   private getSettingsStoreForKey(key: string): StoreLike<Record<string, unknown>> {
-    if (this.dbBackedSettingsStore && this.isDbBackedAppSettingKey(key)) {
-      return this.dbBackedSettingsStore;
+    if (key === "providers" || key.startsWith("model_status_")) {
+      return (key === "providers" ? this.providersMirror : this.modelStatusMirror) as unknown as StoreLike<
+        Record<string, unknown>
+      >;
     }
     return this.store as unknown as StoreLike<Record<string, unknown>>;
   }
 
-  private isDbBackedAppSettingKey(key: string): boolean {
-    return (
-      key === "providers" ||
-      key === "providerOrder" ||
-      key === "providerTimestamps" ||
-      key.startsWith("model_status_") ||
-      SENSITIVE_APP_SETTING_KEYS.includes(key as (typeof SENSITIVE_APP_SETTING_KEYS)[number])
-    );
-  }
-
-  private readLegacyStringArray(key: string): string[] | null {
-    const value = this.store.get(key);
-    if (!Array.isArray(value)) {
-      return null;
-    }
-    return value.filter((item): item is string => typeof item === "string" && item.length > 0);
-  }
-
-  private readLegacyNumberRecord(key: string): Record<string, number> {
-    const value = this.store.get(key);
-    if (!value || typeof value !== "object" || Array.isArray(value)) {
-      return {};
-    }
-    return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>).filter(
-        (entry): entry is [string, number] => typeof entry[1] === "number" && Number.isFinite(entry[1]),
-      ),
-    );
-  }
-
-  private readLegacyModelStatuses(): Array<[string, boolean]> {
-    const rawStore = this.store.store as Record<string, unknown>;
-    return Object.entries(rawStore).filter(
-      (entry): entry is [string, boolean] => entry[0].startsWith("model_status_") && typeof entry[1] === "boolean",
-    );
-  }
-
-  private parseLegacyModelStatusKey(statusKey: string, providerIds: string[]): { providerId: string; modelId: string } {
-    const suffix = statusKey.slice("model_status_".length);
-    const matchedProvider = [...providerIds]
-      .sort((a, b) => b.length - a.length)
-      .find((providerId) => suffix.startsWith(`${providerId}_`));
-
-    if (matchedProvider) {
-      return {
-        providerId: matchedProvider,
-        modelId: suffix.slice(matchedProvider.length + 1),
-      };
-    }
-
-    const separatorIndex = suffix.indexOf("_");
-    if (separatorIndex === -1) {
-      return { providerId: "", modelId: suffix };
-    }
-
-    return {
-      providerId: suffix.slice(0, separatorIndex),
-      modelId: suffix.slice(separatorIndex + 1),
-    };
-  }
-
   private getAgentRepositoryOrThrow(): AgentRepository {
     if (!this.agentRepository) {
-      throw new Error("Unified agent repository is not attached.");
+      this.agentRepository = new AgentRepository();
+      this.initializeUnifiedAgents();
     }
     return this.agentRepository;
   }
@@ -778,21 +658,8 @@ export class ConfigPresenter implements IConfigPresenter {
       config: this.buildLegacyBuiltinArgosConfig(),
     });
 
-    const migratedVersion = this.getSetting<number>("unifiedAgentsMigrationVersion") ?? 0;
-    if (migratedVersion < UNIFIED_AGENTS_MIGRATION_VERSION) {
-      this.acpConfHelper.getManualAgents().forEach((agent) => {
-        repository.createManualAcpAgent(agent);
-      });
-
-      this.syncRegistryAgentsToRepository(
-        this.acpConfHelper.getRegistryStates(),
-        this.acpConfHelper.getInstallStates(),
-      );
-      this.store.set("unifiedAgentsMigrationVersion", UNIFIED_AGENTS_MIGRATION_VERSION);
-      return;
-    }
-
-    this.syncRegistryAgentsToRepository();
+    // Legacy desktop ACP stores are no longer migrated here: ACP configuration
+    // state is daemon-owned (docs/archives/acp-daemon-state-ownership).
 
     // One-time: push desktop-owned custom Argos agents into the daemon so it is
     // the single source of truth for custom agents. The builtin agent stays
@@ -873,26 +740,14 @@ export class ConfigPresenter implements IConfigPresenter {
       updates.assistantModel = legacyAssistantModel;
     }
 
-    const legacyVisionSelection = this.store.get("defaultVisionModel") as unknown;
-    const legacyVisionModel = getLiveLegacyModelSelection(legacyVisionSelection);
-    if (legacyVisionModel && shouldReplaceBuiltinModelSelection(config.visionModel)) {
-      updates.visionModel = legacyVisionModel;
-    }
-
     if (Object.keys(updates).length > 0) {
       this.updateBuiltinArgosConfig(updates);
-    }
-
-    if (legacyVisionSelection !== undefined) {
-      this.store.delete("defaultVisionModel");
-      eventBus.sendToMain(CONFIG_EVENTS.SETTING_CHANGED, "defaultVisionModel", undefined);
     }
   }
 
   private buildLegacyBuiltinArgosConfig(): ArgosAgentConfig {
     const defaultModel = this.store.get("defaultModel") as ModelSelection | undefined;
     const assistantModel = this.store.get("assistantModel") as ModelSelection | undefined;
-    const visionModel = this.store.get("defaultVisionModel") as ModelSelection | undefined;
     const autoCompactionEnabled = this.store.get("autoCompactionEnabled");
     const autoCompactionTriggerThreshold = this.store.get("autoCompactionTriggerThreshold");
     const autoCompactionRetainRecentPairs = this.store.get("autoCompactionRetainRecentPairs");
@@ -912,13 +767,6 @@ export class ConfigPresenter implements IConfigPresenter {
               modelId: assistantModel.modelId,
             }
           : null,
-      visionModel:
-        visionModel?.providerId && visionModel?.modelId
-          ? {
-              providerId: visionModel.providerId,
-              modelId: visionModel.modelId,
-            }
-          : null,
       systemPrompt: (this.store.get("default_system_prompt") as string | undefined) ?? "",
       permissionMode: "full_access",
       disabledAgentTools: [],
@@ -928,25 +776,6 @@ export class ConfigPresenter implements IConfigPresenter {
       autoCompactionRetainRecentPairs:
         typeof autoCompactionRetainRecentPairs === "number" ? autoCompactionRetainRecentPairs : 2,
     });
-  }
-
-  private syncRegistryAgentsToRepository(
-    legacyStateById?: Record<string, AcpAgentState>,
-    legacyInstallStateById?: Record<string, AcpAgentInstallState>,
-  ): void {
-    if (!this.agentRepository) {
-      return;
-    }
-
-    try {
-      this.agentRepository.syncRegistryAgents(
-        this.acpRegistryService.listAgents(),
-        legacyStateById,
-        legacyInstallStateById,
-      );
-    } catch (error) {
-      log.warn("[Agents] Failed to sync ACP registry agents into sqlite:", error);
-    }
   }
 
   private getBuiltinArgosConfig(): ArgosAgentConfig {
@@ -1348,7 +1177,6 @@ export class ConfigPresenter implements IConfigPresenter {
       const keysToClear = getAnthropicModelSelectionKeysToClear({
         defaultModel: this.getSetting("defaultModel"),
         assistantModel: this.getSetting("assistantModel"),
-        defaultVisionModel: this.store.get("defaultVisionModel") as { providerId: string; modelId: string } | undefined,
         preferredModel: this.getSetting("preferredModel"),
       });
 
@@ -1370,7 +1198,6 @@ export class ConfigPresenter implements IConfigPresenter {
     const keysToClear = getDeprecatedProviderModelSelectionKeysToClear({
       defaultModel: this.store.get("defaultModel") as ModelSelection | undefined,
       assistantModel: this.store.get("assistantModel") as ModelSelection | undefined,
-      defaultVisionModel: this.store.get("defaultVisionModel") as ModelSelection | undefined,
       preferredModel: this.store.get("preferredModel") as ModelSelection | undefined,
     });
 
@@ -1392,6 +1219,12 @@ export class ConfigPresenter implements IConfigPresenter {
         if (key === "default_system_prompt") {
           return this.getBuiltinArgosConfig().systemPrompt as T | undefined;
         }
+      }
+      if (key === "providers") {
+        return this.providersMirror.get("providers") as T | undefined;
+      }
+      if (key.startsWith("model_status_")) {
+        return this.modelStatusMirror.get(key) as T | undefined;
       }
       return this.getSettingsStoreForKey(key).get<T>(key);
     } catch (error) {
@@ -1421,6 +1254,17 @@ export class ConfigPresenter implements IConfigPresenter {
           eventBus.sendToMain(CONFIG_EVENTS.SETTING_CHANGED, key, value);
           return;
         }
+      }
+
+      if (key === "providers") {
+        this.providersMirror.set("providers", value as unknown as LLM_PROVIDER[]);
+        eventBus.sendToMain(CONFIG_EVENTS.SETTING_CHANGED, key, value);
+        return;
+      }
+      if (key.startsWith("model_status_")) {
+        this.modelStatusMirror.set(key, value);
+        eventBus.sendToMain(CONFIG_EVENTS.SETTING_CHANGED, key, value);
+        return;
       }
 
       this.getSettingsStoreForKey(key).set(key, value);
@@ -2292,12 +2136,12 @@ export class ConfigPresenter implements IConfigPresenter {
   }
 
   async getAcpEnabled(): Promise<boolean> {
-    return this.acpConfHelper.getGlobalEnabled();
+    const state = await invokeDaemonRoute<{ enabled: boolean }>(configGetAcpStateRoute.name, {});
+    return state.enabled;
   }
 
   async setAcpEnabled(enabled: boolean): Promise<void> {
-    const changed = this.acpConfHelper.setGlobalEnabled(enabled);
-    if (!changed) return;
+    await invokeDaemonRoute(configSetAcpEnabledRoute.name, { enabled });
 
     log.info("[ACP] setAcpEnabled: updating global toggle to", enabled);
     this.syncAcpProviderEnabled(enabled);
@@ -2312,349 +2156,162 @@ export class ConfigPresenter implements IConfigPresenter {
   }
 
   // ===================== ACP configuration methods =====================
+  // ACP configuration state is daemon-owned; these methods proxy to it.
+  // See docs/archives/acp-daemon-state-ownership.
   async listAcpRegistryAgents(): Promise<AcpRegistryAgent[]> {
-    this.syncRegistryAgentsToRepository();
-    const registryAgents = this.acpRegistryService.listAgents();
-
-    return registryAgents.map((agent) => {
-      const overlay = this.agentRepository?.getAcpRegistryOverlay(agent.id) ?? {
-        enabled: this.acpConfHelper.getRegistryStates()[agent.id]?.enabled ?? false,
-        envOverride: this.acpConfHelper.getRegistryStates()[agent.id]?.envOverride,
-        installState: this.acpConfHelper.getInstallStates()[agent.id] ?? null,
-      };
-      return {
-        ...agent,
-        enabled: overlay.enabled,
-        envOverride: overlay.envOverride,
-        installState: overlay.installState ?? null,
-      };
-    });
+    const result = await invokeDaemonRoute<{ agents: AcpRegistryAgent[] }>(configListAcpRegistryAgentsRoute.name, {});
+    return result.agents ?? [];
   }
 
   async refreshAcpRegistry(force = true): Promise<AcpRegistryAgent[]> {
-    await this.acpRegistryService.refresh(force);
-    this.syncRegistryAgentsToRepository();
-    const agents = await this.listAcpRegistryAgents();
+    const result = await invokeDaemonRoute<{ agents: AcpRegistryAgent[] }>(configRefreshAcpRegistryRoute.name, {
+      force,
+    });
     this.notifyAcpAgentsChanged();
-    return agents;
+    return result.agents ?? [];
   }
 
   async getAcpRegistryIconMarkup(agentId: string, iconUrl?: string): Promise<string | null> {
-    return await this.acpRegistryService.getIconMarkup(agentId, iconUrl);
+    const result = await invokeDaemonRoute<{ markup: string }>(configGetAcpRegistryIconMarkupRoute.name, {
+      agentId,
+      iconUrl,
+    });
+    return result.markup || null;
   }
 
   async getAcpAgentState(agentId: string): Promise<AcpAgentState | null> {
-    return this.agentRepository?.getAcpAgentState(resolveAcpAgentAlias(agentId)) ?? null;
+    const agents = await this.listAcpRegistryAgents();
+    const agent = agents.find((entry) => entry.id === agentId);
+    if (!agent) {
+      return null;
+    }
+    return {
+      agentId: agent.id,
+      enabled: agent.enabled,
+      envOverride: agent.envOverride,
+      updatedAt: agent.installState?.lastCheckedAt ?? 0,
+    };
   }
 
   async setAcpAgentEnabled(agentId: string, enabled: boolean): Promise<void> {
     const resolvedId = resolveAcpAgentAlias(agentId);
-    this.getAgentRepositoryOrThrow().setAgentEnabled(resolvedId, enabled);
+    await invokeDaemonRoute(configSetAcpAgentEnabledRoute.name, { agentId: resolvedId, enabled });
     this.handleAcpAgentsMutated([resolvedId]);
-
-    if (enabled) {
-      void this.ensureAcpAgentInstalled(resolvedId).catch((error) => {
-        log.warn(`[ACP] Failed to preinstall registry agent ${resolvedId}:`, error);
-      });
-    }
   }
 
   async setAcpAgentEnvOverride(agentId: string, env: Record<string, string>): Promise<void> {
     const resolvedId = resolveAcpAgentAlias(agentId);
-    const installState = this.getAgentRepositoryOrThrow().getAgentInstallState(resolvedId);
-    if (installState?.status !== "installed") {
-      throw new Error(`ACP registry agent is not installed: ${resolvedId}`);
-    }
-    this.getAgentRepositoryOrThrow().setAgentEnvOverride(resolvedId, env);
+    await invokeDaemonRoute(configSetAcpAgentEnvOverrideRoute.name, { agentId: resolvedId, env });
     this.handleAcpAgentsMutated([resolvedId]);
   }
 
   async ensureAcpAgentInstalled(agentId: string): Promise<AcpAgentInstallState> {
     const resolvedId = resolveAcpAgentAlias(agentId);
-    const manualAgent = this.getAgentRepositoryOrThrow().getManualAcpAgent(resolvedId);
-    if (manualAgent) {
-      return {
-        status: "installed",
-        distributionType: "manual",
-        lastCheckedAt: Date.now(),
-      };
-    }
-    const registryAgent = this.getRegistryAgentOrThrow(agentId);
-    const currentState = this.getAgentRepositoryOrThrow().getAgentInstallState(registryAgent.id);
-    const installingState: AcpAgentInstallState = {
-      status: "installing",
-      version: registryAgent.version,
-      distributionType: this.acpLaunchSpecService.selectRegistryDistribution(registryAgent)?.type ?? undefined,
-      lastCheckedAt: Date.now(),
-      installedAt: currentState?.installedAt ?? null,
-      installDir: currentState?.installDir ?? null,
-      error: null,
-    };
-    this.getAgentRepositoryOrThrow().setAgentInstallState(registryAgent.id, installingState);
-    this.notifyAcpAgentsChanged([registryAgent.id]);
-
-    try {
-      const installedState = await this.acpLaunchSpecService.ensureRegistryAgentInstalled(registryAgent, currentState);
-      this.getAgentRepositoryOrThrow().setAgentInstallState(registryAgent.id, installedState);
-      this.handleAcpAgentsMutated([registryAgent.id]);
-      return installedState;
-    } catch (error) {
-      const failedState: AcpAgentInstallState = {
-        status: "error",
-        version: registryAgent.version,
-        distributionType: this.acpLaunchSpecService.selectRegistryDistribution(registryAgent)?.type ?? undefined,
-        lastCheckedAt: Date.now(),
-        installedAt: currentState?.installedAt ?? null,
-        installDir: currentState?.installDir ?? null,
-        error: error instanceof Error ? error.message : String(error),
-      };
-      this.getAgentRepositoryOrThrow().setAgentInstallState(registryAgent.id, failedState);
-      this.notifyAcpAgentsChanged([registryAgent.id]);
-      throw error;
-    }
+    const installed = await invokeDaemonRoute<AcpAgentInstallState>(configEnsureAcpAgentInstalledRoute.name, {
+      agentId: resolvedId,
+    });
+    this.handleAcpAgentsMutated([resolvedId]);
+    return installed;
   }
 
   async repairAcpAgent(agentId: string): Promise<AcpAgentInstallState> {
-    const registryAgent = this.getRegistryAgentOrThrow(agentId);
-    const currentState = this.getAgentRepositoryOrThrow().getAgentInstallState(registryAgent.id);
-    const repairingState: AcpAgentInstallState = {
-      status: "installing",
-      version: registryAgent.version,
-      distributionType: this.acpLaunchSpecService.selectRegistryDistribution(registryAgent)?.type ?? undefined,
-      lastCheckedAt: Date.now(),
-      installedAt: currentState?.installedAt ?? null,
-      installDir: currentState?.installDir ?? null,
-      error: null,
-    };
-    this.getAgentRepositoryOrThrow().setAgentInstallState(registryAgent.id, repairingState);
-    this.notifyAcpAgentsChanged([registryAgent.id]);
-    await this.refreshAcpProviderAgents([registryAgent.id]);
-
-    try {
-      const installedState = await this.acpLaunchSpecService.ensureRegistryAgentInstalled(registryAgent, currentState, {
-        repair: true,
-      });
-      this.getAgentRepositoryOrThrow().setAgentInstallState(registryAgent.id, installedState);
-      this.handleAcpAgentsMutated([registryAgent.id]);
-      return installedState;
-    } catch (error) {
-      const failedState: AcpAgentInstallState = {
-        status: "error",
-        version: registryAgent.version,
-        distributionType: this.acpLaunchSpecService.selectRegistryDistribution(registryAgent)?.type ?? undefined,
-        lastCheckedAt: Date.now(),
-        installedAt: currentState?.installedAt ?? null,
-        installDir: currentState?.installDir ?? null,
-        error: error instanceof Error ? error.message : String(error),
-      };
-      this.getAgentRepositoryOrThrow().setAgentInstallState(registryAgent.id, failedState);
-      this.notifyAcpAgentsChanged([registryAgent.id]);
-      throw error;
-    }
+    const resolvedId = resolveAcpAgentAlias(agentId);
+    const repaired = await invokeDaemonRoute<AcpAgentInstallState>(configRepairAcpAgentRoute.name, {
+      agentId: resolvedId,
+    });
+    this.handleAcpAgentsMutated([resolvedId]);
+    return repaired;
   }
 
   async updateAcpAgent(agentId: string): Promise<AcpAgentInstallState> {
     const resolvedId = resolveAcpAgentAlias(agentId);
-    const registryAgent = this.getRegistryAgentOrThrow(resolvedId);
-    const agentRepository = this.getAgentRepositoryOrThrow();
-    const selection = this.acpLaunchSpecService.selectRegistryDistribution(registryAgent);
-
-    // npx/uvx runners resolve the latest package at launch time, so there is
-    // nothing to download. Report the current state as "up to date".
-    if (!selection || selection.type !== "binary") {
-      return (
-        agentRepository.getAgentInstallState(registryAgent.id) ?? {
-          status: "installed",
-          distributionType: selection?.type,
-          version: registryAgent.version,
-          lastCheckedAt: Date.now(),
-          installedAt: null,
-          installDir: null,
-          error: null,
-        }
-      );
-    }
-
-    const currentState = agentRepository.getAgentInstallState(registryAgent.id);
-    const updatingState: AcpAgentInstallState = {
-      status: "installing",
-      version: registryAgent.version,
-      distributionType: "binary",
-      lastCheckedAt: Date.now(),
-      installedAt: currentState?.installedAt ?? null,
-      installDir: currentState?.installDir ?? null,
-      error: null,
-    };
-    agentRepository.setAgentInstallState(registryAgent.id, updatingState);
-    this.notifyAcpAgentsChanged([registryAgent.id]);
-
-    try {
-      // repair:true deletes the old version dir and re-downloads the new version.
-      const installedState = await this.acpLaunchSpecService.ensureRegistryAgentInstalled(registryAgent, currentState, {
-        repair: true,
-      });
-      if (installedState.status === "error") {
-        // ensureRegistryAgentInstalled catches download/extract failures internally
-        // and returns an error state instead of throwing; surface it as a failure.
-        throw new Error(installedState.error ?? "Agent update failed");
-      }
-      agentRepository.setAgentInstallState(registryAgent.id, installedState);
-      this.handleAcpAgentsMutated([registryAgent.id]);
-      return installedState;
-    } catch (error) {
-      const failedState: AcpAgentInstallState = {
-        status: "error",
-        version: registryAgent.version,
-        distributionType: "binary",
-        lastCheckedAt: Date.now(),
-        installedAt: currentState?.installedAt ?? null,
-        installDir: currentState?.installDir ?? null,
-        error: error instanceof Error ? error.message : String(error),
-      };
-      agentRepository.setAgentInstallState(registryAgent.id, failedState);
-      this.notifyAcpAgentsChanged([registryAgent.id]);
-      throw error;
-    }
+    const updated = await invokeDaemonRoute<AcpAgentInstallState>(configUpdateAcpAgentRoute.name, {
+      agentId: resolvedId,
+    });
+    this.handleAcpAgentsMutated([resolvedId]);
+    return updated;
   }
 
   async uninstallAcpRegistryAgent(agentId: string): Promise<void> {
     const resolvedId = resolveAcpAgentAlias(agentId);
-    const registryAgent = this.getRegistryAgentOrThrow(resolvedId);
-    const agentRepository = this.getAgentRepositoryOrThrow();
-    if (agentRepository.hasAgentSessions(registryAgent.id)) {
-      throw new Error("ACP registry agent still has related conversations. Move or delete them first.");
-    }
-
-    const currentState = agentRepository.getAgentInstallState(registryAgent.id);
-
-    await this.acpLaunchSpecService.uninstallRegistryAgent(registryAgent, currentState);
-
-    const uninstalledState: AcpAgentInstallState = {
-      status: "not_installed",
-      version: registryAgent.version,
-      distributionType: this.acpLaunchSpecService.selectRegistryDistribution(registryAgent)?.type ?? undefined,
-      lastCheckedAt: Date.now(),
-      installedAt: null,
-      installDir: null,
-      error: null,
-    };
-
-    const updated = agentRepository.clearRegistryAcpAgentInstallation(registryAgent.id, uninstalledState);
-    if (!updated) {
-      throw new Error(`ACP registry agent not found or still has related conversations: ${registryAgent.id}`);
-    }
-
-    this.handleAcpAgentsMutated([registryAgent.id]);
+    await invokeDaemonRoute(configUninstallAcpRegistryAgentRoute.name, { agentId: resolvedId });
+    this.handleAcpAgentsMutated([resolvedId]);
   }
+
   async getAcpAgentInstallStatus(agentId: string): Promise<AcpAgentInstallState | null> {
-    return this.agentRepository?.getAgentInstallState(resolveAcpAgentAlias(agentId)) ?? null;
+    const agents = await this.listAcpRegistryAgents();
+    return agents.find((entry) => entry.id === resolveAcpAgentAlias(agentId))?.installState ?? null;
   }
 
   async listManualAcpAgents(): Promise<AcpManualAgent[]> {
-    return this.getAgentRepositoryOrThrow().listManualAcpAgents();
+    const result = await invokeDaemonRoute<{ agents: AcpManualAgent[] }>(configListManualAcpAgentsRoute.name, {});
+    return result.agents ?? [];
   }
 
   async addManualAcpAgent(agent: Omit<AcpManualAgent, "id" | "source"> & { id?: string }): Promise<AcpManualAgent> {
-    const created = this.getAgentRepositoryOrThrow().createManualAcpAgent(agent);
-    this.handleAcpAgentsMutated([created.id]);
-    return created;
+    const result = await invokeDaemonRoute<{ agent: AcpManualAgent }>(
+      configAddManualAcpAgentRoute.name,
+      agent as never,
+    );
+    this.handleAcpAgentsMutated([result.agent.id]);
+    return result.agent;
   }
 
   async updateManualAcpAgent(
     agentId: string,
     updates: Partial<Omit<AcpManualAgent, "id" | "source">>,
   ): Promise<AcpManualAgent | null> {
-    const updated = this.getAgentRepositoryOrThrow().updateManualAcpAgent(agentId, updates);
-    if (updated) {
-      this.handleAcpAgentsMutated([updated.id]);
+    const result = await invokeDaemonRoute<{ agent: AcpManualAgent | null }>(configUpdateManualAcpAgentRoute.name, {
+      agentId,
+      updates,
+    });
+    if (result.agent) {
+      this.handleAcpAgentsMutated([result.agent.id]);
     }
-    return updated;
+    return result.agent;
   }
 
   async removeManualAcpAgent(agentId: string): Promise<boolean> {
-    const removed = this.getAgentRepositoryOrThrow().removeManualAcpAgent(agentId);
-    if (removed) {
+    const result = await invokeDaemonRoute<{ removed: boolean }>(configRemoveManualAcpAgentRoute.name, { agentId });
+    if (result.removed) {
       this.handleAcpAgentsMutated([agentId]);
     }
-    return removed;
+    return result.removed;
   }
 
   async getAcpAgents(): Promise<AcpAgentConfig[]> {
-    const acpEnabled = this.acpConfHelper.getGlobalEnabled();
-    if (!acpEnabled) {
+    const state = await invokeDaemonRoute<{
+      enabled: boolean;
+      agents: AcpAgentConfig[];
+    }>(configGetAcpStateRoute.name, {});
+    if (!state.enabled) {
       return [];
     }
-
-    const [registryAgents, manualAgents] = await Promise.all([
-      this.listAcpRegistryAgents(),
-      this.listManualAcpAgents(),
-    ]);
-
-    const enabledRegistryAgents = registryAgents
-      .filter((agent) => agent.enabled && agent.installState?.status === "installed")
-      .map((agent) => this.buildRegistryAgentConfig(agent));
-
-    const enabledManualAgents = manualAgents
-      .filter((agent) => agent.enabled)
-      .map((agent) => this.buildManualAgentConfig(agent));
-
-    return [...enabledRegistryAgents, ...enabledManualAgents];
-  }
-
-  async resolveAcpLaunchSpec(agentId: string, _workdir?: string): Promise<AcpResolvedLaunchSpec> {
-    const resolvedId = resolveAcpAgentAlias(agentId);
-    const manualAgent = this.getAgentRepositoryOrThrow().getManualAcpAgent(resolvedId);
-    if (manualAgent) {
-      return this.acpLaunchSpecService.resolveManualLaunchSpec(manualAgent);
-    }
-
-    const registryAgent = this.getRegistryAgentOrThrow(resolvedId);
-    const installState = this.getAgentRepositoryOrThrow().getAgentInstallState(registryAgent.id);
-    const launchSpec = await this.acpLaunchSpecService.resolveRegistryLaunchSpec(registryAgent, installState);
-
-    const nextInstallState: AcpAgentInstallState = {
-      status: "installed",
-      distributionType: launchSpec.distributionType,
-      version: launchSpec.version,
-      lastCheckedAt: Date.now(),
-      installedAt: installState?.installedAt ?? Date.now(),
-      installDir: launchSpec.installDir ?? null,
-      error: null,
-    };
-    this.getAgentRepositoryOrThrow().setAgentInstallState(resolvedId, nextInstallState);
-    return launchSpec;
+    return state.agents ?? [];
   }
 
   async getAcpSharedMcpSelections(): Promise<string[]> {
-    return this.acpConfHelper.getSharedMcpSelections();
+    const result = await invokeDaemonRoute<{ selections: string[] }>(configGetAcpSharedMcpSelectionsRoute.name, {});
+    return result.selections ?? [];
   }
 
   async setAcpSharedMcpSelections(mcpIds: string[]): Promise<void> {
-    await this.acpConfHelper.setSharedMcpSelections(mcpIds);
+    await invokeDaemonRoute(configSetAcpSharedMcpSelectionsRoute.name, { selections: mcpIds });
     this.handleAcpAgentsMutated();
   }
 
   async listAgents(): Promise<Agent[]> {
-    // Argos agents (builtin + custom) are owned by the daemon; ACP agents remain
-    // in the desktop SQLite store. Merge both so the renderer sees every agent.
-    const localAcp = this.getAgentRepositoryOrThrow().listAgents({ agentType: "acp" });
-    let daemonArgos: Agent[] = [];
+    // All agents (Argos + ACP) are daemon-owned.
     try {
-      const result = await invokeDaemonRoute<{ agents: Agent[] }>(configListAgentsRoute.name, {
-        agentType: "argos",
-      });
-      daemonArgos = result.agents ?? [];
+      const result = await invokeDaemonRoute<{ agents: Agent[] }>(configListAgentsRoute.name, {});
+      return result.agents ?? [];
     } catch (error) {
-      log.warn("Failed to list Argos agents from daemon:", error);
+      log.warn("Failed to list agents from daemon:", error);
+      return [];
     }
-    return [...daemonArgos, ...localAcp];
   }
 
   async getAgent(agentId: string): Promise<Agent | null> {
-    const local = this.getAgentRepositoryOrThrow().getAgent(agentId);
-    if (local && local.type === "acp") {
-      return local;
-    }
     try {
       const result = await invokeDaemonRoute<{ agents: Agent[] }>(configListAgentsRoute.name, {
         ids: [agentId],
@@ -2662,25 +2319,13 @@ export class ConfigPresenter implements IConfigPresenter {
       return result.agents?.[0] ?? null;
     } catch (error) {
       log.warn("Failed to get agent from daemon:", error);
-      return local ?? null;
+      return null;
     }
   }
 
   async getAgentType(agentId: string): Promise<AgentType | null> {
-    const local = this.getAgentRepositoryOrThrow().getAgentType(agentId);
-    if (local === "acp") {
-      return "acp";
-    }
-    try {
-      const result = await invokeDaemonRoute<{ agents: Agent[] }>(configListAgentsRoute.name, {
-        ids: [agentId],
-      });
-      const agent = result.agents?.[0];
-      return agent ? (agent.type ?? null) : null;
-    } catch (error) {
-      log.warn("Failed to resolve agent type from daemon:", error);
-      return local ?? null;
-    }
+    const agent = await this.getAgent(agentId);
+    return agent?.type ?? null;
   }
 
   async getArgosAgentConfig(agentId: string): Promise<ArgosAgentConfig | null> {
@@ -2762,60 +2407,11 @@ export class ConfigPresenter implements IConfigPresenter {
     return result.removed;
   }
 
-  async getAgentMcpSelections(agentId: string, isBuiltin?: boolean): Promise<string[]> {
-    return await this.acpConfHelper.getAgentMcpSelections(agentId, isBuiltin);
-  }
-
-  async setAgentMcpSelections(agentId: string, isBuiltin: boolean, mcpIds: string[]): Promise<void> {
-    await this.acpConfHelper.setAgentMcpSelections(agentId, isBuiltin, mcpIds);
-    this.handleAcpAgentsMutated();
-  }
-
-  async addMcpToAgent(agentId: string, isBuiltin: boolean, mcpId: string): Promise<void> {
-    await this.acpConfHelper.addMcpToAgent(agentId, isBuiltin, mcpId);
-    this.handleAcpAgentsMutated();
-  }
-
-  async removeMcpFromAgent(agentId: string, isBuiltin: boolean, mcpId: string): Promise<void> {
-    await this.acpConfHelper.removeMcpFromAgent(agentId, isBuiltin, mcpId);
-    this.handleAcpAgentsMutated();
-  }
-
-  private buildRegistryAgentConfig(agent: AcpRegistryAgent): AcpAgentConfig {
-    const preview = this.acpLaunchSpecService.buildRegistryPreview(agent);
-    return {
-      id: agent.id,
-      name: agent.name,
-      command: preview.command,
-      args: preview.args,
-      description: agent.description,
-      icon: agent.icon,
-      source: "registry",
-      installState: agent.installState ?? null,
-    };
-  }
-
-  private buildManualAgentConfig(agent: AcpManualAgent): AcpAgentConfig {
-    return {
-      id: agent.id,
-      name: agent.name,
-      command: agent.command,
-      args: agent.args,
-      env: agent.env,
-      description: agent.description,
-      icon: agent.icon,
-      source: "manual",
-      installState: null,
-    };
-  }
-
-  private getRegistryAgentOrThrow(agentId: string): AcpRegistryAgent {
-    const resolvedId = resolveAcpAgentAlias(agentId);
-    const agent = this.acpRegistryService.getAgent(resolvedId);
-    if (!agent) {
-      throw new Error(`ACP registry agent not found: ${resolvedId}`);
-    }
-    return agent;
+  async getAgentMcpSelections(agentId: string): Promise<string[]> {
+    const result = await invokeDaemonRoute<{ selections: string[] }>(configGetAgentMcpSelectionsRoute.name, {
+      agentId,
+    });
+    return result.selections ?? [];
   }
 
   private handleAcpAgentsMutated(agentIds?: string[]) {
@@ -2999,9 +2595,7 @@ export class ConfigPresenter implements IConfigPresenter {
 
     // Load from store and cache it
     try {
-      const prompts = this.dbBackedSettingsStore
-        ? this.getSetting<Prompt[]>("customPrompts") || []
-        : this.customPromptsStore.get("prompts") || [];
+      const prompts = this.customPromptsStore.get("prompts") || [];
       this.customPromptsCache = prompts;
       log.info(`Custom prompts cache loaded: ${prompts.length} prompts`);
       return prompts;
@@ -3014,11 +2608,7 @@ export class ConfigPresenter implements IConfigPresenter {
 
   // Save custom prompts (with cache update)
   async setCustomPrompts(prompts: Prompt[]): Promise<void> {
-    if (this.dbBackedSettingsStore) {
-      this.setSetting("customPrompts", prompts);
-    } else {
-      await this.customPromptsStore.set("prompts", prompts);
-    }
+    await this.customPromptsStore.set("prompts", prompts);
     this.clearCustomPromptsCache();
     log.info(`Custom prompts cache updated: ${prompts.length} prompts`);
     // Notify all windows about custom prompts change
@@ -3075,154 +2665,47 @@ export class ConfigPresenter implements IConfigPresenter {
 
   // Get the default system prompt
   async getDefaultSystemPrompt(): Promise<string> {
-    if (this.dbBackedSettingsStore) {
-      const prompts = await this.getSystemPrompts();
-      const defaultPrompt = prompts.find((prompt) => prompt.isDefault);
-      return defaultPrompt?.content ?? this.getSetting<string>("default_system_prompt") ?? "";
-    }
     return this.systemPromptHelper.getDefaultSystemPrompt();
   }
 
   async setDefaultSystemPrompt(prompt: string): Promise<void> {
-    if (this.dbBackedSettingsStore) {
-      this.setSetting("default_system_prompt", prompt);
-      await this.publishSystemPromptState();
-      return;
-    }
     return this.systemPromptHelper.setDefaultSystemPrompt(prompt);
   }
 
   async resetToDefaultPrompt(): Promise<void> {
-    if (this.dbBackedSettingsStore) {
-      this.setSetting("default_system_prompt", DEFAULT_SYSTEM_PROMPT);
-      await this.publishSystemPromptState();
-      return;
-    }
     return this.systemPromptHelper.resetToDefaultPrompt();
   }
 
   async clearSystemPrompt(): Promise<void> {
-    if (this.dbBackedSettingsStore) {
-      this.setSetting("default_system_prompt", "");
-      await this.publishSystemPromptState();
-      return;
-    }
     return this.systemPromptHelper.clearSystemPrompt();
   }
 
   async getSystemPrompts(): Promise<SystemPrompt[]> {
-    if (this.dbBackedSettingsStore) {
-      return this.getSetting<SystemPrompt[]>("systemPrompts") || [];
-    }
     return this.systemPromptHelper.getSystemPrompts();
   }
 
   async setSystemPrompts(prompts: SystemPrompt[]): Promise<void> {
-    if (!this.dbBackedSettingsStore) {
-      return this.systemPromptHelper.setSystemPrompts(prompts);
-    }
-
-    this.setSetting("systemPrompts", prompts);
-    publishArgosEvent("config.systemPrompts.changed", {
-      prompts,
-      defaultPromptId: await this.getDefaultSystemPromptId(),
-      prompt: await this.getDefaultSystemPrompt(),
-      version: Date.now(),
-    });
+    return this.systemPromptHelper.setSystemPrompts(prompts);
   }
 
   async addSystemPrompt(prompt: SystemPrompt): Promise<void> {
-    if (this.dbBackedSettingsStore) {
-      const prompts = await this.getSystemPrompts();
-      await this.setSystemPrompts([...prompts, prompt]);
-      return;
-    }
     return this.systemPromptHelper.addSystemPrompt(prompt);
   }
 
   async updateSystemPrompt(promptId: string, updates: Partial<SystemPrompt>): Promise<void> {
-    if (this.dbBackedSettingsStore) {
-      const prompts = await this.getSystemPrompts();
-      const index = prompts.findIndex((prompt) => prompt.id === promptId);
-      if (index === -1) {
-        return;
-      }
-      const nextPrompts = [...prompts];
-      nextPrompts[index] = { ...nextPrompts[index], ...updates };
-      await this.setSystemPrompts(nextPrompts);
-      return;
-    }
     return this.systemPromptHelper.updateSystemPrompt(promptId, updates);
   }
 
   async deleteSystemPrompt(promptId: string): Promise<void> {
-    if (this.dbBackedSettingsStore) {
-      const prompts = await this.getSystemPrompts();
-      await this.setSystemPrompts(prompts.filter((prompt) => prompt.id !== promptId));
-      return;
-    }
     return this.systemPromptHelper.deleteSystemPrompt(promptId);
   }
 
   async setDefaultSystemPromptId(promptId: string): Promise<void> {
-    if (this.dbBackedSettingsStore) {
-      const prompts = await this.getSystemPrompts();
-      const updatedPrompts = prompts.map((prompt) => ({ ...prompt, isDefault: false }));
-
-      if (promptId === "empty") {
-        await this.setSystemPrompts(updatedPrompts);
-        await this.clearSystemPrompt();
-        eventBus.send(CONFIG_EVENTS.DEFAULT_SYSTEM_PROMPT_CHANGED, SendTarget.ALL_WINDOWS, {
-          promptId: "empty",
-          content: "",
-        });
-        await this.publishSystemPromptState();
-        return;
-      }
-
-      const targetIndex = updatedPrompts.findIndex((prompt) => prompt.id === promptId);
-      if (targetIndex !== -1) {
-        updatedPrompts[targetIndex].isDefault = true;
-        await this.setSystemPrompts(updatedPrompts);
-        await this.setDefaultSystemPrompt(updatedPrompts[targetIndex].content);
-        eventBus.send(CONFIG_EVENTS.DEFAULT_SYSTEM_PROMPT_CHANGED, SendTarget.ALL_WINDOWS, {
-          promptId,
-          content: updatedPrompts[targetIndex].content,
-        });
-        await this.publishSystemPromptState();
-      } else {
-        await this.setSystemPrompts(updatedPrompts);
-      }
-      return;
-    }
     return this.systemPromptHelper.setDefaultSystemPromptId(promptId);
   }
 
   async getDefaultSystemPromptId(): Promise<string> {
-    if (this.dbBackedSettingsStore) {
-      const prompts = await this.getSystemPrompts();
-      const defaultPrompt = prompts.find((prompt) => prompt.isDefault);
-      if (defaultPrompt) {
-        return defaultPrompt.id;
-      }
-
-      const storedPrompt = this.getSetting<string>("default_system_prompt");
-      if (!storedPrompt || storedPrompt.trim() === "") {
-        return "empty";
-      }
-
-      return prompts.find((prompt) => prompt.id === "default")?.id || "default";
-    }
     return this.systemPromptHelper.getDefaultSystemPromptId();
-  }
-
-  private async publishSystemPromptState(): Promise<void> {
-    publishArgosEvent("config.systemPrompts.changed", {
-      prompts: await this.getSystemPrompts(),
-      defaultPromptId: await this.getDefaultSystemPromptId(),
-      prompt: await this.getDefaultSystemPrompt(),
-      version: Date.now(),
-    });
   }
 
   // Get the update channel
@@ -3271,17 +2754,11 @@ export class ConfigPresenter implements IConfigPresenter {
 
   // Get knowledge base configuration
   getKnowledgeConfigs(): BuiltinKnowledgeConfig[] {
-    const configs = this.dbBackedSettingsStore
-      ? this.getSetting<BuiltinKnowledgeConfig[]>("knowledgeConfigs") || []
-      : this.knowledgeConfHelper.getKnowledgeConfigs();
+    const configs = this.knowledgeConfHelper.getKnowledgeConfigs();
     const migratedConfigs = this.mcpConfHelper.migrateBuiltinKnowledgeConfigsFromEnv(configs);
 
     if (migratedConfigs !== configs) {
-      if (this.dbBackedSettingsStore) {
-        this.setSetting("knowledgeConfigs", migratedConfigs);
-      } else {
-        this.knowledgeConfHelper.setKnowledgeConfigs(migratedConfigs);
-      }
+      this.knowledgeConfHelper.setKnowledgeConfigs(migratedConfigs);
     }
 
     return migratedConfigs;
@@ -3289,11 +2766,7 @@ export class ConfigPresenter implements IConfigPresenter {
 
   // Set knowledge base configuration
   setKnowledgeConfigs(configs: BuiltinKnowledgeConfig[]): void {
-    if (this.dbBackedSettingsStore) {
-      this.setSetting("knowledgeConfigs", configs);
-    } else {
-      this.knowledgeConfHelper.setKnowledgeConfigs(configs);
-    }
+    this.knowledgeConfHelper.setKnowledgeConfigs(configs);
     void Promise.all([this.getMcpServers(), this.getMcpEnabled()])
       .then(([mcpServers, mcpEnabled]) => {
         eventBus.send(MCP_EVENTS.CONFIG_CHANGED, SendTarget.ALL_WINDOWS, {

@@ -25,84 +25,40 @@ import type {
   SendMessageInput,
   UserMessageContent,
   AssistantMessageBlock,
-  LegacyImportStatus,
   PermissionMode,
   SessionCompactionState,
   SessionGenerationSettings,
   ArgosSubagentMeta,
   ToolInteractionResponse,
   ToolInteractionResult,
-  UsageDashboardData,
-  UsageDashboardBreakdownItem,
-  UsageStatsBackfillStatus,
   PendingSessionInputRecord,
 } from "@argos/shared/types/agent-interface";
-import type { ArgosTapeViewManifest, ArgosTapeViewManifestRecord } from "@argos/shared/types/tape-view-manifest";
-import { TAPE_VIEW_MANIFEST_EVENT_NAME } from "../agentRuntimePresenter/tapeViewManifest";
-import type { Message } from "@argos/shared/chat";
+import type { ArgosTapeViewManifestRecord } from "@argos/shared/types/tape-view-manifest";
 import type { SearchResult } from "@argos/shared/types/core/search";
 import type {
   AcpConfigState,
   IConfigPresenter,
   HistorySearchHit,
   HistorySearchOptions,
-  HistorySearchSessionHit,
-  HistorySearchMessageHit,
   ILlmProviderPresenter,
   ISkillPresenter,
-  CONVERSATION,
 } from "@argos/shared/presenter";
-import type { SQLitePresenter } from "../sqlitePresenter";
-import type { ArgosMessageRow } from "../sqlitePresenter/tables/argosMessages";
 import { AgentRegistry } from "@argos/backend-core";
 import { NewSessionManager } from "./sessionManager";
 import { NewMessageManager } from "./messageManager";
-import { LegacyChatImportService } from "./legacyImportService";
 import { eventBus, SendTarget } from "#/eventbus";
 import { SESSION_EVENTS } from "#/events";
 import { publishArgosEvent } from "#/routes/publishArgosEvent";
-import {
-  buildConversationExportContent,
-  generateExportFilename,
-  type ConversationExportFormat,
-} from "../exporter/formats/conversationExporter";
-import {
-  DASHBOARD_STATS_BACKFILL_KEY,
-  buildUsageDashboardCalendar,
-  buildUsageStatsRecord,
-  getModelLabel,
-  getProviderLabel,
-  isUsageBackfillRunningStale,
-  normalizeUsageStatsBackfillStatus,
-  parseMessageMetadata as parseUsageMetadata,
-  resolveUsageModelId,
-  resolveUsageProviderId,
-} from "../usageStats";
 import { resolveAcpAgentAlias } from "@argos/backend-core";
 import type {
   AcpDaemonPort,
+  ConversationExportFormat,
   DaemonSessionActionPort,
   DaemonSessionQueryPort,
   SessionPermissionPort,
   SessionUiPort,
 } from "../runtimePorts";
 import { hasAcpConfigStateData } from "@argos/acp-runtime";
-
-type SearchableSessionRow = {
-  id: string;
-  title: string;
-  projectDir: string | null;
-  updatedAt: number;
-};
-
-type SearchableMessageRow = {
-  id: string;
-  sessionId: string;
-  title: string;
-  role: "user" | "assistant";
-  content: string;
-  updatedAt: number;
-};
 
 type AgentTransferTargetContext = {
   agentId: string;
@@ -117,7 +73,6 @@ type AgentTransferTargetContext = {
 };
 
 const SUBAGENT_SESSION_INIT_MAX_ATTEMPTS = 2;
-const SQLITE_MAINLINE_NORMALIZATION_KEY = "sqlite-mainline-normalization-v1";
 
 const RETIRED_DEFAULT_AGENT_TOOLS = new Set(["find", "grep", "ls"]);
 const LEGACY_AGENT_TOOL_NAME_MAP: Record<string, string> = {
@@ -129,152 +84,24 @@ const LEGACY_AGENT_TOOL_NAME_MAP: Record<string, string> = {
 type LegacySessionRuntimePort = SessionUiPort &
   Pick<SessionPermissionPort, "clearSessionPermissions" | "approvePermission">;
 
-const clampHistorySearchLimit = (value: number | undefined): number => {
-  if (typeof value !== "number" || Number.isNaN(value)) {
-    return 12;
-  }
-
-  return Math.min(Math.max(Math.floor(value), 1), 50);
-};
-
-const normalizeSearchText = (value: string): string => value.trim().toLowerCase();
-const SESSION_SEARCH_OVERQUERY_FACTOR = 2;
-const MESSAGE_SEARCH_OVERQUERY_FACTOR = 4;
-
-const buildSearchSnippet = (content: string, query: string, maxLength: number = 120): string => {
-  const normalizedContent = content.trim();
-  if (!normalizedContent) {
-    return "";
-  }
-
-  const lowerContent = normalizedContent.toLowerCase();
-  const lowerQuery = query.toLowerCase();
-  const index = lowerContent.indexOf(lowerQuery);
-
-  if (index === -1) {
-    return normalizedContent.length > maxLength
-      ? normalizedContent.slice(0, maxLength).trimEnd() + "…"
-      : normalizedContent;
-  }
-
-  const start = Math.max(0, index - 48);
-  const end = Math.min(normalizedContent.length, index + query.length + 48);
-  let snippet = normalizedContent.slice(start, end).trim();
-
-  if (start > 0) {
-    snippet = "…" + snippet;
-  }
-  if (end < normalizedContent.length) {
-    snippet += "…";
-  }
-
-  return snippet;
-};
-
-const scoreSessionHit = (session: SearchableSessionRow, normalizedQuery: string): number => {
-  const title = session.title.toLowerCase();
-  if (title.startsWith(normalizedQuery)) {
-    return 400;
-  }
-  if (title.includes(normalizedQuery)) {
-    return 320;
-  }
-  return 0;
-};
-
-const scoreMessageHit = (message: SearchableMessageRow, normalizedQuery: string): number => {
-  const title = message.title.toLowerCase();
-  const content = message.content.toLowerCase();
-
-  if (title.startsWith(normalizedQuery)) {
-    return 280;
-  }
-  if (title.includes(normalizedQuery)) {
-    return 220;
-  }
-  if (content.startsWith(normalizedQuery)) {
-    return 180;
-  }
-  if (content.includes(normalizedQuery)) {
-    return 140;
-  }
-  return 0;
-};
-
-const extractSearchableMessageContent = (rawContent: string): string => {
-  try {
-    const parsed = JSON.parse(rawContent) as
-      | { text?: string; content?: Array<{ type?: string; text?: string }> }
-      | Array<{
-          type?: string;
-          content?: string;
-          text?: string;
-          error?: string;
-        }>;
-
-    if (Array.isArray(parsed)) {
-      const segments = parsed
-        .flatMap((block) => {
-          if (!block || typeof block !== "object") {
-            return [];
-          }
-
-          const values = [block.content, block.text, block.error];
-          return values.filter((value): value is string => typeof value === "string" && !!value.trim());
-        })
-        .map((value) => value.trim());
-
-      if (segments.length > 0) {
-        return segments.join("\n");
-      }
-    } else if (parsed && typeof parsed === "object") {
-      if (typeof parsed.text === "string" && parsed.text.trim()) {
-        return parsed.text.trim();
-      }
-
-      if (Array.isArray(parsed.content)) {
-        const segments = parsed.content
-          .filter(
-            (item): item is { type?: string; text?: string } =>
-              typeof item?.text === "string" && item.text.trim().length > 0,
-          )
-          .map((item) => item.text!.trim());
-
-        if (segments.length > 0) {
-          return segments.join("\n");
-        }
-      }
-    }
-  } catch {
-    // Plain-text messages are expected here; fall through and return the raw string content.
-  }
-
-  return rawContent;
-};
-
 export class AgentSessionPresenter {
   private agentRegistry: AgentRegistry;
   private sessionManager: NewSessionManager;
   private messageManager: NewMessageManager;
-  private sqlitePresenter: SQLitePresenter;
   private llmProviderPresenter: ILlmProviderPresenter;
   private configPresenter: IConfigPresenter;
-  private legacyImportService: LegacyChatImportService;
   private skillPresenter?: Pick<ISkillPresenter, "setActiveSkills" | "clearNewAgentSessionSkills">;
   private sessionPermissionPort?: SessionPermissionPort;
   private sessionUiPort?: SessionUiPort;
   private daemonSessionActionPort?: DaemonSessionActionPort;
   private daemonSessionQueryPort?: DaemonSessionQueryPort;
   private acpDaemonPort?: AcpDaemonPort;
-  private usageStatsBackfillPromise: Promise<void> | null = null;
-  private mainlineNormalizationPromise: Promise<void> | null = null;
   private readonly sessionStatusSnapshots = new Map<string, SessionWithState["status"]>();
 
   constructor(
     agentRuntimeAgent: IAgentImplementation,
     llmProviderPresenter: ILlmProviderPresenter,
     configPresenter: IConfigPresenter,
-    sqlitePresenter: SQLitePresenter,
     skillPresenter?: Pick<ISkillPresenter, "setActiveSkills" | "clearNewAgentSessionSkills">,
     sessionRuntimePort?: LegacySessionRuntimePort,
     runtimePorts?: {
@@ -285,14 +112,12 @@ export class AgentSessionPresenter {
       acpDaemonPort?: AcpDaemonPort;
     },
   ) {
-    this.sqlitePresenter = sqlitePresenter;
     this.llmProviderPresenter = llmProviderPresenter;
     this.configPresenter = configPresenter;
     this.skillPresenter = skillPresenter;
     this.agentRegistry = new AgentRegistry();
-    this.sessionManager = new NewSessionManager(sqlitePresenter);
+    this.sessionManager = new NewSessionManager();
     this.messageManager = new NewMessageManager(this.agentRegistry);
-    this.legacyImportService = new LegacyChatImportService(sqlitePresenter);
     this.sessionPermissionPort = runtimePorts?.sessionPermissionPort ?? sessionRuntimePort;
     this.sessionUiPort = runtimePorts?.sessionUiPort ?? sessionRuntimePort;
     this.daemonSessionActionPort = runtimePorts?.daemonSessionActionPort;
@@ -1116,162 +941,8 @@ export class AgentSessionPresenter {
       return await this.daemonSessionQueryPort.searchHistory(query, options);
     }
 
-    const normalizedQuery = normalizeSearchText(query);
-    if (!normalizedQuery) {
-      return [];
-    }
-
-    const limit = clampHistorySearchLimit(options?.limit);
-    const db = this.sqlitePresenter.getDatabase();
-    if (!db) {
-      return [];
-    }
-
-    const searchDocumentLimit = limit * MESSAGE_SEARCH_OVERQUERY_FACTOR;
-    const searchDocumentRows = this.sqlitePresenter.argosSearchDocumentsTable.searchFts(
-      normalizedQuery,
-      searchDocumentLimit,
-    );
-    const candidateSearchRows =
-      searchDocumentRows.length > 0
-        ? searchDocumentRows
-        : this.sqlitePresenter.argosSearchDocumentsTable.searchLike(normalizedQuery, searchDocumentLimit);
-
-    if (candidateSearchRows.length > 0) {
-      const hits = candidateSearchRows
-        .map((row) => {
-          if (row.document_kind === "session") {
-            const session = this.sessionManager.get(row.session_id);
-            if (!session) {
-              return null;
-            }
-
-            return {
-              kind: "session" as const,
-              sessionId: session.id,
-              title: row.title,
-              projectDir: session.projectDir,
-              updatedAt: row.updated_at,
-              rank: row.rank,
-            };
-          }
-
-          if (!row.message_id || (row.role !== "user" && row.role !== "assistant")) {
-            return null;
-          }
-
-          return {
-            kind: "message" as const,
-            sessionId: row.session_id,
-            messageId: row.message_id,
-            title: row.title,
-            role: row.role,
-            snippet: buildSearchSnippet(row.content, normalizedQuery),
-            updatedAt: row.updated_at,
-            rank: row.rank,
-          };
-        })
-        .filter((item): item is HistorySearchHit & { rank: number } => item !== null);
-
-      if (hits.length > 0) {
-        const deduped = new Map<string, HistorySearchHit & { rank: number }>();
-        for (const hit of hits) {
-          const key = hit.kind === "session" ? `session:${hit.sessionId}` : `message:${hit.messageId}`;
-          if (!deduped.has(key)) {
-            deduped.set(key, hit);
-          }
-        }
-
-        return Array.from(deduped.values())
-          .sort((left, right) => {
-            if (left.rank !== right.rank) {
-              return left.rank - right.rank;
-            }
-            return right.updatedAt - left.updatedAt;
-          })
-          .slice(0, limit)
-          .map(({ rank: _rank, ...item }) => item);
-      }
-    }
-
-    const likeQuery = `%${normalizedQuery}%`;
-
-    const sessionRows = db
-      .prepare(
-        `
-          SELECT
-            id,
-            title,
-            project_dir AS projectDir,
-            updated_at AS updatedAt
-          FROM new_sessions
-          WHERE session_kind = 'regular'
-            AND lower(title) LIKE ?
-          ORDER BY updated_at DESC
-          LIMIT ?
-        `,
-      )
-      // Pull a slightly larger working set so this method can score and trim cleaner matches.
-      .all(likeQuery, limit * SESSION_SEARCH_OVERQUERY_FACTOR) as SearchableSessionRow[];
-
-    const messageRows = db
-      .prepare(
-        `
-          SELECT
-            m.id AS id,
-            m.session_id AS sessionId,
-            s.title AS title,
-            m.role AS role,
-            m.content AS content,
-            m.updated_at AS updatedAt
-          FROM argos_messages m
-          INNER JOIN new_sessions s
-            ON s.id = m.session_id
-          WHERE s.session_kind = 'regular'
-            AND lower(m.content) LIKE ?
-          ORDER BY m.updated_at DESC
-          LIMIT ?
-        `,
-      )
-      // Message hits are noisier than title hits, so fetch more candidates before final sorting here.
-      .all(likeQuery, limit * MESSAGE_SEARCH_OVERQUERY_FACTOR) as SearchableMessageRow[];
-
-    const sessionHits: Array<HistorySearchSessionHit & { score: number }> = sessionRows
-      .map((session) => ({
-        kind: "session" as const,
-        sessionId: session.id,
-        title: session.title,
-        projectDir: session.projectDir,
-        updatedAt: Number(session.updatedAt ?? 0),
-        score: scoreSessionHit(session, normalizedQuery),
-      }))
-      .filter((item) => item.score > 0);
-
-    const messageHits: Array<HistorySearchMessageHit & { score: number }> = messageRows
-      .map((message) => {
-        const content = extractSearchableMessageContent(message.content);
-        return {
-          kind: "message" as const,
-          sessionId: message.sessionId,
-          messageId: message.id,
-          title: message.title,
-          role: message.role,
-          snippet: buildSearchSnippet(content, normalizedQuery),
-          updatedAt: Number(message.updatedAt ?? 0),
-          score: scoreMessageHit({ ...message, content }, normalizedQuery),
-        };
-      })
-      .filter((item) => item.score > 0);
-
-    return [...sessionHits, ...messageHits]
-      .sort((left, right) => {
-        if (right.score !== left.score) {
-          return right.score - left.score;
-        }
-        return right.updatedAt - left.updatedAt;
-      })
-      .slice(0, limit)
-      .map(({ score: _score, ...item }) => item);
+    // Search history is daemon-owned (sessions.searchHistory); there is no local store.
+    return [];
   }
 
   async getSessionCompactionState(sessionId: string): Promise<SessionCompactionState> {
@@ -1438,158 +1109,8 @@ export class AgentSessionPresenter {
       return await this.daemonSessionQueryPort.getSearchResults(messageId, searchId);
     }
 
-    const normalizedMessageId = messageId?.trim();
-    if (!normalizedMessageId) {
-      return [];
-    }
-    const parsed: SearchResult[] = [];
-    const rows = this.sqlitePresenter.argosMessageSearchResultsTable.listByMessageId(normalizedMessageId);
-    for (const row of rows) {
-      try {
-        const result = JSON.parse(row.content) as SearchResult;
-        parsed.push({
-          ...result,
-          rank: typeof result.rank === "number" ? result.rank : (row.rank ?? undefined),
-          searchId: result.searchId ?? row.search_id ?? undefined,
-        });
-      } catch (error) {
-        console.warn("[AgentSessionPresenter] Failed to parse search result row:", error);
-      }
-    }
-
-    if (searchId) {
-      const filtered = parsed.filter((item) => item.searchId === searchId);
-      if (filtered.length > 0) {
-        return filtered;
-      }
-      const legacy = parsed.filter((item) => !item.searchId);
-      if (legacy.length > 0) {
-        return legacy;
-      }
-    }
-
-    return parsed;
-  }
-
-  async getLegacyImportStatus(): Promise<LegacyImportStatus> {
-    return this.legacyImportService.getStatus();
-  }
-
-  async retryLegacyImport(): Promise<LegacyImportStatus> {
-    return await this.legacyImportService.retry();
-  }
-
-  async startLegacyImport(): Promise<void> {
-    this.legacyImportService.startInBackground(false);
-  }
-
-  async startUsageStatsBackfill(): Promise<void> {
-    const currentStatus = this.getUsageStatsBackfillStatus();
-    if (currentStatus.status === "completed") {
-      return;
-    }
-
-    if (currentStatus.status === "running" && !isUsageBackfillRunningStale(currentStatus)) {
-      return;
-    }
-
-    if (this.usageStatsBackfillPromise) {
-      return await this.usageStatsBackfillPromise;
-    }
-
-    this.usageStatsBackfillPromise = this.runUsageStatsBackfill().finally(() => {
-      this.usageStatsBackfillPromise = null;
-    });
-
-    return await this.usageStatsBackfillPromise;
-  }
-
-  async startMainlineNormalizationBackfill(): Promise<void> {
-    const current =
-      this.sqlitePresenter.configTables.getAgentSetting<{
-        status?: "running" | "completed" | "failed";
-        updatedAt?: number;
-      }>(SQLITE_MAINLINE_NORMALIZATION_KEY) ?? null;
-
-    if (current?.status === "completed") {
-      return;
-    }
-
-    if (this.mainlineNormalizationPromise) {
-      return await this.mainlineNormalizationPromise;
-    }
-
-    this.mainlineNormalizationPromise = this.runMainlineNormalizationBackfill().finally(() => {
-      this.mainlineNormalizationPromise = null;
-    });
-
-    return await this.mainlineNormalizationPromise;
-  }
-
-  async getUsageDashboard(): Promise<UsageDashboardData> {
-    const backfillStatus = this.getUsageStatsBackfillStatus();
-    const usageStatsTable = this.sqlitePresenter.argosUsageStatsTable;
-    const summaryRow = usageStatsTable.getSummary();
-    const mostActiveDay = usageStatsTable.getMostActiveDay();
-    const recordingStartedAt = usageStatsTable.getRecordingStartedAt();
-    const cacheHitRate = summaryRow.inputTokens > 0 ? summaryRow.cachedInputTokens / summaryRow.inputTokens : 0;
-
-    const dateFrom = new Date();
-    dateFrom.setHours(0, 0, 0, 0);
-    dateFrom.setDate(dateFrom.getDate() - 364);
-
-    const calendar = buildUsageDashboardCalendar(
-      usageStatsTable.getDailyCalendarRows(this.toLocalDateKey(dateFrom.getTime())),
-    );
-
-    const providerBreakdown = this.sortUsageBreakdown(
-      usageStatsTable.getProviderBreakdownRows().map((row) => ({
-        id: row.id,
-        label: getProviderLabel(this.configPresenter, row.id),
-        messageCount: row.messageCount,
-        inputTokens: row.inputTokens,
-        outputTokens: row.outputTokens,
-        totalTokens: row.totalTokens,
-        cachedInputTokens: row.cachedInputTokens,
-        estimatedCostUsd: row.estimatedCostUsd,
-      })),
-    );
-
-    const modelBreakdown = this.sortUsageBreakdown(
-      usageStatsTable.getModelBreakdownRows(10).map((row) => ({
-        id: row.id,
-        label: getModelLabel("", row.id),
-        messageCount: row.messageCount,
-        inputTokens: row.inputTokens,
-        outputTokens: row.outputTokens,
-        totalTokens: row.totalTokens,
-        cachedInputTokens: row.cachedInputTokens,
-        estimatedCostUsd: row.estimatedCostUsd,
-      })),
-    );
-
-    return {
-      recordingStartedAt,
-      backfillStatus,
-      summary: {
-        messageCount: summaryRow.messageCount,
-        sessionCount: summaryRow.sessionCount,
-        inputTokens: summaryRow.inputTokens,
-        outputTokens: summaryRow.outputTokens,
-        totalTokens: summaryRow.totalTokens,
-        cachedInputTokens: summaryRow.cachedInputTokens,
-        cacheHitRate,
-        estimatedCostUsd: summaryRow.estimatedCostUsd,
-        mostActiveDay,
-      },
-      calendar,
-      providerBreakdown,
-      modelBreakdown,
-    };
-  }
-
-  async repairImportedLegacySessionSkills(sessionId: string): Promise<string[]> {
-    return await this.legacyImportService.repairImportedLegacySessionSkills(sessionId);
+    // Search results are daemon-owned (sessions.getSearchResults); there is no local store.
+    return [];
   }
 
   async listMessageTraces(messageId: string): Promise<MessageTraceRecord[]> {
@@ -1597,20 +1118,7 @@ export class AgentSessionPresenter {
       return await this.daemonSessionQueryPort.listMessageTraces(messageId);
     }
 
-    if (!messageId?.trim()) return [];
-    return this.sqlitePresenter.argosMessageTracesTable.listByMessageId(messageId).map((row) => ({
-      id: row.id,
-      messageId: row.message_id,
-      sessionId: row.session_id,
-      providerId: row.provider_id,
-      modelId: row.model_id,
-      requestSeq: row.request_seq,
-      endpoint: row.endpoint,
-      headersJson: row.headers_json,
-      bodyJson: row.body_json,
-      truncated: row.truncated === 1,
-      createdAt: row.created_at,
-    }));
+    return [];
   }
 
   async getViewManifests(sessionId: string): Promise<ArgosTapeViewManifestRecord[]> {
@@ -1618,34 +1126,7 @@ export class AgentSessionPresenter {
       return await this.daemonSessionQueryPort.getViewManifests(sessionId);
     }
 
-    const table = this.sqlitePresenter.argosTapeEntriesTable;
-    if (!table) return [];
-    const rows = table.getBySession(sessionId);
-    const records: ArgosTapeViewManifestRecord[] = [];
-    for (const row of rows) {
-      if (row.kind !== "event" || row.name !== TAPE_VIEW_MANIFEST_EVENT_NAME) continue;
-      try {
-        const payload = JSON.parse(row.payload_json) as { data?: { manifest?: unknown } };
-        const manifest = payload.data?.manifest as Record<string, unknown> | undefined;
-        if (!manifest || typeof manifest !== "object" || Array.isArray(manifest)) continue;
-        if (typeof manifest.messageId !== "string" || typeof manifest.requestSeq !== "number") continue;
-        const meta = JSON.parse(row.meta_json) as Record<string, unknown>;
-        const m = manifest as unknown as ArgosTapeViewManifest;
-        records.push({
-          sessionId: row.session_id,
-          messageId: m.messageId,
-          requestSeq: m.requestSeq,
-          entryId: row.entry_id,
-          createdAt: row.created_at,
-          manifest: m,
-          integrity:
-            typeof meta.integrity === "string" ? (meta.integrity as "valid" | "invalid" | "unverified") : "unverified",
-        });
-      } catch {
-        continue;
-      }
-    }
-    return records;
+    return [];
   }
 
   async getViewLineage(sessionId: string): Promise<ArgosTapeViewManifestRecord[]> {
@@ -1653,16 +1134,13 @@ export class AgentSessionPresenter {
       return await this.daemonSessionQueryPort.getViewLineage(sessionId);
     }
 
-    const records = await this.getViewManifests(sessionId);
-    return records
-      .slice()
-      .sort((a, b) => (a.manifest.assembledAt ?? a.createdAt) - (b.manifest.assembledAt ?? b.createdAt));
+    return [];
   }
 
   async getMessageTraceCount(messageId: string): Promise<number> {
     const normalizedMessageId = messageId?.trim();
     if (!normalizedMessageId) return 0;
-    return this.sqlitePresenter.argosMessageTracesTable.countByMessageId(normalizedMessageId);
+    return 0;
   }
 
   async getMessageIds(sessionId: string): Promise<string[]> {
@@ -1821,27 +1299,8 @@ export class AgentSessionPresenter {
       return await this.daemonSessionActionPort.exportSession(sessionId, format);
     }
 
-    const session = this.sessionManager.get(sessionId);
-    if (!session) {
-      throw new Error(`Session not found: ${sessionId}`);
-    }
-
-    const agent = await this.resolveAgentImplementation(session.agentId);
-    const state = await agent.getSessionState(sessionId);
-    const generationSettings = agent.getGenerationSettings ? await agent.getGenerationSettings(sessionId) : null;
-    const providerId = state?.providerId?.trim() ?? "";
-    const modelId = state?.modelId?.trim() ?? "";
-
-    const conversation = await this.buildExportConversation(session, providerId, modelId, generationSettings);
-    const records = await agent.getMessages(sessionId);
-    const exportMessages = records
-      .filter((record) => record.status === "sent")
-      .sort((a, b) => a.orderSeq - b.orderSeq)
-      .map((record) => this.mapRecordToExportMessage(record, providerId, modelId));
-
-    const filename = generateExportFilename(format, conversation);
-    const content = buildConversationExportContent(conversation, exportMessages, format);
-    return { filename, content };
+    // Session export is daemon-owned (sessions.export); there is no local exporter.
+    throw new Error("Session export is only available when the daemon is connected.");
   }
 
   async deleteSession(sessionId: string): Promise<void> {
@@ -2263,11 +1722,6 @@ export class AgentSessionPresenter {
     this.assertAcpSessionHasWorkdir(providerId, normalizedProjectDir);
 
     this.sessionManager.update(sessionId, { projectDir: normalizedProjectDir });
-
-    // Sync environment for new project dir
-    if (normalizedProjectDir) {
-      this.sqlitePresenter.newEnvironmentsTable.syncPath(normalizedProjectDir);
-    }
 
     if (agent.setSessionProjectDir) {
       await agent.setSessionProjectDir(sessionId, normalizedProjectDir);
@@ -3011,498 +2465,6 @@ export class AgentSessionPresenter {
     }
 
     this.sessionManager.delete(sessionId);
-  }
-
-  private async buildExportConversation(
-    session: SessionRecord,
-    providerId: string,
-    modelId: string,
-    generationSettings: SessionGenerationSettings | null,
-  ): Promise<CONVERSATION> {
-    const isAcpAgent = (await this.getAgentType(session.agentId)) === "acp";
-    const resolvedProviderId = providerId || (isAcpAgent ? "acp" : "");
-    const resolvedModelId = modelId || (isAcpAgent ? session.agentId : "");
-    const modelConfig =
-      resolvedProviderId && resolvedModelId
-        ? this.configPresenter.getModelConfig(resolvedModelId, resolvedProviderId)
-        : undefined;
-
-    return {
-      id: session.id,
-      title: session.title,
-      settings: {
-        systemPrompt: generationSettings?.systemPrompt ?? "",
-        temperature: generationSettings?.temperature ?? modelConfig?.temperature ?? 0.7,
-        contextLength: generationSettings?.contextLength ?? modelConfig?.contextLength ?? 32000,
-        maxTokens: generationSettings?.maxTokens ?? modelConfig?.maxTokens ?? 8000,
-        providerId: resolvedProviderId,
-        modelId: resolvedModelId,
-        artifacts: 0,
-        thinkingBudget: generationSettings?.thinkingBudget,
-        reasoningEffort: generationSettings?.reasoningEffort,
-        verbosity: generationSettings?.verbosity,
-      },
-      createdAt: session.createdAt,
-      updatedAt: session.updatedAt,
-      is_pinned: session.isPinned ? 1 : 0,
-    };
-  }
-
-  private mapRecordToExportMessage(
-    record: ChatMessageRecord,
-    fallbackProviderId: string,
-    fallbackModelId: string,
-  ): Message {
-    const metadata = this.parseMessageMetadata(record.metadata);
-    const usage = {
-      context_usage: 0,
-      tokens_per_second: metadata.tokensPerSecond ?? 0,
-      total_tokens: metadata.totalTokens ?? 0,
-      generation_time: metadata.generationTime ?? 0,
-      first_token_time: metadata.firstTokenTime ?? 0,
-      reasoning_start_time: 0,
-      reasoning_end_time: 0,
-      input_tokens: metadata.inputTokens ?? 0,
-      output_tokens: metadata.outputTokens ?? 0,
-    };
-
-    const base: Omit<Message, "content" | "role"> = {
-      id: record.id,
-      timestamp: record.createdAt,
-      avatar: "",
-      name: record.role === "user" ? "You" : "Assistant",
-      model_name: metadata.model ?? fallbackModelId,
-      model_id: metadata.model ?? fallbackModelId,
-      model_provider: metadata.provider ?? fallbackProviderId,
-      status: record.status,
-      error: "",
-      usage,
-      conversationId: record.sessionId,
-      is_variant: 0,
-    };
-
-    if (record.role === "user") {
-      return {
-        ...base,
-        role: "user",
-        content: this.parseUserExportContent(record.content),
-      };
-    }
-
-    return {
-      ...base,
-      role: "assistant",
-      content: this.parseAssistantExportBlocks(record.content, record.createdAt),
-    };
-  }
-
-  private parseUserExportContent(content: string): Message["content"] {
-    const fallback = {
-      text: "",
-      files: [],
-      links: [],
-      search: false,
-      think: false,
-    };
-
-    try {
-      const parsed = JSON.parse(content) as UserMessageContent | Record<string, unknown> | string;
-      if (typeof parsed === "string") {
-        return { ...fallback, text: parsed };
-      }
-      if (!parsed || typeof parsed !== "object") {
-        return fallback;
-      }
-      const parsedRecord = parsed as Record<string, unknown>;
-
-      const files = Array.isArray(parsedRecord.files)
-        ? (parsedRecord.files as Array<Record<string, unknown>>).map((file) => ({
-            name: typeof file.name === "string" ? file.name : "",
-            content: "",
-            mimeType:
-              typeof file.mimeType === "string"
-                ? file.mimeType
-                : typeof file.type === "string"
-                  ? file.type
-                  : "application/octet-stream",
-            metadata: {
-              fileName: typeof file.name === "string" ? file.name : "",
-              fileSize: typeof file.size === "number" ? file.size : 0,
-              fileCreated: new Date(),
-              fileModified: new Date(),
-            },
-            token: 0,
-            path: typeof file.path === "string" ? file.path : "",
-          }))
-        : [];
-
-      const links = Array.isArray(parsedRecord.links)
-        ? (parsedRecord.links as unknown[]).filter((link): link is string => typeof link === "string")
-        : [];
-
-      return {
-        ...fallback,
-        text: typeof parsedRecord.text === "string" ? parsedRecord.text : "",
-        files,
-        links,
-        search: Boolean(parsedRecord.search),
-        think: Boolean(parsedRecord.think),
-      };
-    } catch {
-      return {
-        ...fallback,
-        text: content.trim(),
-      };
-    }
-  }
-
-  private parseAssistantExportBlocks(content: string, timestamp: number): Message["content"] {
-    try {
-      const parsed = JSON.parse(content) as AssistantMessageBlock[] | string;
-      if (typeof parsed === "string") {
-        return [
-          {
-            type: "content",
-            content: parsed,
-            status: "success",
-            timestamp,
-          },
-        ];
-      }
-      if (Array.isArray(parsed)) {
-        return parsed as unknown as Message["content"];
-      }
-      return [];
-    } catch {
-      if (!content.trim()) return [];
-      return [
-        {
-          type: "content",
-          content: content.trim(),
-          status: "success",
-          timestamp,
-        },
-      ];
-    }
-  }
-
-  private parseMessageMetadata(raw: string): {
-    totalTokens?: number;
-    inputTokens?: number;
-    outputTokens?: number;
-    cachedInputTokens?: number;
-    cacheWriteInputTokens?: number;
-    generationTime?: number;
-    firstTokenTime?: number;
-    tokensPerSecond?: number;
-    model?: string;
-    provider?: string;
-  } {
-    try {
-      const parsed = JSON.parse(raw) as Record<string, unknown>;
-      if (!parsed || typeof parsed !== "object") return {};
-      return {
-        totalTokens: typeof parsed.totalTokens === "number" ? parsed.totalTokens : undefined,
-        inputTokens: typeof parsed.inputTokens === "number" ? parsed.inputTokens : undefined,
-        outputTokens: typeof parsed.outputTokens === "number" ? parsed.outputTokens : undefined,
-        cachedInputTokens: typeof parsed.cachedInputTokens === "number" ? parsed.cachedInputTokens : undefined,
-        cacheWriteInputTokens:
-          typeof parsed.cacheWriteInputTokens === "number" ? parsed.cacheWriteInputTokens : undefined,
-        generationTime: typeof parsed.generationTime === "number" ? parsed.generationTime : undefined,
-        firstTokenTime: typeof parsed.firstTokenTime === "number" ? parsed.firstTokenTime : undefined,
-        tokensPerSecond: typeof parsed.tokensPerSecond === "number" ? parsed.tokensPerSecond : undefined,
-        model: typeof parsed.model === "string" ? parsed.model : undefined,
-        provider: typeof parsed.provider === "string" ? parsed.provider : undefined,
-      };
-    } catch {
-      return {};
-    }
-  }
-
-  private async runMainlineNormalizationBackfill(): Promise<void> {
-    const startedAt = Date.now();
-    this.sqlitePresenter.configTables.setAgentSetting(SQLITE_MAINLINE_NORMALIZATION_KEY, {
-      status: "running",
-      startedAt,
-      finishedAt: null,
-      updatedAt: startedAt,
-    });
-
-    try {
-      const db = this.sqlitePresenter.getDatabase();
-      const sessionRows = db.prepare("SELECT * FROM new_sessions ORDER BY updated_at ASC").all() as Array<{
-        id: string;
-        title: string;
-        updated_at: number;
-      }>;
-
-      let processedCount = 0;
-      for (const sessionRow of sessionRows) {
-        const activeSkills = this.sqlitePresenter.newSessionsTable.getActiveSkills(sessionRow.id);
-        const disabledAgentTools = this.sqlitePresenter.newSessionsTable.getDisabledAgentTools(sessionRow.id);
-        this.sqlitePresenter.newSessionActiveSkillsTable.replaceForSession(sessionRow.id, activeSkills);
-        this.sqlitePresenter.newSessionDisabledAgentToolsTable.replaceForSession(sessionRow.id, disabledAgentTools);
-        this.sqlitePresenter.argosSearchDocumentsTable.upsert({
-          documentKey: `session:${sessionRow.id}`,
-          sessionId: sessionRow.id,
-          documentKind: "session",
-          title: sessionRow.title,
-          content: "",
-          updatedAt: sessionRow.updated_at,
-        });
-
-        processedCount += 1;
-        if (processedCount % 200 === 0) {
-          await this.yieldToEventLoop();
-        }
-      }
-
-      const messageRows = db.prepare("SELECT * FROM argos_messages ORDER BY created_at ASC").all() as ArgosMessageRow[];
-
-      for (const row of messageRows) {
-        this.backfillNormalizedMessageRow(row);
-        processedCount += 1;
-        if (processedCount % 200 === 0) {
-          this.sqlitePresenter.configTables.setAgentSetting(SQLITE_MAINLINE_NORMALIZATION_KEY, {
-            status: "running",
-            startedAt,
-            finishedAt: null,
-            updatedAt: Date.now(),
-          });
-          await this.yieldToEventLoop();
-        }
-      }
-
-      this.sqlitePresenter.configTables.setAgentSetting(SQLITE_MAINLINE_NORMALIZATION_KEY, {
-        status: "completed",
-        startedAt,
-        finishedAt: Date.now(),
-        updatedAt: Date.now(),
-      });
-    } catch (error) {
-      this.sqlitePresenter.configTables.setAgentSetting(SQLITE_MAINLINE_NORMALIZATION_KEY, {
-        status: "failed",
-        startedAt,
-        finishedAt: Date.now(),
-        updatedAt: Date.now(),
-        error: error instanceof Error ? error.message : String(error),
-      });
-      throw error;
-    }
-  }
-
-  private backfillNormalizedMessageRow(row: ArgosMessageRow): void {
-    if (row.role === "user") {
-      const content = this.parseBackfillUserMessageContent(row.content);
-      if (content) {
-        this.sqlitePresenter.argosUserMessagesTable.upsert({
-          messageId: row.id,
-          text: content.text,
-          searchEnabled: content.search === true,
-          thinkEnabled: content.think === true,
-        });
-        this.sqlitePresenter.argosUserMessageFilesTable.replaceForMessage(
-          row.id,
-          content.files.map((file) => ({
-            name: file.name,
-            path: file.path,
-            mimeType: file.mimeType ?? file.type,
-            size: file.size,
-            metadataJson: JSON.stringify({
-              type: file.type,
-              content: file.content,
-              token: file.token,
-              thumbnail: file.thumbnail,
-              metadata: file.metadata,
-            }),
-          })),
-        );
-        this.sqlitePresenter.argosUserMessageLinksTable.replaceForMessage(row.id, content.links);
-      }
-    } else {
-      this.sqlitePresenter.argosAssistantBlocksTable.replaceForMessage(
-        row.id,
-        this.parseBackfillAssistantBlocks(row.content),
-      );
-    }
-
-    if (row.status === "sent" || row.status === "error") {
-      const title = this.sqlitePresenter.newSessionsTable.get(row.session_id)?.title ?? "";
-      this.sqlitePresenter.argosSearchDocumentsTable.upsert({
-        documentKey: `message:${row.id}`,
-        sessionId: row.session_id,
-        messageId: row.id,
-        documentKind: "message",
-        role: row.role,
-        title,
-        content: extractSearchableMessageContent(row.content),
-        updatedAt: row.updated_at,
-      });
-    }
-  }
-
-  private parseBackfillUserMessageContent(rawContent: string): UserMessageContent | null {
-    try {
-      const parsed = JSON.parse(rawContent) as Partial<UserMessageContent>;
-      if (!parsed || typeof parsed !== "object") {
-        return null;
-      }
-
-      return {
-        text: typeof parsed.text === "string" ? parsed.text : "",
-        files: Array.isArray(parsed.files) ? (parsed.files.filter(Boolean) as MessageFile[]) : [],
-        links: Array.isArray(parsed.links)
-          ? parsed.links.filter((item): item is string => typeof item === "string")
-          : [],
-        search: parsed.search === true,
-        think: parsed.think === true,
-      };
-    } catch {
-      return null;
-    }
-  }
-
-  private parseBackfillAssistantBlocks(rawContent: string): AssistantMessageBlock[] {
-    try {
-      const parsed = JSON.parse(rawContent) as AssistantMessageBlock[];
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  }
-
-  private async runUsageStatsBackfill(): Promise<void> {
-    const startedAt = Date.now();
-    this.setUsageStatsBackfillStatus({
-      status: "running",
-      startedAt,
-      finishedAt: null,
-      error: null,
-      updatedAt: startedAt,
-    });
-
-    try {
-      const usageStatsTable = this.sqlitePresenter.argosUsageStatsTable;
-      const candidates = this.sqlitePresenter.argosMessagesTable.listAssistantUsageCandidates();
-
-      let processedCount = 0;
-      for (const row of candidates) {
-        const metadata = parseUsageMetadata(row.metadata);
-        if (metadata.messageType === "compaction") {
-          continue;
-        }
-
-        const providerId = resolveUsageProviderId(metadata, row.provider_id);
-        const modelId = resolveUsageModelId(metadata, row.model_id);
-        if (!providerId || !modelId) {
-          continue;
-        }
-
-        const usageRecord = buildUsageStatsRecord({
-          messageId: row.id,
-          sessionId: row.session_id,
-          createdAt: row.created_at,
-          updatedAt: row.updated_at,
-          providerId,
-          modelId,
-          metadata: {
-            ...metadata,
-            cachedInputTokens: metadata.cachedInputTokens ?? 0,
-            cacheWriteInputTokens: metadata.cacheWriteInputTokens ?? 0,
-          },
-          source: "backfill",
-        });
-
-        if (!usageRecord) {
-          continue;
-        }
-
-        usageStatsTable.upsert(usageRecord);
-        processedCount += 1;
-
-        if (processedCount % 200 === 0) {
-          this.setUsageStatsBackfillStatus({
-            status: "running",
-            startedAt,
-            finishedAt: null,
-            error: null,
-            updatedAt: Date.now(),
-          });
-          await this.yieldToEventLoop();
-        }
-      }
-
-      this.setUsageStatsBackfillStatus({
-        status: "completed",
-        startedAt,
-        finishedAt: Date.now(),
-        error: null,
-        updatedAt: Date.now(),
-      });
-    } catch (error) {
-      this.setUsageStatsBackfillStatus({
-        status: "failed",
-        startedAt,
-        finishedAt: Date.now(),
-        error: error instanceof Error ? error.message : String(error),
-        updatedAt: Date.now(),
-      });
-      throw error;
-    }
-  }
-
-  private getUsageStatsBackfillStatus(): UsageStatsBackfillStatus {
-    const normalized = this.normalizeUsageStatsBackfillStatus(
-      this.configPresenter.getSetting<UsageStatsBackfillStatus>(DASHBOARD_STATS_BACKFILL_KEY),
-    );
-    if (normalized.status === "failed" && normalized.error === "Usage stats backfill timed out") {
-      this.configPresenter.setSetting(DASHBOARD_STATS_BACKFILL_KEY, normalized);
-    }
-    return normalized;
-  }
-
-  private setUsageStatsBackfillStatus(status: UsageStatsBackfillStatus): void {
-    this.configPresenter.setSetting(DASHBOARD_STATS_BACKFILL_KEY, status);
-  }
-
-  private normalizeUsageStatsBackfillStatus(status: unknown): UsageStatsBackfillStatus {
-    const normalized = normalizeUsageStatsBackfillStatus(status);
-    if (isUsageBackfillRunningStale(normalized)) {
-      return {
-        status: "failed",
-        startedAt: normalized.startedAt,
-        finishedAt: normalized.finishedAt,
-        error: normalized.error ?? "Usage stats backfill timed out",
-        updatedAt: Date.now(),
-      };
-    }
-    return normalized;
-  }
-
-  private sortUsageBreakdown(items: UsageDashboardBreakdownItem[]): UsageDashboardBreakdownItem[] {
-    return [...items].sort((left, right) => {
-      const leftCost = left.estimatedCostUsd ?? -1;
-      const rightCost = right.estimatedCostUsd ?? -1;
-      if (rightCost !== leftCost) {
-        return rightCost - leftCost;
-      }
-      if (right.totalTokens !== left.totalTokens) {
-        return right.totalTokens - left.totalTokens;
-      }
-      return left.label.localeCompare(right.label);
-    });
-  }
-
-  private toLocalDateKey(timestamp: number): string {
-    const date = new Date(timestamp);
-    const year = date.getFullYear();
-    const month = `${date.getMonth() + 1}`.padStart(2, "0");
-    const day = `${date.getDate()}`.padStart(2, "0");
-    return `${year}-${month}-${day}`;
-  }
-
-  private async yieldToEventLoop(): Promise<void> {
-    await new Promise<void>((resolve) => setTimeout(resolve, 0));
   }
 
   private buildTitleMessages(

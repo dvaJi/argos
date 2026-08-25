@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, memo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, memo } from "react";
 import { nanoid } from "nanoid";
 import * as yaml from "yaml";
 import { Icon } from "@iconify/react";
@@ -14,7 +14,7 @@ import { Switch } from "#shadcn/components/ui/switch";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "#shadcn/components/ui/sheet";
 import { useToast } from "#/components/use-toast";
 import { useSkillsStore, loadSkillRuntime, saveSkillWithExtension } from "#/stores/skillsStore";
-import { usePresenter } from "#api/presenterBridge";
+import { createSkillClient } from "#api/SkillClient";
 import type {
   SkillExtensionConfig,
   SkillMetadata,
@@ -59,7 +59,7 @@ function parseSkillContent(content: string | null): string {
 const SkillEditorForm = memo(function SkillEditorForm({ skill, onSaved, onClose }: SkillEditorFormProps) {
   const { toast } = useToast();
   const skillsStore = useSkillsStore();
-  const skillPresenter = usePresenter("skillPresenter", { safeCall: false });
+  const skillClient = useMemo(() => createSkillClient(), []);
 
   const [editName] = useState(skill.name);
   const [editDescription, setEditDescription] = useState(skill.description);
@@ -77,7 +77,7 @@ const SkillEditorForm = memo(function SkillEditorForm({ skill, onSaved, onClose 
     const rid = ++loadRequestId.current;
     const name = skill.name;
 
-    skillPresenter
+    skillClient
       .readSkillFile(name)
       .then((content: string) => {
         if (loadRequestId.current !== rid) return;

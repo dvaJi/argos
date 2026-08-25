@@ -3,7 +3,7 @@ import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Switch } from "#shadcn/components/ui/switch";
 import { useToast } from "#/components/use-toast";
-import { usePresenter } from "#api/presenterBridge";
+import { createProjectClient } from "#api/ProjectClient";
 import {
   useProjectStore,
   refreshEnvironmentData,
@@ -21,7 +21,7 @@ type EnvironmentListItem = EnvironmentSummary & {
 export default function EnvironmentsSettings() {
   const { toast } = useToast();
   const projectStore = useProjectStore();
-  const projectPresenter = usePresenter("projectPresenter", { safeCall: false });
+  const projectClient = useMemo(() => createProjectClient(), []);
 
   const [isLoading, setIsLoading] = useState(false);
   const [showMissing, setShowMissing] = useState(false);
@@ -51,12 +51,12 @@ export default function EnvironmentsSettings() {
       return;
     }
     try {
-      const exists = await projectPresenter.pathExists(defaultProjectPath);
+      const exists = await projectClient.pathExists(defaultProjectPath);
       setSyntheticDefaultExists(exists);
     } catch {
       setSyntheticDefaultExists(true);
     }
-  }, [defaultProjectPath, projectStore.environments, projectPresenter]);
+  }, [defaultProjectPath, projectStore.environments, projectClient]);
 
   const syntheticDefaultEnvironment = useMemo<EnvironmentListItem | null>(() => {
     if (!defaultProjectPath) return null;

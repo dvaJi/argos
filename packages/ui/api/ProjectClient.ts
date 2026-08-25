@@ -3,6 +3,7 @@ import {
   projectListEnvironmentsRoute,
   projectListRecentRoute,
   projectOpenDirectoryRoute,
+  projectPathExistsRoute,
   projectSelectDirectoryRoute,
 } from "@argos/shared-contracts/routes";
 import { getArgosBridge } from "./core";
@@ -27,11 +28,17 @@ export function createProjectClient(bridge: ArgosBridge = getArgosBridge()) {
     return result.path;
   }
 
+  async function pathExists(path: string) {
+    const result = await bridge.invoke(projectPathExistsRoute.name, { path });
+    return result.exists;
+  }
+
   return {
     listRecent,
     listEnvironments,
     openDirectory,
     selectDirectory,
+    pathExists,
   };
 }
 

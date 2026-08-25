@@ -36,6 +36,19 @@ async function waitForDaemonHandle(route: string, timeoutMs = 30000, intervalMs 
   while (Date.now() - start < timeoutMs) {
     const handle = getSidecarHandle();
     if (handle && handle.port > 0) {
+      // A reserved port does not mean the daemon is listening yet (it is set
+      // before spawn). Wait for actual HTTP readiness within the remaining
+      // budget so early startup calls do not fail with ECONNREFUSED.
+      const remainingBudgetMs = timeoutMs - (Date.now() - start);
+      try {
+        await handle.whenHealthy(remainingBudgetMs);
+      } catch (error) {
+        throw new DaemonRouteError({
+          code: "daemon_not_running",
+          route,
+          message: `Daemon is not ready: ${error instanceof Error ? error.message : String(error)}`,
+        });
+      }
       return handle;
     }
 

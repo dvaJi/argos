@@ -12,6 +12,7 @@ import {
 } from "@tanstack/react-router";
 import { getSettingsRouteItems } from "@argos/shared/settingsNavigation";
 import { preloadIcons } from "../src/lib/iconLoader";
+import { getRuntimePlatform } from "#api/runtime";
 import SettingsApp from "./App";
 
 import SettingsOverview from "./components/SettingsOverview";
@@ -35,7 +36,7 @@ import ShortcutSettings from "./components/ShortcutSettings";
 import AboutUsSettings from "./components/AboutUsSettings";
 import DaemonConnectionBanner from "../src/components/DaemonConnectionBanner";
 
-const settingsRouteItems = getSettingsRouteItems(window.electron?.process?.platform);
+const settingsRouteItems = getSettingsRouteItems(getRuntimePlatform());
 
 function RootErrorComponent({ error }: { error: Error }) {
   return (

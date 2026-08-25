@@ -7,7 +7,8 @@ import type {
 } from "@argos/shared/types/agent-interface";
 import type { SearchResult } from "@argos/shared/types/core/search";
 import type { ArgosTapeViewManifestRecord } from "@argos/shared/types/tape-view-manifest";
-import type { ConversationExportFormat } from "./exporter/formats/conversationExporter";
+
+export type ConversationExportFormat = "markdown" | "html" | "txt" | "nowledge-mem";
 
 type ModelIdentity = {
   id: string;

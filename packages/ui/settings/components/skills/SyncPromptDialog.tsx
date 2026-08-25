@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Icon } from "@iconify/react";
 import {
   Dialog,
@@ -10,7 +10,8 @@ import {
 } from "#shadcn/components/ui/dialog";
 import { Button } from "#shadcn/components/ui/button";
 import { Checkbox } from "#shadcn/components/ui/checkbox";
-import { usePresenter } from "#api/presenterBridge";
+import { createSkillSyncClient } from "#api/SkillSyncClient";
+import { onIpcChannel } from "#api/runtime";
 import type { NewDiscovery } from "@argos/shared/types/skillSync";
 import { SKILL_SYNC_EVENTS } from "#/events";
 
@@ -48,7 +49,7 @@ const toolIconBgs: Record<string, string> = {
 };
 
 export default function SyncPromptDialog({ onImport, onClose }: SyncPromptDialogProps) {
-  const skillSyncPresenter = usePresenter("skillSyncPresenter");
+  const skillSyncClient = useMemo(() => createSkillSyncClient(), []);
   const [isOpen, setIsOpen] = useState(false);
   const [discoveries, setDiscoveries] = useState<NewDiscovery[]>([]);
   const [selectedTools, setSelectedTools] = useState<Set<string>>(new Set());
@@ -65,14 +66,14 @@ export default function SyncPromptDialog({ onImport, onClose }: SyncPromptDialog
 
   const handleSkip = async () => {
     if (dontShowAgain) {
-      await skillSyncPresenter.acknowledgeDiscoveries();
+      await skillSyncClient.acknowledgeDiscoveries();
     }
     setIsOpen(false);
     onClose();
   };
 
   const handleImportAction = async () => {
-    await skillSyncPresenter.acknowledgeDiscoveries();
+    await skillSyncClient.acknowledgeDiscoveries();
     setIsOpen(false);
     onImport(Array.from(selectedTools));
   };
@@ -86,13 +87,7 @@ export default function SyncPromptDialog({ onImport, onClose }: SyncPromptDialog
       }
     };
 
-    const ipcRenderer = window.electron?.ipcRenderer;
-    if (!ipcRenderer) return;
-
-    ipcRenderer.on(SKILL_SYNC_EVENTS.NEW_DISCOVERIES, handler);
-    return () => {
-      ipcRenderer.removeListener?.(SKILL_SYNC_EVENTS.NEW_DISCOVERIES, handler);
-    };
+    return onIpcChannel(SKILL_SYNC_EVENTS.NEW_DISCOVERIES, handler);
   }, []);
 
   return (

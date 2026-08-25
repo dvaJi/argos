@@ -18,6 +18,8 @@ export interface DaemonAcpConfigDeps {
   /** Directory for ACP registry cache + installed binaries (the daemon data dir). */
   dataDir: string;
   isPrivacyModeEnabled?: () => boolean;
+  /** Returns whether the agent still has recorded ACP conversations (uninstall guard). */
+  hasAcpAgentSessions?: (agentId: string) => boolean;
 }
 
 /**
@@ -27,12 +29,17 @@ export interface DaemonAcpConfigDeps {
  * repository; the daemon does not need one for v1).
  */
 export class DaemonAcpConfig {
+  private readonly deps: DaemonAcpConfigDeps;
   private readonly acpConfHelper: AcpConfHelper;
   private readonly acpRegistryService: AcpRegistryService;
   private readonly acpLaunchSpecService: AcpLaunchSpecService;
   private readonly sanitizer = new SVGSanitizer();
+  private reconcileInFlight: Promise<void> | null = null;
+  /** Settles once the startup registry load + first agent reconciliation finished. */
+  readonly initialReconcile: Promise<void>;
 
   constructor(deps: DaemonAcpConfigDeps) {
+    this.deps = deps;
     this.acpConfHelper = new AcpConfHelper({ storeFactory: createJsonStoreFactory(deps.configDir) });
     this.acpRegistryService = new AcpRegistryService({
       userDataDir: () => deps.dataDir,
@@ -40,8 +47,9 @@ export class DaemonAcpConfig {
       isPrivacyModeEnabled: deps.isPrivacyModeEnabled,
     });
     this.acpLaunchSpecService = new AcpLaunchSpecService(path.join(deps.dataDir, "acp-registry"));
-    void this.acpRegistryService
+    this.initialReconcile = this.acpRegistryService
       .initialize()
+      .then(() => this.reconcileInstalledAgents())
       .catch((error) => logger.warn("[ACP] daemon registry initialize failed:", error));
   }
 
@@ -67,7 +75,95 @@ export class DaemonAcpConfig {
 
   async refreshAcpRegistry(force = true): Promise<AcpRegistryAgent[]> {
     await this.acpRegistryService.refresh(force);
+    await this.reconcileInstalledAgents();
     return this.listAcpRegistryAgents();
+  }
+
+  /**
+   * Brings enabled registry agents in line with the freshly loaded catalog.
+   *
+   * Runner agents (npx/uvx) have no local copy — their recorded version simply
+   * tracks the registry, otherwise a moving upstream keeps the "update
+   * available" toast alive forever. Binary agents install the new version into
+   * its own versioned directory; on failure the previous good state is kept so
+   * a transient download error cannot wedge the agent.
+   */
+  async reconcileInstalledAgents(): Promise<void> {
+    if (this.reconcileInFlight) {
+      return this.reconcileInFlight;
+    }
+
+    this.reconcileInFlight = this.runReconcile().finally(() => {
+      this.reconcileInFlight = null;
+    });
+    return this.reconcileInFlight;
+  }
+
+  private async runReconcile(): Promise<void> {
+    const enabledIds = new Set(
+      Object.entries(this.acpConfHelper.getRegistryStates())
+        .filter(([, state]) => state.enabled)
+        .map(([agentId]) => resolveAcpAgentAlias(agentId)),
+    );
+    if (enabledIds.size === 0) {
+      return;
+    }
+
+    for (const agent of this.acpRegistryService.listAgents()) {
+      if (!enabledIds.has(resolveAcpAgentAlias(agent.id))) {
+        continue;
+      }
+      await this.reconcileAgent(agent);
+    }
+  }
+
+  private async reconcileAgent(agent: AcpRegistryAgent): Promise<void> {
+    const resolvedId = resolveAcpAgentAlias(agent.id);
+    const selection = this.acpLaunchSpecService.selectRegistryDistribution(agent);
+    if (!selection) {
+      logger.debug(`[ACP Reconcile] ${resolvedId} has no compatible distribution; skipping`);
+      return;
+    }
+
+    if (selection.type !== "binary") {
+      // Runners resolve the latest package at launch time; only the recorded
+      // version needs to track the registry.
+      const current = this.acpConfHelper.getInstallState(resolvedId);
+      if (current?.status === "installed" && current.version === agent.version && !current.error) {
+        return;
+      }
+      logger.info(`[ACP Reconcile] ${resolvedId}: tracking registry v${agent.version} (${selection.type} runner)`);
+      this.acpConfHelper.setInstallState(resolvedId, {
+        status: "installed",
+        distributionType: selection.type,
+        version: agent.version,
+        lastCheckedAt: Date.now(),
+        installedAt: current?.installedAt ?? null,
+        installDir: null,
+        error: null,
+      });
+      return;
+    }
+
+    const current = this.acpConfHelper.getInstallState(resolvedId);
+    if (!current || current.status === "not_installed") {
+      // Never installed by the user; the explicit install flow owns first downloads.
+      return;
+    }
+    if (current.version === agent.version && current.status === "installed" && !current.error) {
+      return;
+    }
+
+    logger.info(`[ACP Reconcile] ${resolvedId}: updating binary v${current.version ?? "none"} → v${agent.version}`);
+    const installed = await this.acpLaunchSpecService.ensureRegistryAgentInstalled(agent, current);
+    if (installed.status === "installed") {
+      this.acpConfHelper.setInstallState(resolvedId, installed);
+      logger.info(`[ACP Reconcile] ${resolvedId}: now on v${agent.version}`);
+      return;
+    }
+
+    // Keep the previous good state visible and usable; the next launch retries.
+    logger.warn(`[ACP Reconcile] ${resolvedId}: update to v${agent.version} failed: ${installed.error}`);
   }
 
   async getAcpRegistryIconMarkup(agentId: string, iconUrl?: string): Promise<string | null> {
@@ -159,11 +255,26 @@ export class DaemonAcpConfig {
     );
 
     // npx/uvx runners resolve the latest package at launch time, so there is
-    // nothing to download. Report the current state as "up to date".
+    // nothing to download — but the recorded version must track the registry,
+    // otherwise the "update available" detection never clears.
     if (!selection || selection.type !== "binary") {
       logger.info(`[ACP Update] ${resolvedId} uses ${selection?.type ?? "unknown"} runner — no download needed`);
+      const current = this.acpConfHelper.getInstallState(resolvedId);
+      if (selection && (!current || current.version !== registryAgent.version || current.error)) {
+        const reconciled: AcpAgentInstallState = {
+          status: "installed",
+          distributionType: selection.type,
+          version: registryAgent.version,
+          lastCheckedAt: Date.now(),
+          installedAt: current?.installedAt ?? null,
+          installDir: null,
+          error: null,
+        };
+        this.acpConfHelper.setInstallState(resolvedId, reconciled);
+        return reconciled;
+      }
       return (
-        this.acpConfHelper.getInstallState(resolvedId) ?? {
+        current ?? {
           status: "installed",
           distributionType: selection?.type,
           version: registryAgent.version,
@@ -217,6 +328,9 @@ export class DaemonAcpConfig {
   async uninstallAcpRegistryAgent(agentId: string): Promise<void> {
     const resolvedId = resolveAcpAgentAlias(agentId);
     const registryAgent = this.getRegistryAgentOrThrow(resolvedId);
+    if (this.deps.hasAcpAgentSessions?.(resolvedId)) {
+      throw new Error("ACP registry agent still has related conversations. Move or delete them first.");
+    }
     const currentState = this.acpConfHelper.getInstallState(resolvedId);
     logger.info(
       `[ACP Update] Uninstall requested for ${resolvedId} (was v${currentState?.version ?? "unknown"}, dist ${currentState?.distributionType ?? "unknown"})`,

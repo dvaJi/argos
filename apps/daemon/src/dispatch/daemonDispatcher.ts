@@ -1,8 +1,9 @@
-import { arch, cpus, homedir, platform, release, totalmem } from "node:os";
-import { readdirSync, statSync, mkdirSync } from "node:fs";
-import { sep, dirname, resolve, isAbsolute, join, basename, extname } from "node:path";
+import { arch, cpus, homedir, platform, release, totalmem, tmpdir } from "node:os";
+import { readdirSync, statSync, mkdirSync, existsSync } from "node:fs";
+import { sep, dirname, resolve, isAbsolute, join, basename, extname, relative } from "node:path";
 import { randomUUID } from "node:crypto";
 import type { ArgosRouteName } from "@argos/shared-contracts/routes";
+import { isDesktopOnlyRoute as isDesktopOnlyRouteShared } from "@argos/shared-contracts/desktop-only";
 import { sessionsStatusChangedEvent } from "@argos/shared-contracts";
 import type { ProviderAggregate } from "@argos/shared/types/model-db";
 import { dispatchConfigRoute } from "@argos/backend-core/dispatch/config/configRouteHandler";
@@ -77,6 +78,8 @@ import {
   providersAddRoute,
   providersRemoveRoute,
   providersReorderRoute,
+  providersReplaceAllRoute,
+  providersSetModelsRoute,
   providersWarmupAcpProcessRoute,
   providersRunAcpDebugActionRoute,
   providersGetAcpAgentDiagnosticsRoute,
@@ -100,6 +103,7 @@ import {
   modelsGetCapabilitiesRoute,
   modelsSetStatusRoute,
   modelsSetBatchStatusRoute,
+  modelsStatusSnapshotRoute,
   toolsListDefinitionsRoute,
   workspaceBrowseDirectoryRoute,
   workspaceRegisterRoute,
@@ -189,6 +193,8 @@ import {
   mcpGetClientsRoute,
   mcpGetEnabledRoute,
   mcpGetServersRoute,
+  mcpConfigSnapshotRoute,
+  mcpApplyConfigPatchRoute,
   mcpAddServerRoute,
   mcpUpdateServerRoute,
   mcpRemoveServerRoute,
@@ -376,6 +382,8 @@ type DaemonMcpConfigPort = {
   clearNpmRegistryCache(): void;
   listMcpRouterServers(page: number, limit: number): Promise<unknown>;
   installMcpRouterServer(serverKey: string): Promise<unknown>;
+  getMcpConfigSnapshot(): Record<string, unknown>;
+  applyMcpConfigPatch(patch: Record<string, unknown>): Record<string, unknown>;
 };
 
 type DaemonProviderConfigPort = {
@@ -400,6 +408,8 @@ type DaemonProviderConfigPort = {
   removeCustomModel(providerId: string, modelId: string): void;
   updateCustomModel(providerId: string, modelId: string, updates: unknown): void;
   setModelStatus(providerId: string, modelId: string, enabled: boolean): void;
+  getAllModelStatuses(): Array<{ providerId: string; modelId: string; enabled: boolean }>;
+  removeModelStatusesForProvider(providerId: string): void;
   getModelStatusMap(providerId?: string): Record<string, boolean>;
   getDaemonProviderDb(): { catalog: unknown; sourceUrl: string; lastUpdated: number | null };
   refreshDaemonProviderDb(force: boolean): Promise<{
@@ -435,6 +445,7 @@ type DaemonSessionRepositoryPort = BaseSessionRepository & {
   }>;
   getMany(ids: string[]): Promise<SessionWithState[]>;
   listRecentProjectDirs(limit?: number): Promise<Array<{ path: string; lastAccessedAt: number }>>;
+  listEnvironmentDirs(): Promise<Array<{ path: string; sessionCount: number; lastUsedAt: number }>>;
   listMessagesPage(
     sessionId: string,
     options?: {
@@ -517,25 +528,10 @@ function parseSettingsJsonObject(value: string): Record<string, string | number 
 }
 
 function isDesktopOnlyRoute(route: string): boolean {
-  const desktopOnly = [
-    "window.",
-    "browser.",
-    "tab.",
-    "dialog.",
-    "upgrade.",
-    "system.openSettings",
-    "device.selectDirectory",
-    "device.restartApp",
-    "project.openDirectory",
-    "project.selectDirectory",
-    "file.saveImage",
-    "file.copyImage",
-    "workspace.revealFileInFolder",
-    "workspace.openFile",
-    "skills.openFolder",
-    "sync.openFolder",
-  ];
-  return desktopOnly.some((prefix) => route.startsWith(prefix) || route === prefix);
+  // Single source of truth lives in @argos/shared-contracts/desktop-only
+  // (consumed by the Electron HybridBridge, the browser capability gate, and
+  // this dispatcher). Keep no local copy here.
+  return isDesktopOnlyRouteShared(route);
 }
 
 /**
@@ -616,6 +612,46 @@ async function dispatchRemoteRoute(
 
 function normalizeSearchText(value: string): string {
   return value.trim().toLowerCase();
+}
+
+/**
+ * Mirrors the desktop ProjectPresenter temp-path heuristic for the daemon:
+ * a path counts as "temporary" when it lives under the OS temp dir or under an
+ * app-managed `workspaces` container (e.g. `~/.config/.../workspaces/...`).
+ */
+function isDaemonTempPath(projectPath: string): boolean {
+  const normalized = projectPath?.trim();
+  if (!normalized) {
+    return false;
+  }
+
+  const resolvedPath = resolve(normalized);
+  const tempRoot = resolve(tmpdir());
+  const appDataRoot = resolve(
+    platform() === "win32"
+      ? join(homedir(), "AppData")
+      : platform() === "darwin"
+        ? join(homedir(), "Library", "Application Support")
+        : join(homedir(), ".config"),
+  );
+  const userDataWorkspacesRoot = join(appDataRoot, "workspaces");
+
+  const isWithinRoot = (targetPath: string, rootPath: string): boolean => {
+    const relativePath = relative(rootPath, targetPath);
+    return relativePath === "" || (!relativePath.startsWith("..") && !isAbsolute(relativePath));
+  };
+
+  if (isWithinRoot(resolvedPath, tempRoot) || isWithinRoot(resolvedPath, userDataWorkspacesRoot)) {
+    return true;
+  }
+
+  const workspaceMarker = `${sep}workspaces`;
+  const markerIndex = resolvedPath.indexOf(workspaceMarker);
+  if (markerIndex < 0) {
+    return false;
+  }
+  const appContainerPath = resolvedPath.slice(0, markerIndex);
+  return appContainerPath ? isWithinRoot(appContainerPath, appDataRoot) : false;
 }
 
 const MIME_BY_EXTENSION: Record<string, string> = {
@@ -976,6 +1012,18 @@ export function createDaemonDispatcher(
     if (route === mcpGetServersRoute.name) {
       mcpGetServersRoute.input.parse(rawInput);
       return mcpGetServersRoute.output.parse({ servers: await configPresenter.getMcpServers() });
+    }
+
+    if (route === mcpConfigSnapshotRoute.name) {
+      mcpConfigSnapshotRoute.input.parse(rawInput);
+      return mcpConfigSnapshotRoute.output.parse({ snapshot: daemonConfig.getMcpConfigSnapshot() });
+    }
+
+    if (route === mcpApplyConfigPatchRoute.name) {
+      const input = mcpApplyConfigPatchRoute.input.parse(rawInput);
+      return mcpApplyConfigPatchRoute.output.parse({
+        snapshot: daemonConfig.applyMcpConfigPatch(input.patch),
+      });
     }
 
     if (route === mcpGetEnabledRoute.name) {
@@ -1834,7 +1882,17 @@ export function createDaemonDispatcher(
 
     if (route === projectListEnvironmentsRoute.name) {
       projectListEnvironmentsRoute.input.parse(rawInput);
-      return projectListEnvironmentsRoute.output.parse({ environments: [] });
+      const rows = await sessionRepository.listEnvironmentDirs();
+      return projectListEnvironmentsRoute.output.parse({
+        environments: rows.map((r) => ({
+          path: r.path,
+          name: r.path.split(/[/\\]/).pop() || r.path,
+          sessionCount: r.sessionCount,
+          lastUsedAt: r.lastUsedAt,
+          isTemp: isDaemonTempPath(r.path),
+          exists: existsSync(r.path),
+        })),
+      });
     }
 
     if (route === fileIsDirectoryRoute.name) {
@@ -2194,6 +2252,21 @@ export function createDaemonDispatcher(
       });
     }
 
+    if (route === providersReplaceAllRoute.name) {
+      const input = providersReplaceAllRoute.input.parse(rawInput);
+      daemonConfig.setProviders(input.providers);
+      return providersReplaceAllRoute.output.parse({
+        providers: configPresenter.getProviders(),
+      });
+    }
+
+    if (route === providersSetModelsRoute.name) {
+      const input = providersSetModelsRoute.input.parse(rawInput);
+      daemonConfig.setProviderModels(input.providerId, input.models as never);
+      daemonConfig.setCustomModels(input.providerId, input.customModels as never);
+      return providersSetModelsRoute.output.parse({ ok: true });
+    }
+
     if (route === providersTestConnectionRoute.name) {
       const input = providersTestConnectionRoute.input.parse(rawInput);
       const result = await runtime.providerExecutionPort.testConnection(input.providerId, input.modelId);
@@ -2454,6 +2527,13 @@ export function createDaemonDispatcher(
         daemonConfig.setModelStatus(input.providerId, update.modelId, update.enabled);
       }
       return modelsSetBatchStatusRoute.output.parse({ results: input.updates });
+    }
+
+    if (route === modelsStatusSnapshotRoute.name) {
+      modelsStatusSnapshotRoute.input.parse(rawInput);
+      return modelsStatusSnapshotRoute.output.parse({
+        entries: daemonConfig.getAllModelStatuses(),
+      });
     }
 
     if (route === modelsGetCapabilitiesRoute.name) {

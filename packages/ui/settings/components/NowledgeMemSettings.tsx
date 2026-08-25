@@ -1,13 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
 import { Label } from "#shadcn/components/ui/label";
 import { useToast } from "#/components/use-toast";
-import { usePresenter } from "#api/presenterBridge";
+import { createNowledgeMemClient } from "#api/NowledgeMemClient";
 
 export default function NowledgeMemSettings() {
-  const exporterPresenter = usePresenter("exporter");
+  const nowledgeMemClient = useMemo(() => createNowledgeMemClient(), []);
   const { toast } = useToast();
 
   const [testingConnection, setTestingConnection] = useState(false);
@@ -38,7 +38,7 @@ export default function NowledgeMemSettings() {
 
   const loadConfiguration = async () => {
     try {
-      const savedConfig = exporterPresenter.getNowledgeMemConfig();
+      const savedConfig = await nowledgeMemClient.getConfig();
       if (savedConfig) {
         setConfig((prev) => ({
           ...prev,
@@ -58,10 +58,11 @@ export default function NowledgeMemSettings() {
   const testConnection = async () => {
     setTestingConnection(true);
     try {
-      const result = await exporterPresenter.testNowledgeMemConnection();
+      const result = await nowledgeMemClient.testConnection();
       toast({
         title: "Test Connection",
-        description: result.message || "Connection successful",
+        description: result.error || (result.success ? "Connection successful" : "Connection test failed"),
+        variant: result.success ? undefined : "destructive",
       });
     } catch (error) {
       toast({
@@ -77,7 +78,7 @@ export default function NowledgeMemSettings() {
   const saveConfiguration = async () => {
     setSavingConfig(true);
     try {
-      await exporterPresenter.updateNowledgeMemConfig({
+      await nowledgeMemClient.updateConfig({
         baseUrl: config.baseUrl,
         apiKey: config.apiKey,
         timeout: config.timeout,
@@ -96,7 +97,7 @@ export default function NowledgeMemSettings() {
         apiKey: "",
         timeout: 30000,
       };
-      await exporterPresenter.updateNowledgeMemConfig(defaultConfig);
+      await nowledgeMemClient.updateConfig(defaultConfig);
       setConfig(defaultConfig);
     } catch (error) {
       console.error("Failed to reset nowledge-mem config:", error);
