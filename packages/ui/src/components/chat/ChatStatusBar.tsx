@@ -293,6 +293,11 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
       return selectedAgentType === "acp";
     }, [hasActiveSession, activeSession?.providerId, selectedAgentType]);
 
+    // When the composer footer bar owns the ACP chips (active session on the
+    // chat page), the status bar neither renders them nor runs its own
+    // config-option sync — the footer's AcpComposerControls does both.
+    const footerOwnsAcpControls = composerFooterActive && hasActiveSession && isAcpAgent;
+
     const activeAcpAgentId = useMemo(() => {
       if (hasActiveSession && activeSession?.providerId === "acp") return activeSession?.modelId || null;
       const selectedId = agentStore.selectedAgentId;
@@ -566,7 +571,7 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
       onAcpSelectOption,
       onAcpBooleanOption,
     } = useChatStatusBarAcpConfig({
-      isAcpAgent,
+      isAcpAgent: isAcpAgent && !footerOwnsAcpControls,
       activeAcpAgentId,
       activeAcpSessionId: activeAcpSessionId ?? null,
       acpWorkspacePath,
@@ -1330,7 +1335,7 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
       <div className={`w-full ${maxWidthClass}`}>
         <div className="flex w-full items-center justify-between px-1 py-2">
           <div className="flex min-w-0 items-center gap-1">
-            {isAcpAgent ? (
+            {footerOwnsAcpControls ? null : isAcpAgent ? (
               <>
                 <div className="acp-agent-badge flex h-6 min-w-0 items-center gap-1 rounded-full px-2 text-xs text-muted-foreground backdrop-blur-lg">
                   {acpAgentForAvatar ? (
@@ -2127,7 +2132,7 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
           </div>
 
           <div className="flex items-center gap-1">
-            {isAcpAgent && acpOverflowOptions.length > 0 && (
+            {isAcpAgent && !footerOwnsAcpControls && acpOverflowOptions.length > 0 && (
               <AcpAdvancedSettings
                 options={acpOverflowOptions}
                 readOnly={acpConfigReadOnly}
