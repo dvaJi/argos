@@ -142,8 +142,16 @@ const ComposerModelPicker = () => {
             variant="ghost"
             size="sm"
             data-testid="composer-model-picker"
-            className="h-7 max-w-[180px] gap-1.5 rounded-full px-2.5 text-xs text-muted-foreground hover:text-foreground"
+            className={
+              isLocked
+                ? // Active ACP session: the agent can't be switched here, so show
+                  // a compact avatar-only chip (name lives in its tooltip).
+                  "h-7 w-7 p-0 rounded-full text-muted-foreground hover:text-foreground"
+                : "h-7 max-w-[180px] gap-1.5 rounded-full px-2.5 text-xs text-muted-foreground hover:text-foreground"
+            }
             disabled={isLocked}
+            title={isLocked ? displayText : undefined}
+            aria-label={isLocked ? displayText : undefined}
           />
         }
       >
@@ -164,8 +172,12 @@ const ComposerModelPicker = () => {
         ) : (
           <ModelIcon modelId={displayIconId} customClass="h-3.5 w-3.5 shrink-0" isDark={themeStore.isDark} />
         )}
-        <span className="truncate font-medium">{displayText}</span>
-        <Icon icon="lucide:chevron-down" className="h-3 w-3 shrink-0 opacity-60" />
+        {!isLocked && (
+          <>
+            <span className="truncate font-medium">{displayText}</span>
+            <Icon icon="lucide:chevron-down" className="h-3 w-3 shrink-0 opacity-60" />
+          </>
+        )}
       </PopoverTrigger>
       <PopoverContent className="w-[360px] p-0" align="start" sideOffset={8}>
         <div className="flex flex-col max-h-[420px]">

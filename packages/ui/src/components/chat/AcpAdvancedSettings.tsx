@@ -60,6 +60,11 @@ export default function AcpAdvancedSettings({
   const [open, setOpen] = useState(false);
   const [openSelectId, setOpenSelectId] = useState<string | null>(null);
 
+  // Label the chip with the reasoning-like option's current value when present
+  // (mirrors the argos effort picker), otherwise fall back to "Advanced".
+  const reasoningLike = options.find((option) => /reason|effort/i.test(option.id));
+  const triggerLabel = (reasoningLike ? getOptionDisplayValue(reasoningLike).trim() : "") || "Advanced";
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
@@ -67,13 +72,15 @@ export default function AcpAdvancedSettings({
           <Button
             variant="ghost"
             size="sm"
-            className="acp-overflow-button h-6 w-6 px-0 text-xs text-muted-foreground hover:text-foreground backdrop-blur-lg"
+            data-testid="acp-advanced-picker"
+            className="acp-overflow-button h-7 gap-1 rounded-full px-2.5 text-xs text-muted-foreground hover:text-foreground backdrop-blur-lg"
             title="Advanced settings"
             aria-label="Advanced settings"
           />
         }
       >
-        <Icon icon="lucide:settings-2" className="h-3.5 w-3.5" />
+        <span className="truncate font-medium">{triggerLabel}</span>
+        <Icon icon="lucide:chevron-down" className="h-3 w-3 shrink-0 opacity-50" />
       </PopoverTrigger>
       <PopoverContent align="end" sideOffset={6} className="w-[19rem] overflow-hidden border border-border p-0">
         <div className="border-b border-border px-3 py-3">
