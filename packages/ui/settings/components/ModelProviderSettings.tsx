@@ -156,7 +156,7 @@ export default function ModelProviderSettings({ providerId: routeProviderId }: M
         windowClient,
       });
     },
-    [router, routeProviderId, windowClient],
+    [router, routeProviderId],
   );
 
   useEffect(() => {

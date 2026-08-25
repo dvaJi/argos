@@ -60,7 +60,7 @@ export default function RemoteSettings() {
     return () => {
       cancelled = true;
     };
-  }, [remoteControlPresenter, configClient]);
+  }, [remoteControlPresenter]);
 
   const saveTelegram = async (next: TelegramRemoteSettings) => {
     setSaving(true);

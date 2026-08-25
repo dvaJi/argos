@@ -436,7 +436,7 @@ export default function ArgosAgentsSettings() {
     } finally {
       setTransferDialogLoading(false);
     }
-  }, [selectedAgent, form.name, sessionClient, configClient]);
+  }, [selectedAgent, form.name]);
 
   const finishDeleteAgent = useCallback(
     async (agentId: string) => {
@@ -450,7 +450,7 @@ export default function ArgosAgentsSettings() {
       setPendingDeleteAgent(null);
       toast({ title: "Agent deleted" });
     },
-    [configClient, selectedAgentId, loadAgents, toast],
+    [selectedAgentId, loadAgents, toast],
   );
 
   const handleDeleteAgentWithMove = useCallback(
@@ -469,7 +469,7 @@ export default function ArgosAgentsSettings() {
         setTransferDialogBusy(false);
       }
     },
-    [pendingDeleteAgent, sessionClient, finishDeleteAgent],
+    [pendingDeleteAgent, finishDeleteAgent],
   );
 
   const handleDeleteAgentWithSessions = useCallback(async () => {
@@ -486,7 +486,7 @@ export default function ArgosAgentsSettings() {
       setDeleting(false);
       setTransferDialogBusy(false);
     }
-  }, [pendingDeleteAgent, sessionClient, finishDeleteAgent]);
+  }, [pendingDeleteAgent, finishDeleteAgent]);
 
   const handleToggleEnabled = async (agentId: string, enabled: boolean) => {
     console.log("[AgentsSettings] toggleEnabled start", { agentId, enabled });
@@ -871,7 +871,7 @@ export default function ArgosAgentsSettings() {
         toast({ title: "Save failed", description: String(error), variant: "destructive" });
       })
       .finally(() => setSaving(false));
-  }, [configClient, form, loadAgents, selectedAgent, toast]);
+  }, [form, loadAgents, selectedAgent, toast]);
 
   const modelFieldConfigs: Array<{
     key: "defaultModel" | "assistantModel" | "visionModel" | "imageGenerationModel";

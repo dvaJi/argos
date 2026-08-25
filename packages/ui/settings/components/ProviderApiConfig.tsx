@@ -160,7 +160,7 @@ export default function ProviderApiConfig({
         setKeyStatus(null);
       }
     }
-  }, [provider.id, provider.apiKey, providerClient]);
+  }, [provider.id, provider.apiKey]);
 
   const refreshModels = async () => {
     if (isRefreshing) return;

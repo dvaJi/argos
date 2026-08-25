@@ -57,7 +57,7 @@ export default function EnvironmentsSettings() {
     } catch {
       setSyntheticDefaultExists(true);
     }
-  }, [defaultProjectPath, projectStore.environments, projectClient]);
+  }, [defaultProjectPath, projectStore.environments]);
 
   const syntheticDefaultEnvironment = useMemo<EnvironmentListItem | null>(() => {
     if (!defaultProjectPath) return null;

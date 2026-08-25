@@ -348,7 +348,7 @@ export default function DataSettings() {
     } finally {
       setIsUpdatingModelConfig(false);
     }
-  }, [isUpdatingModelConfig, providerClient, toast]);
+  }, [isUpdatingModelConfig, toast]);
 
   const handleReset = useCallback(async () => {
     if (isResetActionDisabled) return;
@@ -362,7 +362,7 @@ export default function DataSettings() {
     } finally {
       setIsResetting(false);
     }
-  }, [isResetActionDisabled, resetType, deviceClient]);
+  }, [isResetActionDisabled, resetType]);
 
   const handleClearSandboxData = useCallback(async () => {
     if (isClearingSandbox) return;

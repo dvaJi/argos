@@ -86,7 +86,7 @@ export default function McpSettings() {
         windowClient,
       });
     },
-    [router, routerState.location.pathname, routerState.location.search, windowClient],
+    [router, routerState.location.pathname, routerState.location.search],
   );
 
   const loadNpmRegistryStatus = async () => {

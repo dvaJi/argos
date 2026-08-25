@@ -93,7 +93,7 @@ export default function AboutUsSettings() {
       cancelled = true;
       unsubscribe();
     };
-  }, [deviceClient, configClient, upgrade, handleExternalCheckUpdate]);
+  }, [upgrade, handleExternalCheckUpdate]);
 
   return (
     <>

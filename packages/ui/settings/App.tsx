@@ -356,7 +356,7 @@ export default function SettingsApp() {
     } finally {
       setIsProcessingProviderPreview(false);
     }
-  }, [isProcessingProviderPreview, windowClient, applyProviderInstallPreview]);
+  }, [isProcessingProviderPreview, applyProviderInstallPreview]);
 
   const releaseProviderPreviewProcessing = useCallback(() => {
     setIsProcessingProviderPreview(false);

@@ -62,7 +62,7 @@ export default function ProviderRateLimitConfig({ provider, onConfigChanged }: P
     } catch (error) {
       console.error("Failed to load rate limit status:", error);
     }
-  }, [providerClient, provider.id]);
+  }, [provider.id]);
 
   const startStatusPolling = useCallback(() => {
     if (statusIntervalRef.current) {

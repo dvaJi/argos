@@ -245,7 +245,7 @@ export default function NotificationsHooksSettings() {
     return () => {
       active = false;
     };
-  }, [configClient, toast]);
+  }, [toast]);
 
   if (isLoading) {
     return (
