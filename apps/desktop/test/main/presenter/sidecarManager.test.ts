@@ -132,4 +132,134 @@ describe("startSidecar", () => {
     expect(spawnMock.mock.calls[0]?.[1]?.[1]).toBe("/repo/apps/daemon/src/index.ts");
     expect(sidecar.port).toBe(4321);
   });
+
+  it("whenHealthy resolves immediately once the sidecar is healthy", async () => {
+    const child = new EventEmitter() as MockChildProcess;
+    child.stdout = new EventEmitter();
+    child.stderr = new EventEmitter();
+    child.killed = false;
+    child.kill = vi.fn(() => {
+      child.killed = true;
+      return true;
+    });
+
+    spawnMock.mockReturnValue(child);
+    createServerMock.mockReturnValue({
+      unref: vi.fn(),
+      once: vi.fn(),
+      listen: (_options: unknown, callback: () => void) => callback(),
+      address: () => ({ port: 4321 }),
+      close: (callback: (error?: Error) => void) => callback(),
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ ok: true, json: async () => ({ status: "ok" }) })),
+    );
+
+    const { startSidecar } = await import("../../../src/main/presenter/sidecarManager/index");
+    const sidecarPromise = startSidecar({
+      dataDir: "/tmp/argos-data",
+      healthCheckIntervalMs: 5,
+      healthCheckTimeoutMs: 100,
+    });
+
+    child.stdout.emit("data", Buffer.from("Listening on http://127.0.0.1:4321\n"));
+    const sidecar = await sidecarPromise;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+
+    await expect(sidecar.whenHealthy(100)).resolves.toBeUndefined();
+
+    const stopPromise = sidecar.stop();
+    child.emit("exit", 0);
+    await stopPromise;
+  });
+
+  it("whenHealthy waits for the healthy transition during startup", async () => {
+    const child = new EventEmitter() as MockChildProcess;
+    child.stdout = new EventEmitter();
+    child.stderr = new EventEmitter();
+    child.killed = false;
+    child.kill = vi.fn(() => {
+      child.killed = true;
+      return true;
+    });
+
+    spawnMock.mockReturnValue(child);
+    createServerMock.mockReturnValue({
+      unref: vi.fn(),
+      once: vi.fn(),
+      listen: (_options: unknown, callback: () => void) => callback(),
+      address: () => ({ port: 4321 }),
+      close: (callback: (error?: Error) => void) => callback(),
+    });
+    let fetchCount = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        fetchCount += 1;
+        if (fetchCount < 3) {
+          throw new Error("ECONNREFUSED");
+        }
+        return { ok: true, json: async () => ({ status: "ok" }) };
+      }),
+    );
+
+    const { startSidecar } = await import("../../../src/main/presenter/sidecarManager/index");
+    const sidecarPromise = startSidecar({
+      dataDir: "/tmp/argos-data",
+      healthCheckIntervalMs: 5,
+      healthCheckTimeoutMs: 500,
+    });
+
+    // Reserve the wait before the daemon has answered any health check.
+    const readinessPromise = sidecarPromise.then((sidecar) => sidecar.whenHealthy(400));
+
+    child.stdout.emit("data", Buffer.from("Listening on http://127.0.0.1:4321\n"));
+    const sidecar = await sidecarPromise;
+    await expect(readinessPromise).resolves.toBeUndefined();
+
+    const stopPromise = sidecar.stop();
+    child.emit("exit", 0);
+    await stopPromise;
+  });
+
+  it("whenHealthy rejects when the sidecar stops before becoming healthy", async () => {
+    const child = new EventEmitter() as MockChildProcess;
+    child.stdout = new EventEmitter();
+    child.stderr = new EventEmitter();
+    child.killed = false;
+    child.kill = vi.fn(() => {
+      child.killed = true;
+      return true;
+    });
+
+    spawnMock.mockReturnValue(child);
+    createServerMock.mockReturnValue({
+      unref: vi.fn(),
+      once: vi.fn(),
+      listen: (_options: unknown, callback: () => void) => callback(),
+      address: () => ({ port: 4321 }),
+      close: (callback: (error?: Error) => void) => callback(),
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("ECONNREFUSED");
+      }),
+    );
+
+    const { startSidecar } = await import("../../../src/main/presenter/sidecarManager/index");
+    const sidecar = await startSidecar({
+      dataDir: "/tmp/argos-data",
+      healthCheckIntervalMs: 5,
+      healthCheckTimeoutMs: 10000,
+    });
+
+    const readinessPromise = sidecar.whenHealthy(9000);
+    const stopPromise = sidecar.stop();
+
+    await expect(readinessPromise).rejects.toThrow("Daemon stopped");
+    child.emit("exit", 0);
+    await stopPromise;
+  });
 });

@@ -2,13 +2,14 @@ import { useState, useEffect, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
-import { usePresenter } from "#api/presenterBridge";
+import { createConfigClient } from "#api/ConfigClient";
+
+const configClient = createConfigClient();
 
 const MIN_SIZE = 1;
 const MAX_SIZE = 1024;
 
 export default function UploadFileSettingsSection() {
-  const configPresenter = usePresenter("configPresenter");
   const [fileMaxSize, setFileMaxSize] = useState(30);
   const [isEditing, setIsEditing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -17,7 +18,7 @@ export default function UploadFileSettingsSection() {
     const numValue = typeof value === "string" ? parseInt(value, 10) : value;
     if (!isNaN(numValue) && numValue >= MIN_SIZE && numValue <= MAX_SIZE) {
       try {
-        await configPresenter.setSetting("maxFileSize", numValue * 1024 * 1024);
+        await configClient.setMaxFileSize(numValue * 1024 * 1024);
         setFileMaxSize(numValue);
       } catch (error) {
         console.error("Failed to set max file size:", error);
@@ -52,7 +53,7 @@ export default function UploadFileSettingsSection() {
   useEffect(() => {
     const loadSize = async () => {
       try {
-        const saved = await configPresenter.getSetting<number>("maxFileSize");
+        const saved = await configClient.getMaxFileSize();
         if (saved !== undefined && saved !== null) {
           setFileMaxSize(saved / 1024 / 1024);
         }

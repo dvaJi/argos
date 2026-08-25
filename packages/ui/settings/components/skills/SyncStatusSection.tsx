@@ -2,9 +2,11 @@ import { useState, useEffect } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { useToast } from "#/components/use-toast";
-import { usePresenter } from "#api/presenterBridge";
+import { createSkillSyncClient } from "#api/SkillSyncClient";
 import type { ScanResult } from "@argos/shared/types/skillSync";
 import SyncStatusCard from "./SyncStatusCard";
+
+const skillSyncClient = createSkillSyncClient();
 
 interface SyncStatusSectionProps {
   onImport: (toolId: string, skills: string[]) => void;
@@ -12,7 +14,6 @@ interface SyncStatusSectionProps {
 
 export default function SyncStatusSection({ onImport }: SyncStatusSectionProps) {
   const { toast } = useToast();
-  const skillSyncPresenter = usePresenter("skillSyncPresenter");
 
   const [tools, setTools] = useState<ScanResult[]>([]);
   const [scanning, setScanning] = useState(false);
@@ -24,7 +25,7 @@ export default function SyncStatusSection({ onImport }: SyncStatusSectionProps) 
   const refresh = async () => {
     setScanning(true);
     try {
-      const results = await skillSyncPresenter.scanExternalTools();
+      const results = await skillSyncClient.scanExternalTools();
       setTools(Array.isArray(results) ? results : []);
     } catch (error) {
       console.error("Failed to scan external tools:", error);

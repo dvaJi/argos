@@ -24,8 +24,7 @@ const MAIN_GUARD_PATHS = [
 const RENDERER_SOURCE_ROOT = path.join(ROOT, 'packages/ui/src')
 const RENDERER_TYPED_BOUNDARY_ROOT = path.join(ROOT, 'packages/ui/api')
 const RETIRED_RENDERER_LEGACY_ENTRY_PATHS = [
-  path.join(ROOT, 'packages/ui/src/composables/usePresenter.ts'),
-  path.join(ROOT, 'packages/ui/api/legacy')
+  path.join(ROOT, 'packages/ui/src/composables/usePresenter.ts')
 ]
 const RENDERER_TYPED_BOUNDARY_WINDOW_API_ALLOWLIST = [
   path.join(ROOT, 'packages/ui/api/runtime.ts'),
@@ -105,10 +104,20 @@ const HOT_PATH_FILES = [
   path.join(ROOT, 'apps/desktop/src/main/presenter/index.ts'),
   path.join(ROOT, 'apps/desktop/src/main/eventbus.ts'),
   path.join(ROOT, 'apps/desktop/src/main/presenter/agentSessionPresenter/index.ts'),
-  path.join(ROOT, 'apps/desktop/src/main/presenter/agentRuntimePresenter/index.ts'),
-  path.join(ROOT, 'apps/desktop/src/main/presenter/llmProviderPresenter/index.ts'),
-  path.join(ROOT, 'apps/desktop/src/main/presenter/sessionPresenter/index.ts')
+  path.join(ROOT, 'apps/desktop/src/main/presenter/llmProviderPresenter/index.ts')
 ]
+
+// Keep baseline numbers comparable when hot-path files are removed: skip
+// entries that no longer exist instead of crashing the whole guard.
+const existingHotPathFiles = async () => {
+  const filtered = []
+  for (const filePath of HOT_PATH_FILES) {
+    if (await pathExists(filePath)) {
+      filtered.push(filePath)
+    }
+  }
+  return filtered
+}
 
 const HOT_PATH_EDGE_BASELINE = 11
 
@@ -176,10 +185,6 @@ function isUnder(targetPath, parentPath) {
     normalizedTarget === normalizedParent ||
     normalizedTarget.startsWith(`${normalizedParent}${path.sep}`)
   )
-}
-
-function isRendererQuarantineFile() {
-  return false
 }
 
 async function pathExists(targetPath) {
@@ -266,10 +271,11 @@ async function resolveImport(specifier, importer, aliasRoot = MAIN_SOURCE_ROOT) 
 }
 
 async function collectHotPathDirectEdges() {
-  const hotPathFileSet = new Set(HOT_PATH_FILES)
+  const hotPathFiles = await existingHotPathFiles()
+  const hotPathFileSet = new Set(hotPathFiles)
   const edges = []
 
-  for (const filePath of HOT_PATH_FILES) {
+  for (const filePath of hotPathFiles) {
     const source = await Bun.file(filePath).text()
     const specifiers = extractModuleSpecifiers(source)
 
@@ -444,12 +450,14 @@ async function main() {
     }
   }
 
-  for (const filePath of await collectFiles(DESKTOP_REMOTE_CONTROL_ROOT)) {
-    const relative = path.relative(DESKTOP_REMOTE_CONTROL_ROOT, filePath)
-    if (!DESKTOP_REMOTE_CONTROL_ALLOWLIST.has(relative)) {
-      violations.push(
-        `[desktop-remote-runtime-ownership] ${relativePath(filePath)} must live in @argos/remote-control-runtime and run in the daemon`
-      )
+  if (await pathExists(DESKTOP_REMOTE_CONTROL_ROOT)) {
+    for (const filePath of await collectFiles(DESKTOP_REMOTE_CONTROL_ROOT)) {
+      const relative = path.relative(DESKTOP_REMOTE_CONTROL_ROOT, filePath)
+      if (!DESKTOP_REMOTE_CONTROL_ALLOWLIST.has(relative)) {
+        violations.push(
+          `[desktop-remote-runtime-ownership] ${relativePath(filePath)} must live in @argos/remote-control-runtime and run in the daemon`
+        )
+      }
     }
   }
 
@@ -499,7 +507,7 @@ async function main() {
       }
     }
 
-    if (isUnder(filePath, RENDERER_TYPED_BOUNDARY_ROOT) && !isRendererQuarantineFile(filePath)) {
+    if (isUnder(filePath, RENDERER_TYPED_BOUNDARY_ROOT)) {
       const file = relativePath(filePath)
       const usePresenterCount = countMatches(source, GENERIC_LEGACY_PRESENTER_CALL_PATTERN)
       const windowElectronCount = countMatches(source, WINDOW_ELECTRON_PATTERN)

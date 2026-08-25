@@ -167,3 +167,13 @@ export const skillsSetActiveRoute = defineRouteContract({
     skills: zod.array(zod.string()),
   }),
 });
+
+export const skillsReadSkillFileRoute = defineRouteContract({
+  name: "skills.readSkillFile",
+  input: zod.object({
+    name: zod.string().min(1),
+  }),
+  output: zod.object({
+    content: zod.string(),
+  }),
+});

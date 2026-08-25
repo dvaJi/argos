@@ -16,12 +16,14 @@ import McpBuiltinMarket from "./McpBuiltinMarket";
 import GuidedOnboardingOverlay from "#/components/onboarding/GuidedOnboardingOverlay";
 import { McpServers, type McpServersRef } from "#/components/mcp-config/components/McpServers";
 import { useGuidedOnboardingStep } from "#/composables/useGuidedOnboardingStep";
-import { usePresenter } from "#api/presenterBridge";
+import { createWindowClient } from "#api/WindowClient";
 import { useMcpStore } from "#/stores/mcp";
 import { useLanguageStore } from "#/stores/language";
 import { useToast } from "#/components/use-toast";
 import { continueGuidedOnboardingFromSettings } from "../lib/guidedOnboardingSettings";
 import { useRouter, useRouterState } from "@tanstack/react-router";
+
+const windowClient = createWindowClient();
 
 export default function McpSettings() {
   const languageStore = useLanguageStore();
@@ -29,7 +31,6 @@ export default function McpSettings() {
   const { toast } = useToast();
   const router = useRouter();
   const routerState = useRouterState();
-  const windowPresenter = usePresenter("windowPresenter");
   const mcpServersRef = useRef<McpServersRef | null>(null);
   const [guideRootEl, setGuideRootEl] = useState<HTMLDivElement | null>(null);
   const [mcpActionsEl, setMcpActionsEl] = useState<HTMLDivElement | null>(null);
@@ -82,10 +83,10 @@ export default function McpSettings() {
           pathname: routerState.location.pathname,
           params: routerState.location.pathname.includes("/provider") ? (routerState.location.search as any) : {},
         },
-        windowPresenter,
+        windowClient,
       });
     },
-    [router, routerState.location.pathname, routerState.location.search, windowPresenter],
+    [router, routerState.location.pathname, routerState.location.search],
   );
 
   const loadNpmRegistryStatus = async () => {

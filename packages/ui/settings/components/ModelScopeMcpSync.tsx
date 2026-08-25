@@ -4,15 +4,15 @@ import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
 import { Label } from "#shadcn/components/ui/label";
 import type { LLM_PROVIDER } from "@argos/shared/presenter";
-import { usePresenter } from "#api/presenterBridge";
+import { createProviderClient } from "#api/ProviderClient";
+
+const providerClient = createProviderClient();
 
 interface ModelScopeMcpSyncProps {
   provider: LLM_PROVIDER;
 }
 
 export default function ModelScopeMcpSync({ provider }: ModelScopeMcpSyncProps) {
-  const llmP = usePresenter("llmproviderPresenter");
-
   const [isSyncing, setIsSyncing] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [syncResult, setSyncResult] = useState<{
@@ -37,7 +37,7 @@ export default function ModelScopeMcpSync({ provider }: ModelScopeMcpSyncProps) 
     setSyncResult(null);
 
     try {
-      const result = await llmP.syncModelScopeMcpServers(provider.id, syncOptions);
+      const result = await providerClient.syncModelScopeMcpServers(provider.id);
       setSyncResult(result);
     } catch (error) {
       console.error("MCP sync error:", error);

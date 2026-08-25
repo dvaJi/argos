@@ -16,10 +16,14 @@ export const DESKTOP_ONLY_ROUTE_PREFIXES = [
   "upgrade.",
   "system.openSettings",
   "settings.listSystemFonts",
+  "settings.ready",
   "device.selectDirectory",
+  "device.selectFiles",
   "device.restartApp",
+  "device.resetDataByType",
   "project.openDirectory",
   "project.selectDirectory",
+  "project.pathExists",
   "file.saveImage",
   "file.copyImage",
   // `revealFileInFolder`/`openFile` use the Electron `shell` module and stay
@@ -28,6 +32,29 @@ export const DESKTOP_ONLY_ROUTE_PREFIXES = [
   "workspace.revealFileInFolder",
   "workspace.openFile",
   "sync.openFolder",
+  // Settings-surface capabilities that drive Electron-resident subsystems
+  // (desktop updater, native pickers, local tool folders, desktop config).
+  // Each is handled by the desktop main kernel only.
+  "config.getUpdateChannel",
+  "config.setUpdateChannel",
+  "config.getProxyMode",
+  "config.setProxyMode",
+  "config.getCustomProxyUrl",
+  "config.setCustomProxyUrl",
+  "config.openLoggingFolder",
+  "config.setMaxFileSize",
+  "config.getSkillDraftSuggestionsEnabled",
+  "config.setSkillDraftSuggestionsEnabled",
+  "config.getHooksNotificationsConfig",
+  "config.setHooksNotificationsConfig",
+  "config.testHookCommand",
+  "skillsync.",
+  "oauth.",
+  "nowledgeMem.",
+  "providers.getKeyStatus",
+  "providers.updateRateLimit",
+  "providers.syncModelScopeMcpServers",
+  "skills.readSkillFile",
 ] as const;
 
 export const DESKTOP_ONLY_EVENT_PREFIXES = ["window.", "browser.", "dialog.", "upgrade."] as const;

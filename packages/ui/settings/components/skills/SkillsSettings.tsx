@@ -16,7 +16,8 @@ import {
 } from "#shadcn/components/ui/alert-dialog";
 import { useToast } from "#/components/use-toast";
 import { useSkillsStore, loadSkills, uninstallSkill } from "#/stores/skillsStore";
-import { usePresenter } from "#api/presenterBridge";
+import { createConfigClient } from "#api/ConfigClient";
+import { onIpcChannel } from "#api/runtime";
 import type { SkillMetadata } from "@argos/shared/types/skill";
 import SkillCard from "./SkillCard";
 import SkillInstallDialog from "./SkillInstallDialog";
@@ -27,10 +28,11 @@ import SyncPromptDialog from "./SyncPromptDialog";
 import { SkillSyncDialog } from "./SkillSyncDialog";
 import SettingsPageShell from "../control-center/SettingsPageShell";
 
+const configClient = createConfigClient();
+
 export default function SkillsSettings() {
   const { toast } = useToast();
   const skillsStore = useSkillsStore();
-  const configPresenter = usePresenter("configPresenter");
 
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<string>("all");
@@ -66,26 +68,26 @@ export default function SkillsSettings() {
   }, [skills, activeTab, searchQuery]);
 
   useEffect(() => {
+    let cancelled = false;
     const init = async () => {
-      const enabled = await configPresenter.getSkillDraftSuggestionsEnabled?.();
+      const enabled = await configClient.getSkillDraftSuggestionsEnabled().catch(() => false);
+      if (cancelled) return;
       setDraftSuggestionsEnabled(enabled ?? false);
       await loadSkills();
     };
     init();
 
     const handleSkillEvent = () => loadSkills();
-    const ipcRenderer = window.electron?.ipcRenderer;
-    if (!ipcRenderer) return;
-
-    ipcRenderer.on("skill:installed", handleSkillEvent);
-    ipcRenderer.on("skill:uninstalled", handleSkillEvent);
-    ipcRenderer.on("skill:metadata-updated", handleSkillEvent);
+    const unsubscribers = [
+      onIpcChannel("skill:installed", handleSkillEvent),
+      onIpcChannel("skill:uninstalled", handleSkillEvent),
+      onIpcChannel("skill:metadata-updated", handleSkillEvent),
+    ];
     return () => {
-      ipcRenderer.removeListener?.("skill:installed", handleSkillEvent);
-      ipcRenderer.removeListener?.("skill:uninstalled", handleSkillEvent);
-      ipcRenderer.removeListener?.("skill:metadata-updated", handleSkillEvent);
+      cancelled = true;
+      unsubscribers.forEach((unsubscribe) => unsubscribe());
     };
-  }, []);
+  }, [configClient]);
 
   const openEditor = (skill: SkillMetadata) => {
     setEditingSkill(skill);
@@ -111,7 +113,7 @@ export default function SkillsSettings() {
   const handleDraftSuggestionsToggle = async (value: boolean | string) => {
     const normalized = typeof value === "string" ? value === "true" : Boolean(value);
     setDraftSuggestionsEnabled(normalized);
-    await configPresenter.setSkillDraftSuggestionsEnabled?.(normalized);
+    await configClient.setSkillDraftSuggestionsEnabled(normalized);
   };
 
   return (

@@ -8,7 +8,7 @@ The UI is extracted from the desktop shell (CodeNomad-style): the desktop app is
 
 - `apps/desktop/src/main/`: Electron main process (the **shell**); presenters in `presenter/` (Window/Tab/Thread/Mcp/Config/LLMProvider), `eventbus.ts` for app events. Windows load UI routes from the local daemon via `lib/daemonUi.ts` (`resolveUiUrl`).
 - `apps/desktop/src/preload/`: Secure IPC bridge (contextIsolation on). Typed `window.argos` **hybrid bridge** via `createBridge.ts` → `packages/client-sdk` (WebSocket→daemon for routes, IPC→main for native-only routes).
-- `packages/ui/` (`@argos/ui`): the **React 19 + TanStack Router frontend** — built independently to `dist/`, served by the daemon. App code in `src/` (`components/`, `stores`, `pages`, `lib`); secondary renderers `settings/`, `floating/`, `splash/`, `browser-overlay/`, `web/`. UI↔backend boundary in `api/` (typed `*Client` classes); `api/legacy/` is quarantine-only compatibility code (max 3 files).
+- `packages/ui/` (`@argos/ui`): the **React 19 + TanStack Router frontend** — built independently to `dist/`, served by the daemon. App code in `src/` (`components/`, `stores`, `pages`, `lib`); secondary renderers `settings/`, `floating/`, `splash/`, `browser-overlay/`, `web/`. UI↔backend boundary in `api/` (typed `*Client` classes over the `ArgosBridge`).
 - `packages/ui/shadcn/`: shadcn/ui components shared across renderers.
 - `packages/shared-contracts/` (`@argos/shared-contracts`): Shared route contracts (Zod-validated), event contracts, the `ArgosBridge` interface, and the `ARGOS_ROUTE_CATALOG`.
 - `packages/shared/` (`@argos/shared`): Shared types and utilities (web-safe; no hard electron dependency).
@@ -89,7 +89,7 @@ kill $(cat /tmp/desktop-dev.pid)
 
 ## Renderer-Main Architecture (Typed Route/Client Pattern)
 
-The codebase is migrating from legacy `useLegacyPresenter()` to a typed route/client pattern. **New code must use the typed pattern.**
+All renderer↔main communication uses the typed route/client pattern. Direct `window.electron`/`window.api` access and legacy presenter hooks (`usePresenter`/`useLegacyPresenter`) are removed; the architecture guard fails on reintroduction.
 
 ### How it works
 
@@ -107,17 +107,15 @@ The codebase is migrating from legacy `useLegacyPresenter()` to a typed route/cl
 4. Create or extend `packages/ui/api/<Domain>Client.ts`
 5. Use the client from UI business code
 
-### Legacy quarantine (`packages/ui/api/legacy/`)
+### Renderer transport rules
 
-- Only allowed place for `useLegacyPresenter()` and `window.electron`/`window.api` access
-- Max 3 source files; additions require updating the architecture baseline
-- The settings renderer (`packages/ui/settings/`) still imports from here — migration pending
-- Business code under `packages/ui/src/` must **never** import from `#api/legacy/`
+- Business code (`packages/ui/src/**`, `packages/ui/settings/**`) reaches main/daemon only through typed clients (`packages/ui/api/*Client.ts`) and runtime wrappers (`packages/ui/api/runtime.ts`).
+- `window.electron`, `window.api`, raw `ipcRenderer` channels, and legacy presenter hooks (`usePresenter`/`useLegacyPresenter`) are banned in renderer code; the architecture guard fails on reintroduction.
 
 ### Architecture guards
 
 `bun run lint` runs three guard scripts before oxlint:
-- `scripts/architecture-guard.mjs`: Enforces quarantine bounds, prevents legacy imports in business code, validates bridge register, tracks hot-path edges, and enforces the `bun-file-io` rule (Bun.file/Bun.write in Bun-runtime code; `Bun.*` forbidden in shared packages)
+- `scripts/architecture-guard.mjs`: Prevents direct `window.electron`/`window.api`/legacy-presenter access in renderer code, validates bridge register, tracks hot-path edges, and enforces the `bun-file-io` rule (Bun.file/Bun.write in Bun-runtime code; `Bun.*` forbidden in shared packages)
 - `scripts/agent-cleanup-guard.mjs`: Prevents new code from importing legacy presenter directories or `@argos/chat`
 - `scripts/route-catalog-drift-guard.mjs`: Keeps the `ARGOS_ROUTE_CATALOG` and registered route handlers in sync
 

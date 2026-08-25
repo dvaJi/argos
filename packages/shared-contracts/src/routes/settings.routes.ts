@@ -228,3 +228,15 @@ export type SettingsActivityCategory = zod.infer<typeof SettingsActivityCategory
 export type SettingsActivityAction = zod.infer<typeof SettingsActivityActionSchema>;
 export type SettingsActivityRecord = zod.infer<typeof SettingsActivityRecordSchema>;
 export type SettingsActivityInput = zod.infer<typeof SettingsActivityInputSchema>;
+
+/**
+ * Fired by the settings renderer once its window finished bootstrapping.
+ * Desktop-only: the desktop main process resolves startup workloads on it.
+ */
+export const settingsReadyRoute = defineRouteContract({
+  name: "settings.ready",
+  input: zod.object({}).default({}),
+  output: zod.object({
+    ok: zod.boolean(),
+  }),
+});

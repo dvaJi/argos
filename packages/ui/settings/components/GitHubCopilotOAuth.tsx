@@ -3,10 +3,12 @@ import { Label } from "#shadcn/components/ui/label";
 import { Input } from "#shadcn/components/ui/input";
 import { Button } from "#shadcn/components/ui/button";
 import { Icon } from "@iconify/react";
-import { usePresenter } from "#api/presenterBridge";
+import { createOAuthClient } from "#api/OAuthClient";
 import { useProviderStore } from "#/stores/providerStore";
 import type { LLM_PROVIDER } from "@argos/shared/presenter";
 import { useModelCheckStore } from "#/stores/modelCheck";
+
+const oauthClient = createOAuthClient();
 
 interface GitHubCopilotOAuthProps {
   provider: LLM_PROVIDER;
@@ -15,7 +17,6 @@ interface GitHubCopilotOAuthProps {
 }
 
 export default function GitHubCopilotOAuth({ provider, onAuthSuccess, onAuthError }: GitHubCopilotOAuthProps) {
-  const oauthPresenter = usePresenter("oauthPresenter");
   const providerStore = useProviderStore();
   const modelCheckStore = useModelCheckStore();
 
@@ -74,7 +75,7 @@ export default function GitHubCopilotOAuth({ provider, onAuthSuccess, onAuthErro
     setValidationResult(null);
 
     try {
-      const success = await oauthPresenter.startGitHubCopilotDeviceFlowLogin(provider.id);
+      const success = await oauthClient.startGitHubCopilotDeviceFlowLogin(provider.id);
 
       if (success) {
         onAuthSuccess?.();
@@ -97,7 +98,7 @@ export default function GitHubCopilotOAuth({ provider, onAuthSuccess, onAuthErro
     setValidationResult(null);
 
     try {
-      const success = await oauthPresenter.startGitHubCopilotLogin(provider.id);
+      const success = await oauthClient.startGitHubCopilotLogin(provider.id);
 
       if (success) {
         onAuthSuccess?.();

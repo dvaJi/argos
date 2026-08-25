@@ -41,7 +41,8 @@ import {
   pullFromCloud,
 } from "#/stores/sync";
 import { useLanguageStore } from "#/stores/language";
-import { usePresenter } from "#api/presenterBridge";
+import { createDeviceClient } from "#api/DeviceClient";
+import { createProviderClient } from "#api/ProviderClient";
 import { createOnboardingClient } from "#api/OnboardingClient";
 import { createDatabaseSecurityClient } from "#api/DatabaseSecurityClient";
 import { createBrowserClient } from "#api/BrowserClient";
@@ -52,6 +53,9 @@ import SettingsPageShell from "./control-center/SettingsPageShell";
 import ProviderConfigImportDialog from "./ProviderConfigImportDialog";
 import type { DatabaseRepairReport } from "@argos/shared/presenter";
 import type { ProviderImportApplyResult } from "@argos/shared/providerImport";
+
+const deviceClient = createDeviceClient();
+const providerClient = createProviderClient();
 
 const PUBLIC_PROVIDER_CONF_URL = "https://github.com/dvaJi/PublicProviderConf";
 const CLOUDFLARE_R2_S3_DOCS_URL = "https://developers.cloudflare.com/r2/api/s3/api/";
@@ -129,8 +133,6 @@ export default function DataSettings() {
   const { toast } = useToast();
   const languageStore = useLanguageStore();
   const syncStore = useSyncStore();
-  const devicePresenter = usePresenter("devicePresenter");
-  const configPresenter = usePresenter("configPresenter");
   const onboardingClient = createOnboardingClient();
   const databaseSecurityClient = createDatabaseSecurityClient();
   const browserClient = createBrowserClient();
@@ -326,7 +328,7 @@ export default function DataSettings() {
     if (isUpdatingModelConfig) return;
     setIsUpdatingModelConfig(true);
     try {
-      const result = await configPresenter.refreshProviderDb(true);
+      const result = await providerClient.refreshProviderDb(true);
       if (!result || result.status === "error") {
         toast({
           title: "Update failed",
@@ -346,13 +348,13 @@ export default function DataSettings() {
     } finally {
       setIsUpdatingModelConfig(false);
     }
-  }, [isUpdatingModelConfig, configPresenter, toast]);
+  }, [isUpdatingModelConfig, toast]);
 
   const handleReset = useCallback(async () => {
     if (isResetActionDisabled) return;
     setIsResetting(true);
     try {
-      await devicePresenter.resetDataByType(resetType);
+      await deviceClient.resetDataByType(resetType);
       setIsResetDialogOpen(false);
       setResetType("chat");
     } catch (error) {
@@ -360,7 +362,7 @@ export default function DataSettings() {
     } finally {
       setIsResetting(false);
     }
-  }, [isResetActionDisabled, resetType, devicePresenter]);
+  }, [isResetActionDisabled, resetType]);
 
   const handleClearSandboxData = useCallback(async () => {
     if (isClearingSandbox) return;

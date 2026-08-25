@@ -16,16 +16,13 @@ const SOURCE_EXTENSIONS = new Set([
   '.vue'
 ])
 
-const LEGACY_MAIN_DIRS = [
-  path.join(ROOT, 'apps/desktop/src/main/presenter/agentPresenter'),
-  path.join(ROOT, 'apps/desktop/src/main/presenter/sessionPresenter')
-]
+// No legacy main dirs remain in the shell (agentPresenter/agentRuntimePresenter
+// were removed; Argos execution is daemon-owned). Kept as an extension point.
+const LEGACY_MAIN_DIRS = []
 
 const PRIMARY_MAIN_GUARD_PATHS = [
   path.join(ROOT, 'apps/desktop/src/main/presenter/agentSessionPresenter'),
-  path.join(ROOT, 'apps/desktop/src/main/presenter/agentRuntimePresenter'),
-  path.join(ROOT, 'apps/desktop/src/main/presenter/skillPresenter'),
-  path.join(ROOT, 'apps/desktop/src/main/presenter/syncPresenter/index.ts')
+  path.join(ROOT, 'apps/desktop/src/main/presenter/skillPresenter')
 ]
 
 const RENDERER_CHAT_GUARD_PATHS = [
@@ -134,9 +131,7 @@ function buildViolation(kind, filePath, specifier) {
 async function findViolations() {
   const scanRoots = [
     path.join(ROOT, 'apps/desktop/src/main/presenter/agentSessionPresenter'),
-    path.join(ROOT, 'apps/desktop/src/main/presenter/agentRuntimePresenter'),
     path.join(ROOT, 'apps/desktop/src/main/presenter/skillPresenter'),
-    path.join(ROOT, 'apps/desktop/src/main/presenter/syncPresenter/index.ts'),
     path.join(ROOT, 'apps/desktop/src/main/presenter/llmProviderPresenter/providers'),
     path.join(ROOT, 'packages/ui/src/pages/ChatPage.tsx'),
     path.join(ROOT, 'packages/ui/src/pages/NewThreadPage.tsx'),

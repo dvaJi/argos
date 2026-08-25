@@ -20,9 +20,11 @@ import { useThemeStore } from "#/stores/theme";
 import { useLanguageStore } from "#/stores/language";
 import GuidedOnboardingOverlay from "#/components/onboarding/GuidedOnboardingOverlay";
 import { useGuidedOnboardingStep } from "#/composables/useGuidedOnboardingStep";
-import { usePresenter } from "#api/presenterBridge";
+import { createWindowClient } from "#api/WindowClient";
 import { continueGuidedOnboardingFromSettings } from "../lib/guidedOnboardingSettings";
 import { useStartupWorkloadStore } from "#/stores/startupWorkloadStore";
+
+const windowClient = createWindowClient();
 
 interface ModelProviderSettingsProps {
   providerId?: string;
@@ -100,7 +102,6 @@ export default function ModelProviderSettings({ providerId: routeProviderId }: M
   const providerStore = useProviderStore();
   const modelStore = useModelStore();
   const themeStore = useThemeStore();
-  const windowPresenter = usePresenter("windowPresenter");
   const router = useRouter();
 
   const providerDetailRef = useRef<HTMLDivElement | null>(null);
@@ -122,7 +123,7 @@ export default function ModelProviderSettings({ providerId: routeProviderId }: M
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   const attachProviderListGuideTarget = useCallback((el: HTMLDivElement | null) => {
-    setProviderListGuideTargetEl(el?.parentElement ?? el);
+    setProviderListGuideTargetEl((el?.parentElement as HTMLDivElement | null) ?? el);
   }, []);
 
   const showClearButton = searchQueryBase.trim().length > 0;
@@ -152,10 +153,10 @@ export default function ModelProviderSettings({ providerId: routeProviderId }: M
           },
         },
         currentRoute: { params: { providerId: routeProviderId } },
-        windowPresenter,
+        windowClient,
       });
     },
-    [router, routeProviderId, windowPresenter],
+    [router, routeProviderId],
   );
 
   useEffect(() => {

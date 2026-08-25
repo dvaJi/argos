@@ -1525,6 +1525,52 @@ export class BunSessionRepository implements SessionRepository {
     return rows.map((r) => ({ path: r.project_dir, lastAccessedAt: r.last_accessed_at }));
   }
 
+  /**
+   * Project environments derived from sessions: a session's `project_dir`, or its
+   * ACP `workdir` when no project_dir is set (non-draft sessions only). Powers the
+   * daemon's `project.listEnvironments` route.
+   */
+  async listEnvironmentDirs(): Promise<Array<{ path: string; sessionCount: number; lastUsedAt: number }>> {
+    const rows = this.db
+      .prepare(
+        `WITH environment_usage AS (
+           SELECT id AS session_id, project_dir AS path, updated_at AS activity_at
+           FROM daemon_sessions
+           WHERE is_draft = 0
+             AND project_dir IS NOT NULL
+             AND TRIM(project_dir) <> ''
+
+           UNION ALL
+
+           SELECT
+             acp.conversation_id AS session_id,
+             acp.workdir AS path,
+             MAX(COALESCE(ns.updated_at, 0), COALESCE(acp.updated_at, 0)) AS activity_at
+           FROM acp_sessions acp
+           INNER JOIN daemon_sessions ns ON ns.id = acp.conversation_id
+           WHERE ns.is_draft = 0
+             AND (ns.project_dir IS NULL OR TRIM(ns.project_dir) = '')
+             AND acp.workdir IS NOT NULL
+             AND TRIM(acp.workdir) <> ''
+         ),
+         normalized_usage AS (
+           SELECT session_id, path, MAX(activity_at) AS activity_at
+           FROM environment_usage
+           GROUP BY session_id, path
+         )
+         SELECT path, COUNT(*) AS session_count, MAX(activity_at) AS last_used_at
+         FROM normalized_usage
+         GROUP BY path
+         ORDER BY last_used_at DESC, path ASC`,
+      )
+      .all() as Array<{ path: string; session_count: number; last_used_at: number }>;
+    return rows.map((r) => ({
+      path: r.path,
+      sessionCount: Number(r.session_count),
+      lastUsedAt: Number(r.last_used_at),
+    }));
+  }
+
   async addMessage(
     sessionId: string,
     role: string,

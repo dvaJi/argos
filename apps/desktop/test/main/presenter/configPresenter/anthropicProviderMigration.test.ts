@@ -134,18 +134,16 @@ describe("getAnthropicModelSelectionKeysToClear", () => {
     const keysToClear = getAnthropicModelSelectionKeysToClear({
       defaultModel: { providerId: "anthropic", modelId: "claude-sonnet" },
       assistantModel: { providerId: "anthropic", modelId: "claude-haiku" },
-      defaultVisionModel: { providerId: "anthropic", modelId: "claude-vision" },
       preferredModel: { providerId: "anthropic", modelId: "claude-opus" },
     });
 
-    expect(keysToClear).toEqual(["defaultModel", "assistantModel", "defaultVisionModel"]);
+    expect(keysToClear).toEqual(["defaultModel", "assistantModel"]);
   });
 
   it("does not clear model settings for other providers", () => {
     const keysToClear = getAnthropicModelSelectionKeysToClear({
       defaultModel: { providerId: "openai", modelId: "gpt-4o" },
       assistantModel: { providerId: "google", modelId: "gemini-2.0-flash" },
-      defaultVisionModel: { providerId: "openai", modelId: "gpt-4o" },
     });
 
     expect(keysToClear).toEqual([]);

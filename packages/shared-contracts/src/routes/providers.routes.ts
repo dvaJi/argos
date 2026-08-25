@@ -122,6 +122,28 @@ export const providersReorderRoute = defineRouteContract({
   }),
 });
 
+export const providersReplaceAllRoute = defineRouteContract({
+  name: "providers.replaceAll",
+  input: zod.object({
+    providers: zod.array(LlmProviderSchema),
+  }),
+  output: zod.object({
+    providers: zod.array(LlmProviderSchema),
+  }),
+});
+
+export const providersSetModelsRoute = defineRouteContract({
+  name: "providers.setModels",
+  input: zod.object({
+    providerId: EntityIdSchema,
+    models: zod.array(ProviderModelSummarySchema).default([]),
+    customModels: zod.array(ProviderModelSummarySchema).default([]),
+  }),
+  output: zod.object({
+    ok: zod.boolean(),
+  }),
+});
+
 export const providersGetRateLimitStatusRoute = defineRouteContract({
   name: "providers.getRateLimitStatus",
   input: zod.object({
@@ -450,5 +472,58 @@ export const providersImportApplyRoute = defineRouteContract({
         message: zod.string().optional(),
       }),
     ),
+  }),
+});
+
+// --- Desktop-resident provider settings helpers ---
+
+export const providersGetKeyStatusRoute = defineRouteContract({
+  name: "providers.getKeyStatus",
+  input: zod.object({
+    providerId: zod.string().min(1),
+  }),
+  output: zod.object({
+    status: zod
+      .object({
+        remainNum: zod.number().optional(),
+        limit_remaining: zod.string().optional(),
+        usage: zod.string().optional(),
+      })
+      .nullable(),
+  }),
+});
+
+export const providersUpdateRateLimitRoute = defineRouteContract({
+  name: "providers.updateRateLimit",
+  input: zod.object({
+    providerId: zod.string().min(1),
+    enabled: zod.boolean(),
+    qpsLimit: zod.number(),
+  }),
+  output: zod.object({
+    success: zod.boolean(),
+  }),
+});
+
+export const providersSyncModelScopeMcpServersRoute = defineRouteContract({
+  name: "providers.syncModelScopeMcpServers",
+  input: zod.object({
+    providerId: zod.string().min(1),
+    syncOptions: zod
+      .object({
+        timeout: zod.number().optional(),
+        retryCount: zod.number().optional(),
+      })
+      .optional(),
+  }),
+  output: zod.object({
+    result: zod.object({
+      success: zod.boolean(),
+      message: zod.string(),
+      synced: zod.number(),
+      imported: zod.number(),
+      skipped: zod.number(),
+      errors: zod.array(zod.string()),
+    }),
   }),
 });

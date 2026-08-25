@@ -276,6 +276,7 @@ export interface IWindowPresenter {
   closeSettingsWindow(): void;
   getSettingsWindowId(): number | null;
   focusMainWindow(): boolean;
+  handleSettingsWindowReady(senderWebContentsId: number): void;
   setPendingSettingsProviderInstall(preview: import("@argos/shared/providerDeeplink").ProviderInstallPreview): void;
   consumePendingSettingsProviderInstall(): import("@argos/shared/providerDeeplink").ProviderInstallPreview | null;
   hide(windowId: number): void;
@@ -459,16 +460,13 @@ export interface OAuthConfig {
 
 export interface IPresenter {
   windowPresenter: IWindowPresenter;
-  sqlitePresenter: ISQLitePresenter;
   llmproviderPresenter: ILlmProviderPresenter;
   configPresenter: IConfigPresenter;
-  exporter: IConversationExporter;
   devicePresenter: IDevicePresenter;
   upgradePresenter: IUpgradePresenter;
   shortcutPresenter: IShortcutPresenter;
   filePresenter: IFilePresenter;
   mcpPresenter: IMCPPresenter;
-  syncPresenter: ISyncPresenter;
   deeplinkPresenter: IDeeplinkPresenter;
   notificationPresenter: INotificationPresenter;
   tabPresenter: ITabPresenter;
@@ -479,7 +477,6 @@ export interface IPresenter {
   skillPresenter: ISkillPresenter;
   skillSyncPresenter: ISkillSyncPresenter;
   agentSessionPresenter: IAgentSessionPresenter;
-  projectPresenter: IProjectPresenter;
   init(): void;
   destroy(): Promise<void>;
 }
@@ -660,7 +657,8 @@ export interface IConfigPresenter {
     updates: Partial<Omit<AcpManualAgent, "id" | "source">>,
   ): Promise<AcpManualAgent | null>;
   removeManualAcpAgent(agentId: string): Promise<boolean>;
-  resolveAcpLaunchSpec(agentId: string, workdir?: string): Promise<AcpResolvedLaunchSpec>;
+  /** Daemon-owned (session launch resolution); the desktop shell does not implement this. */
+  resolveAcpLaunchSpec?(agentId: string, workdir?: string): Promise<AcpResolvedLaunchSpec>;
   getAcpSharedMcpSelections(): Promise<string[]>;
   setAcpSharedMcpSelections(mcpIds: string[]): Promise<void>;
   listAgents(): Promise<Agent[]>;
@@ -680,10 +678,7 @@ export interface IConfigPresenter {
   } | null>;
   setNowledgeMemConfig(config: { baseUrl: string; apiKey?: string; timeout: number }): Promise<void>;
   getAcpAgents(): Promise<AcpAgentConfig[]>;
-  getAgentMcpSelections(agentId: string, isBuiltin?: boolean): Promise<string[]>;
-  setAgentMcpSelections(agentId: string, isBuiltin: boolean, mcpIds: string[]): Promise<void>;
-  addMcpToAgent(agentId: string, isBuiltin: boolean, mcpId: string): Promise<void>;
-  removeMcpFromAgent(agentId: string, isBuiltin: boolean, mcpId: string): Promise<void>;
+  getAgentMcpSelections(agentId: string): Promise<string[]>;
   getMcpConfHelper(): any; // Used to get MCP configuration helper
   isKnownModel?(providerId: string, modelId: string): boolean;
   getModelConfig(modelId: string, providerId?: string): ModelConfig;

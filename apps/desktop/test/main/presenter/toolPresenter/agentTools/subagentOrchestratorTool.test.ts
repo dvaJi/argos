@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ArgosInternalSessionUpdate } from "#/presenter/agentRuntimePresenter/internalSessionEvents";
+import type { ArgosInternalSessionUpdate } from "#/presenter/internalSessionEvents";
 import {
   SubagentOrchestratorTool,
   SUBAGENT_ORCHESTRATOR_TOOL_NAME,

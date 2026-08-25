@@ -15,13 +15,36 @@ describe("invokeDaemonRoute", () => {
   });
 
   it("throws when the daemon sidecar is unavailable", async () => {
+    // The proxy grants the sidecar hook a registration window before giving
+    // up, so simulate that window elapsing instead of really waiting it out.
+    vi.useFakeTimers();
     getSidecarHandleMock.mockReturnValue(null);
+
+    const expectation = expect(
+      invokeDaemonRoute("chat.sendMessage", { sessionId: "session-1", content: "hi" }),
+    ).rejects.toMatchObject({
+      name: "DaemonRouteError",
+      code: "daemon_not_running",
+    });
+
+    await vi.advanceTimersByTimeAsync(31_000);
+    await expectation;
+    vi.useRealTimers();
+  });
+
+  it("throws daemon_not_running when the daemon never becomes ready", async () => {
+    getSidecarHandleMock.mockReturnValue({
+      port: 4321,
+      isRunning: () => false,
+      whenHealthy: vi.fn().mockRejectedValue(new Error("Daemon did not become healthy within 1000ms")),
+    });
 
     await expect(
       invokeDaemonRoute("chat.sendMessage", { sessionId: "session-1", content: "hi" }),
     ).rejects.toMatchObject({
       name: "DaemonRouteError",
       code: "daemon_not_running",
+      message: "Daemon is not ready: Daemon did not become healthy within 1000ms",
     });
   });
 
@@ -29,6 +52,7 @@ describe("invokeDaemonRoute", () => {
     getSidecarHandleMock.mockReturnValue({
       port: 4321,
       isRunning: () => true,
+      whenHealthy: vi.fn().mockResolvedValue(undefined),
     });
 
     const fetchMock = vi.fn().mockResolvedValue({
@@ -60,6 +84,7 @@ describe("invokeDaemonRoute", () => {
     getSidecarHandleMock.mockReturnValue({
       port: 4321,
       isRunning: () => true,
+      whenHealthy: vi.fn().mockResolvedValue(undefined),
     });
 
     vi.stubGlobal(
@@ -87,6 +112,7 @@ describe("invokeDaemonRoute", () => {
     getSidecarHandleMock.mockReturnValue({
       port: 4321,
       isRunning: () => true,
+      whenHealthy: vi.fn().mockResolvedValue(undefined),
     });
 
     vi.stubGlobal(

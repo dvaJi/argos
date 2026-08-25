@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useStore } from "@tanstack/react-store";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
@@ -11,12 +11,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "#shadcn/components/ui/dialog";
-import { usePresenter } from "#api/presenterBridge";
+import { createConfigClient } from "#api/ConfigClient";
 import { uiSettingsStore, setLoggingEnabled } from "#/stores/uiSettingsStore";
 import { languageStore } from "#/stores/language";
 
+const configClient = createConfigClient();
+
 export default function LoggingSettingsSection() {
-  const configPresenter = usePresenter("configPresenter");
   const loggingEnabled = useStore(uiSettingsStore, (s) => s.loggingEnabled);
 
   const [isLoggingDialogOpen, setIsLoggingDialogOpen] = useState(false);
@@ -37,7 +38,7 @@ export default function LoggingSettingsSection() {
   };
 
   const openLogFolder = () => {
-    configPresenter.openLoggingFolder();
+    configClient.openLoggingFolder();
   };
 
   return (

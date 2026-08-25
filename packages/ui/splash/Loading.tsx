@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import logoSrc from "../src/assets/logo.png";
 import logoDarkSrc from "../src/assets/logo-dark.png";
 import { TextShimmer } from "../components/agent-elements/text-shimmer";
+import { onIpcChannel } from "#api/runtime";
 import "./loading.css";
 
 type SplashActivityStatus = "running" | "completed" | "failed";
@@ -115,9 +116,9 @@ export default function Loading() {
   }, []);
 
   useEffect(() => {
-    window.electron?.ipcRenderer?.on?.("splash-update", handleSplashUpdate);
+    const unsubscribe = onIpcChannel("splash-update", handleSplashUpdate);
     return () => {
-      window.electron?.ipcRenderer?.removeListener?.("splash-update", handleSplashUpdate);
+      unsubscribe();
     };
   }, [handleSplashUpdate]);
 

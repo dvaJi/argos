@@ -16,6 +16,7 @@ import {
   skillsSetActiveRoute,
   skillsUninstallRoute,
   skillsUpdateFileRoute,
+  skillsReadSkillFileRoute,
 } from "@argos/shared-contracts/routes";
 import type { SkillExtensionConfig, SkillInstallOptions } from "@argos/shared/types/skill";
 import { getArgosBridge } from "./core";
@@ -29,6 +30,11 @@ export function createSkillClient(bridge: ArgosBridge = getArgosBridge()) {
   async function getSkillsDir() {
     const result = await bridge.invoke(skillsGetDirectoryRoute.name, {});
     return result.path;
+  }
+
+  async function readSkillFile(name: string) {
+    const result = await bridge.invoke(skillsReadSkillFileRoute.name, { name });
+    return result.content;
   }
 
   async function installFromFolder(folderPath: string, options?: SkillInstallOptions) {
@@ -134,6 +140,7 @@ export function createSkillClient(bridge: ArgosBridge = getArgosBridge()) {
   return {
     getMetadataList,
     getSkillsDir,
+    readSkillFile,
     installFromFolder,
     installFromZip,
     installFromUrl,

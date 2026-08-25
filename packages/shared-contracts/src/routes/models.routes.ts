@@ -176,6 +176,20 @@ export const modelsSetBatchStatusRoute = defineRouteContract({
   }),
 });
 
+export const modelsStatusSnapshotRoute = defineRouteContract({
+  name: "models.statusSnapshot",
+  input: zod.object({}).default({}),
+  output: zod.object({
+    entries: zod.array(
+      zod.object({
+        providerId: zod.string().min(1),
+        modelId: zod.string().min(1),
+        enabled: zod.boolean(),
+      }),
+    ),
+  }),
+});
+
 export const modelsGetCapabilitiesRoute = defineRouteContract({
   name: "models.getCapabilities",
   input: zod.object({

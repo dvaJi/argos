@@ -44,3 +44,32 @@ export const deviceSanitizeSvgRoute = defineRouteContract({
     content: zod.string().nullable(),
   }),
 });
+
+export const deviceSelectFilesRoute = defineRouteContract({
+  name: "device.selectFiles",
+  input: zod.object({
+    filters: zod
+      .array(
+        zod.object({
+          name: zod.string(),
+          extensions: zod.array(zod.string()),
+        }),
+      )
+      .optional(),
+    multiple: zod.boolean().optional(),
+  }),
+  output: zod.object({
+    canceled: zod.boolean(),
+    filePaths: zod.array(zod.string()),
+  }),
+});
+
+export const deviceResetDataByTypeRoute = defineRouteContract({
+  name: "device.resetDataByType",
+  input: zod.object({
+    types: zod.array(zod.string()),
+  }),
+  output: zod.object({
+    success: zod.boolean(),
+  }),
+});

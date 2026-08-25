@@ -44,10 +44,20 @@ export function getRuntimeWebContentsId(): number | null {
 export async function openRuntimeExternal(url: string): Promise<void> {
   const api = getLocalApi();
   if (!api.openExternal) {
-    throw new Error("window.api.openExternal is not available");
+    throw new Error("localApi.openExternal is not available");
   }
 
   await api.openExternal(url);
+}
+
+/**
+ * Returns the host OS platform when running inside Electron (via the preload
+ * `process` bridge), or undefined in browser mode. Centralizes native
+ * platform access behind the sanctioned runtime wrapper.
+ */
+export function getRuntimePlatform(): string | undefined {
+  if (typeof window === "undefined") return undefined;
+  return (window as unknown as { electron?: { process?: { platform?: string } } }).electron?.process?.platform;
 }
 
 export function toRuntimeRelativePath(filePath: string, baseDir?: string): string {

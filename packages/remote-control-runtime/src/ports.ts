@@ -90,8 +90,7 @@ export interface AgentSessionPort {
  * Live-generation tracking. The conversation runner polls
  * `getActiveGeneration` while streaming a bot reply to find the in-flight
  * assistant event. The daemon's provider-execution port exposes this (it tracks
- * running generations internally); the desktop presenter exposes it via
- * `AgentRuntimePresenter`.
+ * running generations internally).
  */
 export interface GenerationPort {
   getActiveGeneration(sessionId: string): { eventId: string; runId: string } | null;

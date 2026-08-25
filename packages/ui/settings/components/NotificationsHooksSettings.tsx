@@ -9,7 +9,7 @@ import { ScrollArea } from "#shadcn/components/ui/scroll-area";
 import { Switch } from "#shadcn/components/ui/switch";
 import { Checkbox } from "#shadcn/components/ui/checkbox";
 import { useToast } from "#/components/use-toast";
-import { usePresenter } from "#api/presenterBridge";
+import { createConfigClient } from "#api/ConfigClient";
 import type {
   HookCommandItem,
   HookEventName,
@@ -17,6 +17,8 @@ import type {
   HooksNotificationsSettings,
 } from "@argos/shared/hooksNotifications";
 import { DEFAULT_IMPORTANT_HOOK_EVENTS, HOOK_EVENT_NAMES } from "@argos/shared/hooksNotifications";
+
+const configClient = createConfigClient();
 
 const PREVIEW_LIMIT = 200;
 
@@ -86,7 +88,6 @@ const eventLabels: Record<string, string> = Object.fromEntries(HOOK_EVENT_NAMES.
 
 export default function NotificationsHooksSettings() {
   const { toast } = useToast();
-  const configPresenter = usePresenter("configPresenter");
 
   const [config, setConfig] = useState<HooksNotificationsSettings | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -109,7 +110,7 @@ export default function NotificationsHooksSettings() {
     try {
       let currentConfig: HooksNotificationsSettings | null = configToSave;
       while (currentConfig) {
-        const updated = await configPresenter.setHooksNotificationsConfig(currentConfig);
+        const updated = await configClient.setHooksNotificationsConfig(currentConfig);
         currentConfig = pendingSaveRef.current;
         pendingSaveRef.current = null;
         if (!currentConfig && updated) setConfig(updated);
@@ -198,7 +199,7 @@ export default function NotificationsHooksSettings() {
     setTestResults((prev) => ({ ...prev, [hookId]: null }));
     try {
       await persistConfig();
-      const result = await configPresenter.testHookCommand(hookId);
+      const result = await configClient.testHookCommand(hookId);
       setTestResults((prev) => ({ ...prev, [hookId]: result }));
     } catch (error) {
       setTestResults((prev) => ({
@@ -225,7 +226,7 @@ export default function NotificationsHooksSettings() {
     const loadConfig = async () => {
       setIsLoading(true);
       try {
-        const result = await configPresenter.getHooksNotificationsConfig();
+        const result = await configClient.getHooksNotificationsConfig();
         if (active) setConfig(result);
       } catch (error) {
         if (active) {
@@ -244,7 +245,7 @@ export default function NotificationsHooksSettings() {
     return () => {
       active = false;
     };
-  }, [configPresenter, toast]);
+  }, [toast]);
 
   if (isLoading) {
     return (

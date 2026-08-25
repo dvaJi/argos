@@ -1365,7 +1365,7 @@ export class WindowPresenter implements IWindowPresenter {
     return !this.settingsWindowReady && (channel.startsWith("settings:") || channel === DEEPLINK_EVENTS.MCP_INSTALL);
   }
 
-  private handleSettingsWindowReady(senderWebContentsId: number): void {
+  public handleSettingsWindowReady(senderWebContentsId: number): void {
     if (
       !this.settingsWindow ||
       this.settingsWindow.isDestroyed() ||

@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "#
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "#shadcn/components/ui/empty";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "#shadcn/components/ui/input-group";
 import { createSettingsClient } from "#api/SettingsClient";
+import { getRuntimePlatform } from "#api/runtime";
 import type { SettingsActivityRecord } from "@argos/shared-contracts/routes";
 import {
   getSettingsNavigationItems,
@@ -25,7 +26,7 @@ import StatusMetricCard from "./control-center/StatusMetricCard";
 import DashboardSettings from "./DashboardSettings";
 
 type SettingsRouteName = SettingsNavigationItem["routeName"];
-const settingsItems = getSettingsNavigationItems(window.electron?.process?.platform);
+const settingsItems = getSettingsNavigationItems(getRuntimePlatform());
 
 const categoryLabels: Record<string, string> = {
   provider: resolveTitle("settings.overview.categories.provider"),

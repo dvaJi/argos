@@ -17,7 +17,6 @@ interface ProviderInstanceManagerOptions {
   getCurrentProviderId: () => string | null;
   setCurrentProviderId: (providerId: string | null) => void;
   mcpRuntime?: ProviderMcpRuntimePort;
-  sqlitePresenter?: import("@argos/shared/presenter").ISQLitePresenter;
 }
 
 export class ProviderInstanceManager {

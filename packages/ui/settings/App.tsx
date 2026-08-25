@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Icon } from "@iconify/react";
-import { createIpcSubscriptionScope } from "#api/runtime";
 import { Outlet, useRouter, useRouterState } from "@tanstack/react-router";
 import { Toaster } from "sonner";
-import { usePresenter } from "#api/presenterBridge";
+import { createIpcSubscriptionScope, getRuntimePlatform, onIpcChannel } from "#api/runtime";
+import { createWindowClient } from "#api/WindowClient";
 import { ArrowLeft } from "lucide-react";
 import { uiSettingsStore, getFontSizeClass, loadSettings as loadUiSettings } from "../src/stores/uiSettingsStore";
 import { modelCheckStore } from "../src/stores/modelCheck";
@@ -44,6 +44,8 @@ import {
 import type { SettingsNavigationPayload } from "@argos/shared/settingsNavigation";
 import { useStartupWorkloadStore } from "#/stores/startupWorkloadStore";
 import { useStore } from "@tanstack/react-store";
+
+const windowClient = createWindowClient();
 
 const DATABASE_REPAIR_SECTION = "database-repair";
 const SETTINGS_SECTION_EVENT = "argos:settings-section";
@@ -90,8 +92,6 @@ export default function SettingsApp() {
   const { isMacOS, isWinMacOS } = useDeviceVersion();
   useFontManager();
 
-  const windowPresenter = usePresenter("windowPresenter");
-
   const themeState = useStore(themeStore);
   const modelCheckState = useStore(modelCheckStore);
   const uiSettingsState = useStore(uiSettingsStore);
@@ -127,7 +127,7 @@ export default function SettingsApp() {
 
   const settings = useMemo(
     () =>
-      getSettingsRouteItems(window.electron?.process?.platform).map((item) => ({
+      getSettingsRouteItems(getRuntimePlatform()).map((item) => ({
         title: item.titleKey,
         name: item.routeName,
         icon: item.icon,
@@ -138,7 +138,7 @@ export default function SettingsApp() {
 
   const settingGroups = useMemo(
     () =>
-      getSettingsNavigationGroups(window.electron?.process?.platform).map((group) => ({
+      getSettingsNavigationGroups(getRuntimePlatform()).map((group) => ({
         key: group.key,
         titleKey: resolveTitle(group.titleKey),
         items: group.items.map((item) => ({
@@ -337,7 +337,7 @@ export default function SettingsApp() {
     let preview: ProviderInstallPreview | null = null;
 
     try {
-      preview = await windowPresenter.consumePendingSettingsProviderInstall();
+      preview = await windowClient.consumePendingSettingsProviderInstall();
       if (!preview) {
         return;
       }
@@ -346,7 +346,7 @@ export default function SettingsApp() {
     } catch (error) {
       if (preview) {
         try {
-          windowPresenter.setPendingSettingsProviderInstall(preview);
+          windowClient.setPendingSettingsProviderInstall(preview);
         } catch (requeueError) {
           console.error("Failed to requeue pending provider install preview:", requeueError);
         }
@@ -356,7 +356,7 @@ export default function SettingsApp() {
     } finally {
       setIsProcessingProviderPreview(false);
     }
-  }, [isProcessingProviderPreview, windowPresenter, applyProviderInstallPreview]);
+  }, [isProcessingProviderPreview, applyProviderInstallPreview]);
 
   const releaseProviderPreviewProcessing = useCallback(() => {
     setIsProcessingProviderPreview(false);
@@ -466,9 +466,9 @@ export default function SettingsApp() {
   );
 
   const closeWindow = useCallback(() => {
-    windowPresenter.closeSettingsWindow();
+    windowClient.closeSettings();
     window.close();
-  }, [windowPresenter]);
+  }, [windowClient]);
 
   const handleWindowFocus = useCallback(() => {
     void syncPendingProviderInstall();
@@ -482,15 +482,12 @@ export default function SettingsApp() {
       void handleProviderInstall();
     };
 
-    const ipcRenderer = window?.electron?.ipcRenderer;
-    if (!ipcRenderer) return;
-
-    ipcRenderer.on(SETTINGS_EVENTS.NAVIGATE, navigateHandler);
-    ipcRenderer.on(SETTINGS_EVENTS.PROVIDER_INSTALL, installHandler);
+    const unsubscribeNavigate = onIpcChannel(SETTINGS_EVENTS.NAVIGATE, navigateHandler);
+    const unsubscribeInstall = onIpcChannel(SETTINGS_EVENTS.PROVIDER_INSTALL, installHandler);
 
     return () => {
-      ipcRenderer.removeListener?.(SETTINGS_EVENTS.NAVIGATE, navigateHandler);
-      ipcRenderer.removeListener?.(SETTINGS_EVENTS.PROVIDER_INSTALL, installHandler);
+      unsubscribeNavigate();
+      unsubscribeInstall();
     };
   }, [handleSettingsNavigate, handleProviderInstall]);
 
@@ -598,7 +595,7 @@ export default function SettingsApp() {
       markStartupInteractive();
       window.addEventListener("focus", handleWindowFocus);
       await syncPendingProviderInstall();
-      window.electron?.ipcRenderer?.send(SETTINGS_EVENTS.READY);
+      await windowClient.notifyReady();
       logSettingsStartup("settings window ready IPC sent");
     };
 

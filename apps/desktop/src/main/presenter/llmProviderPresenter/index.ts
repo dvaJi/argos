@@ -13,7 +13,6 @@ import {
   ModelScopeMcpSyncOptions,
   ModelScopeMcpSyncResult,
   IConfigPresenter,
-  ISQLitePresenter,
   RateLimitQueueSnapshot,
 } from "@argos/shared/presenter";
 import { ApiEndpointType, ModelType } from "@argos/shared/model";
@@ -96,11 +95,7 @@ export class LLMProviderPresenter implements ILlmProviderPresenter {
   private readonly embeddingManager: EmbeddingManager;
   private readonly modelScopeSyncManager: ModelScopeSyncManager;
 
-  constructor(
-    configPresenter: IConfigPresenter,
-    sqlitePresenter: ISQLitePresenter,
-    mcpRuntime?: ProviderMcpRuntimePort,
-  ) {
+  constructor(configPresenter: IConfigPresenter, mcpRuntime?: ProviderMcpRuntimePort) {
     this.configPresenter = configPresenter;
     this.rateLimitManager = new RateLimitManager(configPresenter);
     this.providerInstanceManager = new ProviderInstanceManager({
@@ -112,7 +107,6 @@ export class LLMProviderPresenter implements ILlmProviderPresenter {
         this.currentProviderId = providerId;
       },
       mcpRuntime,
-      sqlitePresenter,
     });
     this.modelManager = new ModelManager({
       configPresenter,

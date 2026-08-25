@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Icon } from "@iconify/react";
-import { openRuntimeExternal } from "#api/runtime";
+import { openRuntimeExternal, onIpcChannel } from "#api/runtime";
 import { Button } from "#shadcn/components/ui/button";
 import {
   Dialog,
@@ -15,18 +15,21 @@ import { useUpgradeStore } from "#/stores/upgrade";
 import { useLanguageStore } from "#/stores/language";
 import { useThemeStore } from "#/stores/theme";
 import { useToast } from "#/components/use-toast";
-import { usePresenter } from "#api/presenterBridge";
-import { DEV_EVENTS, SETTINGS_EVENTS } from "#/events";
+import { createConfigClient } from "#api/ConfigClient";
+import { createDeviceClient } from "#api/DeviceClient";
+import { createWindowClient } from "#api/WindowClient";
+import { SETTINGS_EVENTS } from "#/events";
 import SettingsPageShell from "./control-center/SettingsPageShell";
 import logoImg from "#/assets/logo.png";
+
+const configClient = createConfigClient();
+const deviceClient = createDeviceClient();
+const windowClient = createWindowClient();
 
 export default function AboutUsSettings() {
   const { toast } = useToast();
   const themeStore = useThemeStore();
   const languageStore = useLanguageStore();
-  const devicePresenter = usePresenter("devicePresenter");
-  const configPresenter = usePresenter("configPresenter");
-  const windowPresenter = usePresenter("windowPresenter");
   const upgrade = useUpgradeStore();
 
   const [appVersion, setAppVersion] = useState("");
@@ -41,11 +44,9 @@ export default function AboutUsSettings() {
     : "";
 
   const openExternalLink = useCallback((url: string) => {
-    if (window.api?.openExternal) {
-      void openRuntimeExternal(url).catch(() => {});
-    } else {
+    void openRuntimeExternal(url).catch(() => {
       window.open(url, "_blank", "noopener,noreferrer");
-    }
+    });
   }, []);
 
   const showUpToDateToast = useCallback(() => {
@@ -78,19 +79,21 @@ export default function AboutUsSettings() {
 
   useEffect(() => {
     const handler = () => void handleExternalCheckUpdate();
-    const ipcRenderer = window.electron?.ipcRenderer;
-    if (!ipcRenderer) return;
-
-    ipcRenderer.on(SETTINGS_EVENTS.CHECK_FOR_UPDATES, handler);
+    const unsubscribe = onIpcChannel(SETTINGS_EVENTS.CHECK_FOR_UPDATES, handler);
+    let cancelled = false;
     void (async () => {
-      setAppVersion(await devicePresenter.getAppVersion());
-      setUpdateChannel(await configPresenter.getUpdateChannel());
+      const version = await deviceClient.getAppVersion();
+      const channel = await configClient.getUpdateChannel();
+      if (cancelled) return;
+      setAppVersion(version);
+      setUpdateChannel(channel);
       await upgrade.refreshStatus();
     })();
     return () => {
-      ipcRenderer.removeListener?.(SETTINGS_EVENTS.CHECK_FOR_UPDATES, handler);
+      cancelled = true;
+      unsubscribe();
     };
-  }, [devicePresenter, configPresenter, upgrade, handleExternalCheckUpdate]);
+  }, [upgrade, handleExternalCheckUpdate]);
 
   return (
     <>
@@ -152,7 +155,7 @@ export default function AboutUsSettings() {
                 onValueChange={async (channel) => {
                   if (!channel) return;
                   try {
-                    await configPresenter.setUpdateChannel(channel);
+                    await configClient.setUpdateChannel(channel as "stable" | "beta");
                     setUpdateChannel(channel);
                   } catch (error) {
                     console.error("updateChannelSetError:", error);
@@ -238,8 +241,7 @@ export default function AboutUsSettings() {
                 size="sm"
                 className="mb-2 text-xs"
                 onClick={async () => {
-                  await windowPresenter.sendToAllWindows(DEV_EVENTS.START_GUIDED_ONBOARDING);
-                  await windowPresenter.focusMainWindow();
+                  await windowClient.devStartGuidedOnboarding();
                 }}
               >
                 Mock Onboarding

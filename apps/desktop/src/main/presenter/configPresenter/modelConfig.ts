@@ -103,7 +103,8 @@ export class ModelConfigHelper {
   private ensureStoreSynced(): void {
     const meta = this.getStoreMeta();
     if (!meta) {
-      this.initializeMetaFromLegacyStore();
+      // No meta yet (fresh store): derived-config refresh starts once
+      // `getOrCreateMeta()` lazily seeds the meta entry.
       return;
     }
 
@@ -217,41 +218,6 @@ export class ModelConfigHelper {
     });
   }
 
-  private initializeMetaFromLegacyStore(): void {
-    const legacyEntries = this.modelConfigStore.store;
-    const userKeys: Set<string> = new Set();
-
-    Object.entries(legacyEntries).forEach(([key, value]) => {
-      if (this.isMetaKey(key)) {
-        return;
-      }
-
-      const entry = value as IModelConfig | undefined;
-      if (entry && this.isEntryUserDefined(entry)) {
-        userKeys.add(key);
-        const updatedEntry: IModelConfig = {
-          ...entry,
-          source: "user",
-          config: {
-            ...entry.config,
-            isUserDefined: true,
-          },
-        };
-        this.modelConfigStore.set(key, updatedEntry);
-      } else {
-        this.modelConfigStore.delete(key);
-      }
-    });
-
-    this.memoryCache.clear();
-    this.cacheInitialized = false;
-
-    this.updateStoreMeta({
-      lastRefreshVersion: this.currentVersion,
-      userConfigKeys: Array.from(userKeys),
-    });
-  }
-
   private refreshDerivedConfigs(meta: ModelConfigStoreMeta): void {
     const userKeySet = new Set(meta.userConfigKeys || []);
 
@@ -288,10 +254,6 @@ export class ModelConfigHelper {
   private getOrCreateMeta(): ModelConfigStoreMeta {
     let meta = this.getStoreMeta();
     if (!meta) {
-      this.initializeMetaFromLegacyStore();
-      meta = this.getStoreMeta();
-    }
-    if (!meta) {
       meta = {
         lastRefreshVersion: this.currentVersion,
         userConfigKeys: [],
@@ -303,14 +265,6 @@ export class ModelConfigHelper {
 
   private isMetaKey(key: string): boolean {
     return key === MODEL_CONFIG_META_KEY;
-  }
-
-  private isEntryUserDefined(entry: IModelConfig | undefined): boolean {
-    if (!entry) return false;
-    if (entry.source) {
-      return entry.source === "user";
-    }
-    return entry.config?.isUserDefined === true;
   }
 
   private updateUserConfigKeys(cacheKey: string, source: ModelConfigSource): void {

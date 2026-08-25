@@ -35,6 +35,23 @@ import {
   configRemoveManualAcpAgentRoute,
   configGetAgentMcpSelectionsRoute,
   configGetAwsBedrockCredentialRoute,
+  configCreateArgosAgentRoute,
+  configUpdateArgosAgentRoute,
+  configDeleteArgosAgentRoute,
+  configGetUpdateChannelRoute,
+  configSetUpdateChannelRoute,
+  configGetProxyModeRoute,
+  configSetProxyModeRoute,
+  configGetCustomProxyUrlRoute,
+  configSetCustomProxyUrlRoute,
+  configOpenLoggingFolderRoute,
+  configSetMaxFileSizeRoute,
+  configGetMaxFileSizeRoute,
+  configGetSkillDraftSuggestionsEnabledRoute,
+  configSetSkillDraftSuggestionsEnabledRoute,
+  configGetHooksNotificationsConfigRoute,
+  configSetHooksNotificationsConfigRoute,
+  configTestHookCommandRoute,
   configGetAzureApiVersionRoute,
   configGetDefaultProjectPathRoute,
   configGetDefaultSystemPromptRoute,
@@ -79,6 +96,8 @@ import type {
   AcpManualAgent,
   AcpRegistryAgent,
   BuiltinKnowledgeConfig,
+  HookTestResult,
+  HooksNotificationsSettings,
   Prompt,
   ShortcutKeySetting,
   SystemPrompt,
@@ -266,6 +285,21 @@ export function createConfigClient(bridge: ArgosBridge = getArgosBridge()) {
   async function getSystemPrompts(): Promise<SystemPrompt[]> {
     const result = await bridge.invoke(configGetSystemPromptsRoute.name, {});
     return result.prompts as unknown as SystemPrompt[];
+  }
+
+  async function createArgosAgent(input: unknown) {
+    const result = await bridge.invoke(configCreateArgosAgentRoute.name, input as never);
+    return result.agent;
+  }
+
+  async function updateArgosAgent(agentId: string, updates: unknown) {
+    const result = await bridge.invoke(configUpdateArgosAgentRoute.name, { agentId, updates } as never);
+    return result.agent;
+  }
+
+  async function deleteArgosAgent(agentId: string) {
+    const result = await bridge.invoke(configDeleteArgosAgentRoute.name, { agentId });
+    return result.removed;
   }
 
   async function getDefaultSystemPromptId() {
@@ -503,6 +537,71 @@ export function createConfigClient(bridge: ArgosBridge = getArgosBridge()) {
     return result.value;
   }
 
+  // --- Desktop-resident settings surfaces ---
+
+  async function getUpdateChannel() {
+    const result = await bridge.invoke(configGetUpdateChannelRoute.name, {});
+    return result.channel;
+  }
+
+  async function setUpdateChannel(channel: "stable" | "beta") {
+    await bridge.invoke(configSetUpdateChannelRoute.name, { channel });
+  }
+
+  async function getProxyMode() {
+    const result = await bridge.invoke(configGetProxyModeRoute.name, {});
+    return result.mode;
+  }
+
+  async function setProxyMode(mode: string) {
+    await bridge.invoke(configSetProxyModeRoute.name, { mode });
+  }
+
+  async function getCustomProxyUrl() {
+    const result = await bridge.invoke(configGetCustomProxyUrlRoute.name, {});
+    return result.url ?? "";
+  }
+
+  async function setCustomProxyUrl(url: string) {
+    await bridge.invoke(configSetCustomProxyUrlRoute.name, { url: url || null });
+  }
+
+  async function openLoggingFolder() {
+    await bridge.invoke(configOpenLoggingFolderRoute.name, {});
+  }
+
+  async function setMaxFileSize(size: number) {
+    await bridge.invoke(configSetMaxFileSizeRoute.name, { size });
+  }
+
+  async function getMaxFileSize() {
+    const result = await bridge.invoke(configGetMaxFileSizeRoute.name, {});
+    return result.size;
+  }
+
+  async function getSkillDraftSuggestionsEnabled() {
+    const result = await bridge.invoke(configGetSkillDraftSuggestionsEnabledRoute.name, {});
+    return result.enabled;
+  }
+
+  async function setSkillDraftSuggestionsEnabled(enabled: boolean) {
+    await bridge.invoke(configSetSkillDraftSuggestionsEnabledRoute.name, { enabled });
+  }
+
+  async function getHooksNotificationsConfig() {
+    const result = await bridge.invoke(configGetHooksNotificationsConfigRoute.name, {});
+    return result.config as unknown as HooksNotificationsSettings;
+  }
+
+  async function setHooksNotificationsConfig(config: HooksNotificationsSettings) {
+    await bridge.invoke(configSetHooksNotificationsConfigRoute.name, { config });
+  }
+
+  async function testHookCommand(hookId: string) {
+    const result = await bridge.invoke(configTestHookCommandRoute.name, { hookId });
+    return result.result as HookTestResult;
+  }
+
   function onLanguageChanged(
     listener: (payload: {
       requestedLanguage: string;
@@ -592,6 +691,9 @@ export function createConfigClient(bridge: ArgosBridge = getArgosBridge()) {
     updateCustomPrompt,
     deleteCustomPrompt,
     getSystemPrompts,
+    createArgosAgent,
+    updateArgosAgent,
+    deleteArgosAgent,
     getDefaultSystemPromptId,
     getDefaultSystemPrompt,
     setDefaultSystemPrompt,
@@ -634,6 +736,20 @@ export function createConfigClient(bridge: ArgosBridge = getArgosBridge()) {
     setGeminiSafety,
     getAwsBedrockCredential,
     setAwsBedrockCredential,
+    getUpdateChannel,
+    setUpdateChannel,
+    getProxyMode,
+    setProxyMode,
+    getCustomProxyUrl,
+    setCustomProxyUrl,
+    openLoggingFolder,
+    setMaxFileSize,
+    getMaxFileSize,
+    getSkillDraftSuggestionsEnabled,
+    setSkillDraftSuggestionsEnabled,
+    getHooksNotificationsConfig,
+    setHooksNotificationsConfig,
+    testHookCommand,
     onLanguageChanged,
     onThemeChanged,
     onSystemThemeChanged,

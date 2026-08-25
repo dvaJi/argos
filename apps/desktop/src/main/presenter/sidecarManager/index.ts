@@ -27,6 +27,18 @@ export type SidecarHandle = {
   status: SidecarStatus;
   stop: () => Promise<void>;
   isRunning: () => boolean;
+  /**
+   * Resolves once the daemon actually answers health checks: immediately when
+   * already healthy, otherwise on the `healthy` status transition. Rejects if
+   * the sidecar stops, errors permanently, or the timeout elapses.
+   */
+  whenHealthy: (timeoutMs?: number) => Promise<void>;
+};
+
+type HealthyWaiter = {
+  resolve: () => void;
+  reject: (error: Error) => void;
+  timer: ReturnType<typeof setTimeout> | null;
 };
 
 function findDaemonExecutable(): string {
@@ -215,6 +227,24 @@ export async function startSidecar(options: SidecarOptions): Promise<SidecarHand
   let healthCheckTimer: ReturnType<typeof setInterval> | null = null;
   let retryCount = 0;
   let stopped = false;
+  const healthyWaiters = new Set<HealthyWaiter>();
+
+  function resolveHealthyWaiters(): void {
+    for (const waiter of healthyWaiters) {
+      if (waiter.timer) clearTimeout(waiter.timer);
+      waiter.resolve();
+    }
+    healthyWaiters.clear();
+  }
+
+  function rejectHealthyWaiters(error: Error): void {
+    for (const waiter of healthyWaiters) {
+      if (waiter.timer) clearTimeout(waiter.timer);
+      waiter.reject(error);
+    }
+    healthyWaiters.clear();
+  }
+
   const handle: SidecarHandle = {
     get port() {
       return currentPort;
@@ -254,6 +284,20 @@ export async function startSidecar(options: SidecarOptions): Promise<SidecarHand
     isRunning() {
       return child !== null && !child.killed && status === "healthy";
     },
+    whenHealthy(timeoutMs = 30000): Promise<void> {
+      if (status === "healthy") {
+        return Promise.resolve();
+      }
+
+      return new Promise<void>((resolve, reject) => {
+        const waiter: HealthyWaiter = { resolve, reject, timer: null };
+        waiter.timer = setTimeout(() => {
+          healthyWaiters.delete(waiter);
+          reject(new Error(`Daemon did not become healthy within ${timeoutMs}ms`));
+        }, timeoutMs);
+        healthyWaiters.add(waiter);
+      });
+    },
   };
 
   const reservedPort = port > 0 ? port : await reserveFreePort(host).catch(() => 0);
@@ -264,6 +308,11 @@ export async function startSidecar(options: SidecarOptions): Promise<SidecarHand
 
   function updateStatus(newStatus: SidecarStatus) {
     status = newStatus;
+    if (newStatus === "healthy") {
+      resolveHealthyWaiters();
+    } else if (newStatus === "stopped" || newStatus === "error") {
+      rejectHealthyWaiters(new Error(`Daemon ${newStatus}`));
+    }
     onStatusChange?.(newStatus);
   }
 
