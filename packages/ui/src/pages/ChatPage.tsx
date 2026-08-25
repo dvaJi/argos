@@ -124,6 +124,20 @@ function ChatPage({ sessionId }: ChatPageProps) {
   const chatSearchBarRef = useRef<{ focusInput: () => void; selectInput: () => void } | null>(null);
 
   const [shouldAutoFollow, setShouldAutoFollow] = useState(true);
+
+  // Heal the store binding when the chat route is restored directly (deep
+  // link, tab restore, hash navigation): the page can render session content
+  // from the URL while `activeSessionId` was never set, which leaves the
+  // composer footer stuck on "Select model" with a dead send button.
+  const healedSessionBindingRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!sessionId) return;
+    if (sessionStore.state.activeSessionId === sessionId) return;
+    if (healedSessionBindingRef.current === sessionId) return;
+    healedSessionBindingRef.current = sessionId;
+    void selectSession(sessionId).catch(() => {});
+  }, [sessionId]);
+
   const [scrollMode, setScrollMode] = useState<"initial-bottom" | "auto-follow" | "anchored-reading" | "manual-jump">(
     "initial-bottom",
   );

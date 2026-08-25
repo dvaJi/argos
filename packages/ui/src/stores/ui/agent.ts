@@ -33,6 +33,27 @@ export const enabledAgents = () => agentStore.state.agents.filter((a) => a.enabl
 
 export const selectedAgent = () => agentStore.state.agents.find((a) => a.id === agentStore.state.selectedAgentId);
 
+/**
+ * Resolve an agent id to its type, tolerating hydration gaps.
+ *
+ * When the agents list has not loaded (or the id is missing from it), we still
+ * infer a usable type: the builtin "argos" id is always an argos agent, and any
+ * other non-empty id falls back to "acp" so ACP-selected users keep a working
+ * composer instead of a dead "Select model" state.
+ *
+ * Returns null only when no id is given at all.
+ */
+export function inferAgentType(
+  agentId: string | null | undefined,
+  agents: UIAgent[] = agentStore.state.agents,
+): "argos" | "acp" | null {
+  if (!agentId) return null;
+  const matched = agents.find((a) => a.id === agentId);
+  const explicitType = matched?.agentType ?? matched?.type;
+  if (explicitType === "argos" || explicitType === "acp") return explicitType;
+  return agentId === "argos" ? "argos" : "acp";
+}
+
 function mapAgentToUiAgent(agent: Agent | AgentBootstrapItem): UIAgent {
   return {
     id: agent.id,

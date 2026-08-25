@@ -30,7 +30,7 @@ import {
   swapProjectForAgent,
 } from "#/stores/ui/project";
 import { sessionStore, createSession, selectSession, sendMessage, fetchSessions } from "#/stores/ui/session";
-import { agentStore, selectedAgent as getSelectedAgent } from "#/stores/ui/agent";
+import { agentStore, selectedAgent as getSelectedAgent, inferAgentType } from "#/stores/ui/agent";
 import { modelStore, findChatSelectableModel, initialize, getChatSelectableModelGroups } from "#/stores/modelStore";
 import { draftStore, toGenerationSettings as getToGenerationSettings } from "#/stores/ui/draft";
 import { createConfigClient } from "#api/ConfigClient";
@@ -158,12 +158,10 @@ function NewThreadPage() {
   const selectedAgentFromStore = getSelectedAgent();
   const resolveAgentType = useCallback(
     (agentId: string | null | undefined): "argos" | "acp" => {
-      if (!agentId) return "argos";
-      const matchedAgent = availableAgents.find((a) => a.id === agentId);
       const sel = selectedAgentFromStore?.id === agentId ? selectedAgentFromStore : null;
-      const explicitType = matchedAgent?.agentType ?? matchedAgent?.type ?? sel?.type;
+      const explicitType = inferAgentType(agentId, availableAgents) ?? (sel ? (sel.agentType ?? sel.type) : null);
       if (explicitType === "argos" || explicitType === "acp") return explicitType;
-      return agentId === "argos" ? "argos" : "acp";
+      return "argos";
     },
     [availableAgents, selectedAgentFromStore],
   );
@@ -677,7 +675,24 @@ function NewThreadPage() {
         return;
       }
 
-      const config = await resolveArgosAgentConfig(agentId);
+      let config: ArgosAgentConfig | null = null;
+      try {
+        config = await resolveArgosAgentConfig(agentId);
+      } catch (error) {
+        // Keep the composer usable when the config lookup fails: fall back to
+        // defaults below instead of wedging the draft at "Select model" with a
+        // dead send button (unhandled rejection).
+        console.warn("[NewThreadPage] resolveArgosAgentConfig failed, using draft defaults:", error);
+      }
+      if (!config) {
+        const systemPrompt = await configClient.getSetting("default_system_prompt").catch(() => undefined);
+        config = normalizeArgosSubagentConfig({
+          defaultModelPreset: undefined,
+          systemPrompt: typeof systemPrompt === "string" ? systemPrompt : "",
+          permissionMode: "full_access",
+          disabledAgentTools: [],
+        });
+      }
       const agentDefault = normalizeProjectPath(config.defaultProjectPath);
       const resolvedPath = agentDefault ?? currentProject ?? globalDefault;
       if (agentDefault) {

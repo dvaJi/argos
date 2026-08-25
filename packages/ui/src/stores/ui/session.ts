@@ -38,6 +38,13 @@ export interface UISession {
   subagentMeta: ArgosSubagentMeta | null;
   createdAt: number;
   updatedAt: number;
+  /**
+   * Model binding of the session when the source payload carries it
+   * (`sessions.list` does). Optional because some internal callers construct
+   * UISession from partial data.
+   */
+  providerId?: string;
+  modelId?: string;
 }
 
 export interface UIActiveSessionSummary extends UISession {
@@ -101,6 +108,10 @@ function mapToUISession(session: SessionListItem | SessionWithState): UISession 
     subagentMeta: session.subagentMeta ?? null,
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
+    // Keep the model binding on list items so the composer can resolve the
+    // active session's model before (or without) fetching the full summary.
+    providerId: session.providerId ?? undefined,
+    modelId: session.modelId ?? undefined,
   };
 }
 
@@ -115,8 +126,11 @@ function mapToUIActiveSessionSummary(session: SessionWithState): UIActiveSession
 function createFallbackActiveSession(session: UISession): UIActiveSessionSummary {
   return {
     ...session,
-    providerId: "",
-    modelId: "",
+    // Preserve the model binding from the list item: blanking it here left
+    // the composer footer on "Select model" with a dead send button whenever
+    // the full summary had not (re)loaded yet.
+    providerId: session.providerId ?? "",
+    modelId: session.modelId ?? "",
   };
 }
 

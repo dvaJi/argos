@@ -685,6 +685,9 @@ export interface SessionRecord {
 
 export interface SessionListItem extends SessionRecord {
   status: SessionStatus;
+  /** Model binding; present when the payload carries it (sessions.list does). */
+  providerId?: string;
+  modelId?: string;
 }
 
 export interface SessionWithState extends SessionRecord {

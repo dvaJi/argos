@@ -226,6 +226,12 @@ export const SessionWithStateSchema = zod.object({
 export const SessionListItemSchema = SessionWithStateSchema.omit({
   providerId: true,
   modelId: true,
+}).extend({
+  // The model binding travels with lightweight items too (optional for
+  // backward compatibility): the composer resolves the active session's
+  // model from the list before the full summary loads.
+  providerId: zod.string().optional(),
+  modelId: zod.string().optional(),
 });
 
 export const SessionPageCursorSchema = zod.object({

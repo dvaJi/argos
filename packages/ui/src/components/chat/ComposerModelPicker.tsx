@@ -4,7 +4,7 @@ import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "#shadcn/components/ui/popover";
 import { useModelStore, getChatSelectableModelGroups } from "#/stores/modelStore";
-import { useAgentStore } from "#/stores/ui/agent";
+import { useAgentStore, inferAgentType } from "#/stores/ui/agent";
 import { useSessionStore, getActiveSession, getHasActiveSession } from "#/stores/ui/session";
 import { draftStore, useDraftStore } from "#/stores/ui/draft";
 import { createSessionClient } from "#api/SessionClient";
@@ -31,8 +31,11 @@ const ComposerModelPicker = () => {
   const isAcpAgent = useMemo(() => {
     if (hasActiveSession) return activeSession?.providerId === "acp";
     const selectedId = agentState.selectedAgentId;
-    const selected = agentState.agents.find((a) => a.id === selectedId);
-    return selected?.type === "acp" || selected?.agentType === "acp";
+    if (!selectedId) {
+      const selected = agentState.agents.find((a) => a.id === "argos");
+      return selected?.type !== "acp" && selected?.agentType !== "acp";
+    }
+    return inferAgentType(selectedId, agentState.agents) === "acp";
   }, [hasActiveSession, activeSession?.providerId, agentState.selectedAgentId, agentState.agents]);
 
   const acpAgents = useMemo(

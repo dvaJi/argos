@@ -42,6 +42,7 @@ class MockBrowserWindow {
       this.addHandler(this.webContentsHandlers, event, wrappedHandler);
     }),
     send: vi.fn<(...args: any[]) => any>(),
+    isDestroyed: vi.fn<(...args: any[]) => any>(() => this.destroyed),
   };
 
   private readonly handlers = new Map<string, Array<(...args: unknown[]) => void>>();
@@ -295,6 +296,105 @@ describe("SplashWindowManager display gating", () => {
         expect.stringContaining("[SplashWindow] Failed to load dev splash URL"),
         expect.anything(),
       );
+    } finally {
+      errorSpy.mockRestore();
+      warnSpy.mockRestore();
+    }
+  });
+
+  it("bails out quietly when the window is destroyed mid-load (Object has been destroyed)", async () => {
+    process.env.ARGOS_UI_DEV_SERVER_URL = "http://localhost:5180";
+    const errorSpy = vi.spyOn<(...args: any[]) => any>(console, "error").mockImplementation(() => {});
+    const warnSpy = vi.spyOn<(...args: any[]) => any>(console, "warn").mockImplementation(() => {});
+
+    // Simulate the real async teardown race: the first loadURL is in-flight
+    // when the main window appears and closes the hidden splash; the in-flight
+    // load then rejects with Electron's "Object has been destroyed".
+    splashLoadMocks.loadURL = vi.fn<(...args: any[]) => any>(async (url: string) => {
+      if (!url.startsWith("data:text/html")) {
+        eventBus.sendToMain(WINDOW_EVENTS.WINDOW_CREATED, {
+          windowId: 1,
+          isMainWindow: true,
+        });
+        throw new Error("Object has been destroyed");
+      }
+      return;
+    });
+    splashLoadMocks.loadFile = vi.fn<(...args: any[]) => any>(async () => {
+      throw new Error("file renderer unavailable");
+    });
+
+    try {
+      const { SplashWindowManager } =
+        await import("../../../../src/main/presenter/lifecyclePresenter/SplashWindowManager");
+
+      manager = new SplashWindowManager();
+      await manager.create();
+      await flushPromises();
+
+      const splashWindow = createdWindows[0];
+      expect(splashWindow).toBeTruthy();
+      expect(splashWindow.close).toHaveBeenCalledTimes(1);
+      // The first dev URL failed mid-load with the window destroyed; the
+      // fallback chain bails out and does not attempt further loads.
+      expect(splashWindow.loadURL).toHaveBeenCalledTimes(1);
+      expect(splashWindow.loadFile).not.toHaveBeenCalled();
+      // No "Failed to load splash window:" error, no "Failed to load ... splash"
+      // warnings, no unhandled rejection from emitState.
+      expect(errorSpy).not.toHaveBeenCalledWith("Failed to load splash window:", expect.anything());
+      expect(warnSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining("[SplashWindow] Failed to load"),
+        expect.anything(),
+      );
+    } finally {
+      errorSpy.mockRestore();
+      warnSpy.mockRestore();
+    }
+  });
+
+  it("does not throw when emitState runs on a window destroyed after the guards pass", async () => {
+    process.env.ARGOS_UI_DEV_SERVER_URL = "http://localhost:5180";
+    const errorSpy = vi.spyOn<(...args: any[]) => any>(console, "error").mockImplementation(() => {});
+    const warnSpy = vi.spyOn<(...args: any[]) => any>(console, "warn").mockImplementation(() => {});
+
+    let destroyedDuringSend = false;
+    splashLoadMocks.loadURL = vi.fn<(...args: any[]) => any>(async (url: string) => {
+      if (url.startsWith("data:text/html")) {
+        return;
+      }
+      throw new Error("dev renderer unavailable");
+    });
+    splashLoadMocks.loadFile = vi.fn<(...args: any[]) => any>(async () => {
+      throw new Error("file renderer unavailable");
+    });
+
+    try {
+      const { SplashWindowManager } =
+        await import("../../../../src/main/presenter/lifecyclePresenter/SplashWindowManager");
+
+      manager = new SplashWindowManager();
+      await manager.create();
+      await flushPromises();
+
+      const splashWindow = createdWindows[0];
+      expect(splashWindow).toBeTruthy();
+
+      // The inline fallback succeeded; now simulate the window dying between
+      // the isDestroyed() guard and webContents.send().
+      const originalSend = splashWindow.webContents.send;
+      splashWindow.webContents.send = vi.fn<(...args: any[]) => any>(() => {
+        splashWindow.destroyed = true;
+        destroyedDuringSend = true;
+        throw new Error("Object has been destroyed");
+      });
+
+      (manager as any).emitState();
+
+      expect(destroyedDuringSend).toBe(true);
+      expect(errorSpy).not.toHaveBeenCalledWith("Failed to emit splash state:", expect.anything());
+      expect(warnSpy).not.toHaveBeenCalled();
+
+      splashWindow.webContents.send = originalSend;
     } finally {
       errorSpy.mockRestore();
       warnSpy.mockRestore();

@@ -2597,10 +2597,10 @@ export function createDaemonDispatcher(
         includeSubagents: input.includeSubagents,
         agentId: input.agentId,
       });
-      const items = page.records.map((session: any) => {
-        const { providerId: _providerId, modelId: _modelId, ...item } = session;
-        return item;
-      });
+      // Keep providerId/modelId on the lightweight items: the renderer
+      // resolves the active session's model from the list and would otherwise
+      // render a dead "Select model" composer until the full summary loads.
+      const items = page.records.map((session: any) => session);
       return sessionsListLightweightRoute.output.parse({
         items,
         nextCursor: page.nextCursor,
@@ -2612,10 +2612,7 @@ export function createDaemonDispatcher(
       const input = sessionsGetLightweightByIdsRoute.input.parse(rawInput);
       const items = await runtime.sessionRepository!.getMany(input.sessionIds);
       return sessionsGetLightweightByIdsRoute.output.parse({
-        items: items.map((session: any) => {
-          const { providerId: _providerId, modelId: _modelId, ...item } = session;
-          return item;
-        }),
+        items: items.map((session: any) => session),
       });
     }
 

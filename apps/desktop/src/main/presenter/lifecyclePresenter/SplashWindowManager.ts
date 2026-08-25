@@ -287,7 +287,8 @@ export class SplashWindowManager implements ISplashWindowManager {
   }
 
   private emitState(): void {
-    if (!this.splashWindow || this.splashWindow.isDestroyed()) {
+    const splashWindow = this.splashWindow;
+    if (!splashWindow || splashWindow.isDestroyed() || splashWindow.webContents.isDestroyed()) {
       return;
     }
 
@@ -301,7 +302,15 @@ export class SplashWindowManager implements ISplashWindowManager {
         })),
     };
 
-    this.splashWindow.webContents.send("splash-update", payload);
+    try {
+      splashWindow.webContents.send("splash-update", payload);
+    } catch (error) {
+      // The window can be torn down between the destroyed checks and the send
+      // (e.g. the main window is created while the splash renderer is loading).
+      if (!(error instanceof Error && error.message.includes("Object has been destroyed"))) {
+        console.error("Failed to emit splash state:", error);
+      }
+    }
   }
 
   private maybeShowSplash(): void {
@@ -328,7 +337,7 @@ export class SplashWindowManager implements ISplashWindowManager {
   }
 
   private markSplashLoaded(): void {
-    if (this.splashDidFinishLoad) {
+    if (this.splashDidFinishLoad || !this.shouldContinueSplashLoad()) {
       return;
     }
     this.splashDidFinishLoad = true;
@@ -388,20 +397,23 @@ export class SplashWindowManager implements ISplashWindowManager {
   }
 
   private async tryLoadSplashUrl(url: string, source: string, options: { quiet?: boolean } = {}): Promise<boolean> {
-    const splashWindow = this.splashWindow;
-    if (!splashWindow || !this.shouldContinueSplashLoad()) {
+    if (!this.shouldContinueSplashLoad()) {
       return false;
     }
 
     try {
-      await splashWindow.loadURL(url);
+      await this.splashWindow!.loadURL(url);
       if (!this.shouldContinueSplashLoad()) {
         return false;
       }
       this.markSplashLoaded();
       return true;
     } catch (error) {
-      if (!this.shouldContinueSplashLoad()) {
+      // The window can be torn down mid-load (e.g. the main window appears and
+      // closes the hidden splash). Bail out quietly instead of falling through
+      // to further renderer attempts that would also fail.
+      const isDestroyedError = error instanceof Error && error.message.includes("Object has been destroyed");
+      if (!this.shouldContinueSplashLoad() || isDestroyedError) {
         return false;
       }
       if (!options.quiet) {

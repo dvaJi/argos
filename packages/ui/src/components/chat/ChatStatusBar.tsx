@@ -66,7 +66,11 @@ import { requestGuidedOnboardingResume } from "#/lib/onboardingResume";
 import { useModelStore, getChatSelectableModelGroups, findChatSelectableModel } from "#/stores/modelStore";
 import { useProviderStore, getSortedProviders, ensureInitialized } from "#/stores/providerStore";
 import { useThemeStore } from "#/stores/theme";
-import { useAgentStore, selectedAgent as getSelectedAgent } from "#/stores/ui/agent";
+import {
+  useAgentStore,
+  selectedAgent as getSelectedAgent,
+  inferAgentType as sharedInferAgentType,
+} from "#/stores/ui/agent";
 import { useDraftStore } from "#/stores/ui/draft";
 import { useProjectStore, selectedProject as getSelectedProject } from "#/stores/ui/project";
 import { useSessionStore, getActiveSession, getHasActiveSession } from "#/stores/ui/session";
@@ -175,7 +179,7 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
     const providerStore = useProviderStore();
     const agentStore = useAgentStore();
     const sessionStore = useSessionStore();
-    const draftStore = useDraftStore();
+    const draftState = useDraftStore();
     const projectStore = useProjectStore();
     const configClient = createConfigClient();
     const modelClient = createModelClient();
@@ -247,7 +251,7 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
         const selectedAgent = getSelectedAgent()?.id === agentId ? getSelectedAgent() : null;
         const explicitType = matchedAgent?.agentType ?? matchedAgent?.type ?? selectedAgent?.type;
         if (explicitType === "argos" || explicitType === "acp") return explicitType;
-        return agentId === "argos" ? "argos" : "acp";
+        return sharedInferAgentType(agentId, availableAgents);
       },
       [availableAgents, getSelectedAgent()],
     );
@@ -325,7 +329,14 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
         const agentId = agentStore.selectedAgentId;
         return selectedAgentType === "acp" && agentId ? { providerId: "acp", modelId: agentId } : null;
       }
-      return draftModelSelection;
+      // Prefer an explicit in-session quick select; otherwise surface the draft
+      // defaults (agent defaultModelPreset) so the bar shows the effective
+      // model instead of "Select model" right after boot.
+      if (draftModelSelection) return draftModelSelection;
+      if (draftState.providerId && draftState.modelId) {
+        return { providerId: draftState.providerId, modelId: draftState.modelId };
+      }
+      return null;
     }, [
       hasActiveSession,
       activeSessionSelection,
@@ -333,6 +344,8 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
       agentStore.selectedAgentId,
       selectedAgentType,
       draftModelSelection,
+      draftState.providerId,
+      draftState.modelId,
     ]);
 
     const moonshotKimiTemperaturePolicyValue = useMemo(
