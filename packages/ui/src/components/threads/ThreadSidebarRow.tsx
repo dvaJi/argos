@@ -21,7 +21,7 @@ import {
   highlightSegments,
   resolveThreadPill,
   resolveThreadStatus,
-} from "./threadSidebar.logic";
+} from "./threadSidebarLogic";
 
 export type ThreadRowVariant = "active" | "snoozed" | "settled";
 

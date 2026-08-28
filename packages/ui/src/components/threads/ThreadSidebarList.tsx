@@ -16,7 +16,7 @@ import {
   unsnoozeSession,
   useThreadSidebarStore,
 } from "#/stores/ui/threadSidebar";
-import { matchesTitle, partitionThreads } from "./threadSidebar.logic";
+import { matchesTitle, partitionThreads } from "./threadSidebarLogic";
 import ThreadSidebarRow from "./ThreadSidebarRow";
 
 /**
