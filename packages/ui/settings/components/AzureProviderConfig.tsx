@@ -11,12 +11,11 @@ interface AzureProviderConfigProps {
 
 export default function AzureProviderConfig({ provider, initialValue, onApiVersionChange }: AzureProviderConfigProps) {
   const [azureApiVersion, setAzureApiVersion] = useState(initialValue || "2024-02-01");
-
-  useEffect(() => {
-    if (initialValue) {
-      setAzureApiVersion(initialValue);
-    }
-  }, [initialValue]);
+  const [prevInitialValue, setPrevInitialValue] = useState(initialValue);
+  if (initialValue !== prevInitialValue) {
+    setPrevInitialValue(initialValue);
+    setAzureApiVersion(initialValue || "2024-02-01");
+  }
 
   const handleAzureApiVersionChange = (value: string) => {
     const trimmedValue = value.trim();
