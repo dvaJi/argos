@@ -1,4 +1,4 @@
-import { app, clipboard, dialog, nativeImage, net } from "electron";
+import { app, ClipboardItem, clipboard, dialog, nativeImage, net } from "electron";
 import fs from "fs/promises";
 import path from "path";
 
@@ -367,8 +367,13 @@ export class FilePresenter implements IFilePresenter {
 
   async copyImage(file: SaveImageInput): Promise<{ copied: boolean }> {
     const image = await this.resolveImageData(file);
-    const clipboardImage = this.createClipboardImage(image);
-    clipboard.writeImage(clipboardImage);
+    // Electron 44 removed clipboard.writeImage; write a normalized PNG through
+    // the async W3C-style clipboard API instead.
+    const native = this.createClipboardImage(image);
+    const item = new ClipboardItem({
+      "image/png": new Blob([new Uint8Array(native.toPNG())], { type: "image/png" }),
+    });
+    await clipboard.write([item]);
     return { copied: true };
   }
 

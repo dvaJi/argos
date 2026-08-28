@@ -83,7 +83,9 @@ const MIGRATED_RAW_CHANNEL_GUARD_PATHS = [
 ]
 
 const MIGRATED_RAW_CHANNEL_BASELINE = new Map([
-  ['apps/desktop/src/main/presenter/windowPresenter/index.ts', 4],
+  // 4 legacy channels + the 3 clipboard channels added for the Electron 44
+  // clipboard-in-preload removal (docs/issues/electron-44-upgrade).
+  ['apps/desktop/src/main/presenter/windowPresenter/index.ts', 7],
   ['packages/ui/src/App.tsx', 1]
 ])
 

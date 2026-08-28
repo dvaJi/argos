@@ -39,7 +39,7 @@
       "ai": "^7.0.83",
       "class-variance-authority": "^0.7.1",
       "clsx": "^2.1.1",
-      "electron": "^43.4.1",
+      "electron": "^44.0.0",
       "electron-builder": "^26.15.7",
       "electron-log": "^5.4.4",
       "electron-store": "^11.0.2",

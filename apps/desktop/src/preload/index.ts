@@ -1,5 +1,5 @@
 import path from "path";
-import { clipboard, contextBridge, nativeImage, webUtils, webFrame, ipcRenderer, shell } from "electron";
+import { contextBridge, webUtils, webFrame, ipcRenderer, shell } from "electron";
 import { exposeElectronAPI } from "@electron-toolkit/preload";
 import { normalizeExternalUrl } from "@argos/shared/externalUrl";
 import {
@@ -28,15 +28,18 @@ let cachedWindowId: number | undefined = undefined;
 let cachedWebContentsId: number | undefined = undefined;
 
 const api = Object.freeze({
+  // Electron 44 removed the clipboard module from renderer/preload contexts —
+  // clipboard operations route over IPC to the main process instead. The
+  // invokes are fire-and-forget (clipboard failures are not actionable in the
+  // renderer), so rejections are swallowed to avoid unhandled rejections.
   copyText: (text: string) => {
-    clipboard.writeText(text);
+    void ipcRenderer.invoke("clipboard:write-text", text).catch(() => {});
   },
   copyImage: (image: string) => {
-    const img = nativeImage.createFromDataURL(image);
-    clipboard.writeImage(img);
+    void ipcRenderer.invoke("clipboard:write-image", image).catch(() => {});
   },
   readClipboardText: () => {
-    return clipboard.readText();
+    return ipcRenderer.invoke("clipboard:read-text") as Promise<string>;
   },
   getPathForFile: (file: File) => {
     return webUtils.getPathForFile(file);

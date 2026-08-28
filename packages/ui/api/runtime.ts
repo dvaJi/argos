@@ -25,7 +25,7 @@ export function copyRuntimeImage(image: string): void {
   getLocalApi().copyImage(image);
 }
 
-export function readRuntimeClipboardText(): string {
+export function readRuntimeClipboardText(): Promise<string> {
   return getLocalApi().readClipboardText();
 }
 
