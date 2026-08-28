@@ -3,10 +3,7 @@
   "plugins": ["eslint", "react", "oxc", "unicorn", "typescript", "vitest"],
   "rules": {
     "no-unused-vars": "off",
-    "react/exhaustive-deps": "off",
-    "react/set-state-in-effect": "off",
-    "react/use-memo": "off",
-    "react/immutability": "off"
+    "react/exhaustive-deps": "off"
   },
   "ignorePatterns": [
     "**/node_modules/**",

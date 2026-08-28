@@ -245,22 +245,22 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
     const unsubscribeAcpConfigOptionsReadyRef = useRef<(() => void) | null>(null);
     const cancelAcpConfigSyncTaskRef = useRef<(() => void) | null>(null);
 
-    const hasActiveSession = useMemo(() => getHasActiveSession(), [getHasActiveSession()]);
-    const availableAgents = useMemo(
-      () => (Array.isArray(agentStore.agents) ? agentStore.agents : []),
-      [agentStore.agents],
-    );
+    // Store getters are cheap reads; React Compiler handles caching.
+    const hasActiveSession = getHasActiveSession();
+    const availableAgents = Array.isArray(agentStore.agents) ? agentStore.agents : [];
+
+    const selectedAgentSnapshot = getSelectedAgent();
 
     const inferAgentType = useCallback(
       (agentId: string | null | undefined): "argos" | "acp" | null => {
         if (!agentId) return null;
         const matchedAgent = availableAgents.find((agent) => agent.id === agentId);
-        const selectedAgent = getSelectedAgent()?.id === agentId ? getSelectedAgent() : null;
+        const selectedAgent = selectedAgentSnapshot?.id === agentId ? selectedAgentSnapshot : null;
         const explicitType = matchedAgent?.agentType ?? matchedAgent?.type ?? selectedAgent?.type;
         if (explicitType === "argos" || explicitType === "acp") return explicitType;
         return sharedInferAgentType(agentId, availableAgents);
       },
-      [availableAgents, getSelectedAgent()],
+      [availableAgents, selectedAgentSnapshot],
     );
 
     const resolveArgosAgentConfig = useCallback(
