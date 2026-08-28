@@ -84,7 +84,7 @@ export function SiteHeader() {
             <a
               key={link.href}
               href={link.href}
-              className="text-3xl font-semibold text-white transition-all duration-500"
+              className="text-3xl font-semibold text-white transition-opacity duration-500"
               style={{ transitionDelay: mobileOpen ? `${i * 70}ms` : "0ms" }}
               onClick={() => setMobileOpen(false)}
             >

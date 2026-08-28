@@ -41,7 +41,7 @@ const DifyKnowledgeSettings = () => {
     endpoint: "https://api.dify.ai/v1",
     enabled: true,
   });
-  const [editingIndex, setEditingIndex] = useState(-1);
+  const editingIndexRef = useRef(-1);
 
   const isValid = useMemo(
     () =>
@@ -55,7 +55,7 @@ const DifyKnowledgeSettings = () => {
 
   const openAddConfig = () => {
     setIsEditing(false);
-    setEditingIndex(-1);
+    editingIndexRef.current = -1;
     setEditingConfig({
       description: "",
       apiKey: "",
@@ -68,14 +68,14 @@ const DifyKnowledgeSettings = () => {
 
   const editConfig = (index: number) => {
     setIsEditing(true);
-    setEditingIndex(index);
+    editingIndexRef.current = index;
     setEditingConfig({ ...configs[index] });
     setIsConfigDialogOpen(true);
   };
 
   const closeDialog = () => {
     setIsConfigDialogOpen(false);
-    setEditingIndex(-1);
+    editingIndexRef.current = -1;
     setEditingConfig({
       description: "",
       apiKey: "",
@@ -87,8 +87,10 @@ const DifyKnowledgeSettings = () => {
 
   const saveConfig = async () => {
     if (!isValid) return;
-    if (isEditing && editingIndex !== -1) {
-      setConfigs((prev) => prev.map((config, index) => (index === editingIndex ? { ...editingConfig } : config)));
+    if (isEditing && editingIndexRef.current !== -1) {
+      setConfigs((prev) =>
+        prev.map((config, index) => (index === editingIndexRef.current ? { ...editingConfig } : config)),
+      );
       toast({ title: "Config updated", description: "Dify config updated" });
     } else {
       setConfigs((prev) => [...prev, { ...editingConfig }]);

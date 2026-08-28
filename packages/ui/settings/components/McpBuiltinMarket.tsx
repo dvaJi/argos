@@ -31,11 +31,11 @@ export default function McpBuiltinMarket({ embedded = false, onBack }: McpBuilti
   const { toast } = useToast();
 
   const [items, setItems] = useState<MarketItem[]>([]);
-  const [page, setPage] = useState(1);
+  const pageRef = useRef(1);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [showPullToLoad, setShowPullToLoad] = useState(false);
-  const [canPullMore, setCanPullMore] = useState(false);
+  const canPullMoreRef = useRef(false);
   const [installedServers, setInstalledServers] = useState<Set<string>>(new Set());
   const [apiKeyInput, setApiKeyInput] = useState("");
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -72,28 +72,29 @@ export default function McpBuiltinMarket({ embedded = false, onBack }: McpBuilti
 
   const fetchPage = async (forcePull = false) => {
     if (loading || (!hasMore && !forcePull)) return;
+    const page = pageRef.current;
     setLoading(true);
     setShowPullToLoad(false);
 
     try {
-      const list = await mcpClient.listMcpRouterServers(page, 20);
+      const list = await mcpClient.listMcpRouterServers(pageRef.current, 20);
       if (list.length === 0) {
         setHasMore(false);
-        setCanPullMore(false);
+        canPullMoreRef.current = false;
         setLoading(false);
         return;
       }
       const newItems = [...items, ...list];
       setItems(newItems);
-      setPage((p) => p + 1);
+      pageRef.current += 1;
       await checkInstalledServers(newItems);
       if (forcePull) {
         setHasMore(true);
-        setCanPullMore(true);
+        canPullMoreRef.current = true;
       }
     } catch (e) {
       toast({ title: "Operation failed", description: String(e), variant: "destructive" });
-      if (forcePull) setCanPullMore(false);
+      if (forcePull) canPullMoreRef.current = false;
     }
     setLoading(false);
   };
@@ -115,12 +116,12 @@ export default function McpBuiltinMarket({ embedded = false, onBack }: McpBuilti
       const overScroll = scrollTop + clientHeight > scrollHeight;
       const contentTooShort = scrollHeight <= clientHeight;
 
-      if ((atBottom || overScroll || contentTooShort) && !canPullMore) {
-        setCanPullMore(true);
+      if ((atBottom || overScroll || contentTooShort) && !canPullMoreRef.current) {
+        canPullMoreRef.current = true;
         setShowPullToLoad(true);
       }
 
-      if (canPullMore && (overScroll || (contentTooShort && scrollTop > 0))) {
+      if (canPullMoreRef.current && (overScroll || (contentTooShort && scrollTop > 0))) {
         fetchPage(true);
       }
     }
@@ -161,7 +162,7 @@ export default function McpBuiltinMarket({ embedded = false, onBack }: McpBuilti
       if (el && !hasMore) {
         const contentTooShort = el.scrollHeight <= el.clientHeight;
         if (contentTooShort && items.length > 0) {
-          setCanPullMore(true);
+          canPullMoreRef.current = true;
           setShowPullToLoad(true);
         }
       }

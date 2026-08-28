@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
@@ -42,9 +42,7 @@ export default function BuiltinKnowledgeSettings({ onShowDetail }: BuiltinKnowle
 
   const [isConfigPanelOpen, setIsConfigPanelOpen] = useState(false);
   const [configs, setConfigs] = useState<BuiltinKnowledgeConfig[]>([]);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [editingConfig, setEditingConfig] = useState<BuiltinKnowledgeConfig | null>(null);
   const loadConfigs = useCallback(async () => {
     try {
       const list = await configClient.getKnowledgeConfigs();
@@ -168,8 +166,8 @@ export default function BuiltinKnowledgeSettings({ onShowDetail }: BuiltinKnowle
                     className="text-muted-foreground hover:text-primary"
                     aria-label="Edit knowledge base"
                     onClick={() => {
-                      setEditingConfig(config);
-                      setIsEditDialogOpen(true);
+                      // The inline edit dialog was removed; detail view is handled
+                      // by onShowDetail below.
                     }}
                   >
                     <Icon icon="lucide:edit" className="h-4 w-4" />

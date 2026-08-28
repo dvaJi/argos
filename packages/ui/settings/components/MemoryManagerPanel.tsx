@@ -66,7 +66,6 @@ export function MemoryManagerPanel({
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<MemoryItem[]>([]);
-  const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
 
@@ -122,7 +121,6 @@ export function MemoryManagerPanel({
 
   const runSearch = useCallback(
     async (targetAgentId: string, query: string, requestId: number) => {
-      setSearching(true);
       setSearchError(null);
       try {
         const results = await memoryClient.search(targetAgentId, query);
@@ -132,9 +130,6 @@ export function MemoryManagerPanel({
         if (requestId !== searchRequestIdRef.current || agentIdRef.current !== targetAgentId) return;
         setSearchResults([]);
         setSearchError(e instanceof Error ? e.message : "Search failed.");
-      }
-      if (requestId === searchRequestIdRef.current && agentIdRef.current === targetAgentId) {
-        setSearching(false);
       }
     },
     [memoryClient],

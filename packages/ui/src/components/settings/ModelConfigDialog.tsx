@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "#shadcn/components/ui/dialog";
 import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
@@ -71,7 +71,7 @@ export default function ModelConfigDialog({
   const [config, setConfig] = useState<ModelConfig>(() => createDefaultConfig());
   const [topPDraft, setTopPDraft] = useState("");
   const [samplingParamsDraft, setSamplingParamsDraft] = useState("");
-  const [samplingParamsError, setSamplingParamsError] = useState("");
+  const samplingParamsErrorRef = useRef("");
   const [modelNameField, setModelNameField] = useState(modelName ?? "");
   const [modelIdField, setModelIdField] = useState(modelId ?? "");
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -108,7 +108,7 @@ export default function ModelConfigDialog({
       setConfig(createDefaultConfig());
       setTopPDraft("");
       setSamplingParamsDraft("");
-      setSamplingParamsError("");
+      samplingParamsErrorRef.current = "";
       return;
     }
 
@@ -121,13 +121,13 @@ export default function ModelConfigDialog({
       setSamplingParamsDraft(
         modelConfig.samplingParams !== undefined ? JSON.stringify(modelConfig.samplingParams, null, 2) : "",
       );
-      setSamplingParamsError("");
+      samplingParamsErrorRef.current = "";
     } catch (error) {
       console.error("Failed to load model config:", error);
       setConfig(createDefaultConfig());
       setTopPDraft("");
       setSamplingParamsDraft("");
-      setSamplingParamsError("");
+      samplingParamsErrorRef.current = "";
     }
   }, [modelId, modelName, providerId, isCreateMode, modelConfigStore]);
 
@@ -144,7 +144,7 @@ export default function ModelConfigDialog({
         setConfig(createDefaultConfig());
         setTopPDraft("");
         setSamplingParamsDraft("");
-        setSamplingParamsError("");
+        samplingParamsErrorRef.current = "";
         return;
       }
 
@@ -158,14 +158,14 @@ export default function ModelConfigDialog({
         setSamplingParamsDraft(
           modelConfig.samplingParams !== undefined ? JSON.stringify(modelConfig.samplingParams, null, 2) : "",
         );
-        setSamplingParamsError("");
+        samplingParamsErrorRef.current = "";
       } catch (error) {
         console.error("Failed to load model config:", error);
         if (cancelled) return;
         setConfig(createDefaultConfig());
         setTopPDraft("");
         setSamplingParamsDraft("");
-        setSamplingParamsError("");
+        samplingParamsErrorRef.current = "";
       }
     })();
     return () => {
@@ -209,7 +209,7 @@ export default function ModelConfigDialog({
         newErrors.samplingParams = "Must be valid JSON";
       }
     }
-    setSamplingParamsError(newErrors.samplingParams ?? "");
+    samplingParamsErrorRef.current = newErrors.samplingParams ?? "";
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -436,7 +436,7 @@ export default function ModelConfigDialog({
                   className={errors.samplingParams ? "border-destructive" : ""}
                   onChange={(e) => {
                     setSamplingParamsDraft(e.target.value);
-                    setSamplingParamsError("");
+                    samplingParamsErrorRef.current = "";
                   }}
                 />
                 <p className="text-xs text-muted-foreground">

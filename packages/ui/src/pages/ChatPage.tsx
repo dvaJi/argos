@@ -125,7 +125,7 @@ function ChatPage({ sessionId }: ChatPageProps) {
   const chatInputRef = useRef<ThreadComposerHandle | null>(null);
   const chatSearchBarRef = useRef<{ focusInput: () => void; selectInput: () => void } | null>(null);
 
-  const [shouldAutoFollow, setShouldAutoFollow] = useState(true);
+  const shouldAutoFollowRef = useRef(true);
 
   // Heal the store binding when the chat route is restored directly (deep
   // link, tab restore, hash navigation): the page can render session content
@@ -140,9 +140,7 @@ function ChatPage({ sessionId }: ChatPageProps) {
     void selectSession(sessionId).catch(() => {});
   }, [sessionId]);
 
-  const [scrollMode, setScrollMode] = useState<"initial-bottom" | "auto-follow" | "anchored-reading" | "manual-jump">(
-    "initial-bottom",
-  );
+  const scrollModeRef = useRef<"initial-bottom" | "auto-follow" | "anchored-reading" | "manual-jump">("initial-bottom");
   const [planFloatReservedHeight, setPlanFloatReservedHeight] = useState(0);
   const [traceMessageId, setTraceMessageId] = useState<string | null>(null);
   const [isChatSearchOpen, setIsChatSearchOpen] = useState(false);
@@ -220,28 +218,28 @@ function ChatPage({ sessionId }: ChatPageProps) {
         if (isProgrammaticScrollActive()) {
           if (userInitiated && distanceFromBottom > NEAR_BOTTOM_THRESHOLD) {
             programmaticScrollUntilRef.current = 0;
-            setScrollMode("anchored-reading");
-            setShouldAutoFollow(false);
+            scrollModeRef.current = "anchored-reading";
+            shouldAutoFollowRef.current = false;
           }
           return;
         }
-        if (userInitiated && scrollMode !== "manual-jump") {
+        if (userInitiated && scrollModeRef.current !== "manual-jump") {
           const nearBottom = distanceFromBottom <= NEAR_BOTTOM_THRESHOLD;
-          setShouldAutoFollow(nearBottom);
-          setScrollMode(uiSettingsStore.autoScrollEnabled && nearBottom ? "auto-follow" : "anchored-reading");
+          shouldAutoFollowRef.current = nearBottom;
+          scrollModeRef.current = uiSettingsStore.autoScrollEnabled && nearBottom ? "auto-follow" : "anchored-reading";
         }
       });
     },
-    [scrollMode, uiSettingsStore.autoScrollEnabled, isProgrammaticScrollActive],
+    [uiSettingsStore.autoScrollEnabled, isProgrammaticScrollActive],
   );
 
   const scrollToBottom = useCallback(
     (force = false) => {
       if (force) {
         markProgrammaticScroll(500);
-        setScrollMode("initial-bottom");
-        setShouldAutoFollow(true);
-      } else if (!uiSettingsStore.autoScrollEnabled || !shouldAutoFollow) {
+        scrollModeRef.current = "initial-bottom";
+        shouldAutoFollowRef.current = true;
+      } else if (!uiSettingsStore.autoScrollEnabled || !shouldAutoFollowRef.current) {
         return;
       }
       Promise.resolve().then(() => {
@@ -249,13 +247,7 @@ function ChatPage({ sessionId }: ChatPageProps) {
         if (force) scheduleScrollMetricsRead();
       });
     },
-    [
-      uiSettingsStore.autoScrollEnabled,
-      shouldAutoFollow,
-      markProgrammaticScroll,
-      scrollDomToBottom,
-      scheduleScrollMetricsRead,
-    ],
+    [uiSettingsStore.autoScrollEnabled, markProgrammaticScroll, scrollDomToBottom, scheduleScrollMetricsRead],
   );
 
   const schedulePostSubmitScrollToBottom = useCallback(() => {
@@ -1029,11 +1021,9 @@ function ChatPage({ sessionId }: ChatPageProps) {
 
   const messageWindow = useMessageWindow(displayMessages);
 
-  const scrollModeRef = useRef(scrollMode);
   const messageWindowRef = useRef(messageWindow);
   const scrollToBottomRef = useRef(scrollToBottom);
   useEffect(() => {
-    scrollModeRef.current = scrollMode;
     messageWindowRef.current = messageWindow;
     scrollToBottomRef.current = scrollToBottom;
   });

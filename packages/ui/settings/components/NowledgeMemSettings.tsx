@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
@@ -22,7 +22,7 @@ export default function NowledgeMemSettings() {
     timeout: 30000,
   });
 
-  const [isEditingTimeout, setIsEditingTimeout] = useState(false);
+  const isEditingTimeoutRef = useRef(false);
 
   const minTimeoutSeconds = 5;
   const maxTimeoutSeconds = 120;
@@ -191,7 +191,7 @@ export default function NowledgeMemSettings() {
                     <button
                       type="button"
                       className="min-w-16 h-8 flex items-center justify-center text-sm font-semibold hover:bg-accent rounded px-2"
-                      onClick={() => setIsEditingTimeout(true)}
+                      onClick={() => (isEditingTimeoutRef.current = true)}
                     >
                       {timeoutSeconds}
                     </button>

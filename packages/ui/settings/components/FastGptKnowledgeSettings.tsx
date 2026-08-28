@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
@@ -55,7 +55,7 @@ const FastGptKnowledgeSettings = () => {
     endpoint: "http://localhost:3000/api",
     enabled: true,
   });
-  const [editingIndex, setEditingIndex] = useState(-1);
+  const editingIndexRef = useRef(-1);
 
   const isValid = useMemo(
     () =>
@@ -69,7 +69,7 @@ const FastGptKnowledgeSettings = () => {
 
   const openAddConfig = () => {
     setIsEditing(false);
-    setEditingIndex(-1);
+    editingIndexRef.current = -1;
     setEditingConfig({
       description: "",
       apiKey: "",
@@ -82,20 +82,22 @@ const FastGptKnowledgeSettings = () => {
 
   const editConfig = (index: number) => {
     setIsEditing(true);
-    setEditingIndex(index);
+    editingIndexRef.current = index;
     setEditingConfig({ ...configs[index] });
     setIsConfigDialogOpen(true);
   };
 
   const closeDialog = () => {
     setIsConfigDialogOpen(false);
-    setEditingIndex(-1);
+    editingIndexRef.current = -1;
   };
 
   const saveConfig = async () => {
     if (!isValid) return;
-    if (isEditing && editingIndex !== -1) {
-      setConfigs((prev) => prev.map((config, index) => (index === editingIndex ? { ...editingConfig } : config)));
+    if (isEditing && editingIndexRef.current !== -1) {
+      setConfigs((prev) =>
+        prev.map((config, index) => (index === editingIndexRef.current ? { ...editingConfig } : config)),
+      );
     } else {
       setConfigs((prev) => [...prev, { ...editingConfig }]);
     }

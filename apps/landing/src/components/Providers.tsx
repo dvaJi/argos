@@ -26,7 +26,7 @@ export function Providers() {
                 src={`https://cdn.simpleicons.org/${logo.slug}/ffffff`}
                 alt={logo.name}
                 loading="lazy"
-                className="h-7 w-auto opacity-50 transition-all duration-300 hover:opacity-100"
+                className="h-7 w-auto opacity-50 transition-opacity duration-300 hover:opacity-100"
               />
             </li>
           ))}

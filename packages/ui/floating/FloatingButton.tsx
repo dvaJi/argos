@@ -347,7 +347,7 @@ export default function FloatingButton({ theme }: FloatingButtonProps) {
               <button
                 type="button"
                 data-no-drag
-                className="panel-close flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-all duration-200"
+                className="panel-close flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors duration-200"
                 aria-label="Collapse floating sessions"
                 onClick={(e) => {
                   e.stopPropagation();
