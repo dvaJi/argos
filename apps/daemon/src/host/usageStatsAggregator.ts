@@ -131,18 +131,21 @@ function buildSummary(rows: UsageStatRecord[], estimateCost?: UsageCostEstimator
   const rawCost = rows.reduce((sum, row) => sum + (row.costUsd ?? 0), 0);
 
   // Cache savings: what cached input would have cost at the real input rate.
-  // Use the cost estimator's input price (per MTok), never the observed
-  // cost/token ratio (which includes output + cache cost and overstates).
+  // Use the cost estimator's input price (per MTok) for each row's own context
+  // size (tier-aware — docs/features/tiered-cost-estimation), never the
+  // observed cost/token ratio (which includes output + cache cost).
   let cacheSavingsUsd: number | null = null;
   if (estimateCost && cachedInputTokens > 0) {
-    const inputRates = new Set<number>();
+    let savings = 0;
+    let anyPriced = false;
     for (const row of rows) {
-      const rate = estimateCost(row.providerId, row.modelId);
-      if (rate) inputRates.add(rate.input);
+      if (row.cachedInputTokens <= 0) continue;
+      const rate = estimateCost(row.providerId, row.modelId, row.inputTokens);
+      if (!rate) continue;
+      savings += (row.cachedInputTokens * rate.input) / 1_000_000;
+      anyPriced = true;
     }
-    if (inputRates.size === 1) {
-      cacheSavingsUsd = (cachedInputTokens * Array.from(inputRates)[0]) / 1_000_000;
-    }
+    cacheSavingsUsd = anyPriced ? savings : null;
   }
 
   const activeDays = new Set(rows.map((row) => row.usageDate)).size;
