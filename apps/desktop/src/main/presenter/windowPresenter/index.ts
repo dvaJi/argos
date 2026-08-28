@@ -136,7 +136,10 @@ export class WindowPresenter implements IWindowPresenter {
     // Electron 44 removed the clipboard module from renderer/preload contexts —
     // clipboard operations route over IPC to the main process, which uses the
     // async W3C-style clipboard API (docs/issues/electron-44-upgrade).
+    // removeHandler first keeps re-registration (e.g. presenter re-init) safe.
+    ipcMain.removeHandler("clipboard:write-text");
     ipcMain.handle("clipboard:write-text", (_event, text: string) => clipboard.writeText(text));
+    ipcMain.removeHandler("clipboard:write-image");
     ipcMain.handle("clipboard:write-image", (_event, dataUrl: string) => {
       const png = nativeImage.createFromDataURL(dataUrl).toPNG();
       const item = new ClipboardItem({
@@ -144,6 +147,7 @@ export class WindowPresenter implements IWindowPresenter {
       });
       return clipboard.write([item]);
     });
+    ipcMain.removeHandler("clipboard:read-text");
     ipcMain.handle("clipboard:read-text", () => clipboard.readText());
 
     ipcMain.on("get-web-contents-id", (event) => {

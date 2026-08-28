@@ -29,12 +29,14 @@ let cachedWebContentsId: number | undefined = undefined;
 
 const api = Object.freeze({
   // Electron 44 removed the clipboard module from renderer/preload contexts —
-  // clipboard operations route over IPC to the main process instead.
+  // clipboard operations route over IPC to the main process instead. The
+  // invokes are fire-and-forget (clipboard failures are not actionable in the
+  // renderer), so rejections are swallowed to avoid unhandled rejections.
   copyText: (text: string) => {
-    void ipcRenderer.invoke("clipboard:write-text", text);
+    void ipcRenderer.invoke("clipboard:write-text", text).catch(() => {});
   },
   copyImage: (image: string) => {
-    void ipcRenderer.invoke("clipboard:write-image", image);
+    void ipcRenderer.invoke("clipboard:write-image", image).catch(() => {});
   },
   readClipboardText: () => {
     return ipcRenderer.invoke("clipboard:read-text") as Promise<string>;
