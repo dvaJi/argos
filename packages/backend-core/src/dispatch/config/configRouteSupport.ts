@@ -65,6 +65,9 @@ export function readConfigEntries(
   if (shouldRead("thread_sidebar_enabled")) {
     assignValue("thread_sidebar_enabled", configPresenter.getSetting<boolean>("thread_sidebar_enabled") ?? false);
   }
+  if (shouldRead("pi_enable_powershell_tool")) {
+    assignValue("pi_enable_powershell_tool", configPresenter.getSetting<boolean>("pi_enable_powershell_tool") ?? false);
+  }
   if (shouldRead("input_enabledMcpTools")) {
     assignValue("input_enabledMcpTools", configPresenter.getSetting<string[]>("input_enabledMcpTools"));
   }

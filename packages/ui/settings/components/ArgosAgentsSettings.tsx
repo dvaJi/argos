@@ -255,6 +255,24 @@ export default function ArgosAgentsSettings() {
   const [transferDialogError, setTransferDialogError] = useState<string | null>(null);
   const [transferImpact, setTransferImpact] = useState<AgentTransferImpact | null>(null);
   const [pendingDeleteAgent, setPendingDeleteAgent] = useState<{ id: string; name: string } | null>(null);
+  const [powershellToolEnabled, setPowershellToolEnabled] = useState(false);
+
+  useEffect(() => {
+    void configClient
+      .getSetting("pi_enable_powershell_tool")
+      .then((value) => setPowershellToolEnabled(value === true))
+      .catch(() => setPowershellToolEnabled(false));
+  }, []);
+
+  const handlePowershellToolChange = useCallback(async (value: boolean) => {
+    setPowershellToolEnabled(value);
+    try {
+      await configClient.setSetting("pi_enable_powershell_tool", value);
+    } catch (error) {
+      console.error("[ArgosAgentsSettings] Failed to persist PowerShell tool setting:", error);
+      setPowershellToolEnabled(!value);
+    }
+  }, []);
 
   const selectedAgent = useMemo(
     () => allAgents.find((a) => a.id === selectedAgentId) || null,
@@ -1364,6 +1382,23 @@ export default function ArgosAgentsSettings() {
             </section>
 
             <PiPackagesPanel agentId={selectedAgent.id} projectDir={form.defaultProjectPath || undefined} />
+
+            <section className="space-y-4 rounded-2xl border border-border p-5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="text-sm font-semibold">Windows PowerShell tool</div>
+                  <p className="text-xs text-muted-foreground">
+                    Let this agent run native PowerShell commands on Windows in addition to the default shell. Applies
+                    to new sessions.
+                  </p>
+                </div>
+                <Switch
+                  checked={powershellToolEnabled}
+                  disabled={saving}
+                  onCheckedChange={(value) => void handlePowershellToolChange(value)}
+                />
+              </div>
+            </section>
 
             <section className="space-y-4 rounded-2xl border border-border p-5">
               <div className="flex items-center justify-between gap-3">

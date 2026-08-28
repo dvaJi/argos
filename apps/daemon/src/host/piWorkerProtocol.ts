@@ -35,6 +35,8 @@ export interface PiWorkerInit {
   provider: PiWorkerProvider;
   thinkingLevel?: string;
   disabledTools: string[];
+  /** Opt-in native PowerShell tool (Windows only; see createPowerShellTool). */
+  enablePowershellTool?: boolean;
   tools: MCPToolDefinition[];
   orchestrationTools: MCPToolDefinition[];
   projectTrusted: boolean;
@@ -65,7 +67,14 @@ export type PiWorkerEvent =
   | { type: "toolEnd"; toolCallId: string; toolName: string; result: unknown; isError: boolean }
   | { type: "bashUpdate"; toolCallId?: string; delta: string }
   | { type: "queue"; steering: readonly string[]; followUp: readonly string[] }
-  | { type: "compaction"; phase: "start" | "end"; reason: string; error?: string }
+  | {
+      type: "compaction";
+      phase: "start" | "end" | "failed";
+      reason: string;
+      error?: string;
+      aborted?: boolean;
+      willRetry?: boolean;
+    }
   | { type: "retry"; phase: "start" | "end"; attempt: number; error?: string }
   | { type: "settled"; id?: string; sessionFile?: string; messageTimestamp?: number }
   | { type: "error"; id?: string; message: string; stack?: string }

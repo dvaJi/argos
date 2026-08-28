@@ -84,6 +84,8 @@ export function DailyUsageChart({ points, mode }: DailyUsageChartProps) {
       line,
     ];
 
+    // @tanstack/charts 0.16 moved positional scales under `scales` (the old
+    // root-level `x`/`y` properties were removed with the pre-Alpha API).
     return defineChart({
       marks,
       gradients:
@@ -102,29 +104,32 @@ export function DailyUsageChart({ points, mode }: DailyUsageChartProps) {
               },
             ]
           : [],
-      x: {
-        scale: () => scalePoint().padding(0.08),
-        axis: {
-          label: "Date",
-          line: true,
-          ticks: { count: Math.min(rows.length, 6), format: (value) => String(value).slice(5) },
-          tickLabels: {
-            fontSize: 11,
-            opacity: 0.7,
-            thin: { minGap: 24, priority: "ends" },
+      scales: {
+        x: {
+          scale: () => scalePoint().padding(0.08),
+          axis: {
+            label: "Date",
+            line: true,
+            ticks: { count: Math.min(rows.length, 6), format: (value) => String(value).slice(5) },
+            tickLabels: {
+              fontSize: 11,
+              opacity: 0.7,
+              thin: { minGap: 24, priority: "ends" },
+            },
           },
         },
-      },
-      y: {
-        scale: scaleLinear().domain([baseline, maximum + padding]),
-        axis: {
-          label: mode === "cost" ? "Cost (USD)" : "Tokens",
-          line: true,
-          ticks: {
-            count: 5,
-            format: (value) => (mode === "cost" ? currency.format(Number(value)) : compactTokens.format(Number(value))),
+        y: {
+          scale: scaleLinear().domain([baseline, maximum + padding]),
+          axis: {
+            label: mode === "cost" ? "Cost (USD)" : "Tokens",
+            line: true,
+            ticks: {
+              count: 5,
+              format: (value) =>
+                mode === "cost" ? currency.format(Number(value)) : compactTokens.format(Number(value)),
+            },
+            tickLabels: { fontSize: 11, opacity: 0.7 },
           },
-          tickLabels: { fontSize: 11, opacity: 0.7 },
         },
       },
       margin: { top: 12, right: 12, bottom: 28, left: 52 },

@@ -202,9 +202,21 @@ function handleSessionEvent(event: AgentSessionEvent): void {
     case "compaction_start":
       emit({ type: "compaction", phase: "start", reason: event.reason });
       break;
-    case "compaction_end":
-      emit({ type: "compaction", phase: "end", reason: event.reason, error: event.errorMessage });
+    case "compaction_end": {
+      // A failed/aborted compaction is its own phase so the daemon can surface
+      // it (session status) instead of silently continuing
+      // (docs/features/pi-0843-adoptions).
+      const failed = Boolean(event.errorMessage) || event.aborted;
+      emit({
+        type: "compaction",
+        phase: failed ? "failed" : "end",
+        reason: event.reason,
+        error: event.errorMessage,
+        aborted: event.aborted,
+        willRetry: event.willRetry,
+      });
       break;
+    }
     case "auto_retry_start":
       emit({ type: "retry", phase: "start", attempt: event.attempt, error: event.errorMessage });
       break;
@@ -318,12 +330,20 @@ async function initialize(config: PiWorkerInit): Promise<void> {
   const sessionManager = config.sessionFile
     ? SessionManager.open(config.sessionFile, config.sessionDir, config.cwd)
     : SessionManager.create(config.cwd, config.sessionDir);
+  // The PowerShell tool is opt-in (Windows only): pass an explicit allowlist
+  // that appends it to the pi defaults. Omitted otherwise, so pi keeps its
+  // own default tool selection (docs/features/pi-0843-adoptions).
+  const toolsAllowlist =
+    config.enablePowershellTool && process.platform === "win32"
+      ? ["read", "bash", "edit", "write", "powershell"]
+      : undefined;
   const created = await createAgentSession({
     cwd: config.cwd,
     agentDir: config.agentDir,
     modelRuntime,
     model,
     thinkingLevel: config.thinkingLevel as any,
+    tools: toolsAllowlist,
     excludeTools: config.disabledTools,
     customTools: createMcpTools(config),
     resourceLoader: loader,
