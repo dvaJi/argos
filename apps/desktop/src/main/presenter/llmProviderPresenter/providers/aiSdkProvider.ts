@@ -1886,6 +1886,11 @@ export class AiSdkProvider extends BaseLLMProvider {
 
   public async getKeyStatus(): Promise<KeyStatus | null> {
     const apiKey = this.provider.apiKey?.trim();
+    if (!apiKey) {
+      // No key configured: skip the balance endpoint entirely (a request with an
+      // empty/undefined Bearer token is a guaranteed 401, not a useful status).
+      return null;
+    }
     switch (this.resolveKeyStatusStrategy()) {
       case "openrouter": {
         const response = await fetch("https://openrouter.ai/api/v1/key", {

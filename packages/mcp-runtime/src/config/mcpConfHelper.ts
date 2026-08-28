@@ -311,7 +311,10 @@ export class McpConfHelper {
       };
       const data = { ...defaults } as IMcpSettings & Record<string, unknown>;
       this.mcpStore = {
-        get: <T>(key: string) => (data as Record<string, unknown>)[key] as T,
+        get: <T>(key: string, defaultValue?: T) => {
+          const value = (data as Record<string, unknown>)[key];
+          return (value === undefined ? defaultValue : value) as T;
+        },
         set: (keyOrValues: string | Record<string, unknown>, value?: unknown) => {
           if (typeof keyOrValues === "string") {
             (data as Record<string, unknown>)[keyOrValues] = value;
@@ -401,7 +404,9 @@ export class McpConfHelper {
     };
   }
 
-  private removeDeprecatedBuiltInServers(servers: Record<string, MCPServerConfig>): Record<string, MCPServerConfig> {
+  private removeDeprecatedBuiltInServers(
+    servers: Record<string, MCPServerConfig> = {},
+  ): Record<string, MCPServerConfig> {
     const deprecatedBuiltInServers = [
       "powerpack",
       "argos-inmemory/meeting-server",
@@ -475,7 +480,7 @@ export class McpConfHelper {
   }
 
   migrateBuiltinKnowledgeConfigsFromEnv(existingConfigs: BuiltinKnowledgeConfig[]): BuiltinKnowledgeConfig[] {
-    const mcpServers = this.mcpStore.get<Record<string, MCPServerConfig>>("mcpServers", {});
+    const mcpServers = this.mcpStore.get<Record<string, MCPServerConfig>>("mcpServers", {}) ?? {};
     const builtinKnowledge = mcpServers.builtinKnowledge;
     const rawEnv = builtinKnowledge?.env as unknown;
 
@@ -549,7 +554,7 @@ export class McpConfHelper {
     let hasChanges =
       legacyEnabledServers.size > 0 ||
       legacyKeysPresent ||
-      Boolean(this.mcpStore.get<Record<string, MCPServerConfig>>("mcpServers", {}).powerpack);
+      Boolean(this.mcpStore.get<Record<string, MCPServerConfig>>("mcpServers", {})?.powerpack);
 
     const ensureBuiltInServerExists = (serverName: string, serverConfig: Omit<MCPServerConfig, "enabled">): void => {
       if (removedBuiltInServers.has(serverName)) {
@@ -939,7 +944,7 @@ export class McpConfHelper {
     // Remove for all versions < 0.6.0
     if (oldVersion && compare(oldVersion, "0.6.0", "<")) {
       try {
-        const mcpServers = this.mcpStore.get<Record<string, MCPServerConfig>>("mcpServers", {});
+        const mcpServers = this.mcpStore.get<Record<string, MCPServerConfig>>("mcpServers", {}) ?? {};
         let hasChanges = false;
 
         // Check if servers exist before deletion (for tracking)
@@ -977,7 +982,7 @@ export class McpConfHelper {
     // Remove custom-prompts-server service (version < 0.3.5)
     if (oldVersion && compare(oldVersion, "0.3.5", "<")) {
       try {
-        const mcpServers = this.mcpStore.get<Record<string, MCPServerConfig>>("mcpServers", {});
+        const mcpServers = this.mcpStore.get<Record<string, MCPServerConfig>>("mcpServers", {}) ?? {};
         const customPromptsServerName = "argos-inmemory/custom-prompts-server";
 
         if (mcpServers[customPromptsServerName]) {
@@ -1000,7 +1005,7 @@ export class McpConfHelper {
 
     // Check and add platform-specific services after upgrade
     try {
-      const mcpServers = this.mcpStore.get<Record<string, MCPServerConfig>>("mcpServers", {});
+      const mcpServers = this.mcpStore.get<Record<string, MCPServerConfig>>("mcpServers", {}) ?? {};
       const removedBuiltInServers = new Set(this.getRemovedBuiltInServers());
       let hasChanges = false;
 

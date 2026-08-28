@@ -582,11 +582,12 @@ export class ConfigPresenter implements IConfigPresenter {
       getModelConfig: (modelId: string, providerId?: string) => this.getModelConfig(modelId, providerId),
       setModelStatus: this.modelStatusHelper.setModelStatus.bind(this.modelStatusHelper),
       deleteModelStatus: this.modelStatusHelper.deleteModelStatus.bind(this.modelStatusHelper),
-      storeFactory: ((providerId: string) =>
-        registerMirror(createProviderModelsMirror(providerId))) as unknown as ReturnType<
-        typeof createElectronStoreFactory
-      >,
     });
+    // Per-provider stores are daemon-backed mirrors (docs/issues/provider-model-mirror-store-factory);
+    // setStoreFactory takes the (providerId) => store shape the mirror factory expects.
+    this.providerModelHelper.setStoreFactory((providerId: string) =>
+      registerMirror(createProviderModelsMirror(providerId)),
+    );
     this.providerHelper.setCleanupHooks({
       deleteProviderModelStatuses: this.modelStatusHelper.deleteProviderModelStatuses.bind(this.modelStatusHelper),
       clearProviderModelStore: this.providerModelHelper.clearProviderModelStore.bind(this.providerModelHelper),
@@ -2085,6 +2086,9 @@ export class ConfigPresenter implements IConfigPresenter {
 
   // Get MCP server configuration
   async getMcpServers(): Promise<Record<string, MCPServerConfig>> {
+    // Wait for the daemon snapshot: McpConfHelper.getMcpServers self-heals and writes
+    // back, so it must not run against un-hydrated defaults (startup race).
+    await this.mcpSettingsMirror.whenHydrated();
     return await this.mcpConfHelper.getMcpServers();
   }
 
@@ -2094,7 +2098,7 @@ export class ConfigPresenter implements IConfigPresenter {
   }
 
   getEnabledMcpServers(): Promise<string[]> {
-    return this.mcpConfHelper.getEnabledMcpServers();
+    return this.mcpSettingsMirror.whenHydrated().then(() => this.mcpConfHelper.getEnabledMcpServers());
   }
 
   async setMcpServerEnabled(serverName: string, enabled: boolean): Promise<void> {
