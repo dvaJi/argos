@@ -981,7 +981,21 @@ export async function startDaemon(options?: {
         }
 
         if (parsed.type === "route" && parsed.requestId) {
+          const startedAt = Date.now();
           const result = await dispatchRoute(parsed.route, parsed.input);
+          const elapsedMs = Date.now() - startedAt;
+          if (!result.ok) {
+            logger.warn(
+              `[daemon] ws route failed: ${parsed.route} request=${String(parsed.requestId).slice(0, 8)} ` +
+                `(${elapsedMs}ms): ${result.error?.message ?? "unknown error"}`,
+            );
+          } else if (elapsedMs > 5_000) {
+            // A slow dispatch is the server-side half of a client "Request timeout"
+            // (docs/issues/stream-diagnostics-logging).
+            logger.warn(
+              `[daemon] slow ws route: ${parsed.route} request=${String(parsed.requestId).slice(0, 8)} took ${elapsedMs}ms`,
+            );
+          }
           ws.send(
             JSON.stringify({
               type: "route:response",

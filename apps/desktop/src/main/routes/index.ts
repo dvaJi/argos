@@ -48,6 +48,7 @@ import {
   configSetKnowledgeConfigsRoute,
   configSetSystemPromptsRoute,
   configUpdateCustomPromptRoute,
+  configUpdateEntriesRoute,
   configUpdateSystemPromptRoute,
   dialogErrorRoute,
   dialogRespondRoute,
@@ -294,6 +295,7 @@ import { DEV_EVENTS } from "#/events";
 import { ChatService } from "./chat/chatService";
 import { invokeDaemonRoute } from "./daemonRouteProxy";
 import { dispatchConfigRoute } from "./config/configRouteHandler";
+import { publishArgosEvent } from "./publishArgosEvent";
 import { createPresenterHotPathPorts } from "./hotPathPorts";
 import { dispatchModelRoute } from "./models/modelRouteHandler";
 import {
@@ -1003,6 +1005,13 @@ export async function dispatchArgosRoute(
   const configResult = await dispatchConfigRoute(runtime.configPresenter, routeName, rawInput);
   if (configResult !== undefined) {
     recordConfigRouteActivity(runtime, routeName, rawInput);
+    if (routeName === configUpdateEntriesRoute.name) {
+      const input = configUpdateEntriesRoute.input.parse(rawInput);
+      publishArgosEvent("config.entries.changed", {
+        changedKeys: input.changes.map((change) => change.key),
+        version: Date.now(),
+      });
+    }
     return configResult;
   }
 
@@ -2712,9 +2721,16 @@ export async function dispatchArgosRoute(
 
     case providersGetKeyStatusRoute.name: {
       const input = providersGetKeyStatusRoute.input.parse(rawInput);
-      return providersGetKeyStatusRoute.output.parse({
-        status: (await runtime.llmProviderPresenter.getKeyStatus(input.providerId)) ?? null,
-      });
+      try {
+        return providersGetKeyStatusRoute.output.parse({
+          status: (await runtime.llmProviderPresenter.getKeyStatus(input.providerId)) ?? null,
+        });
+      } catch (error) {
+        // Key checks hit third-party balance endpoints; invalid/expired keys and
+        // network failures are expected outcomes (docs/issues/provider-key-status-graceful-failure).
+        console.warn(`[routes] providers.getKeyStatus failed for ${input.providerId}:`, error);
+        return providersGetKeyStatusRoute.output.parse({ status: null });
+      }
     }
 
     case providersUpdateRateLimitRoute.name: {

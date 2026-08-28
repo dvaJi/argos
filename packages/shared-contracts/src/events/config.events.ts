@@ -19,6 +19,14 @@ export const configLanguageChangedEvent = defineEventContract({
   }),
 });
 
+export const configEntriesChangedEvent = defineEventContract({
+  name: "config.entries.changed",
+  payload: zod.object({
+    changedKeys: zod.array(zod.string()).min(1),
+    version: TimestampMsSchema,
+  }),
+});
+
 export const configThemeChangedEvent = defineEventContract({
   name: "config.theme.changed",
   payload: zod.object({

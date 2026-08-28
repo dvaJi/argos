@@ -38,6 +38,8 @@ interface ActiveTurn {
   reject: (error: Error) => void;
   /** Timestamp (ms) when thinking/reasoning started, if any. */
   thinkingStart?: number;
+  /** Timestamp (ms) when the turn's prompt was dispatched (turn duration logging). */
+  startedAt: number;
 }
 
 interface PiWorkerHandle {
@@ -50,6 +52,15 @@ interface PiWorkerHandle {
   modelId?: string;
   lastUsage?: { input: number; output: number; cacheRead: number; cacheWrite: number; total: number; cost: number };
 }
+
+/**
+ * Partial-snapshot persistence cadence: the final content is persisted by
+ * finalizeAssistantMessage on settle, so mid-turn writes exist only for crash
+ * recovery. Writing the full blocks array per delta/tool event is O(n²) over a
+ * long turn and can wedge the daemon behind SQLite + JSON serialization
+ * (docs/issues/stream-stall-recovery), so persist at most once per second.
+ */
+const SNAPSHOT_PERSIST_MIN_INTERVAL_MS = 1_000;
 
 function resolveWorkerCommand(): { command: string; args: string[] } {
   const embeddedWorker = process.env.ARGOS_PI_WORKER_PATH;
@@ -123,6 +134,9 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
   private readonly utilityPort: LlmUtilityExecution;
   /** Invoked after a turn completes successfully (used to drain pending inputs). */
   private turnSettledHandler: ((sessionId: string) => void | Promise<void>) | null = null;
+  /** Last partial-snapshot persist per session (see SNAPSHOT_PERSIST_MIN_INTERVAL_MS). */
+  private readonly lastSnapshotPersistAt = new Map<string, number>();
+  private readonly snapshotPersistTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   setTurnSettledHandler(handler: (sessionId: string) => void | Promise<void>): void {
     this.turnSettledHandler = handler;
@@ -155,11 +169,14 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
 
     let activeTurn!: ActiveTurn;
     const completed = new Promise<void>((resolve, reject) => {
-      activeTurn = { commandId: requestId, requestId, messageId, blocks: [], resolve, reject };
+      activeTurn = { commandId: requestId, requestId, messageId, blocks: [], resolve, reject, startedAt: Date.now() };
       worker.turn = activeTurn;
     });
     await this.markGenerating(sessionId);
     this.send(worker.process, { type: "prompt", id: requestId, text });
+    // Turn lifecycle logs make a silent/stuck turn distinguishable from a slow
+    // one (docs/issues/stream-diagnostics-logging).
+    console.log(`[pi:${sessionId.slice(0, 8)}] turn start request=${requestId.slice(0, 8)}`);
 
     // Mirror ACP: the route acks immediately; the turn runs in the worker and
     // streams via chat.stream.* events. Errors are published as chat.stream.failed.
@@ -538,6 +555,15 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
       if (block) {
         block.status = event.isError ? "error" : "success";
         block.tool_call = { ...block.tool_call!, response: stringifyResult(event.result) };
+        // Surface long-running tools: silence during a slow tool otherwise looks
+        // identical to a wedged turn in the UI.
+        const toolMs = Date.now() - (block.timestamp ?? turn.startedAt);
+        if (toolMs > 5_000) {
+          console.log(
+            `[pi:${sessionId.slice(0, 8)}] tool ${event.toolName ?? "?"} took ${(toolMs / 1000).toFixed(1)}s ` +
+              `request=${turn.requestId.slice(0, 8)}`,
+          );
+        }
       }
       this.publishSnapshot(sessionId, turn);
     } else if (event.type === "bashUpdate") {
@@ -578,6 +604,10 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
           messageId: turn.messageId,
           completedAt: Date.now(),
         });
+        console.log(
+          `[pi:${sessionId.slice(0, 8)}] turn settled request=${turn.requestId.slice(0, 8)} ` +
+            `blocks=${turn.blocks.length} duration=${((Date.now() - turn.startedAt) / 1000).toFixed(1)}s`,
+        );
         turn.resolve();
         if (event.sessionFile) this.sessionRepository.setPiSessionFile(sessionId, event.sessionFile);
       } catch (error) {
@@ -622,10 +652,7 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
   }
 
   private publishSnapshot(sessionId: string, turn: ActiveTurn): void {
-    // Persistence is not on the streaming hot path; the final content is
-    // persisted by finalizeAssistantMessage on settled. A failed write here
-    // must not stall or drop the live stream.
-    void this.sessionRepository.updateAssistantContent(turn.messageId, turn.blocks).catch(() => {});
+    this.persistSnapshotBlocksThrottled(sessionId, turn);
     this.eventPublisher.publish("chat.stream.updated", {
       kind: "snapshot",
       requestId: turn.requestId,
@@ -634,6 +661,43 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
       updatedAt: Date.now(),
       blocks: turn.blocks,
     });
+  }
+
+  /**
+   * Persistence is not on the streaming hot path: the final content is persisted
+   * by finalizeAssistantMessage on settled, and a failed write here must not
+   * stall or drop the live stream. Partial snapshots are written at most once
+   * per second per session (leading edge + one guarded trailing flush).
+   */
+  private persistSnapshotBlocksThrottled(sessionId: string, turn: ActiveTurn): void {
+    const now = Date.now();
+    const last = this.lastSnapshotPersistAt.get(sessionId) ?? 0;
+    if (now - last >= SNAPSHOT_PERSIST_MIN_INTERVAL_MS) {
+      this.lastSnapshotPersistAt.set(sessionId, now);
+      this.persistSnapshotBlocks(turn);
+      return;
+    }
+    if (this.snapshotPersistTimers.has(sessionId)) {
+      return;
+    }
+    const timer = setTimeout(
+      () => {
+        this.snapshotPersistTimers.delete(sessionId);
+        // Skip when the turn settled meanwhile — finalizeAssistantMessage already
+        // persisted the final content; a trailing write must never overwrite it.
+        const currentTurn = this.workers.get(sessionId)?.turn;
+        if (currentTurn && currentTurn.messageId === turn.messageId) {
+          this.lastSnapshotPersistAt.set(sessionId, Date.now());
+          this.persistSnapshotBlocks(currentTurn);
+        }
+      },
+      SNAPSHOT_PERSIST_MIN_INTERVAL_MS - (now - last),
+    );
+    this.snapshotPersistTimers.set(sessionId, timer);
+  }
+
+  private persistSnapshotBlocks(turn: ActiveTurn): void {
+    void this.sessionRepository.updateAssistantContent(turn.messageId, turn.blocks).catch(() => {});
   }
 
   private send(worker: ChildProcessWithoutNullStreams, command: PiWorkerCommand): void {
