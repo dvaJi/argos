@@ -25,7 +25,7 @@ const remoteSetupStore = new Store<RemoteSetupState>({
   pendingCredentialRef: null,
 });
 
-function registerHandlers(handlers: RemoteSetupHandlers): void {
+export function registerHandlers(handlers: RemoteSetupHandlers): void {
   remoteSetupStore.setState((prev) => ({ ...prev, handlers }));
 }
 

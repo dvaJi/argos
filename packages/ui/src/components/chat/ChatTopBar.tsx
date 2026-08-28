@@ -193,15 +193,22 @@ const ChatTopBar: FC<ChatTopBarProps> = ({
     [handleRenameCancel, handleRenameConfirm],
   );
 
-  useEffect(() => {
-    resetRenameState();
-  }, [sessionId]);
-
-  useEffect(() => {
+  // Reset the rename draft whenever the session switches (adjusted during render so
+  // the React Compiler can track it), and when the session becomes read-only.
+  const [renameSyncSessionId, setRenameSyncSessionId] = useState(sessionId);
+  if (renameSyncSessionId !== sessionId) {
+    setRenameSyncSessionId(sessionId);
+    setRenameValue(currentTitle);
+    setIsRenaming(false);
+  }
+  const [renameSyncReadOnly, setRenameSyncReadOnly] = useState(isReadOnlyProp);
+  if (renameSyncReadOnly !== isReadOnlyProp) {
+    setRenameSyncReadOnly(isReadOnlyProp);
     if (isReadOnlyProp) {
-      resetRenameState();
+      setRenameValue(currentTitle);
+      setIsRenaming(false);
     }
-  }, [isReadOnlyProp, resetRenameState]);
+  }
 
   const handleClearConfirm = useCallback(async () => {
     if (isReadOnly) return;
@@ -233,9 +240,8 @@ const ChatTopBar: FC<ChatTopBarProps> = ({
         setMoveDialogOpen(false);
       } catch (error) {
         setMoveDialogError(error instanceof Error ? error.message : String(error));
-      } finally {
-        setMoveDialogBusy(false);
       }
+      setMoveDialogBusy(false);
     },
     [canMoveConversation, sessionId, sessionStore],
   );

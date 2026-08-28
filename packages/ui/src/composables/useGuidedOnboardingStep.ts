@@ -26,6 +26,13 @@ export function useGuidedOnboardingStep(stepId: GuidedOnboardingStepId) {
     return onboardingState?.steps.find((step) => step.status === "pending")?.id ?? null;
   }, [onboardingState]);
 
+  // Clear the dismissal whenever the guided flow moves to another step — adjusted during render.
+  const [dismissedForStepId, setDismissedForStepId] = useState(currentStepId);
+  if (dismissedForStepId !== currentStepId) {
+    setDismissedForStepId(currentStepId);
+    setDismissed(false);
+  }
+
   const stepIndex = useMemo(() => {
     const index = onboardingState?.steps.findIndex((step) => step.id === stepId) ?? -1;
     return index >= 0 ? index + 1 : 1;
@@ -160,10 +167,6 @@ export function useGuidedOnboardingStep(stepId: GuidedOnboardingStepId) {
     return () => {
       prevCurrentStepId.value = currentStepId;
     };
-  }, [currentStepId]);
-
-  useEffect(() => {
-    setDismissed(false);
   }, [currentStepId]);
 
   useEffect(() => {

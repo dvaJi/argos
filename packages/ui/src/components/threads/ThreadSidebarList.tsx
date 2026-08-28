@@ -70,7 +70,6 @@ export default function ThreadSidebarList() {
 
   useEffect(() => {
     if (!hasLiveRows) return;
-    setNow(Date.now());
     const interval = window.setInterval(() => {
       setNow(Date.now());
       bumpThreadSidebarTick();

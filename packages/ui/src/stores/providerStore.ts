@@ -74,9 +74,47 @@ const sortProviders = (providerList: LLM_PROVIDER[], useAscendingTime: boolean) 
 };
 
 export const getSortedProviders = () => {
-  const sortedEnabled = sortProviders(getEnabledProviders(), true);
-  const sortedDisabled = sortProviders(getDisabledProviders(), false);
-  return [...sortedEnabled, ...sortedDisabled];
+  const state = providerStore.state;
+  return getSortedProvidersFrom(state.providers, state.providerOrder, state.providerTimestamps);
+};
+
+/**
+ * Pure provider sorting over explicit state pieces so callers can subscribe to the
+ * exact values they render (React Compiler requires dependency lists of plain values).
+ */
+export const getSortedProvidersFrom = (
+  providers: LLM_PROVIDER[],
+  providerOrder: string[],
+  providerTimestamps: Record<string, number>,
+): LLM_PROVIDER[] => {
+  const sort = (providerList: LLM_PROVIDER[], useAscendingTime: boolean): LLM_PROVIDER[] => {
+    return [...providerList].sort((a, b) => {
+      const aOrderIndex = providerOrder.indexOf(a.id);
+      const bOrderIndex = providerOrder.indexOf(b.id);
+      if (aOrderIndex !== -1 && bOrderIndex !== -1) {
+        return aOrderIndex - bOrderIndex;
+      }
+      if (aOrderIndex !== -1) {
+        return -1;
+      }
+      if (bOrderIndex !== -1) {
+        return 1;
+      }
+      const aTime = providerTimestamps[a.id] || 0;
+      const bTime = providerTimestamps[b.id] || 0;
+      return useAscendingTime ? aTime - bTime : bTime - aTime;
+    });
+  };
+  return [
+    ...sort(
+      providers.filter((p) => p.enable),
+      true,
+    ),
+    ...sort(
+      providers.filter((p) => !p.enable),
+      false,
+    ),
+  ];
 };
 
 const loadProviderOrder = async () => {

@@ -52,9 +52,8 @@ export default function RemoteSettings() {
         }
       } catch {
         // leave defaults if the backend has none yet
-      } finally {
-        if (!cancelled) setIsLoading(false);
       }
+      if (!cancelled) setIsLoading(false);
     };
     void load();
     return () => {
@@ -70,9 +69,8 @@ export default function RemoteSettings() {
       toast({ title: "Telegram settings saved" });
     } catch (error) {
       toast({ title: "Failed to save", description: String(error), variant: "destructive" });
-    } finally {
-      setSaving(false);
     }
+    setSaving(false);
   };
 
   const refreshTelegramPairing = async () => {
@@ -91,9 +89,8 @@ export default function RemoteSettings() {
       await refreshTelegramPairing();
     } catch (error) {
       toast({ title: "Failed to generate pair code", description: String(error), variant: "destructive" });
-    } finally {
-      setPairBusy(false);
     }
+    setPairBusy(false);
   };
 
   const handleClearPairCode = async () => {
@@ -103,9 +100,8 @@ export default function RemoteSettings() {
       await refreshTelegramPairing();
     } catch (error) {
       toast({ title: "Failed to clear pair code", description: String(error), variant: "destructive" });
-    } finally {
-      setPairBusy(false);
     }
+    setPairBusy(false);
   };
 
   const handleCopyPairCode = async () => {

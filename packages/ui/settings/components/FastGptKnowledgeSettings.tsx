@@ -16,6 +16,7 @@ import { Collapsible, CollapsibleContent } from "#shadcn/components/ui/collapsib
 import { Tooltip, TooltipContent, TooltipTrigger } from "#shadcn/components/ui/tooltip";
 import { useMcpStore } from "#/stores/mcp";
 import { useToast } from "#/components/use-toast";
+import type { MCPServerConfig } from "@argos/shared/presenter";
 import fastgptPng from "#/assets/images/fastgpt.png";
 
 interface FastGptConfig {
@@ -24,6 +25,19 @@ interface FastGptConfig {
   datasetId: string;
   endpoint: string;
   enabled?: boolean;
+}
+
+function loadFastGptConfigsFromMcp(
+  mcpServers: Record<string, MCPServerConfig>,
+  setConfigs: (configs: FastGptConfig[]) => void,
+) {
+  try {
+    const serverConfig = mcpServers["fastGptKnowledge"];
+    if (!serverConfig?.env) return;
+    const envObj = typeof serverConfig.env === "string" ? JSON.parse(serverConfig.env) : serverConfig.env;
+    const configs = (envObj as { configs?: FastGptConfig[] } | null)?.configs;
+    if (configs) setConfigs(configs);
+  } catch {}
 }
 
 const FastGptKnowledgeSettings = () => {
@@ -105,27 +119,21 @@ const FastGptKnowledgeSettings = () => {
     } catch {}
   };
 
-  const loadFromMcp = async () => {
-    try {
-      const serverConfig = mcpStore.config.mcpServers["fastGptKnowledge"];
-      if (serverConfig?.env) {
-        const envObj = typeof serverConfig.env === "string" ? JSON.parse(serverConfig.env) : serverConfig.env;
-        if (envObj.configs) setConfigs(envObj.configs);
-      }
-    } catch {}
-  };
-
   const toggleMcpServer = async () => {
     if (!mcpStore.mcpEnabled) return;
     await mcpStore.toggleServer("fastGptKnowledge");
   };
 
+  const { ready: configReady, mcpServers } = mcpStore.config;
+
   useEffect(() => {
-    if (mcpStore.config.ready) loadFromMcp();
-  }, [mcpStore.config.ready]);
+    if (!configReady) return;
+    loadFastGptConfigsFromMcp(mcpServers, setConfigs);
+  }, [configReady, mcpServers]);
+
   useEffect(() => {
     if (!mcpStore.mcpEnabled && isMcpEnabled) mcpStore.toggleServer("fastGptKnowledge");
-  }, [mcpStore.mcpEnabled]);
+  }, [mcpStore, isMcpEnabled]);
 
   return (
     <div className="border rounded-lg overflow-hidden">

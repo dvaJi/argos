@@ -15,13 +15,19 @@ interface SkillSelectorProps {
 const SkillSelector: FC<SkillSelectorProps> = ({ skills, selectedSkills, conflicts, onSelectedSkillsChange }) => {
   const [skillCheckedState, setSkillCheckedState] = useState<Record<string, boolean>>({});
 
-  useEffect(() => {
+  // Rebuild the checkbox map whenever the incoming skill/selection lists change
+  // (adjusted during render so the React Compiler can track it).
+  const [syncedSkills, setSyncedSkills] = useState(skills);
+  const [syncedSelectedSkills, setSyncedSelectedSkills] = useState(selectedSkills);
+  if (syncedSkills !== skills || syncedSelectedSkills !== selectedSkills) {
+    setSyncedSkills(skills);
+    setSyncedSelectedSkills(selectedSkills);
     const newState: Record<string, boolean> = {};
     for (const skill of skills) {
       newState[skill.name] = selectedSkills.includes(skill.name);
     }
     setSkillCheckedState(newState);
-  }, [skills, selectedSkills]);
+  }
 
   const updateSkillChecked = useCallback(
     (skillName: string, checked: boolean) => {

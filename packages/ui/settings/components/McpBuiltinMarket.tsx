@@ -25,8 +25,9 @@ type MarketItem = {
   server_url?: string;
 };
 
+const mcpClient = createMcpClient();
+
 export default function McpBuiltinMarket({ embedded = false, onBack }: McpBuiltinMarketProps) {
-  const mcpClient = createMcpClient();
   const { toast } = useToast();
 
   const [items, setItems] = useState<MarketItem[]>([]);
@@ -38,13 +39,6 @@ export default function McpBuiltinMarket({ embedded = false, onBack }: McpBuilti
   const [installedServers, setInstalledServers] = useState<Set<string>>(new Set());
   const [apiKeyInput, setApiKeyInput] = useState("");
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-
-  const loadApiKey = async () => {
-    try {
-      const key = await mcpClient.getMcpRouterApiKey();
-      setApiKeyInput(key || "");
-    } catch {}
-  };
 
   const saveApiKey = async () => {
     try {
@@ -86,6 +80,7 @@ export default function McpBuiltinMarket({ embedded = false, onBack }: McpBuilti
       if (list.length === 0) {
         setHasMore(false);
         setCanPullMore(false);
+        setLoading(false);
         return;
       }
       const newItems = [...items, ...list];
@@ -99,9 +94,8 @@ export default function McpBuiltinMarket({ embedded = false, onBack }: McpBuilti
     } catch (e) {
       toast({ title: "Operation failed", description: String(e), variant: "destructive" });
       if (forcePull) setCanPullMore(false);
-    } finally {
-      setLoading(false);
     }
+    setLoading(false);
   };
 
   const onScroll = () => {
@@ -155,22 +149,37 @@ export default function McpBuiltinMarket({ embedded = false, onBack }: McpBuilti
     }
   };
 
+  const fetchPageRef = useRef(fetchPage);
+  useEffect(() => {
+    fetchPageRef.current = fetchPage;
+  });
+
+  const checkPullToLoadRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    checkPullToLoadRef.current = () => {
+      const el = scrollContainerRef.current;
+      if (el && !hasMore) {
+        const contentTooShort = el.scrollHeight <= el.clientHeight;
+        if (contentTooShort && items.length > 0) {
+          setCanPullMore(true);
+          setShowPullToLoad(true);
+        }
+      }
+    };
+  });
+
   useEffect(() => {
     let isDisposed = false;
     let pullToLoadTimer: ReturnType<typeof setTimeout> | undefined;
     const init = async () => {
-      await loadApiKey();
-      await fetchPage();
+      try {
+        const key = await mcpClient.getMcpRouterApiKey();
+        setApiKeyInput(key || "");
+      } catch {}
+      await fetchPageRef.current();
       if (isDisposed) return;
       pullToLoadTimer = setTimeout(() => {
-        const el = scrollContainerRef.current;
-        if (el && !hasMore) {
-          const contentTooShort = el.scrollHeight <= el.clientHeight;
-          if (contentTooShort && items.length > 0) {
-            setCanPullMore(true);
-            setShowPullToLoad(true);
-          }
-        }
+        checkPullToLoadRef.current();
       }, 100);
     };
     void init();

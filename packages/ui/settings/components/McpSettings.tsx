@@ -17,6 +17,7 @@ import GuidedOnboardingOverlay from "#/components/onboarding/GuidedOnboardingOve
 import { McpServers, type McpServersRef } from "#/components/mcp-config/components/McpServers";
 import { useGuidedOnboardingStep } from "#/composables/useGuidedOnboardingStep";
 import { createWindowClient } from "#api/WindowClient";
+import { createMcpClient } from "#api/McpClient";
 import { useMcpStore } from "#/stores/mcp";
 import { useLanguageStore } from "#/stores/language";
 import { useToast } from "#/components/use-toast";
@@ -24,6 +25,7 @@ import { continueGuidedOnboardingFromSettings } from "../lib/guidedOnboardingSet
 import { useRouter, useRouterState } from "@tanstack/react-router";
 
 const windowClient = createWindowClient();
+const npmRegistryClient = createMcpClient();
 
 export default function McpSettings() {
   const languageStore = useLanguageStore();
@@ -89,7 +91,7 @@ export default function McpSettings() {
     [router, routerState.location.pathname, routerState.location.search],
   );
 
-  const loadNpmRegistryStatus = async () => {
+  const loadNpmRegistryStatus = useCallback(async () => {
     try {
       const status = await mcpStore.getNpmRegistryStatus();
       setNpmRegistryStatus(status);
@@ -97,10 +99,23 @@ export default function McpSettings() {
     } catch (error) {
       console.error("Failed to load npm registry status:", error);
     }
-  };
+  }, [mcpStore]);
 
   useEffect(() => {
-    void loadNpmRegistryStatus();
+    let cancelled = false;
+    void (async () => {
+      try {
+        const status = await npmRegistryClient.getNpmRegistryStatus();
+        if (cancelled) return;
+        setNpmRegistryStatus(status);
+        setCustomRegistryInput(status.customRegistry || "");
+      } catch (error) {
+        console.error("Failed to load npm registry status:", error);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleMcpEnabledChange = useCallback(
@@ -157,10 +172,9 @@ export default function McpSettings() {
         description: error instanceof Error ? error.message : String(error),
         variant: "destructive",
       });
-    } finally {
-      setRefreshing(false);
     }
-  }, [mcpStore, toast]);
+    setRefreshing(false);
+  }, [mcpStore, toast, loadNpmRegistryStatus]);
 
   const setAutoDetectNpmRegistry = useCallback(
     async (enabled: boolean) => {
@@ -180,7 +194,7 @@ export default function McpSettings() {
         });
       }
     },
-    [mcpStore, toast],
+    [mcpStore, toast, loadNpmRegistryStatus],
   );
 
   const normalizeNpmRegistryUrl = useCallback((registry: string) => {
@@ -190,6 +204,14 @@ export default function McpSettings() {
 
   const validateCustomRegistry = useCallback(
     async (registry: string): Promise<boolean> => {
+      const reportRegistryTestFailure = (error: unknown) => {
+        console.error("Custom registry validation failed:", error);
+        toast({
+          title: "Registry test failed",
+          description: `Could not reach ${normalizeNpmRegistryUrl(registry)}: ${error instanceof Error ? error.message : String(error)}`,
+          variant: "destructive",
+        });
+      };
       try {
         if (!registry.startsWith("http://") && !registry.startsWith("https://")) {
           toast({
@@ -213,17 +235,13 @@ export default function McpSettings() {
         });
 
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
+          reportRegistryTestFailure(new Error(`HTTP ${response.status}`));
+          return false;
         }
 
         return true;
       } catch (error) {
-        console.error("Custom registry validation failed:", error);
-        toast({
-          title: "Registry test failed",
-          description: `Could not reach ${normalizeNpmRegistryUrl(registry)}: ${error instanceof Error ? error.message : String(error)}`,
-          variant: "destructive",
-        });
+        reportRegistryTestFailure(error);
         return false;
       }
     },
@@ -258,7 +276,7 @@ export default function McpSettings() {
         variant: "destructive",
       });
     }
-  }, [customRegistryInput, mcpStore, normalizeNpmRegistryUrl, toast, validateCustomRegistry]);
+  }, [customRegistryInput, mcpStore, normalizeNpmRegistryUrl, toast, validateCustomRegistry, loadNpmRegistryStatus]);
 
   const clearCustomNpmRegistry = useCallback(async () => {
     try {
@@ -279,9 +297,8 @@ export default function McpSettings() {
           description: "The custom registry was cleared, but registry detection failed.",
           variant: "destructive",
         });
-      } finally {
-        setNpmAdvancedDialogOpen(false);
       }
+      setNpmAdvancedDialogOpen(false);
     } catch (error) {
       console.error("Failed to clear custom npm registry:", error);
       toast({
@@ -290,7 +307,7 @@ export default function McpSettings() {
         variant: "destructive",
       });
     }
-  }, [mcpStore, toast]);
+  }, [mcpStore, toast, loadNpmRegistryStatus]);
 
   if (isMarketView) {
     return (

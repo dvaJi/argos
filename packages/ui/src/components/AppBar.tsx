@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { createDeviceClient } from "#api/DeviceClient";
 import { createWindowClient } from "#api/WindowClient";
 import { Button } from "#shadcn/components/ui/button";
@@ -21,7 +21,6 @@ export default function AppBar() {
   const [isWindows, setIsWindows] = useState<boolean | null>(null);
   const [isMaximized, setIsMaximized] = useState(false);
   const [isFullscreened, setIsFullscreened] = useState(false);
-  const [stopListener, setStopListener] = useState<(() => void) | null>(null);
 
   const routeName = window.location.pathname;
   const isBrowser = isBrowserMode();
@@ -47,8 +46,15 @@ export default function AppBar() {
     await upgrade.handleUpdate("auto");
   }, [upgrade]);
 
+  // Latest-value ref keeps the mount-only lifecycle effect below honest without
+  // re-running it (and re-subscribing window listeners) on every store update.
+  const upgradeRef = useRef(upgrade);
   useEffect(() => {
-    void upgrade.refreshStatus();
+    upgradeRef.current = upgrade;
+  }, [upgrade]);
+
+  useEffect(() => {
+    void upgradeRef.current.refreshStatus();
     deviceClient.getDeviceInfo().then((deviceInfo) => {
       setIsMacOS(deviceInfo.platform === "darwin");
       setIsWindows(deviceInfo.platform === "win32");
@@ -63,7 +69,6 @@ export default function AppBar() {
       setIsMaximized(payload.isMaximized);
       setIsFullscreened(payload.isFullScreen);
     });
-    setStopListener(() => stop);
 
     return () => {
       stop?.();

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
@@ -133,15 +133,23 @@ const DifyKnowledgeSettings = () => {
     await mcpStore.toggleServer("difyKnowledge");
   };
 
-  useEffect(() => {
-    if (mcpStore.config.ready) loadFromMcp();
-  }, [mcpStore.config.ready]);
+  const configReady = mcpStore.config.ready;
 
   useEffect(() => {
-    if (!mcpStore.mcpEnabled && isMcpEnabled) {
-      mcpStore.toggleServer("difyKnowledge");
+    if (!configReady) return;
+    void Promise.resolve().then(() => loadFromMcp());
+  }, [configReady, loadFromMcp]);
+
+  const difyAutoToggleInFlightRef = useRef(false);
+  useEffect(() => {
+    if (mcpStore.mcpEnabled || !isMcpEnabled) {
+      difyAutoToggleInFlightRef.current = false;
+      return;
     }
-  }, [mcpStore.mcpEnabled]);
+    if (difyAutoToggleInFlightRef.current) return;
+    difyAutoToggleInFlightRef.current = true;
+    void Promise.resolve().then(() => mcpStore.toggleServer("difyKnowledge"));
+  }, [mcpStore, isMcpEnabled]);
 
   return (
     <div className="border rounded-lg overflow-hidden">

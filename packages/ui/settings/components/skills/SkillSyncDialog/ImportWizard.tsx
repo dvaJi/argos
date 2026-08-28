@@ -118,9 +118,8 @@ const ImportWizard: FC<ImportWizardProps> = ({
     } catch (error) {
       console.error("Preview import error:", error);
       toast({ title: "Preview Error", description: String(error), variant: "destructive" });
-    } finally {
-      setLoading(false);
     }
+    setLoading(false);
   };
 
   const executeImport = async () => {
@@ -145,9 +144,8 @@ const ImportWizard: FC<ImportWizardProps> = ({
     } catch (error) {
       console.error("Import error:", error);
       toast({ title: "Import Error", description: String(error), variant: "destructive" });
-    } finally {
-      setImporting(false);
     }
+    setImporting(false);
   };
 
   const handleNext = async () => {
@@ -161,21 +159,26 @@ const ImportWizard: FC<ImportWizardProps> = ({
     }
   };
 
-  const scanTools = async () => {
-    setScanning(true);
-    try {
-      setScanResults(await skillSyncClient.scanExternalTools());
-    } catch (error) {
-      console.error("Scan error:", error);
-      toast({ title: "Scan Error", description: String(error), variant: "destructive" });
-    } finally {
-      setScanning(false);
-    }
-  };
-
   useEffect(() => {
-    void scanTools();
-  }, []);
+    let cancelled = false;
+    void (async () => {
+      setScanning(true);
+      try {
+        const results = await skillSyncClient.scanExternalTools();
+        if (cancelled) return;
+        setScanResults(results);
+      } catch (error) {
+        console.error("Scan error:", error);
+        toast({ title: "Scan Error", description: String(error), variant: "destructive" });
+      }
+      if (!cancelled) {
+        setScanning(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [toast]);
 
   return (
     <div className="flex flex-col h-full">

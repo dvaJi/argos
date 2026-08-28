@@ -6,7 +6,7 @@ import { BrowserPanel } from "./BrowserPanel";
 import { WorkspacePanel } from "./WorkspacePanel";
 import { DiffsPanel } from "./DiffsPanel";
 import { WORKSPACE_EVENTS } from "#/events";
-import { useSidepanelStore } from "#/stores/ui/sidepanel";
+import { openBrowser, useSidepanelStore } from "#/stores/ui/sidepanel";
 
 interface ChatSidePanelProps {
   sessionId: string | null;
@@ -18,6 +18,9 @@ const FULLSCREEN_MOTION_MS = 180;
 
 export function ChatSidePanel({ sessionId, workspacePath }: ChatSidePanelProps) {
   const sidepanelStore = useSidepanelStore();
+  // Module-level store action; stable across renders so callbacks depending on
+  // it stay referentially stable.
+  const setWidth = sidepanelStore.setWidth;
   const browserClient = useMemo(() => createBrowserClient(), []);
 
   const stopBrowserOpenRequestedListener = useRef<(() => void) | null>(null);
@@ -35,6 +38,42 @@ export function ChatSidePanel({ sessionId, workspacePath }: ChatSidePanelProps) 
   const [isWorkspaceFullscreen, setIsWorkspaceFullscreen] = useState(false);
   const [fullscreenMotionState, setFullscreenMotionState] = useState<"expanding" | "collapsing" | null>(null);
 
+  // Render-phase adjustments replacing the previous setState-in-effect
+  // lifecycle effects: reset transition state when the panel hides, the tab
+  // leaves "workspace", or the session goes away, and keep the layout width in
+  // sync with the store while the panel is shown or still fading out.
+  const [wasShown, setWasShown] = useState(shouldShow);
+  if (wasShown !== shouldShow) {
+    setWasShown(shouldShow);
+    if (!shouldShow) {
+      setIsWorkspaceFullscreen(false);
+      setFullscreenMotionState(null);
+      setPanelVisible(false);
+    }
+  }
+
+  const [prevActiveTab, setPrevActiveTab] = useState(sidepanelStore.activeTab);
+  if (prevActiveTab !== sidepanelStore.activeTab) {
+    setPrevActiveTab(sidepanelStore.activeTab);
+    if (sidepanelStore.activeTab !== "workspace") {
+      setIsWorkspaceFullscreen(false);
+      setFullscreenMotionState(null);
+    }
+  }
+
+  const [prevSessionId, setPrevSessionId] = useState(sessionId);
+  if (prevSessionId !== sessionId) {
+    setPrevSessionId(sessionId);
+    if (!sessionId) {
+      setIsWorkspaceFullscreen(false);
+      setFullscreenMotionState(null);
+    }
+  }
+
+  if ((shouldShow || layoutWidth > 0) && layoutWidth !== sidepanelStore.width) {
+    setLayoutWidth(sidepanelStore.width);
+  }
+
   const isWorkspaceFullscreenActive = useMemo(
     () => isWorkspaceFullscreen && shouldShow && sidepanelStore.activeTab === "workspace",
     [isWorkspaceFullscreen, shouldShow, sidepanelStore.activeTab],
@@ -48,9 +87,9 @@ export function ChatSidePanel({ sessionId, workspacePath }: ChatSidePanelProps) 
   const handleBrowserOpenRequested = useCallback(
     (payload: { sessionId: string }) => {
       if (!sessionId || payload.sessionId !== sessionId) return;
-      sidepanelStore.openBrowser();
+      openBrowser();
     },
-    [sessionId, sidepanelStore],
+    [sessionId],
   );
 
   const clearPanelMotionHandles = useCallback(() => {
@@ -75,9 +114,9 @@ export function ChatSidePanel({ sessionId, workspacePath }: ChatSidePanelProps) 
   const applyPendingResize = useCallback(() => {
     resizeFrame.current = null;
     if (pendingResizeWidth.current === null) return;
-    sidepanelStore.setWidth(pendingResizeWidth.current);
+    setWidth(pendingResizeWidth.current);
     pendingResizeWidth.current = null;
-  }, [sidepanelStore]);
+  }, [setWidth]);
 
   const stopResizeTracking = useCallback(() => {
     if (resizeFrame.current !== null) {
@@ -85,15 +124,10 @@ export function ChatSidePanel({ sessionId, workspacePath }: ChatSidePanelProps) 
       resizeFrame.current = null;
     }
     if (pendingResizeWidth.current !== null) {
-      sidepanelStore.setWidth(pendingResizeWidth.current);
+      setWidth(pendingResizeWidth.current);
       pendingResizeWidth.current = null;
     }
-  }, [sidepanelStore]);
-
-  const resetWorkspaceFullscreen = useCallback(() => {
-    setIsWorkspaceFullscreen(false);
-    clearFullscreenMotionHandle();
-  }, [clearFullscreenMotionHandle]);
+  }, [setWidth]);
 
   const toggleWorkspaceFullscreen = useCallback(() => {
     if (!shouldShow || sidepanelStore.activeTab !== "workspace") return;
@@ -156,37 +190,28 @@ export function ChatSidePanel({ sessionId, workspacePath }: ChatSidePanelProps) 
     };
   }, [isResizing, applyPendingResize, stopResizeTracking]);
 
+  // Panel show/hide motion. State transitions happen in the render-phase
+  // adjustments above; this effect only manages timers/rAF handles (async
+  // setState only).
   useEffect(() => {
     clearPanelMotionHandles();
     stopResizeTracking();
-    if (!shouldShow) resetWorkspaceFullscreen();
-
     if (shouldShow) {
-      setLayoutWidth(sidepanelStore.width);
       panelMotionFrame.current = window.requestAnimationFrame(() => {
         panelMotionFrame.current = null;
         setPanelVisible(true);
       });
     } else {
-      setPanelVisible(false);
+      if (fullscreenMotionTimer.current !== null) {
+        window.clearTimeout(fullscreenMotionTimer.current);
+        fullscreenMotionTimer.current = null;
+      }
       panelMotionTimer.current = window.setTimeout(() => {
         panelMotionTimer.current = null;
         if (!shouldShow) setLayoutWidth(0);
       }, PANEL_MOTION_MS);
     }
-  }, [shouldShow]);
-
-  useEffect(() => {
-    if (sidepanelStore.activeTab !== "workspace") resetWorkspaceFullscreen();
-  }, [sidepanelStore.activeTab]);
-
-  useEffect(() => {
-    if (!sessionId) resetWorkspaceFullscreen();
-  }, [sessionId]);
-
-  useEffect(() => {
-    if (shouldShow || layoutWidth > 0) setLayoutWidth(sidepanelStore.width);
-  }, [sidepanelStore.width]);
+  }, [shouldShow, clearPanelMotionHandles, stopResizeTracking]);
 
   useEffect(() => {
     stopBrowserOpenRequestedListener.current =
@@ -198,7 +223,13 @@ export function ChatSidePanel({ sessionId, workspacePath }: ChatSidePanelProps) 
       stopBrowserOpenRequestedListener.current?.();
       stopBrowserOpenRequestedListener.current = null;
     };
-  }, []);
+  }, [
+    browserClient,
+    handleBrowserOpenRequested,
+    clearPanelMotionHandles,
+    clearFullscreenMotionHandle,
+    stopResizeTracking,
+  ]);
 
   return (
     <div

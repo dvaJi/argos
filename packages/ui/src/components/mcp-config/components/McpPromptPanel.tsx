@@ -48,20 +48,28 @@ const McpPromptPanel: FC<McpPromptPanelProps> = ({ serverName, open, onOpenChang
     return JSON.stringify(promptArgs, null, 2);
   }, [selectedPromptObj]);
 
-  useEffect(() => {
+  // Reset the prompt form whenever the dialog opens (adjusted during render so the
+  // React Compiler can track it).
+  const [wasOpen, setWasOpen] = useState(open);
+  if (wasOpen !== open) {
+    setWasOpen(open);
     if (open) {
       setSelectedPrompt("");
       setPromptResult("");
       setPromptParams("{}");
       setIsParametersExpanded(false);
     }
-  }, [open]);
+  }
 
-  useEffect(() => {
+  // Sync the params draft when the selected prompt changes (not when the computed
+  // defaults object is recomputed for the same prompt).
+  const [syncedPrompt, setSyncedPrompt] = useState(selectedPrompt);
+  if (syncedPrompt !== selectedPrompt) {
+    setSyncedPrompt(selectedPrompt);
     setPromptParams(defaultPromptParams);
     setPromptResult("");
     setIsParametersExpanded(false);
-  }, [selectedPrompt]);
+  }
 
   const validatePromptJson = (input: string): boolean => {
     try {
@@ -98,9 +106,8 @@ const McpPromptPanel: FC<McpPromptPanelProps> = ({ serverName, open, onOpenChang
     } catch (error) {
       console.error("Prompt call failed:", error);
       setPromptResult(`Call failed: ${error}`);
-    } finally {
-      setPromptLoading(false);
     }
+    setPromptLoading(false);
   };
 
   const formatJson = (input: string): string => {

@@ -95,7 +95,8 @@ export function useChatInputFiles(
 
       const path = fileClient.getPathForFile(file);
       if (!path) {
-        throw new Error(`Cannot resolve file path for ${getDisplayFileName(file)}`);
+        console.error("File processing failed:", new Error(`Cannot resolve file path for ${getDisplayFileName(file)}`));
+        return null;
       }
       const mimeType = await fileClient.getMimeType(path);
       return await fileClient.prepareFile(path, mimeType);
@@ -109,7 +110,11 @@ export function useChatInputFiles(
     try {
       const path = fileClient.getPathForFile(file);
       if (!path) {
-        throw new Error(`Cannot resolve file path for ${getDisplayFileName(file)}`);
+        console.error(
+          "Dropped file processing failed:",
+          new Error(`Cannot resolve file path for ${getDisplayFileName(file)}`),
+        );
+        return null;
       }
 
       if (file.type === "") {

@@ -41,13 +41,16 @@ const SuggestionList = forwardRef<{ onKeyDown: (props: { event: KeyboardEvent })
 
     const filteredItems = items;
 
-    useEffect(() => {
-      if (filteredItems.length <= 0) {
+    // Clamp the selection to the current item count during render (React's
+    // "adjust state during render" pattern) instead of inside an effect.
+    const itemCount = filteredItems.length;
+    if (itemCount === 0) {
+      if (selectedIndex !== 0) {
         setSelectedIndex(0);
-        return;
       }
-      setSelectedIndex((prev) => (prev >= filteredItems.length ? filteredItems.length - 1 : prev));
-    }, [filteredItems.length]);
+    } else if (selectedIndex >= itemCount) {
+      setSelectedIndex(itemCount - 1);
+    }
 
     useEffect(() => {
       itemElements.current[selectedIndex]?.scrollIntoView({ block: "nearest" });

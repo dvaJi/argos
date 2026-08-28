@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Input } from "#shadcn/components/ui/input";
 import { Label } from "#shadcn/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#shadcn/components/ui/select";
@@ -18,11 +18,12 @@ interface TtsSettingsFieldsProps {
 
 export default function TtsSettingsFields({ modelValue, onValueChange }: TtsSettingsFieldsProps) {
   const tts = useMemo<TtsSettings>(() => normalizeTtsSettings(modelValue) ?? {}, [modelValue]);
-  const [speedDraft, setSpeedDraft] = useState("");
-
-  useEffect(() => {
+  const [speedDraft, setSpeedDraft] = useState(() => (typeof tts.speed === "number" ? String(tts.speed) : ""));
+  const [syncedSpeed, setSyncedSpeed] = useState(tts.speed);
+  if (syncedSpeed !== tts.speed) {
+    setSyncedSpeed(tts.speed);
     setSpeedDraft(typeof tts.speed === "number" ? String(tts.speed) : "");
-  }, [tts.speed]);
+  }
 
   const emitSettings = useCallback(
     (patch: TtsSettings) => {

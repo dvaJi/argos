@@ -41,6 +41,32 @@ const ExportWizard: FC<ExportWizardProps> = ({ currentStep, onStepChange, onComp
   const [kiroInclusion, setKiroInclusion] = useState<KiroInclusionMode>("on-demand");
   const [kiroFilePatterns, setKiroFilePatterns] = useState("");
 
+  // Rebuild checkbox state when the skill list changes (render-phase adjustment,
+  // replacing a setState-in-effect).
+  const [syncedSkills, setSyncedSkills] = useState(localSkills);
+  if (syncedSkills !== localSkills) {
+    setSyncedSkills(localSkills);
+    const newState: Record<string, boolean> = {};
+    for (const skill of localSkills) {
+      newState[skill.name] = skillCheckedState[skill.name] ?? false;
+    }
+    setSkillCheckedState(newState);
+  }
+
+  // Reset tool selection when the wizard returns to step 1 (render-phase
+  // adjustment, replacing a setState-in-effect).
+  const [syncedStep, setSyncedStep] = useState(currentStep);
+  if (syncedStep !== currentStep) {
+    setSyncedStep(currentStep);
+    if (currentStep === 1) {
+      setSelectedToolId(null);
+      setExportPreviews([]);
+      setConflictStrategies({});
+      setKiroInclusion("on-demand");
+      setKiroFilePatterns("");
+    }
+  }
+
   const allSkillsSelected = useMemo(
     () => localSkills.length > 0 && selectedSkills.length === localSkills.length,
     [localSkills, selectedSkills],
@@ -153,9 +179,8 @@ const ExportWizard: FC<ExportWizardProps> = ({ currentStep, onStepChange, onComp
     } catch (error) {
       console.error("Load tools error:", error);
       toast({ title: "Load Tools Error", description: String(error), variant: "destructive" });
-    } finally {
-      setScanningTools(false);
     }
+    setScanningTools(false);
   };
 
   const previewExport = async () => {
@@ -172,9 +197,8 @@ const ExportWizard: FC<ExportWizardProps> = ({ currentStep, onStepChange, onComp
     } catch (error) {
       console.error("Preview export error:", error);
       toast({ title: "Preview Error", description: String(error), variant: "destructive" });
-    } finally {
-      setLoading(false);
     }
+    setLoading(false);
   };
 
   const executeExport = async () => {
@@ -202,9 +226,8 @@ const ExportWizard: FC<ExportWizardProps> = ({ currentStep, onStepChange, onComp
     } catch (error) {
       console.error("Export error:", error);
       toast({ title: "Export Error", description: String(error), variant: "destructive" });
-    } finally {
-      setExporting(false);
     }
+    setExporting(false);
   };
 
   const handleNext = async () => {
@@ -222,24 +245,6 @@ const ExportWizard: FC<ExportWizardProps> = ({ currentStep, onStepChange, onComp
   useEffect(() => {
     void loadSkills();
   }, []);
-
-  useEffect(() => {
-    const newState: Record<string, boolean> = {};
-    for (const skill of localSkills) {
-      newState[skill.name] = skillCheckedState[skill.name] ?? false;
-    }
-    setSkillCheckedState(newState);
-  }, [localSkills]);
-
-  useEffect(() => {
-    if (currentStep === 1) {
-      setSelectedToolId(null);
-      setExportPreviews([]);
-      setConflictStrategies({});
-      setKiroInclusion("on-demand");
-      setKiroFilePatterns("");
-    }
-  }, [currentStep]);
 
   return (
     <div className="flex flex-col h-full">

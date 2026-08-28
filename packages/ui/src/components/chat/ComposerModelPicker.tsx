@@ -3,7 +3,8 @@ import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "#shadcn/components/ui/popover";
-import { useModelStore, getChatSelectableModelGroups } from "#/stores/modelStore";
+import { useModelStore, getChatSelectableModelGroupsFrom } from "#/stores/modelStore";
+import { useProviderStore, getSortedProvidersFrom } from "#/stores/providerStore";
 import { useAgentStore } from "#/stores/ui/agent";
 import { useSessionStore, getActiveSession, getHasActiveSession } from "#/stores/ui/session";
 import { draftStore, useDraftStore } from "#/stores/ui/draft";
@@ -77,13 +78,18 @@ const ComposerModelPicker = () => {
     draftState.providerId,
   ]);
 
+  const { enabledModels } = modelStore;
+  const providerStore = useProviderStore();
+  const { providers, providerOrder, providerTimestamps } = providerStore;
+
   const modelGroups = useMemo(() => {
     if (!modelStore.initialized) return [];
-    return getChatSelectableModelGroups();
+    const sorted = getSortedProvidersFrom(providers, providerOrder, providerTimestamps);
+    const orderedProviders = sorted.length > 0 ? sorted : providers;
+    return getChatSelectableModelGroupsFrom(orderedProviders, enabledModels);
     // enabledModels drives the group list; recompute when it changes (models
     // can become available after init without `initialized` flipping again).
-    // eslint-disable-next-line react-compiler/no-manual-memoization
-  }, [modelStore.initialized, modelStore.enabledModels]);
+  }, [modelStore.initialized, enabledModels, providers, providerOrder, providerTimestamps]);
 
   const filteredGroups = useMemo(() => {
     const kw = keyword.trim().toLowerCase();

@@ -16,6 +16,29 @@ interface BrowserPanelProps {
 const STABLE_RECT_SAMPLE_MS = 48;
 const STABLE_RECT_TIMEOUT_MS = 1500;
 
+const roundBounds = (bounds: Rectangle): Rectangle => ({
+  x: Math.round(bounds.x),
+  y: Math.round(bounds.y),
+  width: Math.round(bounds.width),
+  height: Math.round(bounds.height),
+});
+
+const areBoundsEqual = (left: Rectangle | null, right: Rectangle): boolean =>
+  left !== null &&
+  left.x === right.x &&
+  left.y === right.y &&
+  left.width === right.width &&
+  left.height === right.height;
+
+const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
+const normalizeUrl = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+};
+
 export function BrowserPanel({ sessionId }: BrowserPanelProps) {
   const sidepanelStore = useSidepanelStore();
   const sessionStore = useSessionStore();
@@ -94,26 +117,10 @@ export function BrowserPanel({ sessionId }: BrowserPanelProps) {
     return { x: rect.left, y: rect.top, width: rect.width, height: rect.height };
   }, []);
 
-  const roundBounds = (bounds: Rectangle): Rectangle => ({
-    x: Math.round(bounds.x),
-    y: Math.round(bounds.y),
-    width: Math.round(bounds.width),
-    height: Math.round(bounds.height),
-  });
-
-  const areBoundsEqual = (left: Rectangle | null, right: Rectangle): boolean =>
-    left !== null &&
-    left.x === right.x &&
-    left.y === right.y &&
-    left.width === right.width &&
-    left.height === right.height;
-
   const canSyncVisibleBounds = useCallback(
     () => Boolean(currentSessionId && browserStatus.initialized && isBrowserPanelVisible),
     [currentSessionId, browserStatus.initialized, isBrowserPanelVisible],
   );
-
-  const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
   const waitForStableRect = useCallback(
     async (runId: number): Promise<Rectangle | null> => {
@@ -245,12 +252,13 @@ export function BrowserPanel({ sessionId }: BrowserPanelProps) {
     [currentSessionId, loadState, isBrowserPanelVisible, ensureVisibleAttachment],
   );
 
-  const normalizeUrl = (value: string) => {
-    const trimmed = value.trim();
-    if (!trimmed) return "";
-    if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed)) return trimmed;
-    return `https://${trimmed}`;
-  };
+  const flushPendingSessionDestroys = useCallback(async () => {
+    for (const sid of Array.from(pendingBrowserDestroySessionIds.current)) {
+      if (getSessionUiStatus(sid) === "working") continue;
+      pendingBrowserDestroySessionIds.current.delete(sid);
+      await callBrowserAction("destroy", () => browserClient.destroy(sid));
+    }
+  }, [getSessionUiStatus, browserClient, callBrowserAction]);
 
   const navigate = useCallback(
     async (e: FormEvent) => {
@@ -284,13 +292,44 @@ export function BrowserPanel({ sessionId }: BrowserPanelProps) {
     await loadState(currentSessionId);
   }, [currentSessionId, browserStatus.initialized, browserClient, callBrowserAction, loadState]);
 
-  const flushPendingSessionDestroys = useCallback(async () => {
-    for (const sid of Array.from(pendingBrowserDestroySessionIds.current)) {
-      if (getSessionUiStatus(sid) === "working") continue;
-      pendingBrowserDestroySessionIds.current.delete(sid);
-      await callBrowserAction("destroy", () => browserClient.destroy(sid));
-    }
-  }, [getSessionUiStatus, browserClient, callBrowserAction]);
+  // Latest-value refs so the lifecycle effects below can keep their original,
+  // narrow trigger conditions while always invoking the freshest callbacks.
+  const loadStateRef = useRef(loadState);
+  const ensureVisibleAttachmentRef = useRef(ensureVisibleAttachment);
+  const hideEmbeddedRef = useRef(hideEmbedded);
+  const resetBrowserStateRef = useRef(resetBrowserState);
+  const flushPendingSessionDestroysRef = useRef(flushPendingSessionDestroys);
+  const scheduleVisibleBoundsSyncRef = useRef(scheduleVisibleBoundsSync);
+  const cancelScheduledBoundsSyncRef = useRef(cancelScheduledBoundsSync);
+  const handleOpenRequestedRef = useRef(handleOpenRequested);
+  const handleStatusChangedRef = useRef(handleStatusChanged);
+  const currentSessionIdRef = useRef(currentSessionId);
+  const isBrowserPanelVisibleRef = useRef(isBrowserPanelVisible);
+  useEffect(() => {
+    loadStateRef.current = loadState;
+    ensureVisibleAttachmentRef.current = ensureVisibleAttachment;
+    hideEmbeddedRef.current = hideEmbedded;
+    resetBrowserStateRef.current = resetBrowserState;
+    flushPendingSessionDestroysRef.current = flushPendingSessionDestroys;
+    scheduleVisibleBoundsSyncRef.current = scheduleVisibleBoundsSync;
+    cancelScheduledBoundsSyncRef.current = cancelScheduledBoundsSync;
+    handleOpenRequestedRef.current = handleOpenRequested;
+    handleStatusChangedRef.current = handleStatusChanged;
+    currentSessionIdRef.current = currentSessionId;
+    isBrowserPanelVisibleRef.current = isBrowserPanelVisible;
+  }, [
+    loadState,
+    ensureVisibleAttachment,
+    hideEmbedded,
+    resetBrowserState,
+    flushPendingSessionDestroys,
+    scheduleVisibleBoundsSync,
+    cancelScheduledBoundsSync,
+    handleOpenRequested,
+    handleStatusChanged,
+    currentSessionId,
+    isBrowserPanelVisible,
+  ]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -301,45 +340,50 @@ export function BrowserPanel({ sessionId }: BrowserPanelProps) {
 
   useEffect(() => {
     if (isBrowserPanelVisible) {
-      void loadState(currentSessionId);
-      void ensureVisibleAttachment();
+      void loadStateRef.current(currentSessionIdRef.current);
+      void ensureVisibleAttachmentRef.current();
     } else {
-      void hideEmbedded(currentSessionId);
+      void hideEmbeddedRef.current(currentSessionIdRef.current);
     }
   }, [isBrowserPanelVisible]);
 
   useEffect(() => {
     if (sessionId) {
-      void loadState(sessionId);
-      if (isBrowserPanelVisible) void ensureVisibleAttachment();
+      void loadStateRef.current(sessionId);
+      if (isBrowserPanelVisibleRef.current) void ensureVisibleAttachmentRef.current();
     } else {
-      resetBrowserState();
+      resetBrowserStateRef.current();
     }
   }, [sessionId]);
 
   useEffect(() => {
     void flushPendingSessionDestroys();
-    if (currentSessionId) void loadState(currentSessionId);
-  }, [sessionStore.sessions]);
+    if (currentSessionId) void loadStateRef.current(currentSessionId);
+  }, [flushPendingSessionDestroys, currentSessionId]);
 
   useEffect(() => {
-    window.addEventListener("resize", scheduleVisibleBoundsSync);
-    stopOpenRequestedListener.current = browserClient.onOpenRequestedForCurrentWindow(handleOpenRequested);
-    stopStatusChangedListener.current = browserClient.onStatusChanged(handleStatusChanged);
+    const onResize = () => scheduleVisibleBoundsSyncRef.current();
+    window.addEventListener("resize", onResize);
+    stopOpenRequestedListener.current = browserClient.onOpenRequestedForCurrentWindow((payload) =>
+      handleOpenRequestedRef.current(payload),
+    );
+    stopStatusChangedListener.current = browserClient.onStatusChanged((payload) =>
+      handleStatusChangedRef.current(payload),
+    );
 
-    if (currentSessionId) void loadState(currentSessionId);
-    if (isBrowserPanelVisible) void ensureVisibleAttachment();
+    if (currentSessionIdRef.current) void loadStateRef.current(currentSessionIdRef.current);
+    if (isBrowserPanelVisibleRef.current) void ensureVisibleAttachmentRef.current();
 
     return () => {
-      window.removeEventListener("resize", scheduleVisibleBoundsSync);
-      cancelScheduledBoundsSync();
-      void hideEmbedded(currentSessionId);
+      window.removeEventListener("resize", onResize);
+      cancelScheduledBoundsSyncRef.current();
+      void hideEmbeddedRef.current(currentSessionIdRef.current);
       stopOpenRequestedListener.current?.();
       stopOpenRequestedListener.current = null;
       stopStatusChangedListener.current?.();
       stopStatusChangedListener.current = null;
     };
-  }, []);
+  }, [browserClient]);
 
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col bg-background">

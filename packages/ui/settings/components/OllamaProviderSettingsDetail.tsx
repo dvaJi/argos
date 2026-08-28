@@ -276,7 +276,15 @@ export default function OllamaProviderSettingsDetail({
 
   useEffect(() => {
     void ollamaStore.ensureProviderReady(provider.id);
-  }, [provider.id]);
+  }, [provider.id, ollamaStore]);
+
+  // Keep the draft host/key inputs in sync when the provider identity changes.
+  const [syncedProvider, setSyncedProvider] = useState(provider);
+  if (syncedProvider !== provider) {
+    setSyncedProvider(provider);
+    setApiHost(provider.baseUrl || "");
+    setApiKey(provider.apiKey || "");
+  }
 
   const loadPullModelCatalog = async () => {
     if (isPullModelCatalogLoading) return;
@@ -286,9 +294,8 @@ export default function OllamaProviderSettingsDetail({
       setPullModelCatalog(models);
     } catch {
       setPullModelCatalog([]);
-    } finally {
-      setIsPullModelCatalogLoading(false);
     }
+    setIsPullModelCatalogLoading(false);
   };
 
   const refreshModels = async () => {
@@ -402,10 +409,8 @@ export default function OllamaProviderSettingsDetail({
   };
 
   useEffect(() => {
-    setApiHost(provider.baseUrl || "");
-    setApiKey(provider.apiKey || "");
     void ollamaStore.ensureProviderReady(provider.id);
-  }, [provider]);
+  }, [provider, ollamaStore]);
 
   return (
     <section className="w-full h-full">

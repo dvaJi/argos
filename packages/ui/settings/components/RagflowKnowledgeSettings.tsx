@@ -14,7 +14,7 @@ import {
 } from "#shadcn/components/ui/dialog";
 import { Collapsible, CollapsibleContent } from "#shadcn/components/ui/collapsible";
 import { Tooltip, TooltipContent, TooltipTrigger } from "#shadcn/components/ui/tooltip";
-import { useMcpStore } from "#/stores/mcp";
+import { useMcpStore, mcpStore as mcpStoreInstance } from "#/stores/mcp";
 import { useToast } from "#/components/use-toast";
 import ragflowPng from "#/assets/images/ragflow.png";
 
@@ -56,6 +56,9 @@ const RagflowKnowledgeSettings = () => {
   );
 
   const isMcpEnabled = useMemo(() => mcpStore.serverStatuses["ragflowKnowledge"] || false, [mcpStore.serverStatuses]);
+  const configReady = mcpStore.config.ready;
+  const mcpEnabled = mcpStore.mcpEnabled;
+  const { toggleServer } = mcpStore;
 
   const openAddConfig = () => {
     setIsEditing(false);
@@ -121,27 +124,33 @@ const RagflowKnowledgeSettings = () => {
     } catch {}
   };
 
-  const loadFromMcp = async () => {
-    try {
-      const serverConfig = mcpStore.config.mcpServers["ragflowKnowledge"];
-      if (serverConfig?.env) {
-        const envObj = typeof serverConfig.env === "string" ? JSON.parse(serverConfig.env) : serverConfig.env;
-        if (envObj.configs) setConfigs(envObj.configs);
-      }
-    } catch {}
-  };
-
   const toggleMcpServer = async () => {
     if (!mcpStore.mcpEnabled) return;
     await mcpStore.toggleServer("ragflowKnowledge");
   };
 
   useEffect(() => {
-    if (mcpStore.config.ready) loadFromMcp();
-  }, [mcpStore.config.ready]);
+    if (!configReady) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const serverConfig = mcpStoreInstance.state.config.mcpServers["ragflowKnowledge"];
+        if (serverConfig?.env) {
+          const envObj = typeof serverConfig.env === "string" ? JSON.parse(serverConfig.env) : serverConfig.env;
+          if (envObj.configs && !cancelled) {
+            setConfigs(envObj.configs);
+          }
+        }
+      } catch {}
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [configReady]);
+
   useEffect(() => {
-    if (!mcpStore.mcpEnabled && isMcpEnabled) mcpStore.toggleServer("ragflowKnowledge");
-  }, [mcpStore.mcpEnabled]);
+    if (!mcpEnabled && isMcpEnabled) void toggleServer("ragflowKnowledge");
+  }, [mcpEnabled, isMcpEnabled, toggleServer]);
 
   return (
     <div className="border rounded-lg overflow-hidden">

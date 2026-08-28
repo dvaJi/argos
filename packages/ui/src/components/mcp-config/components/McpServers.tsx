@@ -57,16 +57,15 @@ export const McpServers = forwardRef<McpServersRef, McpServersProps>(
     const [activeFilter, setActiveFilter] = useState<McpFilter>("all");
 
     useEffect(() => {
-      if (mcpStore.mcpInstallCache) {
-        setIsAddServerDialogOpen(true);
-      }
+      if (!mcpStore.mcpInstallCache) return;
+      void Promise.resolve().then(() => setIsAddServerDialogOpen(true));
     }, [mcpStore.mcpInstallCache]);
 
     useEffect(() => {
-      if (!isAddServerDialogOpen) {
-        mcpStore.clearMcpInstallCache();
-      }
-    }, [isAddServerDialogOpen]);
+      if (isAddServerDialogOpen) return;
+      if (!mcpStore.mcpInstallCache) return;
+      mcpStore.clearMcpInstallCache();
+    }, [isAddServerDialogOpen, mcpStore]);
 
     const isArgosManagedServer = (config?: MCPServerConfig) => config?.source === "argos";
 

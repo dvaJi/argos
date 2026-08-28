@@ -65,13 +65,21 @@ export default function AcpAgentIcon({
 
   const toneClass = tone === "muted" ? "text-muted-foreground" : "text-foreground";
 
+  // Reset the loaded markup whenever the icon identity changes (prev-compare
+  // during render — no effect-triggered cascade).
+  const identityKey = `${trimmedAgentId}:${trimmedIcon}:${isThemeableRegistryIcon}`;
+  const [syncedIdentityKey, setSyncedIdentityKey] = useState(identityKey);
+  if (syncedIdentityKey !== identityKey) {
+    setSyncedIdentityKey(identityKey);
+    setSvgMarkup("");
+    setImageLoadFailed(false);
+  }
+
   const shouldRenderInlineSvg = Boolean(svgMarkup) && isThemeableRegistryIcon;
   const shouldRenderImage = Boolean(trimmedIcon) && !shouldRenderInlineSvg && !isThemeableRegistryIcon;
 
   useEffect(() => {
     const seq = ++requestSeq.current;
-    setSvgMarkup("");
-    setImageLoadFailed(false);
 
     if (!trimmedIcon || !trimmedAgentId || !isThemeableRegistryIcon) return;
 

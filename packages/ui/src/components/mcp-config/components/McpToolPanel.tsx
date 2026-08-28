@@ -30,7 +30,6 @@ interface McpToolPanelProps {
 const McpToolPanel: FC<McpToolPanelProps> = ({ serverName, open, onOpenChange }) => {
   const mcpStore = useMcpStore();
 
-  const [selectedTool, setSelectedTool] = useState<MCPToolDefinition | null>(null);
   const [selectedToolName, setSelectedToolName] = useState("");
   const [localToolInputs, setLocalToolInputs] = useState<Record<string, string>>({});
   const [localToolResults, setLocalToolResults] = useState<Record<string, string>>({});
@@ -43,27 +42,33 @@ const McpToolPanel: FC<McpToolPanelProps> = ({ serverName, open, onOpenChange })
     [mcpStore.tools, serverName],
   );
 
+  const selectedTool = selectedToolName
+    ? (serverTools.find((t) => t.function.name === selectedToolName) ?? null)
+    : null;
+
   const isLgScreen = useMediaQuery("(min-width: 1024px)");
   const showTopSelector = useMemo(() => !isLgScreen || serverTools.length === 0, [isLgScreen, serverTools.length]);
 
-  useEffect(() => {
+  // Reset the selection whenever the panel is (re)opened — adjusted during render.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (wasOpen !== open) {
+    setWasOpen(open);
     if (open) setSelectedToolName("");
-  }, [open]);
+  }
 
-  useEffect(() => {
+  // Re-run the per-tool reset whenever the selected tool changes — adjusted during render.
+  const [lastSelectedToolName, setLastSelectedToolName] = useState(selectedToolName);
+  if (lastSelectedToolName !== selectedToolName) {
+    setLastSelectedToolName(selectedToolName);
     if (selectedToolName) {
-      const tool = serverTools.find((t) => t.function.name === selectedToolName);
-      setSelectedTool(tool || null);
       if (!localToolInputs[selectedToolName]) {
         setLocalToolInputs((prev) => ({ ...prev, [selectedToolName]: "{}" }));
       }
       setJsonError((prev) => ({ ...prev, [selectedToolName]: false }));
       setIsDescriptionExpanded(false);
       setIsParametersExpanded(false);
-    } else {
-      setSelectedTool(null);
     }
-  }, [selectedToolName]);
+  }
 
   const validateJson = (input: string, toolName: string): boolean => {
     try {

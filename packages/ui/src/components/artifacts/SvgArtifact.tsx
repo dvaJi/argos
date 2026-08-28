@@ -2,42 +2,43 @@ import { useEffect, useState } from "react";
 import { Icon } from "@iconify/react";
 import { createDeviceClient } from "#api/DeviceClient";
 
+const deviceClient = createDeviceClient();
+
 interface SvgArtifactProps {
   block: { artifact: { type: string; title: string }; content: string };
   className?: string;
 }
 
 export function SvgArtifact({ block, className }: SvgArtifactProps) {
-  const deviceClient = createDeviceClient();
-  const [sanitizedContent, setSanitizedContent] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [hasError, setHasError] = useState(false);
+  // Last completed sanitization, keyed by the content it was produced for.
+  // Loading/error are derived so no synchronous setState is needed in the effect.
+  const [sanitized, setSanitized] = useState<{ for: string; result: string; hasError: boolean } | null>(null);
 
-  const sanitizeSvgContent = async (content: string) => {
-    if (!content) {
-      setSanitizedContent("");
-      return;
-    }
-    setIsLoading(true);
-    setHasError(false);
-    try {
-      const result = await deviceClient.sanitizeSvgContent(content);
-      setSanitizedContent(result || "");
-      if (!result) {
-        setHasError(true);
-        console.warn("SVG content was rejected by sanitizer");
-      }
-    } catch (error) {
-      console.error("SVG sanitization failed:", error);
-      setSanitizedContent("");
-      setHasError(true);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const isLoading = Boolean(block.content) && sanitized?.for !== block.content;
+  const sanitizedContent = !isLoading && block.content ? (sanitized?.result ?? "") : "";
+  const hasError = !isLoading && block.content ? (sanitized?.hasError ?? false) : false;
 
   useEffect(() => {
-    sanitizeSvgContent(block.content);
+    let cancelled = false;
+    const content = block.content;
+    (async () => {
+      if (!content) return;
+      try {
+        const result = await deviceClient.sanitizeSvgContent(content);
+        if (cancelled) return;
+        if (!result) {
+          console.warn("SVG content was rejected by sanitizer");
+        }
+        setSanitized({ for: content, result: result || "", hasError: !result });
+      } catch (error) {
+        if (cancelled) return;
+        console.error("SVG sanitization failed:", error);
+        setSanitized({ for: content, result: "", hasError: true });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [block.content]);
 
   return (

@@ -50,6 +50,21 @@ const configClient = createConfigClient();
 const onboardingClient = createOnboardingClient();
 const windowClient = createWindowClient();
 
+function isDevWelcomeOverrideEnabled(): boolean {
+  if (!import.meta.env.DEV) return false;
+
+  try {
+    return window.sessionStorage.getItem(DEV_WELCOME_OVERRIDE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+/** Hides artifacts whenever the active session changes (module-scope: opaque to the React Compiler). */
+function hideArtifactsForSession(_activeSessionId: string | null) {
+  artifactStore.setState((s) => ({ ...s, visible: false }));
+}
+
 function MainLayout() {
   const routerInstance = useRouter();
   useAcpAgentUpdateNotifications();
@@ -125,117 +140,55 @@ function MainLayout() {
     [displayError],
   );
 
-  const isDevWelcomeOverrideEnabled = useCallback(() => {
-    if (!import.meta.env.DEV) return false;
-
-    try {
-      return window.sessionStorage.getItem(DEV_WELCOME_OVERRIDE_KEY) === "1";
-    } catch {
-      return false;
-    }
-  }, []);
-
-  const ensureStartupWelcomeState = useCallback(async () => {
-    try {
-      await routerInstance.load();
-
-      const currentRoute = routerInstance.state.location;
-      const currentPath = currentRoute.pathname;
-      const isWelcomeRoute = currentPath === "/welcome";
-
-      console.info(`[App] ensureStartupWelcomeState path=${currentPath} isWelcome=${isWelcomeRoute}`);
-
-      if (isDevWelcomeOverrideEnabled()) {
-        if (!isWelcomeRoute) {
-          console.info("[App] dev override → navigating to /welcome");
-          await routerInstance.navigate({ to: "/welcome", replace: true });
-        }
+  const activatePendingStartDeeplink = useCallback(
+    async (pendingStartDeeplink: StartDeeplinkPayload | null | undefined): Promise<void> => {
+      if (!pendingStartDeeplink || !isStartupRouteReady) {
         return;
       }
 
-      const initComplete = Boolean(await configClient.getSetting("init_complete"));
-      let onboardingState: Awaited<ReturnType<typeof onboardingClient.getState>> | null = null;
+      const token = pendingStartDeeplink.token;
+      if (processingStartDeeplinkToken.current === token || processedStartDeeplinkToken.current === token) {
+        return;
+      }
+
+      processingStartDeeplinkToken.current = token;
+
+      const clearProcessingToken = () => {
+        if (processingStartDeeplinkToken.current === token) {
+          processingStartDeeplinkToken.current = null;
+        }
+      };
 
       try {
-        onboardingState = await onboardingClient.getState();
-      } catch (error) {
-        console.warn("[App] Failed to load onboarding state during startup:", error);
-      }
-
-      if (onboardingState?.status === "completed") {
-        if (isWelcomeRoute) {
-          console.info("[App] onboarding complete → navigating to /chat");
-          await routerInstance.navigate({ to: "/chat", replace: true });
-        }
-        return;
-      }
-
-      if (!initComplete || onboardingState?.status === "active") {
-        if (!initComplete && onboardingState?.status !== "active") {
-          try {
-            onboardingState = await onboardingClient.start();
-          } catch (error) {
-            console.warn("[App] Failed to start onboarding during startup:", error);
-          }
+        const initComplete = Boolean(await configClient.getSetting("init_complete"));
+        if (!initComplete) {
+          clearProcessingToken();
+          return;
         }
 
-        if (!isWelcomeRoute) {
-          console.info(
-            `[App] initComplete=${initComplete} onboarding=${onboardingState?.status} → navigating to /welcome`,
-          );
-          await routerInstance.navigate({ to: "/welcome", replace: true });
+        await routerInstance.load();
+        if (routerInstance.state.location.pathname !== "/chat") {
+          await routerInstance.navigate({ to: "/chat" });
         }
-        return;
-      }
 
-      if (isWelcomeRoute) {
-        console.info("[App] init complete but still on /welcome → navigating to /chat");
-        await routerInstance.navigate({ to: "/chat", replace: true });
-      }
-    } finally {
-      setIsStartupRouteReady(true);
-    }
-  }, [routerInstance, isDevWelcomeOverrideEnabled]);
+        agentStore.setState((s) => ({ ...s, selectedAgent: "argos" }));
+        if (sessionStore.state.activeSessionId) {
+          await closeSession();
+          processedStartDeeplinkToken.current = token;
+          clearProcessingToken();
+          return;
+        }
 
-  const activatePendingStartDeeplink = useCallback(async () => {
-    const pendingStartDeeplink = draftStore.state.pendingStartDeeplink;
-    if (!pendingStartDeeplink || !isStartupRouteReady) {
-      return;
-    }
-
-    const token = pendingStartDeeplink.token;
-    if (processingStartDeeplinkToken.current === token || processedStartDeeplinkToken.current === token) {
-      return;
-    }
-
-    processingStartDeeplinkToken.current = token;
-
-    try {
-      const initComplete = Boolean(await configClient.getSetting("init_complete"));
-      if (!initComplete) {
-        return;
-      }
-
-      await routerInstance.load();
-      if (routerInstance.state.location.pathname !== "/chat") {
-        await routerInstance.navigate({ to: "/chat" });
-      }
-
-      agentStore.setState((s) => ({ ...s, selectedAgent: "argos" }));
-      if (sessionStore.state.activeSessionId) {
-        await closeSession();
+        goToNewThread({ refresh: true });
         processedStartDeeplinkToken.current = token;
-        return;
+        clearProcessingToken();
+      } catch (error) {
+        clearProcessingToken();
+        throw error;
       }
-
-      goToNewThread({ refresh: true });
-      processedStartDeeplinkToken.current = token;
-    } finally {
-      if (processingStartDeeplinkToken.current === token) {
-        processingStartDeeplinkToken.current = null;
-      }
-    }
-  }, [isStartupRouteReady, routerInstance]);
+    },
+    [isStartupRouteReady, routerInstance],
+  );
 
   const handleStartDeeplink = useCallback(
     (_event: unknown, payload?: Omit<StartDeeplinkPayload, "token">) => {
@@ -243,18 +196,16 @@ function MainLayout() {
         return;
       }
 
-      draftStore.setState((s) => ({
-        ...s,
-        pendingStartDeeplink: {
-          token: 0,
-          msg: payload.msg,
-          modelId: payload.modelId ?? null,
-          systemPrompt: payload.systemPrompt ?? "",
-          mentions: Array.isArray(payload.mentions) ? payload.mentions : [],
-          autoSend: Boolean(payload.autoSend),
-        },
-      }));
-      void activatePendingStartDeeplink();
+      const nextDeeplink: StartDeeplinkPayload = {
+        token: 0,
+        msg: payload.msg,
+        modelId: payload.modelId ?? null,
+        systemPrompt: payload.systemPrompt ?? "",
+        mentions: Array.isArray(payload.mentions) ? payload.mentions : [],
+        autoSend: Boolean(payload.autoSend),
+      };
+      draftStore.setState((s) => ({ ...s, pendingStartDeeplink: nextDeeplink }));
+      void activatePendingStartDeeplink(nextDeeplink);
     },
     [activatePendingStartDeeplink],
   );
@@ -447,13 +398,89 @@ function MainLayout() {
   });
 
   useEffect(() => {
-    void ensureStartupWelcomeState();
-  }, [ensureStartupWelcomeState]);
+    void (async () => {
+      try {
+        await routerInstance.load();
 
+        const currentRoute = routerInstance.state.location;
+        const currentPath = currentRoute.pathname;
+        const isWelcomeRoute = currentPath === "/welcome";
+
+        console.info(`[App] ensureStartupWelcomeState path=${currentPath} isWelcome=${isWelcomeRoute}`);
+
+        if (isDevWelcomeOverrideEnabled()) {
+          if (!isWelcomeRoute) {
+            console.info("[App] dev override → navigating to /welcome");
+            await routerInstance.navigate({ to: "/welcome", replace: true });
+          }
+          setIsStartupRouteReady(true);
+          return;
+        }
+
+        const initComplete = Boolean(await configClient.getSetting("init_complete"));
+        let onboardingState: Awaited<ReturnType<typeof onboardingClient.getState>> | null = null;
+
+        try {
+          onboardingState = await onboardingClient.getState();
+        } catch (error) {
+          console.warn("[App] Failed to load onboarding state during startup:", error);
+        }
+
+        if (onboardingState?.status === "completed") {
+          if (isWelcomeRoute) {
+            console.info("[App] onboarding complete → navigating to /chat");
+            await routerInstance.navigate({ to: "/chat", replace: true });
+          }
+          setIsStartupRouteReady(true);
+          return;
+        }
+
+        if (!initComplete || onboardingState?.status === "active") {
+          if (!initComplete && onboardingState?.status !== "active") {
+            try {
+              onboardingState = await onboardingClient.start();
+            } catch (error) {
+              console.warn("[App] Failed to start onboarding during startup:", error);
+            }
+          }
+
+          if (!isWelcomeRoute) {
+            console.info(
+              `[App] initComplete=${initComplete} onboarding=${onboardingState?.status} → navigating to /welcome`,
+            );
+            await routerInstance.navigate({ to: "/welcome", replace: true });
+          }
+          setIsStartupRouteReady(true);
+          return;
+        }
+
+        if (isWelcomeRoute) {
+          console.info("[App] init complete but still on /welcome → navigating to /chat");
+          await routerInstance.navigate({ to: "/chat", replace: true });
+        }
+        setIsStartupRouteReady(true);
+      } catch (error) {
+        setIsStartupRouteReady(true);
+        throw error;
+      }
+    })();
+  }, [routerInstance]);
+
+  const { pendingStartDeeplink } = draftState;
   useEffect(() => {
     if (!isStartupRouteReady) return;
-    void activatePendingStartDeeplink();
-  }, [isStartupRouteReady, activatePendingStartDeeplink, draftState.pendingStartDeeplink?.token]);
+    void activatePendingStartDeeplink(pendingStartDeeplink);
+  }, [isStartupRouteReady, activatePendingStartDeeplink, pendingStartDeeplink]);
+
+  const guidedOnboardingResumeHandlerRef = useRef(handleGuidedOnboardingResumeRequested);
+  useEffect(() => {
+    guidedOnboardingResumeHandlerRef.current = handleGuidedOnboardingResumeRequested;
+  }, [handleGuidedOnboardingResumeRequested]);
+
+  const setupMcpDeeplinkRef = useRef(setupMcpDeeplink);
+  useEffect(() => {
+    setupMcpDeeplinkRef.current = setupMcpDeeplink;
+  }, [setupMcpDeeplink]);
 
   useEffect(() => {
     const handleEscKey = (event: KeyboardEvent) => {
@@ -462,11 +489,12 @@ function MainLayout() {
       }
     };
 
+    const handleResumeRequested = (event: Event) => {
+      guidedOnboardingResumeHandlerRef.current(event);
+    };
+
     window.addEventListener("keydown", handleEscKey);
-    window.addEventListener(
-      GUIDED_ONBOARDING_RESUME_REQUESTED_EVENT,
-      handleGuidedOnboardingResumeRequested as EventListener,
-    );
+    window.addEventListener(GUIDED_ONBOARDING_RESUME_REQUESTED_EVENT, handleResumeRequested);
 
     void ensureIconsLoaded();
     void initAppStores();
@@ -474,7 +502,7 @@ function MainLayout() {
     void initializeModels();
     void fetchSessions();
     void loadThreadSidebarEnabled();
-    const cleanupMcpDeeplinkListeners = setupMcpDeeplink();
+    const cleanupMcpDeeplinkListeners = setupMcpDeeplinkRef.current();
 
     // When the daemon bridge comes back after a failed startup, re-run the
     // critical store hydration so the UI actually recovers instead of staying
@@ -493,17 +521,15 @@ function MainLayout() {
 
       unsubscribeConnection();
       window.removeEventListener("keydown", handleEscKey);
-      window.removeEventListener(
-        GUIDED_ONBOARDING_RESUME_REQUESTED_EVENT,
-        handleGuidedOnboardingResumeRequested as EventListener,
-      );
+      window.removeEventListener(GUIDED_ONBOARDING_RESUME_REQUESTED_EVENT, handleResumeRequested);
       cleanupMcpDeeplinkListeners();
     };
   }, []);
 
+  const { activeSessionId } = sessionState;
   useEffect(() => {
-    artifactStore.setState((s) => ({ ...s, visible: false }));
-  }, [sessionState.activeSessionId]);
+    hideArtifactsForSession(activeSessionId);
+  }, [activeSessionId]);
 
   useEffect(() => {
     const handleSettingsNavigate = (

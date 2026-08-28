@@ -95,7 +95,7 @@ export default function SystemPromptSettingsSection() {
         toast({ title: "Failed to save", variant: "destructive" });
       }
     },
-    [systemPromptStore, toast, updateCurrentSystemPrompt],
+    [toast, updateCurrentSystemPrompt],
   );
 
   const saveCurrentSystemPrompt = useCallback(async () => {
@@ -115,7 +115,7 @@ export default function SystemPromptSettingsSection() {
       console.error("Failed to save system prompt:", error);
       toast({ title: "Failed to save", variant: "destructive" });
     }
-  }, [currentSystemPrompt, systemPromptStore, toast]);
+  }, [currentSystemPrompt, toast]);
 
   const resetDefaultSystemPrompt = useCallback(async () => {
     try {
@@ -136,7 +136,7 @@ export default function SystemPromptSettingsSection() {
       console.error("Failed to reset system prompt:", error);
       toast({ title: "Failed to reset", variant: "destructive" });
     }
-  }, [currentSystemPrompt, systemPromptStore, toast]);
+  }, [currentSystemPrompt, toast]);
 
   const handleDeleteSystemPrompt = useCallback(
     async (promptId: string) => {
@@ -149,7 +149,7 @@ export default function SystemPromptSettingsSection() {
         toast({ title: "Failed to delete", variant: "destructive" });
       }
     },
-    [systemPromptStore, fetchSystemPrompts, toast],
+    [fetchSystemPrompts, toast],
   );
 
   const handleSaveSystemPrompt = useCallback(
@@ -179,15 +179,15 @@ export default function SystemPromptSettingsSection() {
         toast({ title: "Failed to save", variant: "destructive" });
       }
     },
-    [systemPromptStore, fetchSystemPrompts, toast],
+    [fetchSystemPrompts, toast],
   );
 
   useEffect(() => {
-    void fetchSystemPrompts();
+    void Promise.resolve().then(() => fetchSystemPrompts());
   }, [fetchSystemPrompts]);
 
   useEffect(() => {
-    updateCurrentSystemPrompt();
+    void Promise.resolve().then(() => updateCurrentSystemPrompt());
   }, [updateCurrentSystemPrompt]);
 
   return (

@@ -41,22 +41,29 @@ export default function EnvironmentsSettings() {
     [defaultProjectPath],
   );
 
-  const syncSyntheticDefaultExists = useCallback(async () => {
-    if (!defaultProjectPath) {
-      setSyntheticDefaultExists(true);
-      return;
-    }
-    const matched = projectStore.environments.find((e) => e.path === defaultProjectPath);
-    if (matched) {
-      setSyntheticDefaultExists(matched.exists);
-      return;
-    }
-    try {
-      const exists = await projectClient.pathExists(defaultProjectPath);
-      setSyntheticDefaultExists(exists);
-    } catch {
-      setSyntheticDefaultExists(true);
-    }
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!defaultProjectPath) {
+        if (!cancelled) setSyntheticDefaultExists(true);
+        return;
+      }
+      const matched = projectStore.environments.find((e) => e.path === defaultProjectPath);
+      if (matched) {
+        if (!cancelled) setSyntheticDefaultExists(matched.exists);
+        return;
+      }
+      try {
+        const exists = await projectClient.pathExists(defaultProjectPath);
+        if (cancelled) return;
+        setSyntheticDefaultExists(exists);
+      } catch {
+        if (!cancelled) setSyntheticDefaultExists(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [defaultProjectPath, projectStore.environments]);
 
   const syntheticDefaultEnvironment = useMemo<EnvironmentListItem | null>(() => {
@@ -90,12 +97,14 @@ export default function EnvironmentsSettings() {
   }, []);
 
   const refreshData = useCallback(async () => {
+    setIsLoading(true);
     try {
-      setIsLoading(true);
       await refreshEnvironmentData();
-    } finally {
+    } catch {
       setIsLoading(false);
+      return;
     }
+    setIsLoading(false);
   }, []);
 
   const handleOpen = useCallback(
@@ -123,12 +132,21 @@ export default function EnvironmentsSettings() {
   }, []);
 
   useEffect(() => {
-    void refreshData();
-  }, [refreshData]);
-
-  useEffect(() => {
-    void syncSyntheticDefaultExists();
-  }, [syncSyntheticDefaultExists, projectStore.environments]);
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      try {
+        await refreshEnvironmentData();
+      } catch {
+        if (!cancelled) setIsLoading(false);
+        return;
+      }
+      if (!cancelled) setIsLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <SettingsPageShell

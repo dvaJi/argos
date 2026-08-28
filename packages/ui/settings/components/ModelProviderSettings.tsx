@@ -3,7 +3,7 @@ import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type D
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useRouter } from "@tanstack/react-router";
-import { useProviderStore, getSortedProviders } from "#/stores/providerStore";
+import { useProviderStore, getSortedProvidersFrom, ensureInitialized } from "#/stores/providerStore";
 import { useModelStore, refreshProviderModels } from "#/stores/modelStore";
 import { Icon } from "@iconify/react";
 import ModelProviderSettingsDetail from "./ModelProviderSettingsDetail";
@@ -100,6 +100,7 @@ function SortableProviderRow({
 export default function ModelProviderSettings({ providerId: routeProviderId }: ModelProviderSettingsProps) {
   const languageStore = useLanguageStore();
   const providerStore = useProviderStore();
+  const { providers, providerOrder, providerTimestamps } = providerStore;
   const modelStore = useModelStore();
   const themeStore = useThemeStore();
   const router = useRouter();
@@ -170,28 +171,34 @@ export default function ModelProviderSettings({ providerId: routeProviderId }: M
     setSearchQueryBase("");
   };
 
-  const filterProviders = (providers: LLM_PROVIDER[]) => {
-    if (!searchQuery.trim()) return providers;
-    const query = searchQuery.toLowerCase().trim();
-    return providers.filter((provider) => provider.name.toLowerCase().includes(query));
-  };
+  const filterProviders = useCallback(
+    (providerList: LLM_PROVIDER[]) => {
+      if (!searchQuery.trim()) return providerList;
+      const query = searchQuery.toLowerCase().trim();
+      return providerList.filter((provider) => provider.name.toLowerCase().includes(query));
+    },
+    [searchQuery],
+  );
 
   const visibleProviders = useMemo(() => {
     const seen = new Set<string>();
-    return getSortedProviders().filter((provider) => {
+    return getSortedProvidersFrom(providers, providerOrder, providerTimestamps).filter((provider) => {
       if (provider.id === "acp" || seen.has(provider.id)) {
         return false;
       }
       seen.add(provider.id);
       return true;
     });
-  }, [providerStore.providers, providerStore.providerOrder]);
+  }, [providers, providerOrder, providerTimestamps]);
 
   const allEnabledProviders = useMemo(() => visibleProviders.filter((p) => p.enable), [visibleProviders]);
   const allDisabledProviders = useMemo(() => visibleProviders.filter((p) => !p.enable), [visibleProviders]);
 
-  const enabledProviders = useMemo(() => filterProviders(allEnabledProviders), [allEnabledProviders, searchQuery]);
-  const disabledProviders = useMemo(() => filterProviders(allDisabledProviders), [allDisabledProviders, searchQuery]);
+  const enabledProviders = useMemo(() => filterProviders(allEnabledProviders), [allEnabledProviders, filterProviders]);
+  const disabledProviders = useMemo(
+    () => filterProviders(allDisabledProviders),
+    [allDisabledProviders, filterProviders],
+  );
 
   const showProviderSkeleton =
     (!providerStore.initialized || startupWorkloadStore?.isTaskRunning("settings.providers.summary")) &&
@@ -203,15 +210,21 @@ export default function ModelProviderSettings({ providerId: routeProviderId }: M
     return provider;
   }, [providerStore.providers, routeProviderId]);
 
-  const navigateToProvider = (id: string) => {
-    const prefix = router.state.location.pathname.startsWith("/settings/") ? "/settings/provider" : "/provider";
-    console.log("Navigating to provider:", `${prefix}/${id}`);
-    void router.navigate({ to: `${prefix}/${id}` as any });
-  };
+  const navigateToProvider = useCallback(
+    (id: string) => {
+      const prefix = router.state.location.pathname.startsWith("/settings/") ? "/settings/provider" : "/provider";
+      console.log("Navigating to provider:", `${prefix}/${id}`);
+      void router.navigate({ to: `${prefix}/${id}` as any });
+    },
+    [router],
+  );
 
-  const setActiveProvider = (id: string) => {
-    navigateToProvider(id);
-  };
+  const setActiveProvider = useCallback(
+    (id: string) => {
+      navigateToProvider(id);
+    },
+    [navigateToProvider],
+  );
 
   // When the user lands on `/provider` with no `providerId` in the URL, the
   // detail pane is gated on `routeProviderId` and stays empty. Auto-select the
@@ -226,8 +239,7 @@ export default function ModelProviderSettings({ providerId: routeProviderId }: M
       navigateToProvider(fallback.id);
     }
     // Intentionally only react to the empty-id case so we don't fight user clicks.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [routeProviderId, providerStore.initialized, visibleProviders]);
+  }, [routeProviderId, providerStore.initialized, visibleProviders, allEnabledProviders, navigateToProvider]);
 
   const handleProviderRowClick = async (id: string) => {
     setActiveProvider(id);
@@ -386,11 +398,11 @@ export default function ModelProviderSettings({ providerId: routeProviderId }: M
   );
 
   useEffect(() => {
-    void providerStore.ensureInitialized();
+    void ensureInitialized();
     if (!routeProviderId && visibleProviders.length > 0) {
       setActiveProvider(visibleProviders[0].id);
     }
-  }, []);
+  }, [routeProviderId, setActiveProvider, visibleProviders]);
 
   useEffect(() => {
     if (!routeProviderId) {

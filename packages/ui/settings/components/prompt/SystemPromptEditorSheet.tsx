@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { ScrollArea } from "#shadcn/components/ui/scroll-area";
@@ -32,19 +32,18 @@ export default function SystemPromptEditorSheet({ open, prompt, onUpdateOpen, on
 
   const isEditing = Boolean(form.id);
 
-  const resetForm = () => setForm({ id: "", name: "", content: "" });
-
-  useEffect(() => {
-    if (!open) {
-      resetForm();
-      return;
-    }
-    if (prompt) {
+  // Sync the form with the open prompt (or reset it) — adjusted during render.
+  const [syncedOpen, setSyncedOpen] = useState(open);
+  const [syncedPrompt, setSyncedPrompt] = useState(prompt);
+  if (syncedOpen !== open || syncedPrompt !== prompt) {
+    setSyncedOpen(open);
+    setSyncedPrompt(prompt);
+    if (open && prompt) {
       setForm({ id: prompt.id, name: prompt.name, content: prompt.content });
     } else {
-      resetForm();
+      setForm({ id: "", name: "", content: "" });
     }
-  }, [open, prompt]);
+  }
 
   const handleSave = () => {
     onSave({ id: form.id, name: form.name, content: form.content });

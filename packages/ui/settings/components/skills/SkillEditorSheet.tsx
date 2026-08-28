@@ -74,6 +74,11 @@ const SkillEditorForm = memo(function SkillEditorForm({ skill, onSaved, onClose 
   const [loaded, setLoaded] = useState(false);
   const loadRequestId = useRef(0);
 
+  const skillsStoreRef = useRef(skillsStore);
+  useEffect(() => {
+    skillsStoreRef.current = skillsStore;
+  }, [skillsStore]);
+
   useEffect(() => {
     const rid = ++loadRequestId.current;
     const name = skill.name;
@@ -88,7 +93,7 @@ const SkillEditorForm = memo(function SkillEditorForm({ skill, onSaved, onClose 
 
     loadSkillRuntime(name).then(() => {
       if (loadRequestId.current !== rid) return;
-      const ext = skillsStore.skillExtensions[name] ?? {
+      const ext = skillsStoreRef.current.skillExtensions[name] ?? {
         version: 1,
         env: {},
         runtimePolicy: { python: "auto", node: "auto" },
@@ -99,7 +104,7 @@ const SkillEditorForm = memo(function SkillEditorForm({ skill, onSaved, onClose 
       const rows = Object.entries(ext.env).map(([k, v]) => ({ id: nanoid(6), key: k, value: v }));
       setEnvRows(rows.length ? rows : [{ id: nanoid(6), key: "", value: "" }]);
       setScriptRows(
-        (skillsStore.skillScripts[name] ?? []).map((s) => ({
+        (skillsStoreRef.current.skillScripts[name] ?? []).map((s) => ({
           ...s,
           description: s.description ?? "",
         })),
@@ -159,9 +164,8 @@ const SkillEditorForm = memo(function SkillEditorForm({ skill, onSaved, onClose 
       onClose();
     } catch (error) {
       toast({ title: "Save failed", description: String(error), variant: "destructive" });
-    } finally {
-      setSaving(false);
     }
+    setSaving(false);
   }, [skill.name, buildSkillContent, envRows, pythonRuntime, nodeRuntime, scriptRows, onSaved, onClose, toast]);
 
   return (

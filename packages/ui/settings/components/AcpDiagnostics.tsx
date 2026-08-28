@@ -236,9 +236,8 @@ export default function AcpDiagnostics({
         return result;
       } catch (error) {
         toast({ title: "Request failed", description: String(error), variant: "destructive" });
-        return null;
-      } finally {
         setLoading(false);
+        return null;
       }
     },
     [agentId, providerClient, refreshDiagnostics, selectedWorkdir],
@@ -259,14 +258,16 @@ export default function AcpDiagnostics({
         DIAGNOSTICS_TIMEOUT_MS,
       );
       if (result.status === "error") {
-        throw new Error(result.error || "The ACP agent could not be initialized");
+        setProbeError(
+          getProbeErrorMessage(new Error(result.error || "The ACP agent could not be initialized"), agentId),
+        );
+      } else {
+        await refreshDiagnostics();
       }
-      await refreshDiagnostics();
     } catch (error) {
       setProbeError(getProbeErrorMessage(error, agentId));
-    } finally {
-      setProbing(false);
     }
+    setProbing(false);
   }, [agentId, canRun, providerClient, refreshDiagnostics, selectedWorkdir]);
 
   useEffect(() => {

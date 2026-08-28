@@ -141,9 +141,8 @@ export function TreesFileTree({ workspacePath, sessionId, onInsertFileReference 
     } catch (err) {
       console.error("[TreesFileTree] reload failed", err);
       if (token === reloadTokenRef.current) setError("Failed to load workspace");
-    } finally {
-      if (token === reloadTokenRef.current) setLoading(false);
     }
+    if (token === reloadTokenRef.current) setLoading(false);
   }, [collectPaths, loadGitStatus, workspacePath]);
 
   const handleSelectionChange = useCallback(
@@ -191,7 +190,7 @@ export function TreesFileTree({ workspacePath, sessionId, onInsertFileReference 
         void persistMove(dragged, toRelativePath(workspacePath, toAbs));
       }
     },
-    [persistMove, workspaceClient, workspacePath],
+    [persistMove, workspacePath],
   );
 
   const handleCreate = useCallback(

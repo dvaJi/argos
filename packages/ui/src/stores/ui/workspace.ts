@@ -41,7 +41,7 @@ function getActiveWorkspace(): WorkspaceEntry | undefined {
   return workspaceStore.state.workspaces.find((w) => w.id === workspaceStore.state.activeWorkspaceId);
 }
 
-function getWorkspaces(): WorkspaceEntry[] {
+export function getWorkspaces(): WorkspaceEntry[] {
   return workspaceStore.state.workspaces;
 }
 
@@ -55,7 +55,7 @@ function updateConnectionState(workspaceId: string, state: ConnectionState): voi
   }));
 }
 
-function addWorkspace(entry: Omit<WorkspaceEntry, "id" | "createdAt">): WorkspaceEntry {
+export function addWorkspace(entry: Omit<WorkspaceEntry, "id" | "createdAt">): WorkspaceEntry {
   const newEntry: WorkspaceEntry = {
     ...entry,
     id: entry.mode === "local" ? LOCAL_WORKSPACE_ID : generateWorkspaceId(),
@@ -107,7 +107,7 @@ function renameWorkspace(id: string, name: string): void {
   persist();
 }
 
-function updateWorkspace(id: string, patch: Partial<Omit<WorkspaceEntry, "id" | "createdAt">>): void {
+export function updateWorkspace(id: string, patch: Partial<Omit<WorkspaceEntry, "id" | "createdAt">>): void {
   workspaceStore.setState((prev) => ({
     ...prev,
     workspaces: prev.workspaces.map((workspace) => (workspace.id === id ? { ...workspace, ...patch } : workspace)),
@@ -115,7 +115,7 @@ function updateWorkspace(id: string, patch: Partial<Omit<WorkspaceEntry, "id" | 
   persist();
 }
 
-async function switchWorkspace(id: string): Promise<void> {
+export async function switchWorkspace(id: string): Promise<void> {
   const target = workspaceStore.state.workspaces.find((w) => w.id === id);
   if (!target) return;
   if (id === workspaceStore.state.activeWorkspaceId) return;

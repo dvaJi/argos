@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 
 interface HTMLArtifactProps {
   block: { artifact: { type: string; title: string }; content: string };
@@ -31,7 +31,7 @@ export function HTMLArtifact({ block, isPreview, viewportSize = "desktop", class
   const viewportStyles =
     resolvedViewportSize === "mobile" || resolvedViewportSize === "tablet" ? VIEWPORT_SIZES[resolvedViewportSize] : {};
 
-  const setupIframe = () => {
+  const setupIframe = useCallback(() => {
     if (isPreview && iframeRef.current) {
       const iframe = iframeRef.current;
       iframe.onload = () => {
@@ -57,14 +57,11 @@ export function HTMLArtifact({ block, isPreview, viewportSize = "desktop", class
         doc.head.appendChild(styleElement);
       };
     }
-  };
+  }, [isPreview, resolvedViewportSize]);
 
   useEffect(() => {
     setupIframe();
-  }, []);
-  useEffect(() => {
-    setupIframe();
-  }, [viewportSize]);
+  }, [setupIframe]);
 
   return (
     <div className={`${containerClasses} ${className ?? ""}`} data-testid="html-artifact-root">

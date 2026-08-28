@@ -13,23 +13,29 @@ export default function SkillFolderTree({ skillName }: SkillFolderTreeProps) {
   const [nodes, setNodes] = useState<SkillFolderNode[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const loadTree = async () => {
-    if (!skillName) return;
-    setLoading(true);
-    try {
-      const result = await getSkillFolderTree(skillName);
-      setNodes(result);
-    } catch (error) {
-      console.error("Failed to load folder tree:", error);
-      setNodes([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    loadTree();
+    if (!skillName) return;
+    let cancelled = false;
+    void Promise.resolve()
+      .then(() => {
+        setLoading(true);
+        return getSkillFolderTree(skillName);
+      })
+      .then((result) => {
+        if (!cancelled) setNodes(result);
+      })
+      .catch((error) => {
+        console.error("Failed to load folder tree:", error);
+        if (!cancelled) setNodes([]);
+      })
+      .then(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [skillName]);
+  void skillsStore;
 
   return (
     <div className="text-sm">

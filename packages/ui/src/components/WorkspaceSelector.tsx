@@ -18,8 +18,15 @@ import {
   type WorkspaceDraft,
 } from "#/components/workspace/WorkspaceSelectorDialogs";
 import { getHasActiveSession } from "#/stores/ui/session";
-import { useWorkspaceStore, type WorkspaceEntry } from "#/stores/ui/workspace";
-import { useRemoteSetupStore } from "#/stores/ui/remoteSetup";
+import {
+  addWorkspace,
+  getWorkspaces,
+  switchWorkspace,
+  updateWorkspace,
+  useWorkspaceStore,
+  type WorkspaceEntry,
+} from "#/stores/ui/workspace";
+import { registerHandlers, useRemoteSetupStore } from "#/stores/ui/remoteSetup";
 
 function deriveConnectionStatus(
   entry: WorkspaceEntry,
@@ -143,6 +150,53 @@ async function copyMachineDiagnostics(workspace: WorkspaceEntry): Promise<void> 
   await navigator.clipboard?.writeText(diagnostics);
 }
 
+// Remote-machine setup handlers are registered with the global dialog store once and
+// stay alive across renders, so they read the workspace list live from the store
+// instead of capturing a render snapshot.
+async function saveWorkspaceInternal(workspace: WorkspaceDraft): Promise<string> {
+  const workspaces = getWorkspaces();
+  const existingByIdentity = workspace.environmentId
+    ? workspaces.find((candidate) => candidate.mode === "remote" && candidate.environmentId === workspace.environmentId)
+    : undefined;
+  const existing =
+    existingByIdentity ??
+    workspaces.find((candidate) => candidate.mode === "remote" && candidate.remoteUrl === workspace.remoteUrl);
+  if (existing) {
+    updateWorkspace(existing.id, {
+      name: workspace.name || existing.name,
+      remoteUrl: workspace.remoteUrl,
+      credentialRef: workspace.credentialRef,
+      environmentId: workspace.environmentId,
+      lastKnownServerVersion: workspace.daemonVersion,
+      lastKnownProtocolVersion: workspace.protocolVersion,
+      lastKnownCapabilities: workspace.capabilities,
+      trustState: workspace.credentialRef ? "paired" : "pairing-required",
+    });
+    return existing.id;
+  }
+  const entry = addWorkspace({
+    name: workspace.name,
+    mode: "remote",
+    remoteUrl: workspace.remoteUrl,
+    credentialRef: workspace.credentialRef,
+    environmentId: workspace.environmentId,
+    lastKnownServerVersion: workspace.daemonVersion,
+    lastKnownProtocolVersion: workspace.protocolVersion,
+    lastKnownCapabilities: workspace.capabilities,
+    trustState: workspace.credentialRef ? "paired" : "pairing-required",
+  });
+  return entry.id;
+}
+
+async function handleRemoteSave(workspace: WorkspaceDraft): Promise<void> {
+  await saveWorkspaceInternal(workspace);
+}
+
+async function handleRemoteSaveAndSwitch(workspace: WorkspaceDraft): Promise<void> {
+  const id = await saveWorkspaceInternal(workspace);
+  await switchWorkspace(id);
+}
+
 export default function WorkspaceSelector() {
   const store = useWorkspaceStore();
   const remoteSetup = useRemoteSetupStore();
@@ -155,61 +209,15 @@ export default function WorkspaceSelector() {
     .filter((workspace) => workspace.mode === "remote")
     .map((workspace) => workspace.remoteUrl);
 
-  const saveWorkspaceInternal = async (workspace: WorkspaceDraft) => {
-    const existingByIdentity = workspace.environmentId
-      ? workspaces.find(
-          (candidate) => candidate.mode === "remote" && candidate.environmentId === workspace.environmentId,
-        )
-      : undefined;
-    const existing =
-      existingByIdentity ??
-      workspaces.find((candidate) => candidate.mode === "remote" && candidate.remoteUrl === workspace.remoteUrl);
-    if (existing) {
-      store.updateWorkspace(existing.id, {
-        name: workspace.name || existing.name,
-        remoteUrl: workspace.remoteUrl,
-        credentialRef: workspace.credentialRef,
-        environmentId: workspace.environmentId,
-        lastKnownServerVersion: workspace.daemonVersion,
-        lastKnownProtocolVersion: workspace.protocolVersion,
-        lastKnownCapabilities: workspace.capabilities,
-        trustState: workspace.credentialRef ? "paired" : "pairing-required",
-      });
-      return existing.id;
-    }
-    const entry = store.addWorkspace({
-      name: workspace.name,
-      mode: "remote",
-      remoteUrl: workspace.remoteUrl,
-      credentialRef: workspace.credentialRef,
-      environmentId: workspace.environmentId,
-      lastKnownServerVersion: workspace.daemonVersion,
-      lastKnownProtocolVersion: workspace.protocolVersion,
-      lastKnownCapabilities: workspace.capabilities,
-      trustState: workspace.credentialRef ? "paired" : "pairing-required",
-    });
-    return entry.id;
-  };
-
-  const handleSave = async (workspace: WorkspaceDraft) => {
-    await saveWorkspaceInternal(workspace);
-  };
-
-  const handleSaveAndSwitch = async (workspace: WorkspaceDraft) => {
-    const id = await saveWorkspaceInternal(workspace);
-    await store.switchWorkspace(id);
-  };
-
   useEffect(() => {
-    remoteSetup.registerHandlers({
+    registerHandlers({
       remoteUrls,
-      onSave: handleSave,
-      onSaveAndSwitch: handleSaveAndSwitch,
+      onSave: handleRemoteSave,
+      onSaveAndSwitch: handleRemoteSaveAndSwitch,
     });
     // Keep the handlers registered for the app lifetime: the global AddRemoteMachineDialog
     // (rendered in MainLayout) stays open across sidebar collapse, which unmounts this component.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workspaces, store]);
+  }, [remoteUrls]);
 
   const handleSwitch = async (id: string) => {
     if (id === store.activeWorkspaceId) return;

@@ -37,10 +37,10 @@ function useFolderBrowse(initialPath: string | undefined) {
       const res = (await workspaceClient.browseDirectory(path)) as unknown as BrowseResult;
       setResult(res);
       setDraft(res.path);
+      setLoading(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to browse directory");
       setResult(null);
-    } finally {
       setLoading(false);
     }
   }, []);
@@ -72,11 +72,13 @@ function FolderPickerBody({
 
   useEffect(() => {
     void browse(initialPath);
+  }, [browse, initialPath]);
+
+  useEffect(() => {
     if (!autoFocus) return;
     const t = setTimeout(() => inputRef.current?.focus(), 30);
     return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [autoFocus]);
 
   const navigateInto = useCallback(
     (entry: FolderPickerEntry) => {

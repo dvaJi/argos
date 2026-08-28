@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { createWorkspaceClient } from "#api/WorkspaceClient";
@@ -63,7 +63,7 @@ export function WorkspaceViewer({
     if (activeSource === "file") return filePreview?.relativePath || sessionState.selectedFilePath || "";
     if (activeSource === "git-diff") return "Git";
     return "";
-  }, [activeSource, filePreview, sessionState, gitDiff]);
+  }, [activeSource, filePreview, sessionState]);
 
   const previewArtifact = useMemo(() => (activeSource === "artifact" ? artifact : null), [activeSource, artifact]);
   const previewFilePreview = useMemo(() => (activeSource === "file" ? filePreview : null), [activeSource, filePreview]);
@@ -101,29 +101,34 @@ export function WorkspaceViewer({
 
   const canEdit = activeSource === "file" && filePreview?.kind === "text" && Boolean(openFilePath);
 
-  // Edit mode (inline file editing via Monaco). Reset when the file changes.
+  // Edit mode (inline file editing via Monaco). Reset when the file changes
+  // (render-phase adjustment, replacing a setState-in-effect).
   const [editMode, setEditMode] = useState(false);
   const [editContent, setEditContent] = useState<string>("");
   const [loadingEdit, setLoadingEdit] = useState(false);
 
-  useEffect(() => {
+  const [syncedOpenFilePath, setSyncedOpenFilePath] = useState(openFilePath);
+  if (syncedOpenFilePath !== openFilePath) {
+    setSyncedOpenFilePath(openFilePath);
     setEditMode(false);
     setEditContent("");
-  }, [openFilePath]);
+  }
 
   const enterEditMode = useCallback(async () => {
     if (!openFilePath) return;
     setLoadingEdit(true);
     try {
       const result = await workspaceClient.readFileText(openFilePath);
-      if (result.content === null) return;
+      if (result.content === null) {
+        setLoadingEdit(false);
+        return;
+      }
       setEditContent(result.content);
       setEditMode(true);
     } catch (error) {
       console.error("[WorkspaceViewer] failed to load file for editing", error);
-    } finally {
-      setLoadingEdit(false);
     }
+    setLoadingEdit(false);
   }, [openFilePath, workspaceClient]);
 
   const exitEditMode = useCallback(() => {

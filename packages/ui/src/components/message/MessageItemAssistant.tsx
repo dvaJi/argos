@@ -148,6 +148,8 @@ const MessageItemAssistant = forwardRef<MessageItemAssistantRef, MessageItemAssi
     isInGeneratingThread: isInGeneratingThreadProp,
     showTrace: showTraceProp,
     isReadOnly: isReadOnlyProp,
+    onContinue,
+    onVariantChanged,
   } = props;
 
   const themeStore = useThemeStore();
@@ -179,12 +181,16 @@ const MessageItemAssistant = forwardRef<MessageItemAssistantRef, MessageItemAssi
 
   const totalVariants = useMemo(() => allVariants.length + 1, [allVariants]);
 
+  // Drop a selected variant id that no longer exists (derived instead of effect-pruned).
+  const effectiveSelectedVariantId =
+    selectedVariantId && allVariants.some((variant) => variant.id === selectedVariantId) ? selectedVariantId : null;
+
   const currentVariantIndex = useMemo(() => {
     if (!useLegacyActions) return 0;
-    if (!selectedVariantId) return 0;
-    const variantIndex = allVariants.findIndex((v) => v.id === selectedVariantId);
+    if (!effectiveSelectedVariantId) return 0;
+    const variantIndex = allVariants.findIndex((v) => v.id === effectiveSelectedVariantId);
     return variantIndex !== -1 ? variantIndex + 1 : 0;
-  }, [useLegacyActions, selectedVariantId, allVariants]);
+  }, [useLegacyActions, effectiveSelectedVariantId, allVariants]);
 
   const currentMessage = useMemo(() => {
     if (currentVariantIndex === 0) return message;
@@ -218,12 +224,6 @@ const MessageItemAssistant = forwardRef<MessageItemAssistantRef, MessageItemAssi
     () => Boolean(currentContent?.some((block) => block.type === "search" && block.status === "success")),
     [currentContent],
   );
-
-  useEffect(() => {
-    if (!selectedVariantId) return;
-    const exists = allVariants.some((variant) => variant.id === selectedVariantId);
-    if (!exists) setSelectedVariantId(null);
-  }, [message.id, allVariants]);
 
   const getSelectionInCurrentMessage = () => {
     const selection = window.getSelection();
@@ -272,9 +272,9 @@ const MessageItemAssistant = forwardRef<MessageItemAssistantRef, MessageItemAssi
   const handleBlockContinue = useCallback(
     (conversationId: string, messageId: string) => {
       if (isReadOnly) return;
-      props.onContinue?.(conversationId, messageId);
+      onContinue?.(conversationId, messageId);
     },
-    [isReadOnly, props.onContinue],
+    [isReadOnly, onContinue],
   );
 
   const handleBlockSwitchProvider = () => {
@@ -283,8 +283,8 @@ const MessageItemAssistant = forwardRef<MessageItemAssistantRef, MessageItemAssi
   };
 
   const handleCollapseToggle = useCallback(() => {
-    props.onVariantChanged?.(message.id);
-  }, [props.onVariantChanged, message.id]);
+    onVariantChanged?.(message.id);
+  }, [onVariantChanged, message.id]);
 
   const handleAction = (action: HandleActionType) => {
     if (isReadOnly && (action === "retry" || action === "delete" || action === "fork")) return;

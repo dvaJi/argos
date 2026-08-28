@@ -122,10 +122,9 @@ export default function NotificationsHooksSettings() {
         description: error instanceof Error ? error.message : String(error),
         variant: "destructive",
       });
-    } finally {
-      saveInFlightRef.current = false;
-      setIsSaving(false);
     }
+    saveInFlightRef.current = false;
+    setIsSaving(false);
   };
 
   const addHook = () => {
@@ -210,9 +209,8 @@ export default function NotificationsHooksSettings() {
           error: error instanceof Error ? error.message : String(error),
         },
       }));
-    } finally {
-      setTesting((prev) => ({ ...prev, [hookId]: false }));
     }
+    setTesting((prev) => ({ ...prev, [hookId]: false }));
   };
 
   const formatPreview = (value?: string) => {
@@ -236,9 +234,8 @@ export default function NotificationsHooksSettings() {
             variant: "destructive",
           });
         }
-      } finally {
-        if (active) setIsLoading(false);
       }
+      if (active) setIsLoading(false);
     };
 
     void loadConfig();

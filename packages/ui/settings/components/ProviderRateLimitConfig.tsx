@@ -59,6 +59,7 @@ export default function ProviderRateLimitConfig({ provider, onConfigChanged }: P
         queueLength: rateLimitStatus.queueLength,
         lastRequestTime: rateLimitStatus.lastRequestTime,
       });
+      setNowMs(Date.now());
     } catch (error) {
       console.error("Failed to load rate limit status:", error);
     }
@@ -89,8 +90,32 @@ export default function ProviderRateLimitConfig({ provider, onConfigChanged }: P
     [provider.id, loadStatus],
   );
 
+  // Re-sync the form whenever the provider prop changes (prev-compare during render).
+  const [lastSyncedProvider, setLastSyncedProvider] = useState(provider);
+  if (lastSyncedProvider !== provider) {
+    setLastSyncedProvider(provider);
+    setRateLimitEnabled(provider.rateLimit?.enabled ?? false);
+    const newInterval = convertQpsToInterval(provider.rateLimit?.qpsLimit ?? 0.1);
+    setIntervalValue(newInterval);
+    setPreviousValidValue(newInterval);
+  }
+
   useEffect(() => {
-    void loadStatus();
+    let cancelled = false;
+    (async () => {
+      try {
+        const rateLimitStatus = await providerClient.getProviderRateLimitStatus(provider.id);
+        if (cancelled) return;
+        setStatus({
+          currentQps: rateLimitStatus.currentQps,
+          queueLength: rateLimitStatus.queueLength,
+          lastRequestTime: rateLimitStatus.lastRequestTime,
+        });
+        setNowMs(Date.now());
+      } catch (error) {
+        console.error("Failed to load rate limit status:", error);
+      }
+    })();
 
     const rateLimitScope = createIpcSubscriptionScope();
     rateLimitScope.on(RATE_LIMIT_EVENTS.CONFIG_UPDATED, handleRateLimitEvent);
@@ -100,26 +125,15 @@ export default function ProviderRateLimitConfig({ provider, onConfigChanged }: P
     startStatusPolling();
 
     return () => {
+      cancelled = true;
       stopStatusPolling();
       rateLimitScope.cleanup();
     };
-  }, [loadStatus, handleRateLimitEvent, startStatusPolling, stopStatusPolling]);
+  }, [provider.id, handleRateLimitEvent, startStatusPolling, stopStatusPolling]);
 
   useEffect(() => {
     startStatusPolling();
-  }, [rateLimitEnabled, startStatusPolling]);
-
-  useEffect(() => {
-    setRateLimitEnabled(provider.rateLimit?.enabled ?? false);
-    const newInterval = convertQpsToInterval(provider.rateLimit?.qpsLimit ?? 0.1);
-    setIntervalValue(newInterval);
-    setPreviousValidValue(newInterval);
-    void loadStatus();
-  }, [provider, loadStatus]);
-
-  useEffect(() => {
-    setNowMs(Date.now());
-  }, [status, intervalValue, rateLimitEnabled]);
+  }, [startStatusPolling]);
 
   const updateRateLimitConfig = async (enabled: boolean, interval: number) => {
     try {

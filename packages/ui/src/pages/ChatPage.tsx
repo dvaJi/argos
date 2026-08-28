@@ -102,6 +102,17 @@ function ChatPage({ sessionId }: ChatPageProps) {
   const isDaemonConnected = connectionState.connected;
   const chatClient = useMemo(() => createChatClient(), []);
   const sessionClient = useMemo(() => createSessionClient(), []);
+
+  // Latest-value indirection for unstable hook stores read from effects.
+  const messageStoreRef = useRef(messageStore);
+  useEffect(() => {
+    messageStoreRef.current = messageStore;
+  }, [messageStore]);
+  const spotlightStoreRef = useRef(spotlightStore);
+  useEffect(() => {
+    spotlightStoreRef.current = spotlightStore;
+  }, [spotlightStore]);
+
   const activeSession = (sessionState.activeSessionSummary ?? sessionState.bootstrapActiveSession) as
     | import("#/stores/ui/session").UIActiveSessionSummary
     | null;
@@ -162,6 +173,15 @@ function ChatPage({ sessionId }: ChatPageProps) {
   const sessionProject = activeSession?.projectDir ?? "";
   const isReadOnlySession = activeSession?.sessionKind === "subagent";
   const isGenerating = activeSession?.status === "working" || streamState.isStreaming;
+
+  // A session change or a generation boundary must not carry over the
+  // previous session's cancelling state; adjust during render instead of
+  // in an effect.
+  const [cancelReset, setCancelReset] = useState({ sessionId, isGenerating });
+  if (cancelReset.sessionId !== sessionId || cancelReset.isGenerating !== isGenerating) {
+    setCancelReset({ sessionId, isGenerating });
+    setIsCancelling(false);
+  }
 
   const isAcpWorkdirMissing = useMemo(() => {
     const s = activeSession;
@@ -309,7 +329,7 @@ function ChatPage({ sessionId }: ChatPageProps) {
         .getMessages()
         .filter((msg) => msg.role === "assistant" && (msg.traceCount ?? 0) > 0)
         .map((msg) => msg.id),
-    [messageStore.messageIds],
+    [messageStore],
   );
 
   const pendingInteractions = useMemo(() => {
@@ -357,7 +377,7 @@ function ChatPage({ sessionId }: ChatPageProps) {
       }
     }
     return list;
-  }, [messageStore.messageIds, sessionId]);
+  }, [messageStore, sessionId]);
 
   const activePendingInteraction = pendingInteractions[0] ?? null;
   const hasInputText = Boolean(message.trim());
@@ -558,9 +578,8 @@ function ChatPage({ sessionId }: ChatPageProps) {
         });
       } catch (error) {
         console.error("[ChatPage] respond tool interaction failed:", error);
-      } finally {
-        setIsHandlingInteraction(false);
       }
+      setIsHandlingInteraction(false);
     },
     [isReadOnlySession, activePendingInteraction, isHandlingInteraction, chatClient],
   );
@@ -576,15 +595,6 @@ function ChatPage({ sessionId }: ChatPageProps) {
     }
   }, [isReadOnlySession, isGenerating, isCancelling, sessionId, chatClient]);
 
-  useEffect(() => {
-    if (!isGenerating) setIsCancelling(false);
-  }, [isGenerating, sessionId]);
-
-  useEffect(() => {
-    // A session change must not carry over the previous session's cancelling state.
-    setIsCancelling(false);
-  }, [sessionId]);
-
   const onMessageRetry = useCallback(
     async (messageId: string) => {
       if (isReadOnlySession || !messageId) return;
@@ -596,7 +606,7 @@ function ChatPage({ sessionId }: ChatPageProps) {
         console.error("[ChatPage] retry message failed:", error);
       }
     },
-    [isReadOnlySession, activePendingInteraction, isHandlingInteraction, sessionId, sessionClient],
+    [isReadOnlySession, activePendingInteraction, isHandlingInteraction, sessionId, sessionClient, messageStore],
   );
 
   const onMessageDelete = useCallback(
@@ -609,7 +619,7 @@ function ChatPage({ sessionId }: ChatPageProps) {
         console.error("[ChatPage] delete message failed:", error);
       }
     },
-    [isReadOnlySession, sessionId, sessionClient],
+    [isReadOnlySession, sessionId, sessionClient, messageStore],
   );
 
   const onMessageEditSave = useCallback(
@@ -651,7 +661,7 @@ function ChatPage({ sessionId }: ChatPageProps) {
         console.error("[ChatPage] continue message failed:", error);
       }
     },
-    [isReadOnlySession, sessionId, sessionClient],
+    [isReadOnlySession, sessionId, sessionClient, messageStore],
   );
 
   const onMessageTrace = useCallback((messageId: string) => {
@@ -737,65 +747,69 @@ function ChatPage({ sessionId }: ChatPageProps) {
     }
   }, []);
 
-  function cancelScheduledChatSearchRefresh() {
-    if (chatSearchRefreshFrameRef.current === null) return;
-    window.cancelAnimationFrame(chatSearchRefreshFrameRef.current);
-    chatSearchRefreshFrameRef.current = null;
-  }
-
-  function cancelSessionRestoreScrollSettle() {
-    if (sessionRestoreScrollFrameRef.current !== null) {
-      window.cancelAnimationFrame(sessionRestoreScrollFrameRef.current);
-      sessionRestoreScrollFrameRef.current = null;
-    }
-    if (sessionRestoreScrollTimerRef.current !== null) {
-      window.clearTimeout(sessionRestoreScrollTimerRef.current);
-      sessionRestoreScrollTimerRef.current = null;
-    }
-    cancelSessionRestoreScrollIntentListenersRef.current?.();
-    cancelSessionRestoreScrollIntentListenersRef.current = null;
-    sessionRestoreResizeObserverRef.current?.disconnect();
-    sessionRestoreResizeObserverRef.current = null;
-  }
-
-  async function focusPendingSpotlightMessageJump(attempt = 0): Promise<void> {
-    const pendingJump = spotlightStore.pendingMessageJump;
-    if (!pendingJump || pendingJump.sessionId !== sessionId) return;
-    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-    let target = messageSearchRootRef.current?.querySelector<HTMLElement>(
-      `[data-message-id="${CSS.escape(pendingJump.messageId)}"]`,
-    );
-    if (!target && attempt < MAX_MESSAGE_JUMP_RETRIES) {
-      spotlightJumpTimerRef.current = window.setTimeout(() => {
-        void focusPendingSpotlightMessageJump(attempt + 1);
-      }, MESSAGE_JUMP_RETRY_INTERVAL);
-      return;
-    }
-    if (target) {
-      target.scrollIntoView({ block: "center", inline: "nearest", behavior: "auto" });
-      target.classList.add("message-highlight");
-      window.setTimeout(() => target.classList.remove("message-highlight"), MESSAGE_HIGHLIGHT_DURATION);
-      spotlightStore.clearPendingMessageJump();
-    }
-  }
+  const contextMenuAskAIRef = useRef(handleContextMenuAskAI);
+  useEffect(() => {
+    contextMenuAskAIRef.current = handleContextMenuAskAI;
+  }, [handleContextMenuAskAI]);
+  const insertReferenceRequestedRef = useRef(handleWorkspaceInsertReferenceRequested);
+  useEffect(() => {
+    insertReferenceRequestedRef.current = handleWorkspaceInsertReferenceRequested;
+  }, [handleWorkspaceInsertReferenceRequested]);
 
   useEffect(() => {
+    function cancelSessionRestoreScrollSettle() {
+      if (sessionRestoreScrollFrameRef.current !== null) {
+        window.cancelAnimationFrame(sessionRestoreScrollFrameRef.current);
+        sessionRestoreScrollFrameRef.current = null;
+      }
+      if (sessionRestoreScrollTimerRef.current !== null) {
+        window.clearTimeout(sessionRestoreScrollTimerRef.current);
+        sessionRestoreScrollTimerRef.current = null;
+      }
+      cancelSessionRestoreScrollIntentListenersRef.current?.();
+      cancelSessionRestoreScrollIntentListenersRef.current = null;
+      sessionRestoreResizeObserverRef.current?.disconnect();
+      sessionRestoreResizeObserverRef.current = null;
+    }
+
+    async function focusPendingSpotlightMessageJump(): Promise<void> {
+      const pendingJump = spotlightStoreRef.current.pendingMessageJump;
+      if (!pendingJump || pendingJump.sessionId !== sessionId) return;
+      for (let attempt = 0; attempt <= MAX_MESSAGE_JUMP_RETRIES; attempt += 1) {
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+        const target = messageSearchRootRef.current?.querySelector<HTMLElement>(
+          `[data-message-id="${CSS.escape(pendingJump.messageId)}"]`,
+        );
+        if (target) {
+          target.scrollIntoView({ block: "center", inline: "nearest", behavior: "auto" });
+          target.classList.add("message-highlight");
+          window.setTimeout(() => target.classList.remove("message-highlight"), MESSAGE_HIGHLIGHT_DURATION);
+          spotlightStoreRef.current.clearPendingMessageJump();
+          return;
+        }
+        if (attempt === MAX_MESSAGE_JUMP_RETRIES) return;
+        await new Promise<void>((resolve) => {
+          spotlightJumpTimerRef.current = window.setTimeout(() => resolve(), MESSAGE_JUMP_RETRY_INTERVAL);
+        });
+      }
+    }
+
     displayMessageCache.clear();
     sessionRestoreRequestIdRef.current += 1;
     cancelSessionRestoreTaskRef.current?.();
     cancelSessionRestoreTaskRef.current = null;
-    messageStore.clear();
+    messageStoreRef.current.clear();
     clearPendingInputStore();
     if (sessionId) {
       const requestId = sessionRestoreRequestIdRef.current;
       cancelSessionRestoreTaskRef.current = scheduleStartupDeferredTask(async () => {
         if (requestId !== sessionRestoreRequestIdRef.current) return;
         console.info(`[Startup][Renderer] ChatPage restoring session ${sessionId}`);
-        const restored = await messageStore.loadMessages(sessionId, INITIAL_MESSAGE_RESTORE_COUNT);
+        const restored = await messageStoreRef.current.loadMessages(sessionId, INITIAL_MESSAGE_RESTORE_COUNT);
         applyRestoredSession(restored);
         await loadPendingInputs(sessionId);
         await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-        if (spotlightStore.pendingMessageJump?.sessionId === sessionId) {
+        if (spotlightStoreRef.current.pendingMessageJump?.sessionId === sessionId) {
           cancelSessionRestoreScrollSettle();
           void focusPendingSpotlightMessageJump();
           return;
@@ -803,27 +817,44 @@ function ChatPage({ sessionId }: ChatPageProps) {
         scrollDomToBottom();
       });
     }
-  }, [sessionId]);
+  }, [sessionId, scrollDomToBottom]);
 
+  // Listener registrations: the session-dependent handlers are read through
+  // latest-value refs so the listeners are registered exactly once.
   useEffect(() => {
-    window.addEventListener("context-menu-ask-ai", handleContextMenuAskAI);
-    window.addEventListener(WORKSPACE_EVENTS.INSERT_REFERENCE_REQUESTED, handleWorkspaceInsertReferenceRequested);
+    const handleContextMenuAskAiEvent = (event: Event) => contextMenuAskAIRef.current(event);
+    const handleInsertReferenceEvent = (event: Event) => insertReferenceRequestedRef.current(event);
+    window.addEventListener("context-menu-ask-ai", handleContextMenuAskAiEvent);
+    window.addEventListener(WORKSPACE_EVENTS.INSERT_REFERENCE_REQUESTED, handleInsertReferenceEvent);
     window.addEventListener("keydown", handleWindowKeydown);
+
+    return () => {
+      window.removeEventListener("context-menu-ask-ai", handleContextMenuAskAiEvent);
+      window.removeEventListener(WORKSPACE_EVENTS.INSERT_REFERENCE_REQUESTED, handleInsertReferenceEvent);
+      window.removeEventListener("keydown", handleWindowKeydown);
+    };
+  }, [handleWindowKeydown]);
+
+  // Re-subscribes per session so plan snapshots are filtered by the active session.
+  useEffect(() => {
     cancelPlanUpdatedListenerRef.current = chatClient.onPlanUpdated((payload) => {
       if (payload.sessionId === sessionId) {
         applySnapshot(payload);
       }
     });
+
+    return () => {
+      cancelPlanUpdatedListenerRef.current?.();
+      cancelPlanUpdatedListenerRef.current = null;
+    };
+  }, [chatClient, sessionId]);
+
+  useEffect(() => {
     Promise.resolve().then(async () => {
       await playChatInputHeroFlight(resolveChatInputBoxElement());
     });
 
     return () => {
-      cancelPlanUpdatedListenerRef.current?.();
-      cancelPlanUpdatedListenerRef.current = null;
-      window.removeEventListener("context-menu-ask-ai", handleContextMenuAskAI);
-      window.removeEventListener(WORKSPACE_EVENTS.INSERT_REFERENCE_REQUESTED, handleWorkspaceInsertReferenceRequested);
-      window.removeEventListener("keydown", handleWindowKeydown);
       clearChatSearchHighlights(messageSearchRootRef.current);
       if (spotlightJumpTimerRef.current) {
         window.clearTimeout(spotlightJumpTimerRef.current);
@@ -843,53 +874,18 @@ function ChatPage({ sessionId }: ChatPageProps) {
       planFloatResizeObserverRef.current?.disconnect();
       planFloatResizeObserverRef.current = null;
     };
-  }, []);
+  }, [resolveChatInputBoxElement]);
 
   const closeChatSearch = useCallback(() => {
-    cancelScheduledChatSearchRefresh();
+    if (chatSearchRefreshFrameRef.current !== null) {
+      window.cancelAnimationFrame(chatSearchRefreshFrameRef.current);
+      chatSearchRefreshFrameRef.current = null;
+    }
     clearChatSearchHighlights(messageSearchRootRef.current);
     setChatSearchMatches([]);
     setChatSearchQuery("");
     setActiveChatSearchIndex(0);
     setIsChatSearchOpen(false);
-  }, []);
-
-  const displayMessages = useMemo(() => {
-    const msgs: DisplayMessage[] = [];
-    for (const rec of messageStore.getMessages()) {
-      msgs.push(toDisplayMessage(rec));
-    }
-    if (streamState.isStreaming && !hasInlineStreamingTarget && !ephemeralRateLimitBlock) {
-      msgs.push(toStreamingMessage(streamState.streamingBlocks, streamState.currentStreamMessageId));
-    }
-    return msgs;
-  }, [
-    messageStore.messageIds,
-    streamState.isStreaming,
-    streamState.streamingBlocks,
-    hasInlineStreamingTarget,
-    ephemeralRateLimitBlock,
-  ]);
-
-  const messageWindow = useMessageWindow(displayMessages);
-
-  const scrollModeRef = useRef(scrollMode);
-  const messageWindowRef = useRef(messageWindow);
-  const scrollToBottomRef = useRef(scrollToBottom);
-  useEffect(() => {
-    scrollModeRef.current = scrollMode;
-    messageWindowRef.current = messageWindow;
-    scrollToBottomRef.current = scrollToBottom;
-  });
-
-  const onMessageMeasure = useCallback((payload: { messageId: string; height: number }) => {
-    const mode = scrollModeRef.current;
-    const isBottomFollowing = mode === "initial-bottom" || mode === "auto-follow";
-    const delta = messageWindowRef.current.setMeasuredHeight(payload.messageId, payload.height);
-    if (delta === 0) return;
-    if (isBottomFollowing) {
-      scrollToBottomRef.current(mode === "initial-bottom");
-    }
   }, []);
 
   function resolveAssistantModelName(modelId: string): string {
@@ -1010,6 +1006,47 @@ function ChatPage({ sessionId }: ChatPageProps) {
       orderSeq: Number.MAX_SAFE_INTEGER,
     };
   }
+
+  const displayMessages = useMemo(() => {
+    const msgs: DisplayMessage[] = [];
+    for (const rec of messageStore.getMessages()) {
+      msgs.push(toDisplayMessage(rec));
+    }
+    if (streamState.isStreaming && !hasInlineStreamingTarget && !ephemeralRateLimitBlock) {
+      msgs.push(toStreamingMessage(streamState.streamingBlocks, streamState.currentStreamMessageId));
+    }
+    return msgs;
+  }, [
+    messageStore,
+    toDisplayMessage,
+    toStreamingMessage,
+    streamState.isStreaming,
+    streamState.streamingBlocks,
+    streamState.currentStreamMessageId,
+    hasInlineStreamingTarget,
+    ephemeralRateLimitBlock,
+  ]);
+
+  const messageWindow = useMessageWindow(displayMessages);
+
+  const scrollModeRef = useRef(scrollMode);
+  const messageWindowRef = useRef(messageWindow);
+  const scrollToBottomRef = useRef(scrollToBottom);
+  useEffect(() => {
+    scrollModeRef.current = scrollMode;
+    messageWindowRef.current = messageWindow;
+    scrollToBottomRef.current = scrollToBottom;
+  });
+
+  const onMessageMeasure = useCallback((payload: { messageId: string; height: number }) => {
+    const mode = scrollModeRef.current;
+    const isBottomFollowing = mode === "initial-bottom" || mode === "auto-follow";
+    const delta = messageWindowRef.current.setMeasuredHeight(payload.messageId, payload.height);
+    if (delta === 0) return;
+    if (isBottomFollowing) {
+      scrollToBottomRef.current(mode === "initial-bottom");
+    }
+  }, []);
 
   return (
     <div

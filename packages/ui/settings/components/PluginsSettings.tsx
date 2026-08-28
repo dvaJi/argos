@@ -137,7 +137,7 @@ export default function PluginsSettings() {
   }, []);
 
   useEffect(() => {
-    void loadPlugins();
+    void Promise.resolve().then(() => loadPlugins());
   }, [loadPlugins]);
 
   useEffect(() => {

@@ -22,6 +22,9 @@ interface OpenAIImageGenerationSettingsFieldsProps {
   onValueChange: (value: ImageGenerationOptions | undefined) => void;
 }
 
+const isPresetSize = (size: string | undefined): size is string =>
+  typeof size === "string" && (OPENAI_IMAGE_GENERATION_SIZE_PRESETS as readonly string[]).includes(size);
+
 export default function OpenAIImageGenerationSettingsFields({
   modelValue,
   density = "default",
@@ -41,9 +44,6 @@ export default function OpenAIImageGenerationSettingsFields({
   const triggerClass = density === "compact" ? "h-8 text-xs" : "";
   const hintClass = density === "compact" ? "text-[11px] text-muted-foreground" : "text-xs text-muted-foreground";
   const errorClass = density === "compact" ? "text-[11px] text-destructive" : "text-xs text-destructive";
-
-  const isPresetSize = (size: string | undefined): size is string =>
-    typeof size === "string" && (OPENAI_IMAGE_GENERATION_SIZE_PRESETS as readonly string[]).includes(size);
 
   const sizeSelectValue = useMemo(() => {
     if (!imageGeneration.size) return sizeSelectDraft;
@@ -78,27 +78,31 @@ export default function OpenAIImageGenerationSettingsFields({
     return "";
   }, [showCompressionField, compressionDraft]);
 
-  useEffect(() => {
-    const size = imageGeneration.size;
-    if (!size) {
+  // Draft mirrors of the configured size/compression, re-synced whenever the
+  // underlying configuration changes (adjusted during render so the React
+  // Compiler can track it).
+  const [syncedSize, setSyncedSize] = useState(imageGeneration.size);
+  if (syncedSize !== imageGeneration.size) {
+    setSyncedSize(imageGeneration.size);
+    const configuredSize = imageGeneration.size;
+    if (!configuredSize) {
       setSizeSelectDraft(DEFAULT_SELECT_VALUE);
       setCustomSizeDraft("");
-      return;
-    }
-    if (isPresetSize(size)) {
-      setSizeSelectDraft(size);
+    } else if (isPresetSize(configuredSize)) {
+      setSizeSelectDraft(configuredSize);
       setCustomSizeDraft("");
-      return;
+    } else {
+      setSizeSelectDraft(CUSTOM_SIZE_VALUE);
+      setCustomSizeDraft(configuredSize);
     }
-    setSizeSelectDraft(CUSTOM_SIZE_VALUE);
-    setCustomSizeDraft(size);
-  }, [imageGeneration.size]);
-
-  useEffect(() => {
+  }
+  const [syncedCompression, setSyncedCompression] = useState(imageGeneration.outputCompression);
+  if (syncedCompression !== imageGeneration.outputCompression) {
+    setSyncedCompression(imageGeneration.outputCompression);
     setCompressionDraft(
       imageGeneration.outputCompression === undefined ? "" : String(imageGeneration.outputCompression),
     );
-  }, [imageGeneration.outputCompression]);
+  }
 
   const emitOptions = useCallback(
     (patch: ImageGenerationOptions) => {

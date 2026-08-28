@@ -78,12 +78,16 @@ const ComposerModePicker = () => {
         })
         .catch(() => {});
     } else {
-      setPermissionMode((draftState.permissionMode as PermissionMode) ?? "full_access");
+      // Mirror the draft store through a microtask so both branches update state
+      // from asynchronous continuations (keeps the effect free of sync setStates).
+      void Promise.resolve((draftState.permissionMode as PermissionMode) ?? "full_access").then((mode) => {
+        if (!cancelled) setPermissionMode(mode);
+      });
     }
     return () => {
       cancelled = true;
     };
-  }, [hasActiveSession, activeSession?.id, draftState.permissionMode]);
+  }, [hasActiveSession, activeSession?.id, draftState.permissionMode, sessionClient]);
 
   const currentLabel = permissionMode === "default" ? "Supervised" : "Full access";
   const currentIcon = permissionMode === "default" ? "lucide:shield" : "lucide:unlock";

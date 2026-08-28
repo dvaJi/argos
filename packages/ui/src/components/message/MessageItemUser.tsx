@@ -1,4 +1,4 @@
-import { type FC, useState, useMemo, useEffect, useRef } from "react";
+import { type FC, useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { Icon } from "@iconify/react";
 import { MessageInfo } from "./MessageInfo";
 import ChatAttachmentItem from "../chat/ChatAttachmentItem";
@@ -82,6 +82,21 @@ const MessageItemUser: FC<MessageItemUserProps> = ({ message, isReadOnly = false
   const shouldClampContent = useMemo(() => isCollapsible && !isExpanded, [isCollapsible, isExpanded]);
   const showFadeMask = shouldClampContent;
 
+  // Re-evaluate collapse defaults when the message identity/content changes
+  // (render-phase adjustment, replacing a setState-in-effect).
+  const [syncedMessageId, setSyncedMessageId] = useState(message.id);
+  const [syncedMessageText, setSyncedMessageText] = useState(visibleMessageText);
+  if (syncedMessageId !== message.id || syncedMessageText !== visibleMessageText) {
+    setSyncedMessageId(message.id);
+    setSyncedMessageText(visibleMessageText);
+    if (!isCollapsible) {
+      setIsExpanded(true);
+      setHasManualCollapsePreference(false);
+    } else if (!hasManualCollapsePreference) {
+      setIsExpanded(false);
+    }
+  }
+
   const previewFile = (filePath: string) => {
     void windowClient.previewFile(filePath);
   };
@@ -92,24 +107,20 @@ const MessageItemUser: FC<MessageItemUserProps> = ({ message, isReadOnly = false
     setHasManualCollapsePreference(true);
   };
 
-  const runAutoResize = () => {
-    const el = editTextareaRef.current;
-    if (!el) return;
-    el.style.height = "auto";
-    const maxH = Math.max(120, Math.floor(window.innerHeight * 0.6));
-    const scrollH = el.scrollHeight;
-    const target = Math.min(scrollH, maxH);
-    el.style.height = target + "px";
-    el.style.overflowY = scrollH > target ? "auto" : "hidden";
-  };
-
-  const autoResize = () => {
+  const autoResize = useCallback(() => {
     if (pendingResizeFrameRef.current !== null) window.cancelAnimationFrame(pendingResizeFrameRef.current);
     pendingResizeFrameRef.current = window.requestAnimationFrame(() => {
       pendingResizeFrameRef.current = null;
-      runAutoResize();
+      const el = editTextareaRef.current;
+      if (!el) return;
+      el.style.height = "auto";
+      const maxH = Math.max(120, Math.floor(window.innerHeight * 0.6));
+      const scrollH = el.scrollHeight;
+      const target = Math.min(scrollH, maxH);
+      el.style.height = target + "px";
+      el.style.overflowY = scrollH > target ? "auto" : "hidden";
     });
-  };
+  }, []);
 
   const startEdit = () => {
     if (isReadOnly) return;
@@ -157,20 +168,11 @@ const MessageItemUser: FC<MessageItemUserProps> = ({ message, isReadOnly = false
   };
 
   useEffect(() => {
-    if (!isCollapsible) {
-      setIsExpanded(true);
-      setHasManualCollapsePreference(false);
-      return;
-    }
-    if (!hasManualCollapsePreference) setIsExpanded(false);
-  }, [message.id, visibleMessageText, isCollapsible]);
-
-  useEffect(() => {
     if (!isEditMode) return;
 
     const resizeTimer = setTimeout(() => autoResize(), 0);
     return () => clearTimeout(resizeTimer);
-  }, [editedText]);
+  }, [isEditMode, autoResize]);
 
   useEffect(() => {
     return () => {

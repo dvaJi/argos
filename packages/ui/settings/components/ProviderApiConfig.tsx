@@ -90,11 +90,13 @@ export default function ProviderApiConfig({
 
   const canVerifyProvider = provider.enable;
 
-  useEffect(() => {
+  const [syncedProvider, setSyncedProvider] = useState(provider);
+  if (syncedProvider !== provider) {
+    setSyncedProvider(provider);
     setApiKey(provider.apiKey || "");
     setApiHost(provider.baseUrl || "");
     setBaseUrlUnlocked(false);
-  }, [provider]);
+  }
 
   const handleApiKeyBlur = (event: FocusEvent<HTMLInputElement>) => {
     const target = event.target as HTMLInputElement | null;
@@ -147,19 +149,28 @@ export default function ProviderApiConfig({
     return normalizedMessage;
   };
 
-  const getKeyStatus = useCallback(async () => {
-    if (
-      ["ppio", "openrouter", "siliconcloud", "silicon", "deepseek", "302ai", "cherryin"].includes(provider.id) &&
-      provider.apiKey
-    ) {
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (
+        !["ppio", "openrouter", "siliconcloud", "silicon", "deepseek", "302ai", "cherryin"].includes(provider.id) ||
+        !provider.apiKey
+      ) {
+        return;
+      }
       try {
         const status = await providerClient.getKeyStatus(provider.id);
+        if (cancelled) return;
         setKeyStatus(status);
       } catch (error) {
         console.error("Failed to get key status:", error);
+        if (cancelled) return;
         setKeyStatus(null);
       }
-    }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [provider.id, provider.apiKey]);
 
   const refreshModels = async () => {
@@ -187,9 +198,8 @@ export default function ProviderApiConfig({
         variant: "destructive",
         duration: 4000,
       });
-    } finally {
-      setIsRefreshing(false);
     }
+    setIsRefreshing(false);
   };
 
   const openModelCheckDialog = () => {
@@ -199,10 +209,6 @@ export default function ProviderApiConfig({
 
     modelCheckStore.openDialog(provider.id);
   };
-
-  useEffect(() => {
-    void getKeyStatus();
-  }, [getKeyStatus]);
 
   return (
     <div className="flex flex-col gap-4">

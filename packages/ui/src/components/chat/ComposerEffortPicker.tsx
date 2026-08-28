@@ -56,23 +56,25 @@ const ComposerEffortPicker = () => {
   const hasActiveSession = getHasActiveSession();
   const activeSession = getActiveSession();
 
-  const [supportsReasoning, setSupportsReasoning] = useState<boolean | null>(null);
-  const [availableEfforts, setAvailableEfforts] = useState<ReasoningEffort[]>([]);
-  const [generationReasoningEffort, setGenerationReasoningEffort] = useState<ReasoningEffort | undefined>(undefined);
-  const [serviceTier, setServiceTier] = useState<ServiceTier>("standard");
+  const [supportsReasoningLoaded, setSupportsReasoning] = useState<boolean | null>(null);
+  const [availableEffortsLoaded, setAvailableEfforts] = useState<ReasoningEffort[]>([]);
+  const [generationReasoningEffortLoaded, setGenerationReasoningEffort] = useState<ReasoningEffort | undefined>(
+    undefined,
+  );
+  const [serviceTierLoaded, setServiceTier] = useState<ServiceTier>("standard");
 
   const effectiveProviderId = hasActiveSession ? activeSession?.providerId : draftState.providerId;
   const effectiveModelId = hasActiveSession ? activeSession?.modelId : draftState.modelId;
 
   const isAcpSession = effectiveProviderId === "acp";
 
+  const isReasoningUnavailable = !effectiveProviderId || !effectiveModelId || isAcpSession;
+  const supportsReasoning = isReasoningUnavailable ? false : supportsReasoningLoaded;
+  const availableEfforts = isReasoningUnavailable ? [] : availableEffortsLoaded;
+
   useEffect(() => {
+    if (isReasoningUnavailable) return;
     let cancelled = false;
-    if (!effectiveProviderId || !effectiveModelId || isAcpSession) {
-      setSupportsReasoning(false);
-      setAvailableEfforts([]);
-      return;
-    }
     void (async () => {
       try {
         const portrait = await modelClient.getReasoningPortrait(effectiveProviderId, effectiveModelId);
@@ -94,27 +96,31 @@ const ComposerEffortPicker = () => {
     return () => {
       cancelled = true;
     };
-  }, [effectiveProviderId, effectiveModelId, isAcpSession, modelClient]);
+  }, [isReasoningUnavailable, effectiveProviderId, effectiveModelId, modelClient]);
+
+  const isSessionGenerationSettings = hasActiveSession && Boolean(activeSession?.id);
+  const generationReasoningEffort = isSessionGenerationSettings
+    ? generationReasoningEffortLoaded
+    : (draftState.reasoningEffort as ReasoningEffort | undefined);
+  const serviceTier = isSessionGenerationSettings
+    ? serviceTierLoaded
+    : ((draftState.serviceTier as ServiceTier) ?? "standard");
 
   useEffect(() => {
+    if (!isSessionGenerationSettings || !activeSession?.id) return;
     let cancelled = false;
-    if (hasActiveSession && activeSession?.id) {
-      void sessionClient
-        .getSessionGenerationSettings(activeSession.id)
-        .then((s) => {
-          if (cancelled) return;
-          setGenerationReasoningEffort((s?.reasoningEffort as ReasoningEffort) ?? undefined);
-          setServiceTier((s?.serviceTier as ServiceTier) ?? "standard");
-        })
-        .catch(() => {});
-    } else {
-      setGenerationReasoningEffort(draftState.reasoningEffort as ReasoningEffort | undefined);
-      setServiceTier((draftState.serviceTier as ServiceTier) ?? "standard");
-    }
+    void sessionClient
+      .getSessionGenerationSettings(activeSession.id)
+      .then((s) => {
+        if (cancelled) return;
+        setGenerationReasoningEffort((s?.reasoningEffort as ReasoningEffort) ?? undefined);
+        setServiceTier((s?.serviceTier as ServiceTier) ?? "standard");
+      })
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
-  }, [hasActiveSession, activeSession?.id, sessionClient, draftState.reasoningEffort, draftState.serviceTier]);
+  }, [isSessionGenerationSettings, activeSession?.id, sessionClient]);
 
   const currentLabel = useMemo(() => {
     if (isAcpSession) return "Max";

@@ -27,11 +27,14 @@ export function useOnBoarding(targetEl: HTMLElement | null, options: UseOnBoardi
   );
   const [targetBounds, setTargetBounds] = useState({ x: 0, y: 0, width: 0, height: 0 });
 
-  const updateTargetBounds = useCallback(() => {
-    if (!targetEl) return;
-    const rect = targetEl.getBoundingClientRect();
-    setTargetBounds({ x: rect.x, y: rect.y, width: rect.width, height: rect.height });
-  }, [targetEl]);
+  const updateTargetBounds = useCallback(
+    (_viewportWidth?: number, _viewportHeight?: number) => {
+      if (!targetEl) return;
+      const rect = targetEl.getBoundingClientRect();
+      setTargetBounds({ x: rect.x, y: rect.y, width: rect.width, height: rect.height });
+    },
+    [targetEl],
+  );
 
   useEffect(() => {
     const handleResize = () => {
@@ -44,16 +47,17 @@ export function useOnBoarding(targetEl: HTMLElement | null, options: UseOnBoardi
 
   useEffect(() => {
     if (!targetEl) return;
+    // ResizeObserver fires once right after observe(), which provides the
+    // initial measurement — no synchronous call needed here.
     const observer = new ResizeObserver(() => {
       updateTargetBounds();
     });
     observer.observe(targetEl);
-    updateTargetBounds();
     return () => observer.disconnect();
   }, [targetEl, updateTargetBounds]);
 
   useEffect(() => {
-    updateTargetBounds();
+    void Promise.resolve().then(() => updateTargetBounds(viewportWidth, viewportHeight));
   }, [viewportWidth, viewportHeight, updateTargetBounds]);
 
   const spotlightRect = useMemo<SpotlightRect | null>(() => {

@@ -69,8 +69,15 @@ export default function BrowserActivityOverlay() {
     completeActivity(payload.id);
   };
 
+  const handleActivityRef = useRef(handleActivity);
   useEffect(() => {
-    const stopActivityListener = window.yoBrowserOverlay.onActivityChanged(handleActivity);
+    handleActivityRef.current = handleActivity;
+  }, [handleActivity]);
+
+  useEffect(() => {
+    const stopActivityListener = window.yoBrowserOverlay.onActivityChanged((payload) =>
+      handleActivityRef.current(payload),
+    );
 
     return () => {
       stopActivityListener();

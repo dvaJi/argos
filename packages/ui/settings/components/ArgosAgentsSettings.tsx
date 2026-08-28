@@ -275,9 +275,8 @@ export default function ArgosAgentsSettings() {
       } catch (error) {
         console.error("[ArgosAgentsSettings] Failed to persist PowerShell tool setting:", error);
         setPowershellToolEnabled(!value);
-      } finally {
-        setPowershellToolPending(false);
       }
+      setPowershellToolPending(false);
     },
     [powershellToolPending],
   );
@@ -310,15 +309,33 @@ export default function ArgosAgentsSettings() {
       } else {
         setSelectedAgentId(null);
       }
-    } catch {
-    } finally {
-      setLoading(false);
-    }
-  }, [configClient]);
+    } catch {}
+    setLoading(false);
+  }, []);
 
   useEffect(() => {
-    void loadAgents();
-  }, [loadAgents]);
+    let cancelled = false;
+    (async () => {
+      try {
+        const allAgentList = await configClient.listAgents();
+        const argosAgents = (allAgentList ?? []).filter((agent) => agent.type === "argos");
+        if (cancelled) return;
+        setAllAgents(allAgentList ?? []);
+        setAgents(argosAgents);
+        if (argosAgents.length) {
+          setSelectedAgentId((prev) =>
+            prev && argosAgents.some((agent) => agent.id === prev) ? prev : argosAgents[0].id,
+          );
+        } else {
+          setSelectedAgentId(null);
+        }
+      } catch {}
+      if (!cancelled) setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const loadTools = async () => {
@@ -337,15 +354,21 @@ export default function ArgosAgentsSettings() {
     };
 
     void loadTools();
-  }, [toolClient]);
+  }, []);
 
   const initialAvatarRef = useRef<AgentAvatarValue | null>(null);
+  // Rebuild the form only when the selected agent *identity* changes, so toggling
+  // Enabled (or the optimistic update after Save) doesn't wipe unsaved edits. The
+  // ref guard keeps the effect honest under the full `selectedAgent` dependency
+  // while preserving the identity-based rebuild. Track the avatar baseline so Save
+  // can avoid clobbering an unchanged icon (the form defaults to a lucide "bot"
+  // for agents without an avatar object, which would otherwise overwrite
+  // legacy/built-in icons).
+  const lastSyncedAgentIdRef = useRef<string | null | undefined>(undefined);
   useEffect(() => {
-    // Only rebuild the form when the selected agent *identity* changes, so
-    // toggling Enabled (or the optimistic update after Save) doesn't wipe
-    // unsaved edits. Track the avatar baseline so Save can avoid clobbering an
-    // unchanged icon (the form defaults to a lucide "bot" for agents without an
-    // avatar object, which would otherwise overwrite legacy/built-in icons).
+    const agentKey = selectedAgent?.id ?? null;
+    if (lastSyncedAgentIdRef.current === agentKey) return;
+    lastSyncedAgentIdRef.current = agentKey;
     const nextForm = buildFormFromAgent(selectedAgent);
     console.log("[AgentsSettings] form-sync rebuild", {
       id: selectedAgent?.id,
@@ -357,8 +380,7 @@ export default function ArgosAgentsSettings() {
     });
     setForm(nextForm);
     initialAvatarRef.current = buildAvatarFromForm(nextForm);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedAgent?.id]);
+  }, [selectedAgent]);
 
   const loadSystemPromptTemplates = useCallback(async () => {
     setLoadingSystemPrompts(true);
@@ -375,10 +397,9 @@ export default function ArgosAgentsSettings() {
       );
     } catch {
       setSystemPromptTemplates([]);
-    } finally {
-      setLoadingSystemPrompts(false);
     }
-  }, [configClient]);
+    setLoadingSystemPrompts(false);
+  }, []);
 
   const openSystemPromptPicker = useCallback(() => {
     setSystemPromptDialogOpen(true);
@@ -436,9 +457,8 @@ export default function ArgosAgentsSettings() {
       setSelectedAgentId(created?.id ?? null);
     } catch (error) {
       toast({ title: "Failed to create agent", description: String(error), variant: "destructive" });
-    } finally {
-      setSaving(false);
     }
+    setSaving(false);
   };
 
   const handleDelete = useCallback(async () => {
@@ -459,9 +479,8 @@ export default function ArgosAgentsSettings() {
       setAgents(list || []);
     } catch (error) {
       setTransferDialogError(error instanceof Error ? error.message : String(error));
-    } finally {
-      setTransferDialogLoading(false);
     }
+    setTransferDialogLoading(false);
   }, [selectedAgent, form.name]);
 
   const finishDeleteAgent = useCallback(
@@ -490,10 +509,9 @@ export default function ArgosAgentsSettings() {
         await finishDeleteAgent(pendingDeleteAgent.id);
       } catch (error) {
         setTransferDialogError(error instanceof Error ? error.message : String(error));
-      } finally {
-        setDeleting(false);
-        setTransferDialogBusy(false);
       }
+      setDeleting(false);
+      setTransferDialogBusy(false);
     },
     [pendingDeleteAgent, finishDeleteAgent],
   );
@@ -508,10 +526,9 @@ export default function ArgosAgentsSettings() {
       await finishDeleteAgent(pendingDeleteAgent.id);
     } catch (error) {
       setTransferDialogError(error instanceof Error ? error.message : String(error));
-    } finally {
-      setDeleting(false);
-      setTransferDialogBusy(false);
     }
+    setDeleting(false);
+    setTransferDialogBusy(false);
   }, [pendingDeleteAgent, finishDeleteAgent]);
 
   const handleToggleEnabled = async (agentId: string, enabled: boolean) => {
@@ -560,7 +577,7 @@ export default function ArgosAgentsSettings() {
 
       return modelId;
     },
-    [modelStore.enabledModels, modelStore.allProviderModels, modelStore.findModelByIdOrName],
+    [modelStore],
   );
 
   const getModelIconId = useCallback((providerId: string, modelId: string) => {

@@ -1,4 +1,4 @@
-import { type FC, type FormEvent, useState, useMemo, useEffect } from "react";
+import { type FC, type FormEvent, useState, useMemo } from "react";
 import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
 import { Label } from "#shadcn/components/ui/label";
@@ -43,6 +43,25 @@ const formatJsonHeaders = (headers: Record<string, string>): string =>
     .map(([key, value]) => `${key}=${value}`)
     .join("\n");
 
+const validateKeyValueHeaders = (text: string): boolean => {
+  if (!text.trim()) return true;
+  for (const line of text.split("\n")) {
+    const trimmedLine = line.trim();
+    if (!trimmedLine) continue;
+    const parts = trimmedLine.split("=");
+    if (parts.length < 2 || !parts[0].trim()) return false;
+  }
+  return true;
+};
+
+const maskSensitiveValue = (value: string): string =>
+  value.replace(/=(.+)/g, (_, val) => {
+    const trimmedVal = val.trim();
+    if (trimmedVal.length <= 4) return "=" + "*".repeat(trimmedVal.length);
+    if (trimmedVal.length <= 12) return "=" + trimmedVal.substring(0, 1) + "*".repeat(6);
+    return "=" + trimmedVal.substring(0, 2) + "*".repeat(8) + trimmedVal.substring(trimmedVal.length - 2);
+  });
+
 const createArgsRows = (values: string[]) => values.map((value) => ({ id: nanoid(), value }));
 
 const McpServerForm: FC<McpServerFormProps> = ({
@@ -81,6 +100,15 @@ const McpServerForm: FC<McpServerFormProps> = ({
   const [jsonConfig, setJsonConfig] = useState("");
   const [argsRows, setArgsRows] = useState<Array<{ id: string; value: string }>>(() => createArgsRows(initialArgs));
   const [foldersList, setFoldersList] = useState<string[]>(() => [...initialArgs]);
+  // Mirror the incoming `defaultJsonConfig` prop into the editable jsonConfig
+  // state (prev-compare during render — no effect needed).
+  const [syncedDefaultJsonConfig, setSyncedDefaultJsonConfig] = useState(defaultJsonConfig);
+  if (syncedDefaultJsonConfig !== defaultJsonConfig) {
+    setSyncedDefaultJsonConfig(defaultJsonConfig);
+    if (defaultJsonConfig) {
+      setJsonConfig(defaultJsonConfig);
+    }
+  }
 
   const isInMemoryType = useMemo(() => type === "inmemory", [type]);
   const isBuildInFileSystem = useMemo(() => isInMemoryType && name === "buildInFileSystem", [isInMemoryType, name]);
@@ -135,17 +163,6 @@ const McpServerForm: FC<McpServerFormProps> = ({
 
   const removeFolder = (index: number) => setFoldersList((prev) => prev.filter((_, i) => i !== index));
 
-  const validateKeyValueHeaders = (text: string): boolean => {
-    if (!text.trim()) return true;
-    for (const line of text.split("\n")) {
-      const trimmedLine = line.trim();
-      if (!trimmedLine) continue;
-      const parts = trimmedLine.split("=");
-      if (parts.length < 2 || !parts[0].trim()) return false;
-    }
-    return true;
-  };
-
   const isNameValid = useMemo(() => name.trim().length > 0, [name]);
   const isCommandValid = useMemo(() => {
     if (isRemoteType) return true;
@@ -169,14 +186,6 @@ const McpServerForm: FC<McpServerFormProps> = ({
     return isNameValid && isCommandValid && isEnvValid;
   }, [isNameValid, isRemoteType, isBaseUrlValid, isCustomHeadersFormatValid, isCommandValid, isEnvValid]);
 
-  const maskSensitiveValue = (value: string): string =>
-    value.replace(/=(.+)/g, (_, val) => {
-      const trimmedVal = val.trim();
-      if (trimmedVal.length <= 4) return "=" + "*".repeat(trimmedVal.length);
-      if (trimmedVal.length <= 12) return "=" + trimmedVal.substring(0, 1) + "*".repeat(6);
-      return "=" + trimmedVal.substring(0, 2) + "*".repeat(8) + trimmedVal.substring(trimmedVal.length - 2);
-    });
-
   const customHeadersDisplayValue = useMemo(() => {
     if (customHeadersFocused || !customHeaders.trim()) {
       return customHeaders;
@@ -191,18 +200,26 @@ const McpServerForm: FC<McpServerFormProps> = ({
       .join("\n");
   }, [customHeaders, customHeadersFocused]);
 
-  useEffect(() => {
-    if (defaultJsonConfig) {
-      setJsonConfig(defaultJsonConfig);
-    }
-  }, [defaultJsonConfig]);
-
   const parseJsonConfig = () => {
+    const reportParseError = (error: unknown) => {
+      console.error("Parse error:", error);
+      toast({
+        title: "Parse Error",
+        description: error instanceof Error ? error.message : String(error),
+        variant: "destructive",
+      });
+    };
     try {
       const parsedConfig = JSON.parse(jsonConfig);
-      if (!parsedConfig.mcpServers || typeof parsedConfig.mcpServers !== "object") throw new Error("Invalid format");
+      if (!parsedConfig.mcpServers || typeof parsedConfig.mcpServers !== "object") {
+        reportParseError(new Error("Invalid format"));
+        return;
+      }
       const serverEntries = Object.entries(parsedConfig.mcpServers);
-      if (serverEntries.length === 0) throw new Error("No servers found");
+      if (serverEntries.length === 0) {
+        reportParseError(new Error("No servers found"));
+        return;
+      }
       const [serverName, serverConfig] = serverEntries[0] as [string, any];
       setName(serverName);
       setCommand(serverConfig.command || "npx");
@@ -229,12 +246,7 @@ const McpServerForm: FC<McpServerFormProps> = ({
       setCurrentStep("detailed");
       toast({ title: "Parse Success", description: "Configuration imported" });
     } catch (error) {
-      console.error("Parse error:", error);
-      toast({
-        title: "Parse Error",
-        description: error instanceof Error ? error.message : String(error),
-        variant: "destructive",
-      });
+      reportParseError(error);
     }
   };
 

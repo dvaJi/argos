@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { Icon } from "@iconify/react";
 import { createConfigClient } from "#api/ConfigClient";
 
+const configClient = createConfigClient();
+
 export function ArtifactThinking() {
-  const configClient = createConfigClient();
   const [collapse, setCollapse] = useState(false);
 
   useEffect(() => {

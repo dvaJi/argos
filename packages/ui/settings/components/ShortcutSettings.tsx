@@ -132,7 +132,7 @@ export default function ShortcutSettings() {
     } catch (error) {
       console.error("Save shortcut keys error:", error);
     }
-  }, [shortcutKeyStore]);
+  }, []);
 
   const stopRecording = useCallback(() => {
     if (recordingShortcutId) {
@@ -184,7 +184,7 @@ export default function ShortcutSettings() {
       }
       if (keys.length > 0) setTempShortcut(keys.join("+"));
     },
-    [recordingShortcutId, tempShortcut, cancelRecording, validateShortcut, shortcutKeyStore, saveAndStopRecording],
+    [recordingShortcutId, tempShortcut, cancelRecording, validateShortcut, saveAndStopRecording],
   );
 
   const startRecording = useCallback(
@@ -196,7 +196,7 @@ export default function ShortcutSettings() {
       disableShortcutKey();
       document.body.style.overflow = "hidden";
     },
-    [recordingShortcutId, stopRecording, shortcutKeyStore],
+    [recordingShortcutId, stopRecording],
   );
 
   useEffect(() => {
@@ -223,10 +223,9 @@ export default function ShortcutSettings() {
       enableShortcutKey();
     } catch (error) {
       console.error("Failed to reset shortcut keys:", error);
-    } finally {
-      setResetLoading(false);
     }
-  }, [recordingShortcutId, cancelRecording, shortcutKeyStore]);
+    setResetLoading(false);
+  }, [recordingShortcutId, cancelRecording]);
 
   const clearShortcut = useCallback(
     async (shortcutId: string) => {

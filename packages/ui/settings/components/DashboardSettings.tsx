@@ -70,10 +70,9 @@ export default function DashboardSettings({ hideNostalgia = false, onDashboardLo
       setErrorMessage(error instanceof Error ? error.message : "Failed to load dashboard");
       scheduleDashboardRefresh(3000);
       shouldFinalize = true;
-    } finally {
-      if (shouldFinalize && isDashboardMountedRef.current) {
-        setIsLoading(false);
-      }
+    }
+    if (shouldFinalize && isDashboardMountedRef.current) {
+      setIsLoading(false);
     }
   }, [usageClient, clearRefreshTimer, onDashboardLoaded, scheduleDashboardRefresh]);
 
@@ -83,12 +82,12 @@ export default function DashboardSettings({ hideNostalgia = false, onDashboardLo
 
   useEffect(() => {
     isDashboardMountedRef.current = true;
-    void loadDashboard();
+    void loadDashboardRef.current();
     return () => {
       isDashboardMountedRef.current = false;
       clearRefreshTimer();
     };
-  }, [clearRefreshTimer, loadDashboard]);
+  }, [clearRefreshTimer]);
 
   const hasData = (dashboard?.summary.messageCount ?? 0) > 0;
 

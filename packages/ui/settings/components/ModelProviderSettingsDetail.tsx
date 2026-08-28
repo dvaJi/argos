@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useProviderStore } from "#/stores/providerStore";
 import { useModelStore } from "#/stores/modelStore";
 import { useUiSettingsStore } from "#/stores/uiSettingsStore";
@@ -42,6 +42,8 @@ interface ModelProviderSettingsDetailProps {
   onProviderModelEnabled?: () => void;
 }
 
+const emptyModels: RENDERER_MODEL_META[] = [];
+
 export default function ModelProviderSettingsDetail({
   provider,
   activeOnboardingStepId,
@@ -65,8 +67,6 @@ export default function ModelProviderSettingsDetail({
   const [checkResult, setCheckResult] = useState(false);
   const [showCheckModelDialog, setShowCheckModelDialog] = useState(false);
   const [activeTab, setActiveTab] = useState<"connection" | "models" | "advanced">("connection");
-
-  const emptyModels: RENDERER_MODEL_META[] = [];
 
   const enabledModels = useMemo(() => {
     const enabledModelsList = [...customModels.filter((m) => m.enabled), ...providerModels.filter((m) => m.enabled)];
@@ -120,43 +120,53 @@ export default function ModelProviderSettingsDetail({
   }, [providerModelsSource, customModelsSource, hasInitializedModelList]);
 
   useEffect(() => {
-    syncModels();
-  }, [providerModelsSource, customModelsSource]);
+    void Promise.resolve().then(() => syncModels());
+  }, [syncModels]);
 
-  const initProviderSettings = async () => {
-    await providerStore.ensureDefaultProvidersReady();
+  const initProviderSettings = useCallback(
+    async (providerId: string) => {
+      await providerStore.ensureDefaultProvidersReady();
 
-    if (provider.id === "azure-openai") {
-      try {
-        const version = await providerStore.getAzureApiVersion();
-        setAzureApiVersion(version);
-      } catch (error) {
-        console.error("Failed to fetch Azure API Version:", error);
-        setAzureApiVersion("2024-02-01");
-      }
-    }
-
-    if (provider.id === "gemini") {
-      const newLevels: Record<string, number> = {};
-      for (const key in safetyCategories) {
-        const categoryKey = key as string;
+      if (providerId === "azure-openai") {
         try {
-          const savedValue = (await providerStore.getGeminiSafety(categoryKey)) as string;
-          newLevels[categoryKey] =
-            valueToLevelMap[savedValue as SafetySettingValue] ??
-            safetyCategories[categoryKey as SafetyCategoryKey].defaultLevel;
+          const version = await providerStore.getAzureApiVersion();
+          setAzureApiVersion(version);
         } catch (error) {
-          console.error(`Failed to fetch Gemini safety setting for ${categoryKey}:`, error);
-          newLevels[categoryKey] = safetyCategories[categoryKey as SafetyCategoryKey].defaultLevel;
+          console.error("Failed to fetch Azure API Version:", error);
+          setAzureApiVersion("2024-02-01");
         }
       }
-      setGeminiSafetyLevels(newLevels);
-    }
-  };
+
+      if (providerId === "gemini") {
+        const newLevels: Record<string, number> = {};
+        for (const key in safetyCategories) {
+          const categoryKey = key as string;
+          try {
+            const savedValue = (await providerStore.getGeminiSafety(categoryKey)) as string;
+            newLevels[categoryKey] =
+              valueToLevelMap[savedValue as SafetySettingValue] ??
+              safetyCategories[categoryKey as SafetyCategoryKey].defaultLevel;
+          } catch (error) {
+            console.error(`Failed to fetch Gemini safety setting for ${categoryKey}:`, error);
+            newLevels[categoryKey] = safetyCategories[categoryKey as SafetyCategoryKey].defaultLevel;
+          }
+        }
+        setGeminiSafetyLevels(newLevels);
+      }
+    },
+    [providerStore],
+  );
+
+  const initProviderSettingsRef = useRef(initProviderSettings);
+  useEffect(() => {
+    initProviderSettingsRef.current = initProviderSettings;
+  }, [initProviderSettings]);
 
   useEffect(() => {
-    setActiveTab(activeOnboardingStepId === "provider-model" ? "models" : "connection");
-    void initProviderSettings();
+    void Promise.resolve().then(() => {
+      setActiveTab(activeOnboardingStepId === "provider-model" ? "models" : "connection");
+    });
+    void initProviderSettingsRef.current(provider.id);
   }, [activeOnboardingStepId, provider.id]);
 
   const handleApiKeyChange = async (value: string) => {
@@ -229,7 +239,7 @@ export default function ModelProviderSettingsDetail({
   };
 
   const handleOAuthSuccess = async () => {
-    await initProviderSettings();
+    await initProviderSettings(provider.id);
     syncModels();
     const resp = await providerStore.checkProvider(provider.id);
     if (resp.isOk) {

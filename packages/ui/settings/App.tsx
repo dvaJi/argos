@@ -99,7 +99,7 @@ export default function SettingsApp() {
   const providerDeeplinkImportState = useStore(providerDeeplinkImportStore);
   const startupWorkloadState = useStartupWorkloadStore();
 
-  const { setup: setupMcpDeeplink, cleanup: cleanupMcpDeeplink } = useMcpInstallDeeplinkHandler();
+  const { setup: setupMcpDeeplink } = useMcpInstallDeeplinkHandler();
 
   const errorQueue = useRef<Array<{ id: string; title: string; message: string; type: string }>>([]);
   const currentErrorId = useRef<string | null>(null);
@@ -166,10 +166,8 @@ export default function SettingsApp() {
     return false;
   }, [pendingProviderImportPreview, providerState.providers]);
 
-  const isProviderStoreInitialized = () => Boolean(providerStore.state.initialized);
-
   const ensureProviderStoreReady = useCallback(async () => {
-    if (isProviderStoreInitialized()) {
+    if (providerStore.state.initialized) {
       return;
     }
 
@@ -338,11 +336,9 @@ export default function SettingsApp() {
 
     try {
       preview = await windowClient.consumePendingSettingsProviderInstall();
-      if (!preview) {
-        return;
+      if (preview) {
+        await applyProviderInstallPreview(preview);
       }
-
-      await applyProviderInstallPreview(preview);
     } catch (error) {
       if (preview) {
         try {
@@ -353,9 +349,8 @@ export default function SettingsApp() {
       }
 
       console.error("Failed to sync pending provider install preview:", error);
-    } finally {
-      setIsProcessingProviderPreview(false);
     }
+    setIsProcessingProviderPreview(false);
   }, [isProcessingProviderPreview, applyProviderInstallPreview]);
 
   const releaseProviderPreviewProcessing = useCallback(() => {
@@ -391,6 +386,7 @@ export default function SettingsApp() {
       if (preview.kind === "builtin") {
         const targetProvider = providerStore.state.providers.find((provider) => provider.id === preview.id);
         if (!targetProvider) {
+          setIsImportingProvider(false);
           return;
         }
 
@@ -427,9 +423,8 @@ export default function SettingsApp() {
         description: error instanceof Error ? error.message : String(error),
         variant: "destructive",
       });
-    } finally {
-      setIsImportingProvider(false);
     }
+    setIsImportingProvider(false);
   }, [isImportingProvider, navigateToProviderSettings, releaseProviderPreviewProcessing]);
 
   const handleSettingsNavigate = useCallback(
@@ -468,11 +463,22 @@ export default function SettingsApp() {
   const closeWindow = useCallback(() => {
     windowClient.closeSettings();
     window.close();
-  }, [windowClient]);
+  }, []);
 
-  const handleWindowFocus = useCallback(() => {
-    void syncPendingProviderInstall();
+  const syncPendingProviderInstallRef = useRef(syncPendingProviderInstall);
+  useEffect(() => {
+    syncPendingProviderInstallRef.current = syncPendingProviderInstall;
   }, [syncPendingProviderInstall]);
+
+  const setupMcpDeeplinkRef = useRef(setupMcpDeeplink);
+  useEffect(() => {
+    setupMcpDeeplinkRef.current = setupMcpDeeplink;
+  }, [setupMcpDeeplink]);
+
+  const startupWorkloadStateRef = useRef(startupWorkloadState);
+  useEffect(() => {
+    startupWorkloadStateRef.current = startupWorkloadState;
+  }, [startupWorkloadState]);
 
   useEffect(() => {
     const navigateHandler = (_event: unknown, payload?: SettingsNavigationPayload) => {
@@ -542,8 +548,8 @@ export default function SettingsApp() {
   }, [uiSettingsState.fontSizeLevel]);
 
   useEffect(() => {
-    setupMcpDeeplink();
-    startupWorkloadState.connect();
+    const teardownMcpDeeplink = setupMcpDeeplinkRef.current();
+    startupWorkloadStateRef.current.connect();
 
     const handleShowError = (_event: unknown, error: { id: string; title: string; message: string; type: string }) => {
       showErrorToast(error);
@@ -555,6 +561,10 @@ export default function SettingsApp() {
     const notificationScope = createIpcSubscriptionScope();
     notificationScope.on(NOTIFICATION_EVENTS.SHOW_ERROR, handleShowError);
     notificationScope.on(NOTIFICATION_EVENTS.DATABASE_REPAIR_SUGGESTED, handleDatabaseRepairSuggested);
+
+    const handleWindowFocus = () => {
+      void syncPendingProviderInstallRef.current();
+    };
 
     const init = async () => {
       const [settingsLoadResult, routerReadyResult, themeResult] = await Promise.allSettled([
@@ -594,7 +604,7 @@ export default function SettingsApp() {
 
       markStartupInteractive();
       window.addEventListener("focus", handleWindowFocus);
-      await syncPendingProviderInstall();
+      await syncPendingProviderInstallRef.current();
       await windowClient.notifyReady();
       logSettingsStartup("settings window ready IPC sent");
     };
@@ -609,14 +619,11 @@ export default function SettingsApp() {
 
       notificationScope.cleanup();
       window.removeEventListener("focus", handleWindowFocus);
-      cleanupMcpDeeplink();
+      teardownMcpDeeplink();
     };
-  }, []);
+  }, [routerInstance, logSettingsStartup, showErrorToast, showDatabaseRepairSuggestedToast]);
 
-  const [modelCheckOpen, setModelCheckOpen] = useState(false);
-  useEffect(() => {
-    setModelCheckOpen(modelCheckState.isDialogOpen);
-  }, [modelCheckState.isDialogOpen]);
+  const modelCheckOpen = modelCheckState.isDialogOpen;
 
   const currentPath = routerState.location.pathname;
   const currentRouteSegment = currentPath.split("/").filter(Boolean)[0] || "";

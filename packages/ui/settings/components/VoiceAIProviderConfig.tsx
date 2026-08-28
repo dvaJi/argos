@@ -82,29 +82,34 @@ export default function VoiceAIProviderConfig({ provider }: VoiceAIProviderConfi
     setIsHydrating(false);
   };
 
+  const loadConfigRef = useRef(loadConfig);
   useEffect(() => {
-    void loadConfig();
+    loadConfigRef.current = loadConfig;
+  }, [loadConfig]);
+
+  useEffect(() => {
+    void Promise.resolve().then(() => loadConfigRef.current());
   }, []);
 
   useEffect(() => {
     if (hydratingRef.current) return;
     persistUpdates({ audioFormat });
-  }, [audioFormat]);
+  }, [audioFormat, persistUpdates]);
 
   useEffect(() => {
     if (hydratingRef.current) return;
     persistUpdates({ model: ttsModel });
-  }, [ttsModel]);
+  }, [ttsModel, persistUpdates]);
 
   useEffect(() => {
     if (hydratingRef.current) return;
     persistUpdates({ language });
-  }, [language]);
+  }, [language, persistUpdates]);
 
   useEffect(() => {
     if (hydratingRef.current) return;
     persistUpdates({ agentId });
-  }, [agentId]);
+  }, [agentId, persistUpdates]);
 
   const onTemperatureChange = (value: number | readonly number[]) => {
     const next = Array.isArray(value) ? value[0] : value;

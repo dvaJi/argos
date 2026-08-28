@@ -110,7 +110,7 @@ export function WorkspacePanel({
       }
     }
     return items.sort((a, b) => b.createdAt - a.createdAt);
-  }, [messages, sessionId]);
+  }, [messages, sessionId, messageStore]);
 
   const selectedArtifact = useMemo(() => {
     const context = sessionState.selectedArtifactContext;
@@ -156,7 +156,15 @@ export function WorkspacePanel({
     if (!existsInArtifactItems && !matchesCurrentArtifact) {
       sidepanelStore.clearArtifact(sessionId);
     }
-  }, [artifactItems, sessionState]);
+  }, [
+    artifactItems,
+    sessionState,
+    artifactStore.currentArtifact?.id,
+    artifactStore.currentMessageId,
+    artifactStore.currentThreadId,
+    sessionId,
+    sidepanelStore,
+  ]);
 
   const [isNavResizing, setIsNavResizing] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -225,8 +233,13 @@ export function WorkspacePanel({
     };
   }, [isNavResizing, applyPendingNavResize, stopNavResize]);
 
+  const stopNavResizeRef = useRef(stopNavResize);
   useEffect(() => {
-    return () => stopNavResize();
+    stopNavResizeRef.current = stopNavResize;
+  }, [stopNavResize]);
+
+  useEffect(() => {
+    return () => stopNavResizeRef.current();
   }, []);
 
   const handleArtifactSelect = useCallback(

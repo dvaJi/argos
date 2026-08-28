@@ -97,9 +97,8 @@ export default function DisplaySettings() {
         await themeStore.setThemeMode(mode);
       } catch (error) {
         console.error("Failed to update theme mode", error);
-      } finally {
-        setIsUpdatingTheme(false);
       }
+      setIsUpdatingTheme(false);
     },
     [themeMode, isUpdatingTheme, themeStore],
   );
@@ -136,10 +135,7 @@ export default function DisplaySettings() {
     setNotificationsEnabled(value);
   }, []);
 
-  const handleFloatingButtonChange = useCallback(
-    (value: boolean) => setFloatingButtonEnabled(value),
-    [floatingButtonStore],
-  );
+  const handleFloatingButtonChange = useCallback((value: boolean) => setFloatingButtonEnabled(value), []);
 
   const handleThreadSidebarChange = useCallback(
     (value: boolean) => {

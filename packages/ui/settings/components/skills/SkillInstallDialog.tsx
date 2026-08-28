@@ -37,13 +37,17 @@ export default function SkillInstallDialog({ open, onOpenChange, onInstalled }: 
   const [conflictSkillName, setConflictSkillName] = useState("");
   const [pendingInstallAction, setPendingInstallAction] = useState<(() => Promise<void>) | null>(null);
 
-  useEffect(() => {
+  // Reset the conflict/install state whenever the dialog closes (adjusted during
+  // render so the React Compiler can track it).
+  const [wasOpen, setWasOpen] = useState(open);
+  if (wasOpen !== open) {
+    setWasOpen(open);
     if (!open) {
       setPendingInstallAction(null);
       setConflictDialogOpen(false);
       setConflictSkillName("");
     }
-  }, [open]);
+  }
 
   const handleInstallResult = (
     result: { success: boolean; error?: string; skillName?: string },
@@ -83,8 +87,10 @@ export default function SkillInstallDialog({ open, onOpenChange, onInstalled }: 
     try {
       const result = await installFromFolder(folderPath, { overwrite });
       handleInstallResult(result, () => tryInstallFromFolder(folderPath, true));
-    } finally {
       setInstalling(false);
+    } catch (error) {
+      setInstalling(false);
+      throw error;
     }
   };
 
@@ -107,8 +113,10 @@ export default function SkillInstallDialog({ open, onOpenChange, onInstalled }: 
     try {
       const result = await installFromZip(zipPath, { overwrite });
       handleInstallResult(result, () => tryInstallFromZip(zipPath, true));
-    } finally {
       setInstalling(false);
+    } catch (error) {
+      setInstalling(false);
+      throw error;
     }
   };
 
@@ -140,8 +148,10 @@ export default function SkillInstallDialog({ open, onOpenChange, onInstalled }: 
       const result = await installFromUrl(url, { overwrite });
       handleInstallResult(result, () => tryInstallFromUrl(url, true));
       if (result.success) setInstallUrl("");
-    } finally {
       setInstalling(false);
+    } catch (error) {
+      setInstalling(false);
+      throw error;
     }
   };
 

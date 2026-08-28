@@ -126,7 +126,7 @@ const AcpComposerControls = () => {
     return () => {
       cancelled = true;
     };
-  }, [isAcpActiveSession, activeAcpSessionId, acpWorkspacePath]);
+  }, [isAcpActiveSession, activeAcpSessionId]);
 
   const handleAcpConfigOptionsReadyRef = useRef(acp.handleAcpConfigOptionsReady);
   useEffect(() => {

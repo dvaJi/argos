@@ -60,6 +60,122 @@ const TYPE_ICONS: Record<ModelType, string> = {
   [ModelType.TTS]: "lucide:volume-2",
 };
 
+const getModelTypeValue = (model: RENDERER_MODEL_META): ModelType => model.type ?? ModelType.Chat;
+
+const hasModelCapability = (model: RENDERER_MODEL_META, capability: ModelCapabilityKey) => {
+  switch (capability) {
+    case "vision":
+      return !!model.vision;
+    case "functionCall":
+      return !!model.functionCall;
+    case "reasoning":
+      return !!model.reasoning;
+    case "search":
+      return !!model.enableSearch;
+  }
+};
+
+const getCapabilityLabel = (capability: ModelCapabilityKey) => {
+  const labels: Record<ModelCapabilityKey, string> = {
+    vision: "Vision",
+    functionCall: "Function Call",
+    reasoning: "Reasoning",
+    search: "Search",
+  };
+  return labels[capability];
+};
+
+const getModelTypeLabel = (type: ModelType) => {
+  const labels: Record<ModelType, string> = {
+    [ModelType.Chat]: "Chat",
+    [ModelType.Embedding]: "Embedding",
+    [ModelType.Rerank]: "Rerank",
+    [ModelType.ImageGeneration]: "Image",
+    [ModelType.VideoGeneration]: "Video",
+    [ModelType.TTS]: "TTS",
+  };
+  return labels[type] ?? type;
+};
+
+const getModelKey = (model: RENDERER_MODEL_META) => `${model.providerId}:${model.id}`;
+
+const statusSortWeight = (model: RENDERER_MODEL_META) => (model.enabled ? 0 : 1);
+
+const buildStatusSortOrder = (models: RENDERER_MODEL_META[]) => {
+  const orderedModels = [...models].sort((left, right) => {
+    const statusDifference = statusSortWeight(left) - statusSortWeight(right);
+    if (statusDifference !== 0) return statusDifference;
+    return modelNameCollator.compare(left.name, right.name);
+  });
+  const nextOrder: Record<string, number> = {};
+  orderedModels.forEach((model, index) => {
+    nextOrder[getModelKey(model)] = index;
+  });
+  return nextOrder;
+};
+
+type ModelFilterContext = {
+  filterSort: ModelSortKey;
+  statusSortOrder: Record<string, number>;
+  normalizedSearchQuery: string;
+  selectedCapabilities: ModelCapabilityKey[];
+  selectedTypes: ModelType[];
+};
+
+const matchesSearch = (model: RENDERER_MODEL_META, normalizedSearchQuery: string) => {
+  if (!normalizedSearchQuery) return true;
+  return (
+    model.name.toLowerCase().includes(normalizedSearchQuery) ||
+    model.id.toLowerCase().includes(normalizedSearchQuery) ||
+    (!!model.group && model.group.toLowerCase().includes(normalizedSearchQuery)) ||
+    (!!model.description && model.description.toLowerCase().includes(normalizedSearchQuery))
+  );
+};
+
+const matchesAdvancedFilters = (
+  model: RENDERER_MODEL_META,
+  selectedCapabilities: ModelCapabilityKey[],
+  selectedTypes: ModelType[],
+) => {
+  const type = getModelTypeValue(model);
+  if (
+    selectedCapabilities.length > 0 &&
+    !selectedCapabilities.some((capability) => hasModelCapability(model, capability))
+  ) {
+    return false;
+  }
+  if (selectedTypes.length > 0 && !selectedTypes.includes(type)) {
+    return false;
+  }
+  return true;
+};
+
+const sortModels = (models: RENDERER_MODEL_META[], filterSort: ModelSortKey, statusSortOrder: Record<string, number>) =>
+  [...models].sort((left, right) => {
+    if (filterSort === "name") {
+      return modelNameCollator.compare(left.name, right.name);
+    }
+    const leftRank = statusSortOrder[getModelKey(left)];
+    const rightRank = statusSortOrder[getModelKey(right)];
+    if (leftRank !== undefined || rightRank !== undefined) {
+      if (leftRank === undefined) return 1;
+      if (rightRank === undefined) return -1;
+      if (leftRank !== rightRank) return leftRank - rightRank;
+    }
+    return modelNameCollator.compare(left.name, right.name);
+  });
+
+const filterAndSortModels = (models: RENDERER_MODEL_META[], ctx: ModelFilterContext) =>
+  sortModels(
+    models.filter(
+      (model) =>
+        matchesSearch(model, ctx.normalizedSearchQuery) &&
+        matchesAdvancedFilters(model, ctx.selectedCapabilities, ctx.selectedTypes),
+    ),
+    ctx.filterSort,
+    ctx.statusSortOrder,
+  );
+
 interface ProviderModelListProps {
   providerId?: string;
   providerModels: { providerId: string; models: RENDERER_MODEL_META[] }[];
@@ -105,43 +221,6 @@ export default function ProviderModelList({
   }, [modelSearchQuery]);
 
   const normalizedSearchQuery = debouncedSearchQuery.trim().toLowerCase();
-
-  const getModelTypeValue = (model: RENDERER_MODEL_META): ModelType => model.type ?? ModelType.Chat;
-
-  const hasModelCapability = (model: RENDERER_MODEL_META, capability: ModelCapabilityKey) => {
-    switch (capability) {
-      case "vision":
-        return !!model.vision;
-      case "functionCall":
-        return !!model.functionCall;
-      case "reasoning":
-        return !!model.reasoning;
-      case "search":
-        return !!model.enableSearch;
-    }
-  };
-
-  const getCapabilityLabel = (capability: ModelCapabilityKey) => {
-    const labels: Record<ModelCapabilityKey, string> = {
-      vision: "Vision",
-      functionCall: "Function Call",
-      reasoning: "Reasoning",
-      search: "Search",
-    };
-    return labels[capability];
-  };
-
-  const getModelTypeLabel = (type: ModelType) => {
-    const labels: Record<ModelType, string> = {
-      [ModelType.Chat]: "Chat",
-      [ModelType.Embedding]: "Embedding",
-      [ModelType.Rerank]: "Rerank",
-      [ModelType.ImageGeneration]: "Image",
-      [ModelType.VideoGeneration]: "Video",
-      [ModelType.TTS]: "TTS",
-    };
-    return labels[type] ?? type;
-  };
 
   const allModels = useMemo(
     () => [...customModelsProp, ...providerModelsProp.flatMap((p) => p.models)],
@@ -214,78 +293,34 @@ export default function ProviderModelList({
 
   const hasListRefinements = normalizedSearchQuery.length > 0 || activeAdvancedFilterCount > 0;
 
-  const matchesSearch = (model: RENDERER_MODEL_META) => {
-    if (!normalizedSearchQuery) return true;
-    return (
-      model.name.toLowerCase().includes(normalizedSearchQuery) ||
-      model.id.toLowerCase().includes(normalizedSearchQuery) ||
-      (!!model.group && model.group.toLowerCase().includes(normalizedSearchQuery)) ||
-      (!!model.description && model.description.toLowerCase().includes(normalizedSearchQuery))
-    );
-  };
-
-  const matchesAdvancedFilters = (model: RENDERER_MODEL_META) => {
-    const type = getModelTypeValue(model);
-    if (
-      selectedCapabilities.length > 0 &&
-      !selectedCapabilities.some((capability) => hasModelCapability(model, capability))
-    ) {
-      return false;
-    }
-    if (selectedTypes.length > 0 && !selectedTypes.includes(type)) {
-      return false;
-    }
-    return true;
-  };
-
-  const getModelKey = (model: RENDERER_MODEL_META) => `${model.providerId}:${model.id}`;
-
-  const statusSortWeight = (model: RENDERER_MODEL_META) => (model.enabled ? 0 : 1);
-
-  const statusSortOrder = useMemo(() => {
-    const orderedModels = [...allModels].sort((left, right) => {
-      const statusDifference = statusSortWeight(left) - statusSortWeight(right);
-      if (statusDifference !== 0) return statusDifference;
-      return modelNameCollator.compare(left.name, right.name);
-    });
-    const nextOrder: Record<string, number> = {};
-    orderedModels.forEach((model, index) => {
-      nextOrder[getModelKey(model)] = index;
-    });
-    return nextOrder;
-  }, [allModels]);
-
-  const sortModels = (models: RENDERER_MODEL_META[]) =>
-    [...models].sort((left, right) => {
-      if (filterSort === "name") {
-        return modelNameCollator.compare(left.name, right.name);
-      }
-      const leftRank = statusSortOrder[getModelKey(left)];
-      const rightRank = statusSortOrder[getModelKey(right)];
-      if (leftRank !== undefined || rightRank !== undefined) {
-        if (leftRank === undefined) return 1;
-        if (rightRank === undefined) return -1;
-        if (leftRank !== rightRank) return leftRank - rightRank;
-      }
-      return modelNameCollator.compare(left.name, right.name);
-    });
-
-  const filterAndSortModels = (models: RENDERER_MODEL_META[]) =>
-    sortModels(models.filter((model) => matchesSearch(model) && matchesAdvancedFilters(model)));
+  const statusSortOrder = useMemo(() => buildStatusSortOrder(allModels), [allModels]);
 
   const filteredProviderModels = useMemo(
     () =>
       providerModelsProp
         .map((p) => ({
           providerId: p.providerId,
-          models: filterAndSortModels(p.models),
+          models: filterAndSortModels(p.models, {
+            filterSort,
+            statusSortOrder,
+            normalizedSearchQuery,
+            selectedCapabilities,
+            selectedTypes,
+          }),
         }))
         .filter((p) => p.models.length > 0),
     [providerModelsProp, filterSort, normalizedSearchQuery, selectedCapabilities, selectedTypes, statusSortOrder],
   );
 
   const filteredCustomModels = useMemo(
-    () => filterAndSortModels(customModelsProp),
+    () =>
+      filterAndSortModels(customModelsProp, {
+        filterSort,
+        statusSortOrder,
+        normalizedSearchQuery,
+        selectedCapabilities,
+        selectedTypes,
+      }),
     [customModelsProp, filterSort, normalizedSearchQuery, selectedCapabilities, selectedTypes, statusSortOrder],
   );
 
@@ -329,9 +364,8 @@ export default function ProviderModelList({
       await modelStore.enableAllModels(providerId, getBatchTargetModels(providerId));
     } catch (error) {
       console.error(`Failed to enable all models for provider ${providerId}:`, error);
-    } finally {
-      setProviderBatchPendingAction(providerId);
     }
+    setProviderBatchPendingAction(providerId);
   };
 
   const disableAllModels = async (providerId: string) => {
@@ -341,9 +375,8 @@ export default function ProviderModelList({
       await modelStore.disableAllModels(providerId, getBatchTargetModels(providerId));
     } catch (error) {
       console.error(`Failed to disable all models for provider ${providerId}:`, error);
-    } finally {
-      setProviderBatchPendingAction(providerId);
     }
+    setProviderBatchPendingAction(providerId);
   };
 
   const handleDeleteCustomModel = async (model: RENDERER_MODEL_META) => {

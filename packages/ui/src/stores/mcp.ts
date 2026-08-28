@@ -856,12 +856,8 @@ export function useMcpStore() {
   const state = useStore(mcpStore);
   return {
     ...state,
-    get serverList() {
-      return getAllServerList();
-    },
-    get mcpEnabled() {
-      return state.config.mcpEnabled;
-    },
+    serverList: getAllServerList(),
+    mcpEnabled: state.config.mcpEnabled,
     isPluginOwnedServerName,
     isVisibleServerName,
     loadConfig,

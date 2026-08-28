@@ -144,17 +144,19 @@ const MessageBlockThinkHeaderLabelBase: FC<MessageBlockThinkHeaderLabelProps> = 
   );
 
   useEffect(() => {
-    updateDisplayedDuration();
+    // Defer the immediate refresh to a microtask so the state update does not
+    // run synchronously inside the effect.
+    queueMicrotask(() => updateDisplayedDuration());
     if (isLoading) {
       scheduleNextUpdate();
     } else {
       stopTimer();
     }
-  }, [isLoading, reasoningTimeRange?.start, reasoningTimeRange?.end]);
+  }, [isLoading, updateDisplayedDuration, scheduleNextUpdate, stopTimer]);
 
   useEffect(() => {
-    updateDisplayedDuration();
-  }, [reasoningDuration, updateDisplayedDuration]);
+    queueMicrotask(() => updateDisplayedDuration());
+  }, [updateDisplayedDuration]);
 
   useEffect(() => {
     return () => {
