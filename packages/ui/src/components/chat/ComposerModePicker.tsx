@@ -10,7 +10,7 @@ import {
 import { createSessionClient } from "#api/SessionClient";
 import { useSessionStore, getActiveSession, getHasActiveSession } from "#/stores/ui/session";
 import { draftStore, useDraftStore } from "#/stores/ui/draft";
-import { useAgentStore } from "#/stores/ui/agent";
+import { usePreSessionAgentType } from "#/composables/chat/usePreSessionAgentType";
 import type { PermissionMode } from "@argos/shared/types/agent-interface";
 
 type ModeOption = {
@@ -54,19 +54,17 @@ const MODE_OPTIONS: ModeOption[] = [
 const uniqueModeOptions = MODE_OPTIONS.filter((opt, idx, arr) => arr.findIndex((o) => o.label === opt.label) === idx);
 
 const ComposerModePicker = () => {
-  const agentState = useAgentStore();
   const sessionState = useSessionStore();
   void sessionState;
   const draftState = useDraftStore();
   void draftState;
   const sessionClient = useMemo(() => createSessionClient(), []);
+  const preSessionAgentType = usePreSessionAgentType();
 
   const hasActiveSession = getHasActiveSession();
   const activeSession = getActiveSession();
 
-  const isAcpAgent = hasActiveSession
-    ? activeSession?.providerId === "acp"
-    : agentState.agents.find((a) => a.id === agentState.selectedAgentId)?.type === "acp";
+  const isAcpAgent = hasActiveSession ? activeSession?.providerId === "acp" : preSessionAgentType === "acp";
 
   const [permissionMode, setPermissionMode] = useState<PermissionMode>("full_access");
 
@@ -107,9 +105,6 @@ const ComposerModePicker = () => {
   if (isAcpAgent) {
     return null;
   }
-
-  // avoid unused var lint
-  void agentState;
 
   return (
     <DropdownMenu>

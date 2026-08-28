@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#shadcn/components/ui/select";
@@ -20,6 +20,7 @@ import {
   setNotificationsEnabled as updateNotifications,
 } from "#/stores/uiSettingsStore";
 import { useFloatingButtonStore, setFloatingButtonEnabled } from "#/stores/floatingButton";
+import { useThreadSidebarStore } from "#/stores/ui/threadSidebar";
 import { useThemeStore, type ThemeMode } from "#/stores/theme";
 import FontSettingsSection from "./display/FontSettingsSection";
 import SettingsPageShell from "./control-center/SettingsPageShell";
@@ -64,6 +65,7 @@ const fontSizeLabels = ["Small", "Default", "Large", "Extra Large", "Extra Extra
 export default function DisplaySettings() {
   const uiSettingsStore = useUiSettingsStore();
   const floatingButtonStore = useFloatingButtonStore();
+  const threadSidebar = useThreadSidebarStore();
   const themeStore = useThemeStore();
 
   const [isUpdatingTheme, setIsUpdatingTheme] = useState(false);
@@ -121,6 +123,14 @@ export default function DisplaySettings() {
     updateFontSizeLevel(fontSizeLevel);
   }, [fontSizeLevel]);
 
+  // Load the experiment flag exactly once: the hook object identity changes
+  // every render, so depending on it here would re-read (and clobber) the
+  // just-toggled value right after a switch flip.
+  const loadThreadSidebarEnabledRef = useRef(threadSidebar.loadThreadSidebarEnabled);
+  useEffect(() => {
+    void loadThreadSidebarEnabledRef.current();
+  }, []);
+
   const handleNotificationsChange = useCallback((value: boolean) => {
     updateNotifications(value);
     setNotificationsEnabled(value);
@@ -129,6 +139,13 @@ export default function DisplaySettings() {
   const handleFloatingButtonChange = useCallback(
     (value: boolean) => setFloatingButtonEnabled(value),
     [floatingButtonStore],
+  );
+
+  const handleThreadSidebarChange = useCallback(
+    (value: boolean) => {
+      void threadSidebar.setThreadSidebarEnabled(value);
+    },
+    [threadSidebar],
   );
 
   return (
@@ -316,6 +333,28 @@ export default function DisplaySettings() {
               <div className="text-xs text-muted-foreground">Show a floating button for quick access</div>
             </div>
           )}
+
+          <div className="flex flex-col gap-2 px-2 py-2">
+            <div className="flex items-center gap-3">
+              <span className="flex min-w-[220px] shrink-0 items-center gap-2 text-sm font-medium" dir={dir}>
+                <Icon icon="lucide:list-todo" className="h-4 w-4 text-muted-foreground" />
+                <span className="truncate">Thread Sidebar</span>
+                <span className="rounded-full bg-accent/60 px-1.5 py-0.5 text-[10px] font-medium text-accent-foreground">
+                  Experiment
+                </span>
+              </span>
+              <div className="ml-auto">
+                <Switch
+                  id="thread-sidebar-switch"
+                  checked={threadSidebar.enabled}
+                  onCheckedChange={handleThreadSidebarChange}
+                />
+              </div>
+            </div>
+            <div className="text-xs text-muted-foreground">
+              Replace the left sidebar with a task-oriented thread list (Active, Pinned, Settled) — t3code-inspired
+            </div>
+          </div>
         </div>
       </SettingsPageShell>
 

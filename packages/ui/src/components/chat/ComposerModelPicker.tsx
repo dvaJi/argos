@@ -4,10 +4,11 @@ import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "#shadcn/components/ui/popover";
 import { useModelStore, getChatSelectableModelGroups } from "#/stores/modelStore";
-import { useAgentStore, inferAgentType } from "#/stores/ui/agent";
+import { useAgentStore } from "#/stores/ui/agent";
 import { useSessionStore, getActiveSession, getHasActiveSession } from "#/stores/ui/session";
 import { draftStore, useDraftStore } from "#/stores/ui/draft";
 import { createSessionClient } from "#api/SessionClient";
+import { usePreSessionAgentType } from "#/composables/chat/usePreSessionAgentType";
 import ModelIcon from "#/components/icons/ModelIcon";
 import AgentAvatar from "#/components/icons/AgentAvatar";
 import { useThemeStore } from "#/stores/theme";
@@ -21,6 +22,7 @@ const ComposerModelPicker = () => {
   void draftState;
   const themeStore = useThemeStore();
   const sessionClient = useMemo(() => createSessionClient(), []);
+  const preSessionAgentType = usePreSessionAgentType();
 
   const [open, setOpen] = useState(false);
   const [keyword, setKeyword] = useState("");
@@ -30,13 +32,11 @@ const ComposerModelPicker = () => {
 
   const isAcpAgent = useMemo(() => {
     if (hasActiveSession) return activeSession?.providerId === "acp";
-    const selectedId = agentState.selectedAgentId;
-    if (!selectedId) {
-      const selected = agentState.agents.find((a) => a.id === "argos");
-      return selected?.type !== "acp" && selected?.agentType !== "acp";
-    }
-    return inferAgentType(selectedId, agentState.agents) === "acp";
-  }, [hasActiveSession, activeSession?.providerId, agentState.selectedAgentId, agentState.agents]);
+    // No explicit pick yet: follow the effective agent (first enabled Argos
+    // agent by default) so an Argos composer shows provider models, not the
+    // ACP agent list.
+    return preSessionAgentType === "acp";
+  }, [hasActiveSession, activeSession?.providerId, preSessionAgentType]);
 
   const acpAgents = useMemo(
     () => agentState.agents.filter((a) => a.type === "acp" || a.agentType === "acp"),

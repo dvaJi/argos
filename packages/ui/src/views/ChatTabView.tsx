@@ -6,7 +6,6 @@ import { subscribeRuntimeConnectionState } from "#api/runtime";
 import { ChatSidePanel } from "#/components/sidepanel/ChatSidePanel";
 import NewThreadPage from "#/pages/NewThreadPage";
 import ChatPage from "#/pages/ChatPage";
-import { AgentWelcomePage } from "#/pages/AgentWelcomePage";
 import {
   pageRouterStore,
   initialize as initializePageRouter,
@@ -30,7 +29,6 @@ import { markStartupInteractive, scheduleStartupDeferredTask } from "#/lib/start
 function ChatTabView() {
   const pageState = useStore(pageRouterStore);
   const sessionState = useStore(sessionStore);
-  const agentState = useStore(agentStore);
   const [isReady, setIsReady] = useState(false);
   const [hydrationFailed, setHydrationFailed] = useState(false);
   const hydrationFailedRef = useRef(false);
@@ -132,8 +130,7 @@ function ChatTabView() {
       <div className="relative flex h-full min-h-0 min-w-0 w-0 flex-1 transition-[width] duration-200 ease-out">
         {isReady && !hydrationFailed && (
           <>
-            {route.name === "newThread" && agentState.selectedAgentId === null && <AgentWelcomePage />}
-            {route.name === "newThread" && agentState.selectedAgentId !== null && <NewThreadPage />}
+            {route.name === "newThread" && <NewThreadPage />}
             {route.name === "chat" && sessionId && <ChatPage sessionId={sessionId} />}
           </>
         )}

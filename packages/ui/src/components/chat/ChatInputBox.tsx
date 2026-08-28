@@ -54,7 +54,6 @@ interface ChatInputBoxProps {
   onUpdateFiles?: (files: MessageFile[]) => void;
   onCommandSubmit?: (command: string) => void;
   onPendingSkillsChange?: (skills: string[]) => void;
-  onToggleVoiceInput?: () => void;
   toolbar?: ReactNode;
   footerLeft?: ReactNode;
 }
@@ -62,7 +61,6 @@ interface ChatInputBoxProps {
 const ChatInputBox = forwardRef<
   {
     triggerAttach: () => void;
-    insertRecognizedText: (text: string) => void;
     insertWorkspaceReference: (targetPath: string) => boolean;
     getPendingSkillsSnapshot: () => string[];
     focusInput: () => void;
@@ -89,7 +87,6 @@ const ChatInputBox = forwardRef<
       onUpdateFiles,
       onCommandSubmit,
       onPendingSkillsChange,
-      onToggleVoiceInput,
       toolbar,
       footerLeft,
     },
@@ -240,13 +237,6 @@ const ChatInputBox = forwardRef<
     }
 
     function handleKeydown(e: KeyboardEvent) {
-      const isVoiceShortcut = (e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "m";
-      if (isVoiceShortcut) {
-        e.preventDefault();
-        onToggleVoiceInput?.();
-        return;
-      }
-
       const isPlainTab = e.key === "Tab" && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey;
       if (isPlainTab && queueSubmitEnabled && !queueSubmitDisabled) {
         if (mentions.isSuggestionMenuOpen || mentions.shouldSuppressSubmit()) return;
@@ -326,12 +316,6 @@ const ChatInputBox = forwardRef<
       filesHelper.openFilePicker();
     }
 
-    function insertRecognizedText(text: string) {
-      const normalizedText = text.trim();
-      if (!normalizedText) return;
-      editor?.chain().focus().insertContent(normalizedText).run();
-    }
-
     function getPendingSkillsSnapshot(): string[] {
       return Array.from(new Set(skillsData.pendingSkills));
     }
@@ -351,7 +335,6 @@ const ChatInputBox = forwardRef<
       ref,
       () => ({
         triggerAttach,
-        insertRecognizedText,
         insertWorkspaceReference,
         getPendingSkillsSnapshot,
         focusInput,
@@ -411,7 +394,7 @@ const ChatInputBox = forwardRef<
 
         <div
           data-testid="chat-input-editor"
-          className="chat-input-editor px-4 pt-4 pb-2 text-sm"
+          className="chat-input-editor px-4 pt-4 pb-2 text-base sm:text-sm"
           onKeyDown={handleKeydown}
           onPasteCapture={onPaste}
         >

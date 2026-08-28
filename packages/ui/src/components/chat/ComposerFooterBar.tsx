@@ -4,19 +4,17 @@ import ComposerModePicker from "./ComposerModePicker";
 import AcpComposerControls from "./AcpComposerControls";
 import { Separator } from "#shadcn/components/ui/separator";
 import { useSessionStore, getActiveSession, getHasActiveSession } from "#/stores/ui/session";
-import { useAgentStore, inferAgentType } from "#/stores/ui/agent";
+import { usePreSessionAgentType } from "#/composables/chat/usePreSessionAgentType";
 
 const ComposerFooterBar = () => {
   // Subscribe so the bar re-renders when the active session / agent changes.
   const sessionStoreState = useSessionStore();
   void sessionStoreState;
-  const agentState = useAgentStore();
+  const preSessionAgentType = usePreSessionAgentType();
 
   const hasActiveSession = getHasActiveSession();
   const activeSession = getActiveSession();
-  const isAcp = hasActiveSession
-    ? activeSession?.providerId === "acp"
-    : inferAgentType(agentState.selectedAgentId, agentState.agents) === "acp";
+  const isAcp = hasActiveSession ? activeSession?.providerId === "acp" : preSessionAgentType === "acp";
 
   return (
     <div className="flex items-center gap-1" data-testid="composer-footer-bar">

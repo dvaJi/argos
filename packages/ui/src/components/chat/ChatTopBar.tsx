@@ -26,6 +26,7 @@ import {
   DialogTitle,
 } from "#shadcn/components/ui/dialog";
 import AgentTransferDialog from "#/components/agent/AgentTransferDialog";
+import AgentSwitcher from "#/components/threads/AgentSwitcher";
 import { MemoryManagerDialog } from "#settings/components/MemoryManagerDialog";
 import { createConfigClient } from "#api/ConfigClient";
 import { useAgentStore } from "#/stores/ui/agent";
@@ -339,6 +340,7 @@ const ChatTopBar: FC<ChatTopBarProps> = ({
               <Icon icon="lucide:chevron-right" className="w-3 h-3 shrink-0" />
             </div>
           )}
+          {currentAgent && <AgentSwitcher variant="topbar" className="text-muted-foreground" />}
           {isReadOnly ? (
             <div className="min-w-0 flex-1">
               <h2 className="text-sm font-medium truncate">{currentTitle}</h2>

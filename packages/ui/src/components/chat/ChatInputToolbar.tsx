@@ -6,216 +6,141 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "#shadcn/components/ui/t
 interface ChatInputToolbarProps {
   isGenerating?: boolean;
   isCancelling?: boolean;
+  /** Text or attachments are present; drives the steer button visibility. */
   hasInput?: boolean;
-  hasText?: boolean;
   sendDisabled?: boolean;
+  /**
+   * True while the chat composer is dispatching a message. The primary
+   * button label switches to "Sending…" so the user knows the click
+   * registered, even if the network round-trip is fast.
+   */
+  isSending?: boolean;
   queueDisabled?: boolean;
-  showVoiceInput?: boolean;
-  isVoiceInputListening?: boolean;
-  isVoiceInputTranscribing?: boolean;
-  compact?: boolean;
   onSend: () => void;
-  onQueue: () => void;
-  onSteer: () => void;
-  onAttach: () => void;
-  onVoiceInput: () => void;
-  onStop: () => void;
+  /** Only reachable while generating (primary button becomes "Queue"). */
+  onQueue?: () => void;
+  /** Only reachable while generating with input (steer button). */
+  onSteer?: () => void;
+  /** Only reachable while generating without input (stop button). */
+  onStop?: () => void;
 }
 
+/**
+ * Right-hand action cluster of the thread composer: steer (while generating
+ * with input) and the primary send / queue / stop button. The attach button
+ * lives in the composer's footer-left cluster (`ThreadComposer`).
+ */
 const ChatInputToolbar: FC<ChatInputToolbarProps> = ({
   isGenerating = false,
   isCancelling = false,
   hasInput = false,
-  hasText = false,
   sendDisabled = false,
+  isSending = false,
   queueDisabled = false,
-  showVoiceInput = false,
-  isVoiceInputListening = false,
-  isVoiceInputTranscribing = false,
-  compact = false,
   onSend,
   onQueue,
   onSteer,
-  onAttach,
-  onVoiceInput,
   onStop,
 }) => {
-  const hasActiveInput = useMemo(() => hasInput || hasText, [hasInput, hasText]);
-
-  const voiceInputButtonClass = useMemo(() => {
-    if (isVoiceInputListening) {
-      return "relative group h-7 w-7 rounded-lg overflow-hidden text-cyan-600 bg-cyan-500/10 ring-1 ring-cyan-500/30 hover:text-red-500 hover:bg-red-500/10 hover:ring-red-500/35 transition-colors duration-200";
-    }
-    if (isVoiceInputTranscribing) {
-      return "relative group h-7 w-7 rounded-lg text-primary bg-primary/10 ring-1 ring-primary/20 hover:bg-primary/15";
-    }
-    return "relative group h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground";
-  }, [isVoiceInputListening, isVoiceInputTranscribing]);
-
-  const voiceInputIcon = useMemo(() => {
-    return isVoiceInputTranscribing ? "lucide:loader-circle" : "lucide:mic";
-  }, [isVoiceInputTranscribing]);
-
-  const voiceInputIconClass = useMemo(
-    () => `relative z-10 w-4 h-4 ${isVoiceInputTranscribing ? "animate-spin" : ""}`,
-    [isVoiceInputTranscribing],
-  );
-
-  const voiceInputTooltip = useMemo(() => {
-    if (isVoiceInputTranscribing) return "Stop";
-    if (isVoiceInputListening) return "Stop voice input";
-    return "Voice input";
-  }, [isVoiceInputTranscribing, isVoiceInputListening]);
-
   const buttonMode = useMemo<"send" | "queue" | "stop">(() => {
-    if (isGenerating && !hasActiveInput) return "stop";
+    if (isGenerating && !hasInput) return "stop";
     if (isGenerating) return "queue";
     return "send";
-  }, [isGenerating, hasActiveInput]);
+  }, [isGenerating, hasInput]);
 
   const primaryTooltip = useMemo(() => {
     if (buttonMode === "stop") return isCancelling ? "Cancelling…" : "Stop";
     if (buttonMode === "queue") return "Queue";
+    if (isSending) return "Sending…";
     return "Send";
-  }, [buttonMode, isCancelling]);
+  }, [buttonMode, isCancelling, isSending]);
 
   const handlePrimaryAction = () => {
     if (buttonMode === "stop") {
-      onStop();
+      onStop?.();
       return;
     }
     if (buttonMode === "queue") {
-      onQueue();
+      onQueue?.();
       return;
     }
     onSend();
   };
 
   return (
-    <div className={compact ? "flex items-center gap-1" : "flex items-center justify-between px-3 py-2"}>
-      <div className="flex items-center gap-1">
+    <div className="flex items-center gap-1">
+      {isGenerating && hasInput && (
         <Tooltip>
           <TooltipTrigger
             render={
               <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground"
-                onClick={onAttach}
+                data-testid="chat-steer-button"
+                variant="outline"
+                size="sm"
+                className="h-7 shrink-0 gap-1 rounded-lg border-border/60 px-2.5 text-[13px] text-foreground"
+                onClick={onSteer}
               />
             }
           >
-            <Icon icon="lucide:plus" className="w-4 h-4" />
+            <Icon icon="lucide:compass" className="w-3.5 h-3.5" />
+            <span>Steer</span>
           </TooltipTrigger>
           <TooltipContent>
-            <p>Attach file</p>
+            <p>Interrupt &amp; send as next turn</p>
           </TooltipContent>
         </Tooltip>
-      </div>
+      )}
 
-      <div className="flex items-center gap-1">
-        {showVoiceInput && (
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  data-testid="chat-voice-input-button"
-                  variant="ghost"
-                  size="icon"
-                  className={voiceInputButtonClass}
-                  aria-pressed={isVoiceInputListening || isVoiceInputTranscribing}
-                  aria-busy={isVoiceInputTranscribing || undefined}
-                  onClick={onVoiceInput}
-                />
-              }
-            >
-              {isVoiceInputListening && (
-                <span aria-hidden="true" className="absolute inset-0 rounded-lg bg-cyan-500/14 animate-pulse" />
-              )}
-              {isVoiceInputListening ? (
-                <Icon
-                  icon="lucide:square"
-                  className="absolute inset-0 m-auto z-10 hidden w-4 h-4 text-red-500 group-hover:block"
-                />
-              ) : (
-                <Icon icon={voiceInputIcon} className={voiceInputIconClass} />
-              )}
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{voiceInputTooltip}</p>
-            </TooltipContent>
-          </Tooltip>
-        )}
-
-        {isGenerating && hasActiveInput && (
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  data-testid="chat-steer-button"
-                  variant="outline"
-                  size="sm"
-                  className="h-7 shrink-0 gap-1 rounded-lg border-border/60 px-2.5 text-[13px] text-foreground"
-                  onClick={onSteer}
-                />
-              }
-            >
-              <Icon icon="lucide:compass" className="w-3.5 h-3.5" />
-              <span>Steer</span>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Interrupt & send as next turn</p>
-            </TooltipContent>
-          </Tooltip>
-        )}
-
-        <Tooltip key={buttonMode}>
-          <TooltipTrigger
-            render={
-              <Button
-                data-testid={
-                  buttonMode === "stop"
-                    ? isCancelling
-                      ? "chat-cancelling-button"
-                      : "chat-stop-button"
-                    : buttonMode === "queue"
-                      ? "chat-queue-button"
-                      : "chat-send-button"
-                }
-                data-mode={buttonMode}
-                data-cancelling={buttonMode === "stop" && isCancelling ? "true" : undefined}
-                variant={buttonMode === "stop" ? "outline" : "default"}
-                size="icon"
-                className="h-7 w-7 rounded-full"
-                disabled={buttonMode === "send" ? sendDisabled : buttonMode === "queue" ? queueDisabled : isCancelling}
-                onClick={handlePrimaryAction}
-              />
-            }
-          >
-            <Icon
-              icon={
+      <Tooltip key={buttonMode}>
+        <TooltipTrigger
+          render={
+            <Button
+              data-testid={
                 buttonMode === "stop"
+                  ? isCancelling
+                    ? "chat-cancelling-button"
+                    : "chat-stop-button"
+                  : buttonMode === "queue"
+                    ? "chat-queue-button"
+                    : "chat-send-button"
+              }
+              data-mode={buttonMode}
+              data-cancelling={buttonMode === "stop" && isCancelling ? "true" : undefined}
+              variant={buttonMode === "stop" ? "outline" : "default"}
+              size="icon"
+              className="h-7 w-7 rounded-full"
+              disabled={buttonMode === "send" ? sendDisabled : buttonMode === "queue" ? queueDisabled : isCancelling}
+              onClick={handlePrimaryAction}
+            />
+          }
+        >
+          <Icon
+            icon={
+              isSending
+                ? "lucide:loader-circle"
+                : buttonMode === "stop"
                   ? isCancelling
                     ? "lucide:loader-circle"
                     : "lucide:square"
                   : buttonMode === "queue"
                     ? "lucide:list-plus"
                     : "lucide:arrow-up"
-              }
-              className={
-                buttonMode === "stop"
+            }
+            className={
+              isSending
+                ? "w-4 h-4 text-muted-foreground motion-safe:animate-spin"
+                : buttonMode === "stop"
                   ? isCancelling
                     ? "w-4 h-4 text-muted-foreground animate-spin"
                     : "w-4 h-4 text-red-500"
                   : "w-4 h-4"
-              }
-            />
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>{primaryTooltip}</p>
-          </TooltipContent>
-        </Tooltip>
-      </div>
+            }
+          />
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>{primaryTooltip}</p>
+        </TooltipContent>
+      </Tooltip>
     </div>
   );
 };
