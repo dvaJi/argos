@@ -210,6 +210,8 @@ export default function ThreadSidebarRow({
       <ContextMenuTrigger
         render={
           <div
+            role="button"
+            tabIndex={0}
             data-testid="thread-sidebar-row"
             data-session-id={session.id}
             data-variant={variant}
@@ -217,7 +219,13 @@ export default function ThreadSidebarRow({
             data-nav-selected={String(isNavSelected)}
             data-editing={editing ? "true" : undefined}
             onClick={() => onSelect(session)}
-            className={`group flex w-full cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] transition-colors duration-150 active:scale-[0.99] motion-reduce:active:scale-100 ${
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onSelect(session);
+              }
+            }}
+            className={`group flex w-full cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] transition-colors duration-150 outline-none focus-visible:ring-1 focus-visible:ring-primary/40 active:scale-[0.99] motion-reduce:active:scale-100 ${
               editing
                 ? "bg-sidebar-row-active/40"
                 : isSelected
@@ -253,43 +261,33 @@ export default function ThreadSidebarRow({
               </>
             ) : (
               <>
-                <button
-                  type="button"
-                  data-testid="thread-sidebar-select"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onSelect(session);
-                  }}
-                  className="flex min-w-0 flex-1 items-center gap-2 text-left"
-                >
-                  {agent ? (
-                    <AgentAvatar agent={agent} className="size-3.5 shrink-0" />
-                  ) : (
-                    <Icon icon="lucide:message-square" className="size-3.5 shrink-0 text-muted-foreground/60" />
+                {agent ? (
+                  <AgentAvatar agent={agent} className="size-3.5 shrink-0" />
+                ) : (
+                  <Icon icon="lucide:message-square" className="size-3.5 shrink-0 text-muted-foreground/60" />
+                )}
+                <span className="min-w-0 flex-1 truncate font-medium">
+                  {segments.map((segment, index) =>
+                    segment.match ? (
+                      <mark key={index} className="rounded-sm bg-primary/20 px-0.5 text-foreground">
+                        {segment.text}
+                      </mark>
+                    ) : (
+                      <span key={index}>{segment.text}</span>
+                    ),
                   )}
-                  <span className="min-w-0 flex-1 truncate font-medium">
-                    {segments.map((segment, index) =>
-                      segment.match ? (
-                        <mark key={index} className="rounded-sm bg-primary/20 px-0.5 text-foreground">
-                          {segment.text}
-                        </mark>
-                      ) : (
-                        <span key={index}>{segment.text}</span>
-                      ),
-                    )}
+                </span>
+                {pill && (
+                  <span
+                    data-testid={`thread-sidebar-pill-${status}`}
+                    className={`flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${pill.className} ${
+                      pill.pulse ? "animate-pulse motion-reduce:animate-none" : ""
+                    }`}
+                  >
+                    <Icon icon={pill.icon} className="size-3" />
+                    {pill.label}
                   </span>
-                  {pill && (
-                    <span
-                      data-testid={`thread-sidebar-pill-${status}`}
-                      className={`flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${pill.className} ${
-                        pill.pulse ? "animate-pulse motion-reduce:animate-none" : ""
-                      }`}
-                    >
-                      <Icon icon={pill.icon} className="size-3" />
-                      {pill.label}
-                    </span>
-                  )}
-                </button>
+                )}
                 {rightSlot}
                 {hoverAction}
               </>

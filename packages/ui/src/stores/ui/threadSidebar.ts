@@ -187,15 +187,17 @@ if (typeof window !== "undefined") {
   // the pill to "0s" for a turn that has been running for minutes.
   const persisted = threadSidebarStore.state.workingSinceById;
   const seed: Record<string, number> = { ...persisted };
+  const sessionsById = new Map(sessionStore.state.sessions.map((s) => [s.id, s]));
+  for (const id of Object.keys(seed)) {
+    const session = sessionsById.get(id);
+    if (session && session.status === WORKING_STATUS) continue;
+    // Drop entries for sessions that are no longer working.
+    delete seed[id];
+  }
   for (const session of sessionStore.state.sessions) {
     if (session.status === WORKING_STATUS && seed[session.id] === undefined) {
       seed[session.id] = session.updatedAt || Date.now();
     }
-  }
-  // Drop entries for sessions that are no longer working.
-  for (const id of Object.keys(seed)) {
-    const session = sessionStore.state.sessions.find((s) => s.id === id);
-    if (session && session.status !== WORKING_STATUS) delete seed[id];
   }
   threadSidebarStore.setState((prev) => ({ ...prev, workingSinceById: seed }));
   persistWorkingSince(seed);

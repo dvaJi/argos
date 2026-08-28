@@ -119,11 +119,6 @@ export default function ThreadSidebarList() {
   }, [flatResults]);
 
   useEffect(() => {
-    setNavIndex(-1);
-    setSettledPageCount(1);
-  }, [searchQuery]);
-
-  useEffect(() => {
     if (navIndex < 0) return;
     listRef.current?.querySelector('[data-nav-selected="true"]')?.scrollIntoView({ block: "nearest" });
   }, [navIndex]);
@@ -208,7 +203,13 @@ export default function ThreadSidebarList() {
             <Input
               data-testid="thread-sidebar-search"
               value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
+              onChange={(event) => {
+                setSearchQuery(event.target.value);
+                // Reset nav + paging inline: a reset effect would be a
+                // synchronous set-state-in-effect (react-doctor).
+                setNavIndex(-1);
+                setSettledPageCount(1);
+              }}
               onKeyDown={(event) => {
                 if (event.key === "ArrowDown") {
                   event.preventDefault();
