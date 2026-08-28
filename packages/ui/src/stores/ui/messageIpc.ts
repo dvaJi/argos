@@ -24,6 +24,8 @@ const STREAM_STALE_AFTER_MS = 120_000;
 const STREAM_WATCHDOG_INTERVAL_MS = 15_000;
 /** Bounded memory for settled requestIds so stale updates can be recognized. */
 const MAX_TRACKED_SETTLED_REQUEST_IDS = 100;
+/** Cap for the per-request log-delta map (app-lifetime singleton binding). */
+const MAX_TRACKED_STREAM_LOG_IDS = 200;
 
 export function bindMessageStoreIpc(options: BindMessageStoreIpcOptions): () => void {
   const chatClient = createChatClient();
@@ -70,6 +72,12 @@ export function bindMessageStoreIpc(options: BindMessageStoreIpcOptions): () => 
       const blockCount = blocks?.length ?? 0;
       const charCount = blocks?.reduce((sum, block) => sum + (block.content?.length ?? 0), 0) ?? 0;
       const prevLog = streamLogState.get(payload.requestId);
+      if (!prevLog && streamLogState.size >= MAX_TRACKED_STREAM_LOG_IDS) {
+        // App-lifetime singleton: evict the oldest entry so the map stays
+        // bounded (docs/issues/archives/stream-diagnostics-logging).
+        const oldest = streamLogState.keys().next().value;
+        if (oldest !== undefined) streamLogState.delete(oldest);
+      }
       const delta = prevLog
         ? `(${blockCount - prevLog.blocks >= 0 ? "+" : ""}${blockCount - prevLog.blocks} blocks, ` +
           `${charCount - prevLog.chars >= 0 ? "+" : ""}${charCount - prevLog.chars} chars, ` +
