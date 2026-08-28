@@ -14,7 +14,7 @@ import { isBrowserMode } from "./runtimeKind";
 export interface LocalApi {
   copyText(text: string): void;
   copyImage(image: string): void;
-  readClipboardText(): string;
+  readClipboardText(): Promise<string>;
   getPathForFile(file: File): string;
   getWindowId(): number | null;
   getWebContentsId(): number;
@@ -35,7 +35,7 @@ export const browserLocalApi: LocalApi = {
     navigator.clipboard?.writeText(text).catch(() => {});
   },
   copyImage: () => {},
-  readClipboardText: () => "",
+  readClipboardText: () => Promise.resolve(""),
   getPathForFile: () => "",
   getWindowId: () => null,
   getWebContentsId: () => 0,

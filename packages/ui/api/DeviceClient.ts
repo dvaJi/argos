@@ -52,7 +52,7 @@ export function createDeviceClient(bridge: ArgosBridge = getArgosBridge()) {
     copyRuntimeImage(image);
   }
 
-  function readClipboardText(): string {
+  function readClipboardText(): Promise<string> {
     return readRuntimeClipboardText();
   }
 
