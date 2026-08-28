@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { createIpcSubscriptionScope } from "#/lib/ipcSubscription";
 import { APP_RUNTIME_EVENTS, DEEPLINK_EVENTS, DEV_EVENTS, NOTIFICATION_EVENTS, SHORTCUT_EVENTS } from "#/events";
 
@@ -21,38 +21,46 @@ interface UseAppIpcRuntimeOptions {
 }
 
 export function useAppIpcRuntime(options: UseAppIpcRuntimeOptions) {
+  // Subscriptions are installed once; a ref keeps the latest handlers reachable
+  // without re-subscribing on every render (callers pass inline closures).
+  const optionsRef = useRef(options);
   useEffect(() => {
+    optionsRef.current = options;
+  }, [options]);
+
+  useEffect(() => {
+    const opts = optionsRef.current;
     const scope = createIpcSubscriptionScope();
 
-    scope.on(DEEPLINK_EVENTS.START, options.handleStartDeeplink);
+    scope.on(DEEPLINK_EVENTS.START, opts.handleStartDeeplink);
     scope.on(DEV_EVENTS.START_GUIDED_ONBOARDING, () => {
-      void options.handleStartGuidedOnboardingDev();
+      void opts.handleStartGuidedOnboardingDev();
     });
     scope.on(APP_RUNTIME_EVENTS.WINDOW_FOCUSED, () => {
-      void options.handleWindowFocused();
+      void opts.handleWindowFocused();
     });
     scope.on(NOTIFICATION_EVENTS.SHOW_ERROR, (_event, error) => {
-      options.showErrorToast(error as { id: string; title: string; message: string; type: string });
+      opts.showErrorToast(error as { id: string; title: string; message: string; type: string });
     });
     scope.on(NOTIFICATION_EVENTS.DATABASE_REPAIR_SUGGESTED, (_event, payload) => {
-      options.handleDatabaseRepairSuggested(payload);
+      opts.handleDatabaseRepairSuggested(payload);
     });
-    scope.on(SHORTCUT_EVENTS.ZOOM_IN, options.handleZoomIn);
-    scope.on(SHORTCUT_EVENTS.ZOOM_OUT, options.handleZoomOut);
-    scope.on(SHORTCUT_EVENTS.ZOOM_RESUME, options.handleZoomResume);
+    scope.on(SHORTCUT_EVENTS.ZOOM_IN, opts.handleZoomIn);
+    scope.on(SHORTCUT_EVENTS.ZOOM_OUT, opts.handleZoomOut);
+    scope.on(SHORTCUT_EVENTS.ZOOM_RESUME, opts.handleZoomResume);
     scope.on(SHORTCUT_EVENTS.CREATE_NEW_CONVERSATION, () => {
-      if (options.getCurrentRouteName() !== "chat") {
+      if (opts.getCurrentRouteName() !== "chat") {
         return;
       }
 
-      void options.handleCreateNewConversation();
+      void opts.handleCreateNewConversation();
     });
-    scope.on(SHORTCUT_EVENTS.TOGGLE_SIDEBAR, options.handleToggleSidebar);
-    scope.on(SHORTCUT_EVENTS.TOGGLE_WORKSPACE, options.handleToggleWorkspace);
-    scope.on(SHORTCUT_EVENTS.TOGGLE_SPOTLIGHT, options.openSpotlight);
-    scope.on(NOTIFICATION_EVENTS.DATA_RESET_COMPLETE_DEV, options.handleDataResetComplete);
+    scope.on(SHORTCUT_EVENTS.TOGGLE_SIDEBAR, opts.handleToggleSidebar);
+    scope.on(SHORTCUT_EVENTS.TOGGLE_WORKSPACE, opts.handleToggleWorkspace);
+    scope.on(SHORTCUT_EVENTS.TOGGLE_SPOTLIGHT, opts.openSpotlight);
+    scope.on(NOTIFICATION_EVENTS.DATA_RESET_COMPLETE_DEV, opts.handleDataResetComplete);
     scope.on(NOTIFICATION_EVENTS.SYS_NOTIFY_CLICKED, (_event, payload) => {
-      options.handleSystemNotificationClick(payload);
+      opts.handleSystemNotificationClick(payload);
     });
 
     return () => scope.cleanup();

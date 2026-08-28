@@ -89,6 +89,8 @@ export function MemoryManagerPanel({
   }, [agentId]);
 
   const searchActive = searchQuery.trim().length > 0;
+  // Stale search errors are only meaningful while a query is active.
+  const visibleSearchError = searchActive ? searchError : null;
   const categoryFilterActive = categoryFilter !== "all";
 
   const displayedMemories = useMemo(() => {
@@ -130,10 +132,9 @@ export function MemoryManagerPanel({
         if (requestId !== searchRequestIdRef.current || agentIdRef.current !== targetAgentId) return;
         setSearchResults([]);
         setSearchError(e instanceof Error ? e.message : "Search failed.");
-      } finally {
-        if (requestId === searchRequestIdRef.current && agentIdRef.current === targetAgentId) {
-          setSearching(false);
-        }
+      }
+      if (requestId === searchRequestIdRef.current && agentIdRef.current === targetAgentId) {
+        setSearching(false);
       }
     },
     [memoryClient],
@@ -161,14 +162,14 @@ export function MemoryManagerPanel({
     } catch (e) {
       if (requestId !== refreshRequestIdRef.current || agentIdRef.current !== targetAgentId) return;
       setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      if (requestId === refreshRequestIdRef.current && agentIdRef.current === targetAgentId) {
-        setLoading(false);
-      }
+    }
+    if (requestId === refreshRequestIdRef.current && agentIdRef.current === targetAgentId) {
+      setLoading(false);
     }
   }, [memoryClient, runSearch, searchQuery]);
 
   useEffect(() => {
+    if (!agentId) return;
     void refresh();
   }, [agentId, refresh]);
 
@@ -178,10 +179,9 @@ export function MemoryManagerPanel({
     searchRequestIdRef.current += 1;
     const requestId = searchRequestIdRef.current;
     if (!query) {
-      setSearchResults([]);
-      setSearchError(null);
-      setSearching(false);
-      return;
+      return () => {
+        if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+      };
     }
     const targetAgentId = agentIdRef.current;
     searchTimerRef.current = setTimeout(() => {
@@ -229,9 +229,8 @@ export function MemoryManagerPanel({
       await refresh();
     } catch (e) {
       notifyActionFailed(e);
-    } finally {
-      setAdding(false);
     }
+    setAdding(false);
   }, [
     addContent,
     adding,
@@ -241,7 +240,6 @@ export function MemoryManagerPanel({
     addImportance,
     addKind,
     memoryClient,
-    agentId,
     notifyAddOutcome,
     resetAddForm,
     refresh,
@@ -435,7 +433,7 @@ export function MemoryManagerPanel({
               </SelectContent>
             </Select>
           </div>
-          {searchError && <p className="text-[11px] text-destructive">{searchError}</p>}
+          {visibleSearchError && <p className="text-[11px] text-destructive">{visibleSearchError}</p>}
         </div>
       )}
 

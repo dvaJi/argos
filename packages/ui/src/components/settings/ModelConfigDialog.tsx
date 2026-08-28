@@ -132,8 +132,46 @@ export default function ModelConfigDialog({
   }, [modelId, modelName, providerId, isCreateMode, modelConfigStore]);
 
   useEffect(() => {
-    if (open) void loadConfig();
-  }, [open, loadConfig]);
+    if (!open) return;
+    let cancelled = false;
+    (async () => {
+      if (!providerId) return;
+
+      setModelNameField(modelName ?? "");
+      setModelIdField(modelId ?? "");
+
+      if (isCreateMode) {
+        setConfig(createDefaultConfig());
+        setTopPDraft("");
+        setSamplingParamsDraft("");
+        setSamplingParamsError("");
+        return;
+      }
+
+      if (!modelId) return;
+
+      try {
+        const modelConfig = await modelConfigStore.getModelConfig(modelId, providerId);
+        if (cancelled) return;
+        setConfig({ ...createDefaultConfig(), ...modelConfig });
+        setTopPDraft(typeof modelConfig.topP === "number" ? String(modelConfig.topP) : "");
+        setSamplingParamsDraft(
+          modelConfig.samplingParams !== undefined ? JSON.stringify(modelConfig.samplingParams, null, 2) : "",
+        );
+        setSamplingParamsError("");
+      } catch (error) {
+        console.error("Failed to load model config:", error);
+        if (cancelled) return;
+        setConfig(createDefaultConfig());
+        setTopPDraft("");
+        setSamplingParamsDraft("");
+        setSamplingParamsError("");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, providerId, modelName, modelId, isCreateMode, modelConfigStore]);
 
   const updateConfig = useCallback((patch: Partial<ModelConfig>) => {
     setConfig((prev) => ({ ...prev, ...patch }));
@@ -217,12 +255,10 @@ export default function ModelConfigDialog({
     validateForm,
     config,
     topPDraft,
-    samplingParamsDraft,
     parseSamplingParams,
     isCreateMode,
     providerId,
     modelIdField,
-    modelNameField,
     modelId,
     modelConfigStore,
     onSaved,

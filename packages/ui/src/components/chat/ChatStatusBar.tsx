@@ -63,8 +63,13 @@ import { createOnboardingClient } from "#api/OnboardingClient";
 import { createProviderClient } from "#api/ProviderClient";
 import { createSessionClient } from "#api/SessionClient";
 import { requestGuidedOnboardingResume } from "#/lib/onboardingResume";
-import { useModelStore, getChatSelectableModelGroups, findChatSelectableModel } from "#/stores/modelStore";
-import { useProviderStore, getSortedProviders, ensureInitialized } from "#/stores/providerStore";
+import {
+  useModelStore,
+  getChatSelectableModelGroups,
+  getChatSelectableModelGroupsFrom,
+  findChatSelectableModel,
+} from "#/stores/modelStore";
+import { useProviderStore, getSortedProvidersFrom, ensureInitialized } from "#/stores/providerStore";
 import { useThemeStore } from "#/stores/theme";
 import {
   useAgentStore,
@@ -183,7 +188,9 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
   ({ acpDraftSessionId = null, maxWidthClass = "max-w-2xl", composerFooterActive = false }, ref) => {
     const themeStore = useThemeStore();
     const modelStore = useModelStore();
+    const { enabledModels } = modelStore;
     const providerStore = useProviderStore();
+    const { providers, providerOrder, providerTimestamps } = providerStore;
     const agentStore = useAgentStore();
     const sessionStore = useSessionStore();
     const draftState = useDraftStore();
@@ -245,22 +252,22 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
     const unsubscribeAcpConfigOptionsReadyRef = useRef<(() => void) | null>(null);
     const cancelAcpConfigSyncTaskRef = useRef<(() => void) | null>(null);
 
-    const hasActiveSession = useMemo(() => getHasActiveSession(), [getHasActiveSession()]);
-    const availableAgents = useMemo(
-      () => (Array.isArray(agentStore.agents) ? agentStore.agents : []),
-      [agentStore.agents],
-    );
+    // Store getters are cheap reads; React Compiler handles caching.
+    const hasActiveSession = getHasActiveSession();
+    const availableAgents = Array.isArray(agentStore.agents) ? agentStore.agents : [];
+
+    const selectedAgentSnapshot = getSelectedAgent();
 
     const inferAgentType = useCallback(
       (agentId: string | null | undefined): "argos" | "acp" | null => {
         if (!agentId) return null;
         const matchedAgent = availableAgents.find((agent) => agent.id === agentId);
-        const selectedAgent = getSelectedAgent()?.id === agentId ? getSelectedAgent() : null;
+        const selectedAgent = selectedAgentSnapshot?.id === agentId ? selectedAgentSnapshot : null;
         const explicitType = matchedAgent?.agentType ?? matchedAgent?.type ?? selectedAgent?.type;
         if (explicitType === "argos" || explicitType === "acp") return explicitType;
         return sharedInferAgentType(agentId, availableAgents);
       },
-      [availableAgents, getSelectedAgent()],
+      [availableAgents, selectedAgentSnapshot],
     );
 
     const resolveArgosAgentConfig = useCallback(
@@ -313,7 +320,7 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
     const acpWorkspacePath = useMemo(() => {
       if (hasActiveSession && activeSession?.providerId === "acp") return activeSession?.projectDir?.trim() || null;
       return getSelectedProject()?.path?.trim() || null;
-    }, [hasActiveSession, activeSession, projectStore.selectedProjectPath]);
+    }, [hasActiveSession, activeSession]);
 
     const lockedAcpModelId = useMemo(() => {
       if (hasActiveSession && activeSession?.providerId === "acp") return activeSession?.modelId || null;
@@ -386,9 +393,11 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
 
     const providerNameMap = useMemo(() => {
       const map = new Map<string, string>();
-      getSortedProviders().forEach((provider) => map.set(provider.id, provider.name));
+      getSortedProvidersFrom(providers, providerOrder, providerTimestamps).forEach((provider) =>
+        map.set(provider.id, provider.name),
+      );
       return map;
-    }, [getSortedProviders()]);
+    }, [providers, providerOrder, providerTimestamps]);
 
     const isModelOptionsReady = useMemo(
       () => isAcpAgent || modelStore.initialized,
@@ -405,14 +414,18 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
 
     const resolveProviderApiType = useCallback(
       (providerId: string): string | undefined =>
-        getSortedProviders().find((provider) => provider.id === providerId)?.apiType,
-      [getSortedProviders()],
+        getSortedProvidersFrom(providers, providerOrder, providerTimestamps).find(
+          (provider) => provider.id === providerId,
+        )?.apiType,
+      [providers, providerOrder, providerTimestamps],
     );
 
     const modelGroups = useMemo<GroupedModelList[]>(() => {
       if (!isModelOptionsReady) return [];
-      return getChatSelectableModelGroups();
-    }, [isModelOptionsReady, getChatSelectableModelGroups()]);
+      const sorted = getSortedProvidersFrom(providers, providerOrder, providerTimestamps);
+      const orderedProviders = sorted.length > 0 ? sorted : providers;
+      return getChatSelectableModelGroupsFrom(orderedProviders, enabledModels);
+    }, [isModelOptionsReady, providers, providerOrder, providerTimestamps, enabledModels]);
 
     const filteredModelGroups = useMemo<GroupedModelList[]>(() => {
       const keyword = modelSearchKeyword.trim().toLowerCase();
@@ -462,7 +475,7 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
     const findEnabledModelMeta = useCallback(
       (providerId: string, modelId: string): RENDERER_MODEL_META | null =>
         findChatSelectableModel(providerId, modelId)?.model ?? null,
-      [modelStore],
+      [],
     );
 
     const modelSettingsTargetMeta = useMemo(() => {
@@ -575,8 +588,8 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
       activeAcpAgentId,
       activeAcpSessionId: activeAcpSessionId ?? null,
       acpWorkspacePath,
-      selectedAgentId: useMemo(() => agentStore.selectedAgentId, [agentStore.selectedAgentId]),
-      selectedAgentName: useMemo(() => getSelectedAgent()?.name ?? null, [getSelectedAgent()]),
+      selectedAgentId: agentStore.selectedAgentId,
+      selectedAgentName: selectedAgentSnapshot?.name ?? null,
       providerClient,
       sessionClient,
       resolveModelName,
@@ -620,7 +633,7 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
         cancelled = true;
         cancel();
       };
-    }, [isAcpAgent, activeAcpSessionId, acpWorkspacePath, agentStore.selectedAgentId]);
+    }, [isAcpAgent, activeAcpSessionId]);
 
     const handleAcpConfigOptionsReadyRef = useRef(handleAcpConfigOptionsReady);
     useEffect(() => {
@@ -1262,7 +1275,7 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
       try {
         await ensureInitialized();
       } catch {}
-    }, [modelStore]);
+    }, []);
 
     const onReasoningEffortSelect = useCallback(
       (value: string) => {
@@ -1307,7 +1320,7 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
         }
         setIsModelPanelOpen(false);
       },
-      [hasActiveSession, getActiveSession, sessionClient],
+      [hasActiveSession, activeSession?.id, sessionClient],
     );
 
     const isModelSelected = useCallback(

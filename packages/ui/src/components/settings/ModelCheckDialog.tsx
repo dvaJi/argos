@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
@@ -43,15 +43,26 @@ export default function ModelCheckDialog({ open, providerId, onOpenChange }: Mod
     setIsChecking(false);
   }, []);
 
-  useEffect(() => {
+  // Mirror the parent-driven `open` prop into the local isOpen state using a
+  // prev-compare adjustment during render (no effect-triggered cascade).
+  const [syncedOpen, setSyncedOpen] = useState(open);
+  if (syncedOpen !== open) {
+    setSyncedOpen(open);
     if (open && !isOpen) {
       resetDialog();
     }
     setIsOpen(open);
-  }, [open]);
+  }
+
+  // Notify the parent whenever the local open state changes. The latest
+  // callback is kept in a ref so the effect only fires on isOpen changes.
+  const onOpenChangeRef = useRef(onOpenChange);
+  useEffect(() => {
+    onOpenChangeRef.current = onOpenChange;
+  }, [onOpenChange]);
 
   useEffect(() => {
-    onOpenChange(isOpen);
+    onOpenChangeRef.current(isOpen);
   }, [isOpen]);
 
   const handleOpenChange = useCallback(
@@ -79,9 +90,8 @@ export default function ModelCheckDialog({ open, providerId, onOpenChange }: Mod
         isOk: false,
         errorMsg: error instanceof Error ? error.message : "Unknown error occurred",
       });
-    } finally {
-      setIsChecking(false);
     }
+    setIsChecking(false);
   }, [selectedModelId, providerId, providerStore]);
 
   return (

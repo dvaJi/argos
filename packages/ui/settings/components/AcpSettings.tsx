@@ -251,9 +251,8 @@ export default function AcpSettings() {
     } catch (error) {
       console.error("[ACP] settings error:", error);
       setLoadError(error instanceof Error ? error.message : "ACP settings could not be loaded.");
-    } finally {
-      setLoading(false);
     }
+    setLoading(false);
   }, [configClient, syncEnvDrafts]);
 
   useEffect(() => {
@@ -265,12 +264,9 @@ export default function AcpSettings() {
   // so users with custom agents don't see an always-collapsed section.
   const didAutoExpandManualRef = useRef(false);
   useEffect(() => {
-    if (didAutoExpandManualRef.current) return;
-    if (manualAgents.length > 0) {
-      didAutoExpandManualRef.current = true;
-      // react-doctor-disable-next-line react-hooks-js/set-state-in-effect
-      setManualSectionOpen(true);
-    }
+    if (didAutoExpandManualRef.current || manualAgents.length === 0) return;
+    didAutoExpandManualRef.current = true;
+    setManualSectionOpen(true);
   }, [manualAgents]);
 
   const handleToggle = async (enabled: boolean) => {
@@ -282,9 +278,8 @@ export default function AcpSettings() {
       if (enabled) await loadAcpData();
     } catch (error) {
       console.error("[ACP] toggle error:", error);
-    } finally {
-      setToggling(false);
     }
+    setToggling(false);
   };
 
   const refreshRegistry = async () => {
@@ -295,9 +290,8 @@ export default function AcpSettings() {
       syncEnvDrafts(list);
     } catch (error) {
       console.error("[ACP] refresh error:", error);
-    } finally {
-      setRefreshing(false);
     }
+    setRefreshing(false);
   };
 
   const toggleRegistryAgent = async (agent: AcpRegistryAgent, enabled: boolean) => {
@@ -313,9 +307,8 @@ export default function AcpSettings() {
         description: error instanceof Error ? error.message : String(error),
         variant: "destructive",
       });
-    } finally {
-      setPending(agent.id, false);
     }
+    setPending(agent.id, false);
   };
 
   const saveEnvOverride = async (agent: AcpRegistryAgent) => {
@@ -332,9 +325,8 @@ export default function AcpSettings() {
         description: error instanceof Error ? error.message : String(error),
         variant: "destructive",
       });
-    } finally {
-      setPending(agent.id, false);
     }
+    setPending(agent.id, false);
   };
 
   const clearEnvOverride = async (agent: AcpRegistryAgent) => {
@@ -368,9 +360,8 @@ export default function AcpSettings() {
         description: error instanceof Error ? error.message : String(error),
         variant: "destructive",
       });
-    } finally {
-      setPending(agent.id, false);
     }
+    setPending(agent.id, false);
   };
 
   const repairRegistryAgent = async (agent: AcpRegistryAgent) => {
@@ -380,9 +371,8 @@ export default function AcpSettings() {
       await loadAcpData();
     } catch (error) {
       console.error(error);
-    } finally {
-      setPending(agent.id, false);
     }
+    setPending(agent.id, false);
   };
 
   const updateRegistryAgent = async (agent: AcpRegistryAgent) => {
@@ -406,9 +396,8 @@ export default function AcpSettings() {
         description: error instanceof Error ? error.message : String(error),
         variant: "destructive",
       });
-    } finally {
-      setPending(agent.id, false);
     }
+    setPending(agent.id, false);
   };
 
   const uninstallRegistryAgent = async (agent: AcpRegistryAgent) => {
@@ -419,9 +408,8 @@ export default function AcpSettings() {
       toast({ title: "Agent removed" });
     } catch (error) {
       console.error(error);
-    } finally {
-      setPending(agent.id, false);
     }
+    setPending(agent.id, false);
   };
 
   const confirmRegistryAgentUninstall = (agent: AcpRegistryAgent) => {
@@ -493,9 +481,8 @@ export default function AcpSettings() {
       toast({ title: "Saved" });
     } catch (error) {
       console.error(error);
-    } finally {
-      setManualSaving(false);
     }
+    setManualSaving(false);
   };
 
   const deleteManualAgent = async (agent: AcpManualAgent) => {
@@ -880,9 +867,10 @@ export default function AcpSettings() {
                                     await configClient.updateManualAcpAgent(agent.id, { enabled: value });
                                     if (value) requestConnectionCheck(agent.id);
                                     await loadAcpData();
-                                  } finally {
-                                    setPending(agent.id, false);
+                                  } catch (error) {
+                                    console.error("[ACP] manual agent toggle error:", error);
                                   }
+                                  setPending(agent.id, false);
                                 }}
                               />
                             </div>

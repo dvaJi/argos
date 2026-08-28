@@ -4,7 +4,6 @@ import { Button } from "#shadcn/components/ui/button";
 import { Label } from "#shadcn/components/ui/label";
 import { useToast } from "#/components/use-toast";
 import {
-  usePromptsStore,
   promptsStore as promptsStoreInstance,
   loadCustomPrompts,
   addPrompt,
@@ -72,7 +71,6 @@ interface CustomPromptSettingsSectionHandle {
 const CustomPromptSettingsSection = forwardRef<CustomPromptSettingsSectionHandle>(
   function CustomPromptSettingsSection(_props, ref) {
     const { toast } = useToast();
-    const promptsStore = usePromptsStore();
 
     const [prompts, setPrompts] = useState<PromptItem[]>([]);
     const [expandedPrompts, setExpandedPrompts] = useState<Set<string>>(new Set());
@@ -111,10 +109,10 @@ const CustomPromptSettingsSection = forwardRef<CustomPromptSettingsSectionHandle
           toast({ title: "Failed to toggle", variant: "destructive" });
         }
       },
-      [prompts, promptsStore, toast, loadPrompts],
+      [prompts, toast, loadPrompts],
     );
 
-    const deletePrompt = useCallback(
+    const handleDeletePrompt = useCallback(
       async (index: number) => {
         const prompt = prompts[index];
         try {
@@ -126,7 +124,7 @@ const CustomPromptSettingsSection = forwardRef<CustomPromptSettingsSectionHandle
           toast({ title: "Failed to delete", variant: "destructive" });
         }
       },
-      [prompts, promptsStore, toast, loadPrompts],
+      [prompts, toast, loadPrompts],
     );
 
     const toPromptForm = (prompt: PromptItem): PromptForm => ({
@@ -170,7 +168,7 @@ const CustomPromptSettingsSection = forwardRef<CustomPromptSettingsSectionHandle
           console.error("Failed to save prompt:", error);
         }
       },
-      [promptsStore, loadPrompts],
+      [loadPrompts],
     );
 
     const formatDate = (id: string) => {
@@ -211,7 +209,14 @@ const CustomPromptSettingsSection = forwardRef<CustomPromptSettingsSectionHandle
           try {
             const content = e.target?.result as string;
             const imported = JSON.parse(content);
-            if (!Array.isArray(imported)) throw new Error("Invalid format");
+            if (!Array.isArray(imported)) {
+              toast({
+                title: "Import failed",
+                description: "Invalid format",
+                variant: "destructive",
+              });
+              return;
+            }
             const current = [...prompts];
             const currentMap = new Map(current.map((p) => [p.id, p]));
             let updatedCount = 0;
@@ -252,13 +257,21 @@ const CustomPromptSettingsSection = forwardRef<CustomPromptSettingsSectionHandle
         reader.readAsText(file);
       };
       input.click();
-    }, [prompts, promptsStore, loadPrompts, toast]);
+    }, [prompts, loadPrompts, toast]);
 
     useImperativeHandle(ref, () => ({ importPrompts, exportPrompts }), [importPrompts, exportPrompts]);
 
     useEffect(() => {
-      void loadPrompts();
-    }, [loadPrompts]);
+      let cancelled = false;
+      void (async () => {
+        await loadCustomPrompts();
+        if (cancelled) return;
+        setPrompts(promptsStoreInstance.state.prompts.map((p) => ({ ...p })));
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, []);
 
     return (
       <div className="space-y-4 rounded-lg border border-border bg-card p-4">
@@ -352,7 +365,7 @@ const CustomPromptSettingsSection = forwardRef<CustomPromptSettingsSectionHandle
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => void deletePrompt(index)}>Confirm</AlertDialogAction>
+                          <AlertDialogAction onClick={() => void handleDeletePrompt(index)}>Confirm</AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>

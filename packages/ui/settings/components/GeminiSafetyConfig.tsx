@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "#shadcn/components/ui/accordion";
 import { Label } from "#shadcn/components/ui/label";
 import { Slider } from "#shadcn/components/ui/slider";
@@ -17,24 +17,30 @@ interface GeminiSafetyConfigProps {
   onSafetySettingChange?: (key: SafetyCategoryKey, level: number, value: SafetySettingValue) => void;
 }
 
+const computeSafetyLevels = (initialSafetyLevels?: Record<string, number>): Record<string, number> => {
+  if (initialSafetyLevels && Object.keys(initialSafetyLevels).length > 0) {
+    return { ...initialSafetyLevels };
+  }
+  const defaults: Record<string, number> = {};
+  for (const key in safetyCategories) {
+    defaults[key] = safetyCategories[key as SafetyCategoryKey].defaultLevel;
+  }
+  return defaults;
+};
+
 export default function GeminiSafetyConfig({
   provider,
   initialSafetyLevels,
   onSafetySettingChange,
 }: GeminiSafetyConfigProps) {
-  const [safetyLevels, setSafetyLevels] = useState<Record<string, number>>({});
-
-  useEffect(() => {
-    if (initialSafetyLevels && Object.keys(initialSafetyLevels).length > 0) {
-      setSafetyLevels({ ...initialSafetyLevels });
-    } else {
-      const defaults: Record<string, number> = {};
-      for (const key in safetyCategories) {
-        defaults[key] = safetyCategories[key as SafetyCategoryKey].defaultLevel;
-      }
-      setSafetyLevels(defaults);
-    }
-  }, [initialSafetyLevels]);
+  const [safetyLevels, setSafetyLevels] = useState<Record<string, number>>(() =>
+    computeSafetyLevels(initialSafetyLevels),
+  );
+  const [syncedLevels, setSyncedLevels] = useState(initialSafetyLevels);
+  if (syncedLevels !== initialSafetyLevels) {
+    setSyncedLevels(initialSafetyLevels);
+    setSafetyLevels(computeSafetyLevels(initialSafetyLevels));
+  }
 
   const getSafetyLevel = (key: string): number => {
     return safetyLevels[key] ?? safetyCategories[key as SafetyCategoryKey]?.defaultLevel ?? 0;

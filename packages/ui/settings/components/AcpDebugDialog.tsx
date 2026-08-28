@@ -84,14 +84,22 @@ export default function AcpDebugDialog({ open, onOpenChange, agentId, agentName 
 
   const formatTime = (timestamp: number) => new Date(timestamp).toLocaleTimeString();
 
-  useEffect(() => {
+  // Reset the debug session whenever the dialog opens — adjusted during render.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (wasOpen !== open) {
+    setWasOpen(open);
     if (open) {
       setEvents([]);
-      seenIds.current.clear();
       setProcessReady(false);
       setSelectedMethod("newSession");
       setCustomMethod("");
       setDebugSessionId(createDebugSessionId());
+    }
+  }
+
+  useEffect(() => {
+    if (open) {
+      seenIds.current.clear();
     }
   }, [open]);
 

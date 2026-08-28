@@ -103,7 +103,7 @@ const MessageListRowBase: FC<MessageListRowProps> = ({
   useEffect(() => {
     lastMeasuredHeightRef.current = 0;
     emitMeasuredHeight();
-  }, [item?.id, emitMeasuredHeight]);
+  }, [emitMeasuredHeight]);
 
   const getCompactionCopy = (status?: "compacting" | "compacted"): string =>
     status === "compacting" ? "Compacting..." : "Context compacted";

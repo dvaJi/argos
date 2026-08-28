@@ -105,15 +105,6 @@ export function WelcomePage() {
     persistGuidedOnboardingResumeIntent({ stepId, trigger });
   };
 
-  const syncOnboardingState = async () => {
-    try {
-      const state = await onboardingClient.getState();
-      setOnboardingState(state.status === "idle" ? await onboardingClient.start() : state);
-    } catch (error) {
-      console.error("Failed to sync welcome onboarding state:", error);
-    }
-  };
-
   const syncOnboardingStep = async (stepId?: GuidedOnboardingStepId) => {
     if (!stepId) return;
     try {
@@ -212,7 +203,23 @@ export function WelcomePage() {
   };
 
   useEffect(() => {
-    void syncOnboardingState();
+    let cancelled = false;
+    void (async () => {
+      try {
+        let state = await onboardingClient.getState();
+        if (cancelled) return;
+        if (state.status === "idle") {
+          state = await onboardingClient.start();
+        }
+        if (cancelled) return;
+        setOnboardingState(state);
+      } catch (error) {
+        console.error("Failed to sync welcome onboarding state:", error);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (

@@ -278,7 +278,7 @@ interface MessageBlockFileChangesProps {
 export const MessageBlockFileChanges = memo(function MessageBlockFileChanges({
   block,
   messageId,
-  threadId,
+  // `threadId` is accepted for future per-project workspace routing.
 }: MessageBlockFileChangesProps) {
   const files = useMemo(() => block.file_changes?.files ?? [], [block]);
   const summaryStat = useMemo(() => summarizeTurnDiffStats(files), [files]);
@@ -292,8 +292,9 @@ export const MessageBlockFileChanges = memo(function MessageBlockFileChanges({
       setDiffsSelection(path ?? null);
       openDiffs();
     },
-    // messageId/threadId are carried for future per-project workspace routing.
-    [messageId, threadId],
+    // messageId/threadId are carried for future per-project workspace routing
+    // and are intentionally not referenced here yet.
+    [],
   );
 
   const handleToggleAllDirectories = useCallback(() => {

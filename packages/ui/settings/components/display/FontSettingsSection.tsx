@@ -93,8 +93,10 @@ export default function FontSettingsSection() {
     setIsResetting(true);
     try {
       await resetFontSettings();
-    } finally {
       setIsResetting(false);
+    } catch (error) {
+      setIsResetting(false);
+      throw error;
     }
   };
 

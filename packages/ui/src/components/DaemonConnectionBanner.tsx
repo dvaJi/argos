@@ -20,8 +20,10 @@ export default function DaemonConnectionBanner({ placement = "inline" }: { place
     setRetrying(true);
     try {
       await retryRuntimeConnection();
-    } finally {
       setRetrying(false);
+    } catch (error) {
+      setRetrying(false);
+      throw error;
     }
   };
 

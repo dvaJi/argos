@@ -150,7 +150,7 @@ export default function SpotlightOverlay() {
     return () => {
       window.clearTimeout(focusTimer);
     };
-  }, [spotlightStore.open, spotlightStore.activationKey, focusInput]);
+  }, [spotlightStore.open, focusInput]);
 
   useEffect(() => {
     if (

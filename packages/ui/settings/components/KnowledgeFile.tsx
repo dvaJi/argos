@@ -15,6 +15,8 @@ import type { BuiltinKnowledgeConfig, KnowledgeFileMessage } from "@argos/shared
 
 const knowledgeClient = createKnowledgeClient();
 
+const defaultSupported = ["txt", "md", "markdown", "docx", "pptx", "pdf"];
+
 interface KnowledgeFileProps {
   builtinKnowledgeDetail: BuiltinKnowledgeConfig;
   onHideKnowledgeFile: () => void;
@@ -29,8 +31,6 @@ export default function KnowledgeFile({ builtinKnowledgeDetail, onHideKnowledgeF
   const [searchResult, setSearchResult] = useState<any[]>([]);
   const [copyId, setCopyId] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const defaultSupported = ["txt", "md", "markdown", "docx", "pptx", "pdf"];
 
   const ctrlBtn = useMemo(() => {
     if (fileList.length > 0) {
@@ -148,9 +148,8 @@ export default function KnowledgeFile({ builtinKnowledgeDetail, onHideKnowledgeF
     } catch {
       toast({ title: "Search failed", variant: "destructive", duration: 3000 });
       setSearchResult([]);
-    } finally {
-      setLoading(false);
     }
+    setLoading(false);
   };
 
   const handleCopy = (content: string, id: string) => {
@@ -167,7 +166,10 @@ export default function KnowledgeFile({ builtinKnowledgeDetail, onHideKnowledgeF
   };
 
   useEffect(() => {
-    Promise.all([loadList(), loadSupportedExtensions()]);
+    void Promise.resolve().then(() => {
+      void loadList();
+      void loadSupportedExtensions();
+    });
     const unsubscribe = window.argos?.on?.(
       "knowledge.fileUpdated",
       (payload: ArgosEventPayload<typeof knowledgeFileUpdatedEvent.name>) => {
@@ -179,7 +181,7 @@ export default function KnowledgeFile({ builtinKnowledgeDetail, onHideKnowledgeF
     return () => {
       unsubscribe?.();
     };
-  }, []);
+  }, [loadList, loadSupportedExtensions]);
 
   return (
     <div className="w-full h-full flex flex-col gap-1.5 p-2">

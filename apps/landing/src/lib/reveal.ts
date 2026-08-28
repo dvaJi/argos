@@ -14,13 +14,17 @@ export function useInView<T extends HTMLElement = HTMLDivElement>(options?: {
 }) {
   const { threshold = 0.18, rootMargin = "0px 0px -8% 0px", once = true } = options ?? {};
   const ref = useRef<T>(null);
-  const [inView, setInView] = useState(false);
+  // If IntersectionObserver is unavailable, everything is considered in view
+  // from the start (the effect below then has nothing to do). The `window`
+  // check keeps SSR output identical to the client's first render.
+  const [inView, setInView] = useState(
+    () => typeof window !== "undefined" && typeof IntersectionObserver === "undefined",
+  );
 
   useEffect(() => {
     const node = ref.current;
     if (!node) return;
     if (typeof IntersectionObserver === "undefined") {
-      setInView(true);
       return;
     }
     const observer = new IntersectionObserver(

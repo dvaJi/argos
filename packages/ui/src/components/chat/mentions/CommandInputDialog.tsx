@@ -41,20 +41,20 @@ const CommandInputDialog: FC<CommandInputDialogProps> = ({
   const [values, setValues] = useState<Record<string, string>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const resetForm = useCallback(() => {
-    const newValues: Record<string, string> = {};
-    for (const field of fields) {
-      newValues[field.name] = "";
-    }
-    setValues(newValues);
-    setErrors({});
-  }, [fields]);
-
-  useEffect(() => {
+  // Reset the form whenever the dialog opens (adjusted during render so the
+  // React Compiler can track it).
+  const [wasOpen, setWasOpen] = useState(open);
+  if (wasOpen !== open) {
+    setWasOpen(open);
     if (open) {
-      resetForm();
+      const newValues: Record<string, string> = {};
+      for (const field of fields) {
+        newValues[field.name] = "";
+      }
+      setValues(newValues);
+      setErrors({});
     }
-  }, [open, fields, resetForm]);
+  }
 
   const validate = useCallback(() => {
     const newErrors: Record<string, string> = {};

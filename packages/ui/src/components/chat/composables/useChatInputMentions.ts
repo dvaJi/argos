@@ -94,11 +94,13 @@ const normalizeAcpCommands = (commands: unknown): AcpSessionCommand[] => {
     .filter((command): command is NonNullable<typeof command> => command !== null);
 };
 
-export function useChatInputMentions(options: UseChatInputMentionsOptions) {
-  const workspaceClient = createWorkspaceClient();
-  const sessionClient = createSessionClient();
-  const skillClient = createSkillClient();
+// Clients are process-wide singletons; keeping them at module scope keeps hook
+// callback identities stable (React Compiler requires dep lists of stable values).
+const workspaceClient = createWorkspaceClient();
+const sessionClient = createSessionClient();
+const skillClient = createSkillClient();
 
+export function useChatInputMentions(options: UseChatInputMentionsOptions) {
   const mcpTools = useStore(mcpStore, (s) => s.tools);
   const mcpPrompts = useStore(mcpStore, (s) => s.prompts);
   const skills = useStore(skillsStore, (s) => s.skills);
@@ -316,7 +318,7 @@ export function useChatInputMentions(options: UseChatInputMentionsOptions) {
 
       await skillClient.setActiveSkills(sessionId, [...activeSkills, skillName]);
     },
-    [options.sessionId, options.onPendingSkillsChange, pendingSkills],
+    [options, pendingSkills],
   );
 
   const insertPromptText = useCallback(
@@ -330,7 +332,7 @@ export function useChatInputMentions(options: UseChatInputMentionsOptions) {
         console.error("[ChatInputMentions] Failed to resolve prompt content:", error);
       }
     },
-    [options.getEditor],
+    [options],
   );
 
   const handleSlashSelection = useCallback(
@@ -401,7 +403,7 @@ export function useChatInputMentions(options: UseChatInputMentionsOptions) {
       editor.chain().focus().insertContentAt(range, "").run();
       await insertPromptText(action.prompt);
     },
-    [options.onCommandSubmit, options.onActivateSkill, activateSkill, insertPromptText],
+    [options, activateSkill, insertPromptText],
   );
 
   const submitDialog = useCallback(
@@ -432,7 +434,7 @@ export function useChatInputMentions(options: UseChatInputMentionsOptions) {
 
       closeDialog();
     },
-    [dialogState, pendingCommand, pendingPrompt, options.onCommandSubmit, insertPromptText, closeDialog],
+    [dialogState, pendingCommand, pendingPrompt, options, insertPromptText, closeDialog],
   );
 
   const filterSlashItems = useCallback(
@@ -546,14 +548,13 @@ export function useChatInputMentions(options: UseChatInputMentionsOptions) {
   }, [options.workspacePath]);
 
   useEffect(() => {
-    if (options.sessionId) {
-      setPendingSkills([]);
-    }
+    if (!options.sessionId) return;
+    void Promise.resolve().then(() => setPendingSkills([]));
   }, [options.sessionId]);
 
   useEffect(() => {
-    void refreshAcpCommands();
-  }, [options.sessionId, options.isAcpSession, refreshAcpCommands]);
+    void Promise.resolve().then(() => refreshAcpCommands());
+  }, [refreshAcpCommands]);
 
   useEffect(() => {
     if (skills.length === 0) {
@@ -577,7 +578,7 @@ export function useChatInputMentions(options: UseChatInputMentionsOptions) {
       unsubscribeAcpCommandsReadyRef.current?.();
       unsubscribeAcpCommandsReadyRef.current = null;
     };
-  }, []);
+  }, [skills.length, options.sessionId]);
 
   return {
     atSuggestion,

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import mermaid from "mermaid";
 
 interface MermaidArtifactProps {
@@ -33,20 +33,20 @@ type MermaidTheme = "default" | "base" | "dark" | "forest" | "neutral" | "null";
 
 const getTheme = (): MermaidTheme => (document.documentElement.classList.contains("dark") ? "dark" : "default");
 
+const initMermaid = (theme: MermaidTheme) => {
+  mermaid.initialize({
+    startOnLoad: false,
+    theme,
+    securityLevel: "strict",
+    fontFamily: "inherit",
+  });
+};
+
 export function MermaidArtifact({ block, isPreview, className }: MermaidArtifactProps) {
   const mermaidRef = useRef<HTMLDivElement>(null);
   const themeObserverRef = useRef<MutationObserver | null>(null);
 
-  const initMermaid = (theme: MermaidTheme) => {
-    mermaid.initialize({
-      startOnLoad: false,
-      theme,
-      securityLevel: "strict",
-      fontFamily: "inherit",
-    });
-  };
-
-  const renderDiagram = async () => {
+  const renderDiagram = useCallback(async () => {
     if (!mermaidRef.current || !block.content) return;
     try {
       const sanitizedContent = sanitizeMermaidContent(block.content);
@@ -63,14 +63,19 @@ export function MermaidArtifact({ block, isPreview, className }: MermaidArtifact
         mermaidRef.current.appendChild(errorDiv);
       }
     }
-  };
+  }, [block.content]);
+
+  const renderDiagramRef = useRef(renderDiagram);
+  useEffect(() => {
+    renderDiagramRef.current = renderDiagram;
+  }, [renderDiagram]);
 
   useEffect(() => {
     initMermaid(getTheme());
 
     const applyThemeChange = () => {
       initMermaid(getTheme());
-      if (isPreview) renderDiagram();
+      if (isPreview) renderDiagramRef.current();
     };
 
     themeObserverRef.current = new MutationObserver((mutations) => {
@@ -83,17 +88,17 @@ export function MermaidArtifact({ block, isPreview, className }: MermaidArtifact
     });
     themeObserverRef.current.observe(document.documentElement, { attributes: true });
 
-    if (isPreview) renderDiagram();
+    if (isPreview) renderDiagramRef.current();
 
     return () => {
       themeObserverRef.current?.disconnect();
       themeObserverRef.current = null;
     };
-  }, []);
+  }, [isPreview]);
 
   useEffect(() => {
     if (isPreview) renderDiagram();
-  }, [block.content, isPreview]);
+  }, [isPreview, renderDiagram]);
 
   if (isPreview) {
     return (

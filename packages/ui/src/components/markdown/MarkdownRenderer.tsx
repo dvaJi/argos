@@ -90,16 +90,22 @@ export function MarkdownRenderer({
     linkContext: effectiveLinkContext,
   });
 
-  const searchResultsPromiseRef = useRef<ReturnType<typeof sessionClient.getSearchResults> | null>(null);
+  // Search results are cached per message id so switching messages invalidates
+  // the previous message's cached promise.
+  const searchResultsCacheRef = useRef<{
+    messageId: string;
+    promise: ReturnType<typeof sessionClient.getSearchResults>;
+  } | null>(null);
 
   const getSearchResults = useCallback(() => {
-    searchResultsPromiseRef.current ??= sessionClient.getSearchResults(effectiveMessageId);
-    return searchResultsPromiseRef.current;
+    const cached = searchResultsCacheRef.current;
+    if (cached !== null && cached.messageId === effectiveMessageId) {
+      return cached.promise;
+    }
+    const promise = sessionClient.getSearchResults(effectiveMessageId);
+    searchResultsCacheRef.current = { messageId: effectiveMessageId, promise };
+    return promise;
   }, [sessionClient, effectiveMessageId]);
-
-  useEffect(() => {
-    searchResultsPromiseRef.current = null;
-  }, [effectiveMessageId]);
 
   const codeFontFamily = getFormattedCodeFontFamily();
 

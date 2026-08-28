@@ -60,6 +60,14 @@ const providerClient = createProviderClient();
 const PUBLIC_PROVIDER_CONF_URL = "https://github.com/dvaJi/PublicProviderConf";
 const CLOUDFLARE_R2_S3_DOCS_URL = "https://developers.cloudflare.com/r2/api/s3/api/";
 
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  const exponent = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  const value = bytes / Math.pow(1024, exponent);
+  return `${value.toFixed(value >= 100 || exponent === 0 ? 0 : 1)} ${units[exponent]}`;
+}
+
 type CloudSyncProviderMode = "r2" | "custom";
 
 const CLOUD_SYNC_DEFAULTS = {
@@ -214,14 +222,6 @@ export default function DataSettings() {
     return "Enter a secret to save or replace the stored cloud credential.";
   }, [hasStoredCloudSecret, cloudForm.secretAccessKey]);
 
-  const formatBytes = (bytes: number) => {
-    if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
-    const units = ["B", "KB", "MB", "GB", "TB"];
-    const exponent = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
-    const value = bytes / Math.pow(1024, exponent);
-    return `${value.toFixed(value >= 100 || exponent === 0 ? 0 : 1)} ${units[exponent]}`;
-  };
-
   const formatBackupLabel = (fileName: string, createdAt: number, size: number) => {
     const date = new Date(createdAt);
     return Number.isFinite(createdAt)
@@ -229,7 +229,12 @@ export default function DataSettings() {
       : `${fileName} (${formatBytes(size)})`;
   };
 
-  const handleSyncEnabledChange = useCallback((value: boolean) => setSyncEnabled(value), [setSyncEnabled]);
+  const handleSyncEnabledChange = useCallback((value: boolean) => setSyncEnabled(value), []);
+
+  // The effective backup selection falls back to the most recent backup whenever the
+  // stored selection no longer exists (deleted, list refreshed) or nothing is selected.
+  const activeSelectedBackup =
+    availableBackups.find((b) => b.fileName === selectedBackup)?.fileName ?? availableBackups[0]?.fileName ?? "";
 
   const handleBackup = useCallback(async () => {
     try {
@@ -311,8 +316,8 @@ export default function DataSettings() {
   }, [cloudPullMode, toast]);
 
   const handleImport = useCallback(async () => {
-    if (!selectedBackup) return;
-    const result = await importData(selectedBackup, importMode as "increment" | "overwrite");
+    if (!activeSelectedBackup) return;
+    const result = await importData(activeSelectedBackup, importMode as "increment" | "overwrite");
     if (result?.success) {
       toast({
         title: "Import successful",
@@ -322,7 +327,7 @@ export default function DataSettings() {
     }
     setIsImportDialogOpen(false);
     setImportMode("increment");
-  }, [selectedBackup, importMode, syncStore, toast]);
+  }, [activeSelectedBackup, importMode, toast]);
 
   const handleRefreshProviderDb = useCallback(async () => {
     if (isUpdatingModelConfig) return;
@@ -345,9 +350,9 @@ export default function DataSettings() {
       });
     } catch {
       toast({ title: "Update failed", variant: "destructive", duration: 4000 });
-    } finally {
       setIsUpdatingModelConfig(false);
     }
+    setIsUpdatingModelConfig(false);
   }, [isUpdatingModelConfig, toast]);
 
   const handleReset = useCallback(async () => {
@@ -359,9 +364,8 @@ export default function DataSettings() {
       setResetType("chat");
     } catch (error) {
       console.error("Failed to reset data:", error);
-    } finally {
-      setIsResetting(false);
     }
+    setIsResetting(false);
   }, [isResetActionDisabled, resetType]);
 
   const handleClearSandboxData = useCallback(async () => {
@@ -372,42 +376,36 @@ export default function DataSettings() {
       toast({ title: "Sandbox data cleared", duration: 4000 });
     } catch {
       toast({ title: "Failed to clear", variant: "destructive", duration: 4000 });
-    } finally {
-      setIsClearingSandbox(false);
-      setIsClearSandboxDialogOpen(false);
     }
+    setIsClearingSandbox(false);
+    setIsClearSandboxDialogOpen(false);
   }, [isClearingSandbox, browserClient, toast]);
 
   useEffect(() => {
     void (async () => {
       await initializeSync();
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    if (!cloudConfig) return;
-    const isR2 = cloudConfig.endpoint.includes("r2.cloudflarestorage.com");
-    setCloudProviderMode(isR2 ? "r2" : "custom");
-    setCloudForm({
-      endpoint: cloudConfig.endpoint,
-      bucket: cloudConfig.bucket,
-      region: cloudConfig.region || CLOUD_SYNC_DEFAULTS.region,
-      prefix: cloudConfig.prefix || CLOUD_SYNC_DEFAULTS.prefix,
-      accessKeyId: cloudConfig.accessKeyId,
-      secretAccessKey: "",
-    });
-  }, [cloudConfig]);
-
-  useEffect(() => {
-    if (!availableBackups.length) {
-      setSelectedBackup("");
-      return;
+  // Mirror the cloud config coming from the sync store into the editable form
+  // whenever the store publishes a different config (adjusted during render so the
+  // React Compiler can track the reset).
+  const [syncedCloudConfig, setSyncedCloudConfig] = useState(cloudConfig);
+  if (syncedCloudConfig !== cloudConfig) {
+    setSyncedCloudConfig(cloudConfig);
+    if (cloudConfig) {
+      const isR2 = cloudConfig.endpoint.includes("r2.cloudflarestorage.com");
+      setCloudProviderMode(isR2 ? "r2" : "custom");
+      setCloudForm({
+        endpoint: cloudConfig.endpoint,
+        bucket: cloudConfig.bucket,
+        region: cloudConfig.region || CLOUD_SYNC_DEFAULTS.region,
+        prefix: cloudConfig.prefix || CLOUD_SYNC_DEFAULTS.prefix,
+        accessKeyId: cloudConfig.accessKeyId,
+        secretAccessKey: "",
+      });
     }
-    if (!selectedBackup || !availableBackups.find((b) => b.fileName === selectedBackup)) {
-      setSelectedBackup(availableBackups[0].fileName);
-    }
-  }, [availableBackups, selectedBackup]);
+  }
 
   return (
     <SettingsPageShell
@@ -503,7 +501,7 @@ export default function DataSettings() {
                         Select Backup
                       </Label>
                       <Select
-                        value={selectedBackup}
+                        value={activeSelectedBackup}
                         onValueChange={(v) => setSelectedBackup(v ?? "")}
                         disabled={!availableBackups.length}
                       >
@@ -542,7 +540,7 @@ export default function DataSettings() {
                     </Button>
                     <Button
                       variant="default"
-                      disabled={syncStore.isImporting || !selectedBackup}
+                      disabled={syncStore.isImporting || !activeSelectedBackup}
                       onClick={() => void handleImport()}
                     >
                       {syncStore.isImporting ? "Importing..." : "Import"}
@@ -869,9 +867,8 @@ export default function DataSettings() {
                     toast({ title: "Repair completed", duration: 4000 });
                   } catch {
                     toast({ title: "Repair failed", variant: "destructive" });
-                  } finally {
-                    setIsRepairing(false);
                   }
+                  setIsRepairing(false);
                 }}
               >
                 <Icon

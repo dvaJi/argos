@@ -317,13 +317,31 @@ const MessageBlockToolCallBase: FC<MessageBlockToolCallProps> = ({ block }) => {
       syncAutoExpansionState(block.status, shouldAutoExpand);
     }
     prevIdentityRef.current = toolCallIdentity;
-  }, [toolCallIdentity]);
+  }, [toolCallIdentity, block.status, shouldAutoExpand, resetExpansionState, syncAutoExpansionState]);
 
-  const prevStatusRef = useRef<DisplayAssistantMessageBlock["status"] | undefined>(undefined);
-  useEffect(() => {
-    syncAutoExpansionState(block.status, shouldAutoExpand, prevStatusRef.current);
-    prevStatusRef.current = block.status;
-  }, [block.status, shouldAutoExpand]);
+  // Status/auto-expand transition sync (adjusted during render so the React
+  // Compiler can track it). Mirrors syncAutoExpansionState with the previous
+  // status captured across renders.
+  const [autoExpandSyncStatus, setAutoExpandSyncStatus] = useState<DisplayAssistantMessageBlock["status"] | undefined>(
+    undefined,
+  );
+  const [autoExpandSyncShouldAutoExpand, setAutoExpandSyncShouldAutoExpand] = useState(shouldAutoExpand);
+  if (autoExpandSyncStatus !== block.status || autoExpandSyncShouldAutoExpand !== shouldAutoExpand) {
+    const previousStatus = autoExpandSyncStatus;
+    setAutoExpandSyncStatus(block.status);
+    setAutoExpandSyncShouldAutoExpand(shouldAutoExpand);
+    if (block.status === "loading" && shouldAutoExpand && !autoExpandDismissed && !isExpanded) {
+      setIsExpanded(true);
+      setExpansionSource("auto");
+    } else if (previousStatus === "loading" && block.status !== "loading" && expansionSource === "auto") {
+      setIsExpanded(false);
+      setExpansionSource(null);
+      setAutoExpandDismissed(false);
+    }
+    if (block.status !== "loading" && expansionSource !== "manual") {
+      setAutoExpandDismissed(false);
+    }
+  }
 
   const toggleExpanded = () => {
     if (isExpanded) {

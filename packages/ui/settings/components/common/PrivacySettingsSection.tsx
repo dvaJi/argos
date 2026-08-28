@@ -26,9 +26,8 @@ export default function PrivacySettingsSection() {
         description: error instanceof Error ? error.message : "Unknown error",
         variant: "destructive",
       });
-    } finally {
-      setIsUpdatingPrivacyMode(false);
     }
+    setIsUpdatingPrivacyMode(false);
   };
 
   return (

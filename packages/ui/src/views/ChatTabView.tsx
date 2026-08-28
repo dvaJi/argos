@@ -23,7 +23,6 @@ import {
 } from "#/stores/ui/project";
 import { modelStore, initialize as initializeModels } from "#/stores/modelStore";
 import { initialize as initializeOllama } from "#/stores/ollamaStore";
-import { useStartupWorkloadStore } from "#/stores/startupWorkloadStore";
 import { markStartupInteractive, scheduleStartupDeferredTask } from "#/lib/startupDeferred";
 
 function ChatTabView() {
@@ -34,14 +33,11 @@ function ChatTabView() {
   const hydrationFailedRef = useRef(false);
   const cancelDeferredHydrationRef = useRef<(() => void) | null>(null);
 
-  const startupWorkloadStore = useStartupWorkloadStore();
-
   useEffect(() => {
     let cancelled = false;
     let criticalLoadPromises: Promise<void> | null = null;
 
     const run = async () => {
-      startupWorkloadStore.connect();
       console.info("[Startup][Renderer] ChatTabView critical hydration begin");
 
       try {
@@ -77,27 +73,30 @@ function ChatTabView() {
         hydrationFailedRef.current = true;
         setHydrationFailed(true);
         await Promise.allSettled([fetchAgents(), loadDefaultProjectPath()]);
-        await initializePageRouter({
-          activeSessionId: sessionStore.state.activeSessionId ?? null,
-        });
-      } finally {
-        if (!cancelled) {
-          setIsReady(true);
-          console.info("[Startup][Renderer] ChatTabView interactive ready");
-
-          if (!sessionStore.state.hasLoadedInitialPage) {
-            void fetchSessions();
-          }
-
-          markStartupInteractive();
-          cancelDeferredHydrationRef.current = scheduleStartupDeferredTask(async () => {
-            console.info("[Startup][Renderer] ChatTabView deferred hydration begin");
-            if (criticalLoadPromises) {
-              await criticalLoadPromises;
-            }
-            console.info("[Startup][Renderer] ChatTabView deferred hydration complete");
+        try {
+          await initializePageRouter({
+            activeSessionId: sessionStore.state.activeSessionId ?? null,
           });
+        } catch (routerError) {
+          console.warn("[Startup][Renderer] ChatTabView router recovery failed:", routerError);
         }
+      }
+      if (!cancelled) {
+        setIsReady(true);
+        console.info("[Startup][Renderer] ChatTabView interactive ready");
+
+        if (!sessionStore.state.hasLoadedInitialPage) {
+          void fetchSessions();
+        }
+
+        markStartupInteractive();
+        cancelDeferredHydrationRef.current = scheduleStartupDeferredTask(async () => {
+          console.info("[Startup][Renderer] ChatTabView deferred hydration begin");
+          if (criticalLoadPromises) {
+            await criticalLoadPromises;
+          }
+          console.info("[Startup][Renderer] ChatTabView deferred hydration complete");
+        });
       }
     };
 
@@ -119,7 +118,6 @@ function ChatTabView() {
       }
       unsubscribeConnection();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const route = pageState.route;

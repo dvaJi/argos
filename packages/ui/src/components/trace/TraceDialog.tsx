@@ -64,7 +64,6 @@ interface TraceDialogProps {
 }
 
 export default function TraceDialog({ messageId, sessionId, onClose }: TraceDialogProps) {
-  const [isOpen, setIsOpen] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
   const requestIdRef = useRef(0);
   const [loadState, dispatch] = useReducer(loadReducer, initialLoadState);
@@ -133,51 +132,61 @@ export default function TraceDialog({ messageId, sessionId, onClose }: TraceDial
     setCopySuccess(false);
   }, []);
 
-  const loadTraces = async (msgId: string) => {
+  const resetStateRef = useRef(resetState);
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    resetStateRef.current = resetState;
+    onCloseRef.current = onClose;
+  }, [resetState, onClose]);
+
+  // Whether the dialog is shown is derived from the requested message id plus an
+  // explicit user dismissal (adjusted during render so the React Compiler can
+  // track the reset when a new message is requested).
+  const [userClosed, setUserClosed] = useState(false);
+  const [syncedMessageId, setSyncedMessageId] = useState(messageId);
+  if (syncedMessageId !== messageId) {
+    setSyncedMessageId(messageId);
+    setUserClosed(false);
+  }
+  const isOpen = messageId != null && !userClosed;
+
+  useEffect(() => {
+    if (!messageId) return;
+    let cancelled = false;
     requestIdRef.current += 1;
     const currentRequestId = requestIdRef.current;
-
-    dispatch({ type: "reset" });
-    setSelectedManifestId(null);
-
-    try {
-      const tracePromise = sessionClient.listMessageTraces(msgId);
-      const manifestPromise = sessionId
-        ? sessionClient.getViewManifests(sessionId).catch(() => [])
-        : Promise.resolve([]);
-
-      if (currentRequestId !== requestIdRef.current) return;
-
-      const [result, manifestResult] = await Promise.all([tracePromise, manifestPromise]);
-
-      if (currentRequestId !== requestIdRef.current) return;
-      if (!Array.isArray(result) || result.length === 0) {
-        dispatch({ type: "error" });
-        return;
-      }
-      dispatch({ type: "loaded", traces: result, manifests: manifestResult });
-    } catch {
-      if (currentRequestId === requestIdRef.current) {
-        dispatch({ type: "error" });
-      }
-    }
-  };
-
-  useEffect(() => {
-    if (messageId) {
-      setIsOpen(true);
-      loadTraces(messageId);
-    } else {
-      setIsOpen(false);
-      resetState();
-    }
-  }, [messageId]);
+    void Promise.resolve()
+      .then(() => {
+        dispatch({ type: "reset" });
+        setSelectedManifestId(null);
+        const tracePromise = sessionClient.listMessageTraces(messageId);
+        const manifestPromise = sessionId
+          ? sessionClient.getViewManifests(sessionId).catch(() => [])
+          : Promise.resolve([] as ArgosTapeViewManifestRecord[]);
+        return Promise.all([tracePromise, manifestPromise]);
+      })
+      .then(([result, manifestResult]) => {
+        if (cancelled || currentRequestId !== requestIdRef.current) return;
+        if (!Array.isArray(result) || result.length === 0) {
+          dispatch({ type: "error" });
+          return;
+        }
+        dispatch({ type: "loaded", traces: result, manifests: manifestResult });
+      })
+      .catch(() => {
+        if (!cancelled && currentRequestId === requestIdRef.current) {
+          dispatch({ type: "error" });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [messageId, sessionId]);
 
   useEffect(() => {
-    if (!isOpen) {
-      resetState();
-      onClose();
-    }
+    if (isOpen) return;
+    resetStateRef.current();
+    onCloseRef.current();
   }, [isOpen]);
 
   const copyJson = useCallback(async () => {
@@ -192,13 +201,24 @@ export default function TraceDialog({ messageId, sessionId, onClose }: TraceDial
   }, [formattedJson]);
 
   const close = useCallback(() => {
-    setIsOpen(false);
+    setUserClosed(true);
     resetState();
     onClose();
   }, [resetState, onClose]);
 
+  const handleOpenChange = useCallback(
+    (next: boolean) => {
+      if (next) {
+        setUserClosed(false);
+        return;
+      }
+      close();
+    },
+    [close],
+  );
+
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Message Trace</DialogTitle>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Icon } from "@iconify/react";
 import {
   Dialog,
@@ -52,6 +52,14 @@ const toCustomApiType = (value: string): ProviderImportCustomApiType =>
   PROVIDER_IMPORT_CUSTOM_API_TYPES.includes(value as ProviderImportCustomApiType)
     ? (value as ProviderImportCustomApiType)
     : "openai-completions";
+
+const providerTargetKey = (provider: ProviderImportProviderPreview): string => {
+  if (provider.targetKind === "unsupported" || !provider.targetProviderId) return "";
+  if (provider.targetKind === "custom") {
+    return `${provider.targetKind}:${provider.targetProviderId}:${provider.baseUrl}:${provider.apiKeyMasked}`;
+  }
+  return `${provider.targetKind}:${provider.targetProviderId}`;
+};
 
 export default function ProviderConfigImportDialog({
   open,
@@ -172,9 +180,8 @@ export default function ProviderConfigImportDialog({
     } catch (error) {
       setScanResult(null);
       setScanError(error instanceof Error ? error.message : String(error));
-    } finally {
-      setIsScanning(false);
     }
+    setIsScanning(false);
   };
 
   const initialize = async () => {
@@ -186,10 +193,14 @@ export default function ProviderConfigImportDialog({
     await runScan();
   };
 
+  const initializeRef = useRef(initialize);
   useEffect(() => {
-    if (open) {
-      void initialize();
-    }
+    initializeRef.current = initialize;
+  }, [initialize]);
+
+  useEffect(() => {
+    if (!open) return;
+    void Promise.resolve().then(() => initializeRef.current());
   }, [open]);
 
   const toggleSource = (sourceId: ProviderImportSourceId) => {
@@ -292,10 +303,8 @@ export default function ProviderConfigImportDialog({
     return Object.keys(options).length > 0 ? options : undefined;
   };
 
-  const hasRequiredPreviewCredentials = (
-    provider: ProviderImportProviderPreview,
-    apiType = selectedProviderApiTypes[provider.id] || toCustomApiType(provider.targetApiType),
-  ): boolean => {
+  const hasRequiredPreviewCredentials = (provider: ProviderImportProviderPreview, apiTypeArg?: string): boolean => {
+    const apiType = apiTypeArg ?? (selectedProviderApiTypes[provider.id] || toCustomApiType(provider.targetApiType));
     if (provider.targetKind !== "custom") {
       return !provider.warnings.includes("missing_api_key");
     }
@@ -323,14 +332,6 @@ export default function ProviderConfigImportDialog({
       missing_base_url: "Base URL is required",
     };
     return warnings.map((w) => warningLabels[w] ?? w);
-  };
-
-  const providerTargetKey = (provider: ProviderImportProviderPreview): string => {
-    if (provider.targetKind === "unsupported" || !provider.targetProviderId) return "";
-    if (provider.targetKind === "custom") {
-      return `${provider.targetKind}:${provider.targetProviderId}:${provider.baseUrl}:${provider.apiKeyMasked}`;
-    }
-    return `${provider.targetKind}:${provider.targetProviderId}`;
   };
 
   const selectedProviderOrder = useMemo(() => {

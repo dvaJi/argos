@@ -1,6 +1,6 @@
 import { Store } from "@tanstack/store";
 import { useStore } from "@tanstack/react-store";
-import type { MODEL_META, RENDERER_MODEL_META, ModelConfig } from "@argos/shared/presenter";
+import type { LLM_PROVIDER, MODEL_META, RENDERER_MODEL_META, ModelConfig } from "@argos/shared/presenter";
 import { isChatSelectableModelType, ModelType } from "@argos/shared/model";
 import {
   resolveDerivedModelMaxTokens,
@@ -695,8 +695,19 @@ const getActiveEnabledModels = () => {
 export const getChatSelectableModelGroups = (): ChatSelectableModelGroup[] => {
   const sorted = getSortedProviders();
   const orderedProviders = sorted.length > 0 ? sorted : providerStore.state.providers;
+  return getChatSelectableModelGroupsFrom(orderedProviders, modelStore.state.enabledModels);
+};
+
+/**
+ * Pure grouping over explicit state pieces so callers can subscribe to the exact
+ * values they render (React Compiler requires dependency lists of plain values).
+ */
+export const getChatSelectableModelGroupsFrom = (
+  orderedProviders: LLM_PROVIDER[],
+  enabledModels: { providerId: string; models: RENDERER_MODEL_META[] }[],
+): ChatSelectableModelGroup[] => {
   const modelsByProviderId = new Map(
-    modelStore.state.enabledModels
+    enabledModels
       .filter((group) => group.providerId !== "acp")
       .map(
         (group) => [group.providerId, group.models.filter((model) => isChatSelectableModelType(model.type))] as const,

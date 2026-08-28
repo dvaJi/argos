@@ -37,23 +37,26 @@ export default function NowledgeMemSettings() {
     setConfig((prev) => ({ ...prev, timeout: clampedValue * 1000 }));
   };
 
-  const loadConfiguration = async () => {
-    try {
-      const savedConfig = await nowledgeMemClient.getConfig();
-      if (savedConfig) {
-        setConfig((prev) => ({
-          ...prev,
-          ...savedConfig,
-          timeout: savedConfig.timeout && !isNaN(savedConfig.timeout) ? savedConfig.timeout : prev.timeout,
-        }));
-      }
-    } catch (error) {
-      console.error("Failed to load nowledge-mem config:", error);
-    }
-  };
-
   useEffect(() => {
-    loadConfiguration();
+    let cancelled = false;
+    (async () => {
+      try {
+        const savedConfig = await nowledgeMemClient.getConfig();
+        if (cancelled) return;
+        if (savedConfig) {
+          setConfig((prev) => ({
+            ...prev,
+            ...savedConfig,
+            timeout: savedConfig.timeout && !isNaN(savedConfig.timeout) ? savedConfig.timeout : prev.timeout,
+          }));
+        }
+      } catch (error) {
+        console.error("Failed to load nowledge-mem config:", error);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const testConnection = async () => {
@@ -71,9 +74,8 @@ export default function NowledgeMemSettings() {
         description: error instanceof Error ? error.message : "Connection test failed",
         variant: "destructive",
       });
-    } finally {
-      setTestingConnection(false);
     }
+    setTestingConnection(false);
   };
 
   const saveConfiguration = async () => {
@@ -86,9 +88,8 @@ export default function NowledgeMemSettings() {
       });
     } catch (error) {
       console.error("Failed to save nowledge-mem config:", error);
-    } finally {
-      setSavingConfig(false);
     }
+    setSavingConfig(false);
   };
 
   const resetConfiguration = async () => {

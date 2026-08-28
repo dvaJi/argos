@@ -3,8 +3,21 @@ import { createDeviceClient } from "#api/DeviceClient";
 import { usePageCapture } from "#/composables/usePageCapture";
 import type { CaptureOptions } from "./types";
 
+/** Restores display styles for elements hidden during capture (module-scope: safe for the React Compiler). */
+function restoreCaptureOverlays(captureHiddenElementsRef: { current: HTMLElement[] }): void {
+  for (const element of captureHiddenElementsRef.current) {
+    const original = element.dataset.captureOriginalDisplay;
+    if (original !== undefined) {
+      element.style.display = original;
+      delete element.dataset.captureOriginalDisplay;
+    } else {
+      element.style.removeProperty("display");
+    }
+  }
+  captureHiddenElementsRef.current = [];
+}
+
 export function useMessageCapture(isDark: boolean) {
-  const deviceClient = createDeviceClient();
   const { isCapturing, captureAndCopy } = usePageCapture();
 
   const [appVersion, setAppVersion] = useState("");
@@ -12,6 +25,7 @@ export function useMessageCapture(isDark: boolean) {
   const captureHiddenElementsRef = useRef<HTMLElement[]>([]);
 
   useEffect(() => {
+    const deviceClient = createDeviceClient();
     deviceClient.getAppVersion().then((version) => {
       setAppVersion(version);
     });
@@ -33,23 +47,10 @@ export function useMessageCapture(isDark: boolean) {
     });
   };
 
-  const restoreCaptureOverlays = () => {
-    for (const element of captureHiddenElementsRef.current) {
-      const original = element.dataset.captureOriginalDisplay;
-      if (original !== undefined) {
-        element.style.display = original;
-        delete element.dataset.captureOriginalDisplay;
-      } else {
-        element.style.removeProperty("display");
-      }
-    }
-    captureHiddenElementsRef.current = [];
-  };
-
   useEffect(() => {
     return () => {
       containerCacheRef.current = null;
-      restoreCaptureOverlays();
+      restoreCaptureOverlays(captureHiddenElementsRef);
     };
   }, []);
 
@@ -165,8 +166,10 @@ export function useMessageCapture(isDark: boolean) {
           },
         },
       });
-    } finally {
-      restoreCaptureOverlays();
+      restoreCaptureOverlays(captureHiddenElementsRef);
+    } catch (error) {
+      restoreCaptureOverlays(captureHiddenElementsRef);
+      throw error;
     }
 
     if (!success) {

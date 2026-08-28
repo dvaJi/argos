@@ -11,6 +11,12 @@ interface MermaidBlockProps {
   className?: string;
 }
 
+// Module-scope helper so the dynamic `import("mermaid")` stays out of
+// component/hook code.
+async function importMermaid() {
+  return (await import("mermaid")).default;
+}
+
 export function MermaidBlock({ node, className }: MermaidBlockProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [svg, setSvg] = useState<string | null>(null);
@@ -19,17 +25,17 @@ export function MermaidBlock({ node, className }: MermaidBlockProps) {
   useEffect(() => {
     let cancelled = false;
 
-    import("mermaid").then((mermaid) => {
+    void importMermaid().then((mermaid) => {
       if (cancelled) return;
 
-      mermaid.default.initialize({
+      mermaid.initialize({
         startOnLoad: false,
         theme: "default",
         securityLevel: "loose",
       });
 
       const id = `mermaid-${Math.random().toString(36).slice(2, 9)}`;
-      mermaid.default
+      mermaid
         .render(id, node.code)
         .then(({ svg: renderedSvg }) => {
           if (!cancelled) {

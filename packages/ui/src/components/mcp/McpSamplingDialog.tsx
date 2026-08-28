@@ -60,25 +60,22 @@ export default function McpSamplingDialog() {
     return entries;
   }, [store.request?.modelPreferences]);
 
-  const onModelUpdate = useCallback(
-    (model: RENDERER_MODEL_META, providerId: string) => {
-      selectModel(model, providerId);
-      setModelSelectOpen(false);
-    },
-    [store],
-  );
+  const onModelUpdate = useCallback((model: RENDERER_MODEL_META, providerId: string) => {
+    selectModel(model, providerId);
+    setModelSelectOpen(false);
+  }, []);
 
   const onReject = useCallback(() => {
     void rejectRequest();
-  }, [store]);
+  }, []);
 
   const onConfirm = useCallback(() => {
     void confirmApproval();
-  }, [store]);
+  }, []);
 
   const onRetryModels = useCallback(() => {
     void retryPrepareModels();
-  }, [store]);
+  }, []);
 
   const onDialogToggle = useCallback(
     (open: boolean) => {

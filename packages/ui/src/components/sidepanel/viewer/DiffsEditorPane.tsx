@@ -71,9 +71,8 @@ export function DiffsEditorPane({ filePath, initialContent, language, onSaved }:
     } catch (error) {
       console.error("[DiffsEditorPane] save failed", error);
       toast.error(`Failed to save ${fileBasename}`);
-    } finally {
-      setSaving(false);
     }
+    setSaving(false);
   }, [dirty, saving, editorRef, workspaceClient, filePath, onSaved, fileBasename]);
 
   useEffect(() => {

@@ -45,8 +45,6 @@ export default function BuiltinKnowledgeSettings({ onShowDetail }: BuiltinKnowle
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingConfig, setEditingConfig] = useState<BuiltinKnowledgeConfig | null>(null);
-  const [isMcpEnabled, setIsMcpEnabled] = useState(false);
-
   const loadConfigs = useCallback(async () => {
     try {
       const list = await configClient.getKnowledgeConfigs();
@@ -59,13 +57,22 @@ export default function BuiltinKnowledgeSettings({ onShowDetail }: BuiltinKnowle
     await mcpStore.toggleServer("builtinKnowledge");
   };
 
-  useEffect(() => {
-    setIsMcpEnabled(mcpStore.serverStatuses["builtinKnowledge"] || false);
-  }, [mcpStore.serverStatuses]);
+  const isMcpEnabled = mcpStore.serverStatuses["builtinKnowledge"] || false;
 
   useEffect(() => {
-    if (mcpStore.config.ready) loadConfigs();
-  }, [mcpStore.config.ready, loadConfigs]);
+    if (!mcpStore.config.ready) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const list = await configClient.getKnowledgeConfigs();
+        if (cancelled) return;
+        setConfigs(list || []);
+      } catch {}
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [mcpStore.config.ready]);
 
   const handleSetting = (config: BuiltinKnowledgeConfig) => {
     onShowDetail(config);

@@ -53,7 +53,7 @@ export default function ScheduledTasksSettings() {
 
   const [settings, setSettings] = useState<ScheduledTasksSettings | null>(null);
   const [agents, setAgents] = useState<Agent[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   // Counter of in-flight mutations. A single boolean races when two operations
   // (e.g. toggling one task while saving another) overlap — the first to finish
   // would flip the indicator off while the second is still pending.
@@ -97,7 +97,11 @@ export default function ScheduledTasksSettings() {
     }
   }, []);
 
-  const refreshFormBuffers = useCallback(() => {
+  // Re-derive the form input buffers whenever the task list identity changes
+  // (adjusted during render so the React Compiler can track it).
+  const [bufferSyncTasks, setBufferSyncTasks] = useState(tasks);
+  if (bufferSyncTasks !== tasks) {
+    setBufferSyncTasks(tasks);
     setOnceInputValues(tasks.map((t) => (t.trigger.kind === "once" ? formatDateTimeLocal(t.trigger.firesAt) : "")));
     setRecurringTimeValues(
       tasks.map((t) => {
@@ -106,7 +110,7 @@ export default function ScheduledTasksSettings() {
         return "09:00";
       }),
     );
-  }, [tasks]);
+  }
 
   // Run a settings-mutating operation through the single ordered queue. Errors
   // are surfaced via toast and logged with `label`; the pending counter is
@@ -142,24 +146,6 @@ export default function ScheduledTasksSettings() {
     [toast],
   );
 
-  const loadSettings = useCallback(() => {
-    setIsLoading(true);
-    return Promise.all([client.list(), configClient.listAgents()])
-      .then(([nextSettings, nextAgents]) => {
-        setSettings(nextSettings);
-        setAgents(nextAgents);
-      })
-      .catch((error: unknown) => {
-        console.error("[ScheduledTasks] Failed to load settings:", error);
-        toast({
-          title: "Operation failed",
-          description: error instanceof Error ? error.message : String(error),
-          variant: "destructive",
-        });
-      })
-      .finally(() => setIsLoading(false));
-  }, [client, configClient, toast]);
-
   const persistTask = useCallback(
     (task: ScheduledTask) =>
       runMutation(`persist task ${task.id}`, async () => {
@@ -185,11 +171,27 @@ export default function ScheduledTasksSettings() {
   );
 
   useEffect(() => {
-    void loadSettings();
-  }, [loadSettings]);
-  useEffect(() => {
-    refreshFormBuffers();
-  }, [tasks, refreshFormBuffers]);
+    let cancelled = false;
+    (async () => {
+      try {
+        const [nextSettings, nextAgents] = await Promise.all([client.list(), configClient.listAgents()]);
+        if (cancelled) return;
+        setSettings(nextSettings);
+        setAgents(nextAgents);
+      } catch (error: unknown) {
+        console.error("[ScheduledTasks] Failed to load settings:", error);
+        toast({
+          title: "Operation failed",
+          description: error instanceof Error ? error.message : String(error),
+          variant: "destructive",
+        });
+      }
+      if (!cancelled) setIsLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [client, configClient, toast]);
 
   return (
     <SettingsPageShell

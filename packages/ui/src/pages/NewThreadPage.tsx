@@ -96,6 +96,11 @@ async function ensureWorktreeAcpDraft(input: {
  * effort / mode chips on the footer's left, send cluster on the right) and one
  * context row below it (machine / project / worktree).
  */
+const normalizeProjectPath = (value: string | null | undefined) => {
+  const n = value?.trim();
+  return n || null;
+};
+
 function NewThreadPage() {
   const { toast } = useToast();
   const projectState = useStore(projectStore);
@@ -193,20 +198,16 @@ function NewThreadPage() {
 
   const isAcpSelectedAgent = selectedAgent.type === "acp";
 
-  const normalizeProjectPath = (value: string | null | undefined) => {
-    const n = value?.trim();
-    return n || null;
-  };
-
-  const selectedProjectPath = normalizeProjectPath(projectState.selectedProjectPath);
   const hasExplicitNoProjectSelection =
     projectState.selectionSource === "manual" && !projectState.selectedProjectPath?.trim();
+
+  const selectedProjectPath = normalizeProjectPath(projectState.selectedProjectPath);
 
   const selectedProjectName = useMemo(() => {
     const selProj = projectState.projects.find((p) => p.path === projectState.selectedProjectPath);
     if (selProj?.name) return selProj.name;
     return hasExplicitNoProjectSelection ? "No Project" : "Select Project";
-  }, [projectState.selectedProjectPath, hasExplicitNoProjectSelection]);
+  }, [projectState.projects, projectState.selectedProjectPath, hasExplicitNoProjectSelection]);
 
   const canClearProjectSelection = Boolean(projectState.selectedProjectPath?.trim());
 
@@ -235,7 +236,7 @@ function NewThreadPage() {
     isAcpSelectedAgent && Boolean(selectedProjectPath) && selectedProjectDirectoryStatus === "checking";
   const isAcpWorkdirUnavailable = isAcpWorkdirMissing || isAcpWorkdirInvalid || isAcpWorkdirChecking;
 
-  const syncGuideTargets = useCallback(() => {
+  const syncGuideTargets = useCallback((_context?: string) => {
     if (typeof document === "undefined") return;
     const agent =
       (document.querySelector(
@@ -251,7 +252,7 @@ function NewThreadPage() {
     setGuideTargets({ agent, model, firstChat });
   }, []);
 
-  const ensureEnabledModelsReady = async (): Promise<boolean> => {
+  const ensureEnabledModelsReady = useCallback(async (): Promise<boolean> => {
     if (modelState.initialized) return true;
     try {
       await initialize();
@@ -260,7 +261,7 @@ function NewThreadPage() {
       console.warn("[NewThreadPage] Failed to initialize enabled models:", error);
       return false;
     }
-  };
+  }, [modelState.initialized]);
 
   const resolveModel = useCallback(async (): Promise<ChatModelSelectionRef | null> => {
     const ready = await ensureEnabledModelsReady();
@@ -281,7 +282,7 @@ function NewThreadPage() {
     });
     if (resolvedModel) return { providerId: resolvedModel.providerId, modelId: resolvedModel.model.id };
     return null;
-  }, [modelState, draftState]);
+  }, [ensureEnabledModelsReady, draftState]);
 
   const resolveSubmissionModelSelection = useCallback(async (): Promise<ChatModelSelectionRef | null> => {
     if (isAcpSelectedAgent) {
@@ -294,9 +295,12 @@ function NewThreadPage() {
 
   const { prepareFiles, handleFilesChange } = useModelAwareAttachments(resolveSubmissionModelSelection);
 
-  const shouldIgnoreManualCompactionDraft = (text: string): boolean => {
-    return !isAcpSelectedAgent && isManualCompactionCommand(text);
-  };
+  const shouldIgnoreManualCompactionDraft = useCallback(
+    (text: string): boolean => {
+      return !isAcpSelectedAgent && isManualCompactionCommand(text);
+    },
+    [isAcpSelectedAgent],
+  );
 
   const submitText = useCallback(
     async (text: string, files: MessageFile[]) => {
@@ -473,7 +477,15 @@ function NewThreadPage() {
     } catch (e) {
       console.error("[NewThreadPage] submit failed:", e);
     }
-  }, [isAcpWorkdirUnavailable, isDaemonConnected, message, attachedFiles, prepareFiles, submitText]);
+  }, [
+    isAcpWorkdirUnavailable,
+    isDaemonConnected,
+    message,
+    attachedFiles,
+    prepareFiles,
+    submitText,
+    shouldIgnoreManualCompactionDraft,
+  ]);
 
   const onCommandSubmit = useCallback(
     async (command: string) => {
@@ -489,7 +501,14 @@ function NewThreadPage() {
         console.error("[NewThreadPage] submit failed:", e);
       }
     },
-    [isAcpWorkdirUnavailable, isDaemonConnected, attachedFiles, prepareFiles, submitText],
+    [
+      isAcpWorkdirUnavailable,
+      isDaemonConnected,
+      attachedFiles,
+      prepareFiles,
+      submitText,
+      shouldIgnoreManualCompactionDraft,
+    ],
   );
 
   const onPendingSkillsChange = useCallback((skills: string[]) => {
@@ -510,14 +529,16 @@ function NewThreadPage() {
 
   useEffect(() => {
     if (!selectedProjectPath) {
-      setSelectedProjectDirectoryStatus("none");
+      void Promise.resolve().then(() => setSelectedProjectDirectoryStatus("none"));
       return;
     }
     const seq = ++selectedProjectDirectoryCheckSeqRef.current;
     let cancelled = false;
-    setSelectedProjectDirectoryStatus("checking");
-    fileClient
-      .isDirectory(selectedProjectPath)
+    void Promise.resolve()
+      .then(() => {
+        setSelectedProjectDirectoryStatus("checking");
+        return fileClient.isDirectory(selectedProjectPath);
+      })
       .then((isDir) => {
         if (cancelled || seq !== selectedProjectDirectoryCheckSeqRef.current) return;
         setSelectedProjectDirectoryStatus(isDir ? "valid" : "invalid");
@@ -532,86 +553,113 @@ function NewThreadPage() {
     };
   }, [selectedProjectPath]);
 
-  const ensureAcpDraftSession = async (agentId: string, projectPath: string) => {
-    const projectDir = projectPath.trim();
-    if (!projectDir) return;
-    const draftKey = `${agentId}::${projectDir}`;
-    if (lastAcpDraftKeyRef.current === draftKey && acpDraftSessionId) return;
+  const ensureAcpDraftSession = useCallback(
+    async (agentId: string, projectPath: string) => {
+      const projectDir = projectPath.trim();
+      if (!projectDir) return;
+      const draftKey = `${agentId}::${projectDir}`;
+      if (lastAcpDraftKeyRef.current === draftKey && acpDraftSessionId) return;
 
-    const requestSeq = ++acpDraftRequestSeqRef.current;
-    try {
-      const session = await sessionClient.ensureAcpDraftSession({
-        agentId,
-        projectDir,
-        permissionMode: draftState.permissionMode,
-      });
-      if (requestSeq !== acpDraftRequestSeqRef.current) return;
-      // Compare against the *submission* agent (selected or effective fallback),
-      // not `selectedAgentId` — in the welcome state there is no explicit
-      // selection yet but the draft still targets the effective agent.
-      const currentAgentId = agentState.selectedAgentId ?? effectiveAgent?.agent.id ?? "argos";
-      const currentProjectDir = projectState.selectedProjectPath?.trim();
-      if (currentAgentId !== agentId || currentProjectDir !== projectDir) return;
-      const sessionId = typeof session?.id === "string" ? session.id.trim() : "";
-      if (!sessionId) {
+      const requestSeq = ++acpDraftRequestSeqRef.current;
+      try {
+        const session = await sessionClient.ensureAcpDraftSession({
+          agentId,
+          projectDir,
+          permissionMode: draftState.permissionMode,
+        });
+        if (requestSeq !== acpDraftRequestSeqRef.current) return;
+        // Compare against the *submission* agent (selected or effective fallback),
+        // not `selectedAgentId` — in the welcome state there is no explicit
+        // selection yet but the draft still targets the effective agent.
+        const currentAgentId = agentState.selectedAgentId ?? effectiveAgent?.agent.id ?? "argos";
+        const currentProjectDir = projectState.selectedProjectPath?.trim();
+        if (currentAgentId !== agentId || currentProjectDir !== projectDir) return;
+        const sessionId = typeof session?.id === "string" ? session.id.trim() : "";
+        if (!sessionId) {
+          setAcpDraftSessionId(null);
+          setAcpDraftModelSelection(null);
+          lastAcpDraftKeyRef.current = null;
+          return;
+        }
+        setAcpDraftSessionId(sessionId);
+        setAcpDraftModelSelection(
+          typeof session.providerId === "string" &&
+            session.providerId.trim() &&
+            typeof session.modelId === "string" &&
+            session.modelId.trim()
+            ? { providerId: session.providerId.trim(), modelId: session.modelId.trim() }
+            : { providerId: "acp", modelId: agentId },
+        );
+        lastAcpDraftKeyRef.current = draftKey;
+      } catch (error) {
+        if (requestSeq !== acpDraftRequestSeqRef.current) return;
+        console.warn("[NewThreadPage] Failed to ensure ACP draft session:", error);
+        setAcpDraftSessionId(null);
+        setAcpDraftModelSelection(null);
+        lastAcpDraftKeyRef.current = null;
+      }
+    },
+    [
+      acpDraftSessionId,
+      draftState.permissionMode,
+      agentState.selectedAgentId,
+      effectiveAgent,
+      projectState.selectedProjectPath,
+    ],
+  );
+
+  useEffect(() => {
+    void Promise.resolve().then(() => {
+      if (!isAcpSelectedAgent || !selectedProjectPath || selectedProjectDirectoryStatus !== "valid") {
         setAcpDraftSessionId(null);
         setAcpDraftModelSelection(null);
         lastAcpDraftKeyRef.current = null;
         return;
       }
-      setAcpDraftSessionId(sessionId);
-      setAcpDraftModelSelection(
-        typeof session.providerId === "string" &&
-          session.providerId.trim() &&
-          typeof session.modelId === "string" &&
-          session.modelId.trim()
-          ? { providerId: session.providerId.trim(), modelId: session.modelId.trim() }
-          : { providerId: "acp", modelId: agentId },
-      );
-      lastAcpDraftKeyRef.current = draftKey;
-    } catch (error) {
-      if (requestSeq !== acpDraftRequestSeqRef.current) return;
-      console.warn("[NewThreadPage] Failed to ensure ACP draft session:", error);
-      setAcpDraftSessionId(null);
-      setAcpDraftModelSelection(null);
-      lastAcpDraftKeyRef.current = null;
-    }
-  };
 
-  useEffect(() => {
-    if (!isAcpSelectedAgent || !selectedProjectPath || selectedProjectDirectoryStatus !== "valid") {
-      setAcpDraftSessionId(null);
-      setAcpDraftModelSelection(null);
-      lastAcpDraftKeyRef.current = null;
-      return;
-    }
+      const agentId = selectedAgent.id;
+      const projectPath = selectedProjectPath;
+      const draftKey = `${agentId}::${projectPath}`;
 
-    const agentId = selectedAgent.id;
-    const projectPath = selectedProjectPath;
-    const draftKey = `${agentId}::${projectPath}`;
+      if (lastAcpDraftKeyRef.current === draftKey && acpDraftSessionId) return;
 
-    if (lastAcpDraftKeyRef.current === draftKey && acpDraftSessionId) return;
+      acpDraftRequestSeqRef.current += 1;
+      cancelEnsureDraftTaskRef.current?.();
+      cancelEnsureDraftTaskRef.current = null;
 
-    acpDraftRequestSeqRef.current += 1;
-    cancelEnsureDraftTaskRef.current?.();
-    cancelEnsureDraftTaskRef.current = null;
+      if (lastAcpDraftKeyRef.current !== draftKey) {
+        setAcpDraftSessionId(null);
+        setAcpDraftModelSelection(null);
+        lastAcpDraftKeyRef.current = null;
+      }
 
-    if (lastAcpDraftKeyRef.current !== draftKey) {
-      setAcpDraftSessionId(null);
-      setAcpDraftModelSelection(null);
-      lastAcpDraftKeyRef.current = null;
-    }
-
-    cancelEnsureDraftTaskRef.current = scheduleStartupDeferredTask(async () => {
-      await ensureAcpDraftSession(agentId, projectPath);
+      cancelEnsureDraftTaskRef.current = scheduleStartupDeferredTask(async () => {
+        await ensureAcpDraftSession(agentId, projectPath);
+      });
     });
-  }, [selectedAgent.id, selectedProjectPath, selectedProjectDirectoryStatus, isAcpSelectedAgent, acpDraftSessionId]);
+  }, [
+    selectedAgent.id,
+    selectedProjectPath,
+    selectedProjectDirectoryStatus,
+    isAcpSelectedAgent,
+    acpDraftSessionId,
+    ensureAcpDraftSession,
+  ]);
+
+  // Latest project-state snapshot for the agent-change effect below, which must
+  // only fire when the selected agent identity changes while always reading the
+  // current project values.
+  const projectStateRef = useRef(projectState);
+  useEffect(() => {
+    projectStateRef.current = projectState;
+  }, [projectState]);
 
   useEffect(() => {
     const applyDefaults = async () => {
       const agentId = selectedAgent.id;
-      const globalDefault = normalizeProjectPath(projectState.defaultProjectPath);
-      const currentProject = normalizeProjectPath(projectState.selectedProjectPath);
+      const projectStateNow = projectStateRef.current;
+      const globalDefault = normalizeProjectPath(projectStateNow.defaultProjectPath);
+      const currentProject = normalizeProjectPath(projectStateNow.selectedProjectPath);
       draftStore.setState((s) => ({
         ...s,
         agentId,
@@ -694,7 +742,6 @@ function NewThreadPage() {
     });
     currentDraftDefaultsTaskRef.current = task;
   }, [selectedAgent.id, selectedAgent.type]);
-
   useEffect(() => {
     draftStore.setState((s) => ({ ...s, projectDir: projectState.selectedProjectPath ?? undefined }));
   }, [projectState.selectedProjectPath]);
@@ -714,25 +761,23 @@ function NewThreadPage() {
     };
   }, []);
 
+  // Re-measure guide targets whenever guide visibility or the agent context
+  // changes — both swap which DOM nodes are valid targets. The context is passed
+  // through to make the re-measure trigger explicit.
+  const guideSyncContext = `${switchAgentGuide.showGuide}|${switchModelGuide.showGuide}|${firstChatGuide.showGuide}|${selectedAgent.type}`;
   useEffect(() => {
-    void nextTick(syncGuideTargets);
-  }, [
-    switchAgentGuide.showGuide,
-    switchModelGuide.showGuide,
-    firstChatGuide.showGuide,
-    selectedAgent.type,
-    syncGuideTargets,
-  ]);
+    void nextTick(() => syncGuideTargets(guideSyncContext));
+  }, [guideSyncContext, syncGuideTargets]);
 
-  const continueChatGuide = async (state: any) => {
+  const continueChatGuide = useCallback(async (state: any) => {
     const stepId = state?.status === "completed" ? "first-chat" : state?.currentStepId;
     const target = resolveGuidedOnboardingStepTarget(stepId);
     if (target?.surface !== "settings" || !target.routeName) return;
     persistGuidedOnboardingResumeIntent({ stepId: target.stepId, trigger: "window-focus" });
     await configClient.openSettings({ routeName: target.routeName });
-  };
+  }, []);
 
-  const completeSwitchAgentStep = async () => {
+  const completeSwitchAgentStep = useCallback(async () => {
     if (isCompletingSwitchAgentGuide || switchAgentGuide.currentStepId !== "switch-agent") return;
     const stepStatus = switchAgentGuide.stepState?.status;
     if (stepStatus === "completed" || stepStatus === "skipped") return;
@@ -740,16 +785,17 @@ function NewThreadPage() {
     try {
       const state = await switchAgentGuide.completeStep();
       await continueChatGuide(state);
-    } finally {
       setIsCompletingSwitchAgentGuide(false);
+    } catch (error) {
+      setIsCompletingSwitchAgentGuide(false);
+      throw error;
     }
-  };
+  }, [isCompletingSwitchAgentGuide, switchAgentGuide, continueChatGuide]);
 
   useEffect(() => {
-    if (switchAgentGuide.currentStepId === "switch-agent" && !isAcpSelectedAgent && !isWelcomeState) {
-      void completeSwitchAgentStep();
-    }
-  }, [switchAgentGuide.currentStepId, isAcpSelectedAgent, isWelcomeState]);
+    if (!(switchAgentGuide.currentStepId === "switch-agent" && !isAcpSelectedAgent && !isWelcomeState)) return;
+    void Promise.resolve().then(() => completeSwitchAgentStep());
+  }, [switchAgentGuide.currentStepId, isAcpSelectedAgent, isWelcomeState, completeSwitchAgentStep]);
 
   const activeChatGuide = useMemo(() => {
     if (switchAgentGuide.showGuide && !isAcpSelectedAgent && guideTargets.agent) {
@@ -792,8 +838,17 @@ function NewThreadPage() {
     return null;
   }, [
     switchAgentGuide.showGuide,
+    switchAgentGuide.stepIndex,
+    switchAgentGuide.totalSteps,
+    switchAgentGuide.dismissGuide,
     switchModelGuide.showGuide,
+    switchModelGuide.stepIndex,
+    switchModelGuide.totalSteps,
+    switchModelGuide.dismissGuide,
     firstChatGuide.showGuide,
+    firstChatGuide.stepIndex,
+    firstChatGuide.totalSteps,
+    firstChatGuide.dismissGuide,
     isAcpSelectedAgent,
     guideTargets,
   ]);

@@ -71,10 +71,8 @@ export default function UsageNostalgiaCard({ dashboard }: UsageNostalgiaCardProp
   useEffect(() => {
     const statCount = nostalgiaCard?.rotatingStats.length ?? 0;
     if (statCount <= 1) {
-      setNostalgiaStatIndex(0);
       return;
     }
-    setNostalgiaStatIndex((prev) => prev % statCount);
     const timer = window.setInterval(() => {
       setNostalgiaStatIndex((prev) => {
         const currentCount = nostalgiaCard?.rotatingStats.length ?? 0;

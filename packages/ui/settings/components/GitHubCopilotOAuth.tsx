@@ -26,13 +26,16 @@ export default function GitHubCopilotOAuth({ provider, onAuthSuccess, onAuthErro
     message: string;
   } | null>(null);
   const [copilotClientId, setCopilotClientId] = useState(provider.copilotClientId || "");
+  // Keep the local client ID draft in sync when the provider identity changes
+  // (prev-compare during render — no effect needed).
+  const [syncedProvider, setSyncedProvider] = useState(provider);
+  if (syncedProvider !== provider) {
+    setSyncedProvider(provider);
+    setCopilotClientId(provider.copilotClientId || "");
+  }
   const clearTimerRef = useRef<number | null>(null);
 
   const hasToken = useMemo(() => !!(provider.apiKey && provider.apiKey.trim()), [provider.apiKey]);
-
-  useEffect(() => {
-    setCopilotClientId(provider.copilotClientId || "");
-  }, [provider]);
 
   useEffect(() => {
     return () => {
@@ -88,9 +91,8 @@ export default function GitHubCopilotOAuth({ provider, onAuthSuccess, onAuthErro
       const message = error instanceof Error ? error.message : "Login failed";
       onAuthError?.(message);
       setValidationResult({ success: false, message });
-    } finally {
-      setIsLoggingIn(false);
     }
+    setIsLoggingIn(false);
   };
 
   const startOAuthLogin = async () => {
@@ -111,9 +113,8 @@ export default function GitHubCopilotOAuth({ provider, onAuthSuccess, onAuthErro
       const message = error instanceof Error ? error.message : "Login failed";
       onAuthError?.(message);
       setValidationResult({ success: false, message });
-    } finally {
-      setIsLoggingIn(false);
     }
+    setIsLoggingIn(false);
   };
 
   const openModelCheckDialog = () => {

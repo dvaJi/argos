@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { AWS_BEDROCK_PROVIDER, RENDERER_MODEL_META } from "@argos/shared/presenter";
 import { useProviderStore } from "#/stores/providerStore";
 import { useModelStore } from "#/stores/modelStore";
@@ -30,7 +30,6 @@ export default function BedrockProviderSettingsDetail({
   const [region, setRegion] = useState(provider.credential?.region || "");
   const [showAccessKeyId, setShowAccessKeyId] = useState(false);
   const [showSecretAccessKey, setShowSecretAccessKey] = useState(false);
-  const [providerModels, setProviderModels] = useState<RENDERER_MODEL_META[]>([]);
   const [checkResult, setCheckResult] = useState(false);
   const [modelToDisable, setModelToDisable] = useState<RENDERER_MODEL_META | null>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
@@ -42,6 +41,25 @@ export default function BedrockProviderSettingsDetail({
     const providerCustomModels = modelStore.customModels.find((entry) => entry.providerId === provider.id);
     return providerCustomModels?.models || [];
   }, [modelStore.customModels, provider.id]);
+
+  const providerModels = useMemo(() => {
+    const providerData = modelStore.allProviderModels.find((p) => p.providerId === provider.id);
+    if (!providerData) {
+      return [];
+    }
+    return [...providerData.models].sort(
+      (a, b) => a.group.localeCompare(b.group) || a.providerId.localeCompare(b.providerId),
+    );
+  }, [modelStore.allProviderModels, provider.id]);
+
+  // Reset the credential drafts whenever the provider identity changes.
+  const [syncedCredentialProvider, setSyncedCredentialProvider] = useState(provider);
+  if (syncedCredentialProvider !== provider) {
+    setSyncedCredentialProvider(provider);
+    setAccessKeyId(provider.credential?.accessKeyId || "");
+    setSecretAccessKey(provider.credential?.secretAccessKey || "");
+    setRegion(provider.credential?.region || "");
+  }
 
   const isProviderReadyForOnboarding = (p: Pick<AWS_BEDROCK_PROVIDER, "credential" | "enable">) => {
     if (!p.enable) return false;
@@ -69,28 +87,6 @@ export default function BedrockProviderSettingsDetail({
     });
     return Array.from(uniqueModels.values());
   }, [customModels, providerModels]);
-
-  const initData = async () => {
-    const providerData = modelStore.allProviderModels.find((p) => p.providerId === provider.id);
-    if (providerData) {
-      setProviderModels(
-        providerData.models.sort((a, b) => a.group.localeCompare(b.group) || a.providerId.localeCompare(b.providerId)),
-      );
-    } else {
-      setProviderModels([]);
-    }
-  };
-
-  useEffect(() => {
-    setAccessKeyId(provider.credential?.accessKeyId || "");
-    setSecretAccessKey(provider.credential?.secretAccessKey || "");
-    setRegion(provider.credential?.region || "");
-    void initData();
-  }, [provider]);
-
-  useEffect(() => {
-    void initData();
-  }, [modelStore.allProviderModels]);
 
   const handleAccessKeyIdChange = async (value: string) => {
     const result = await providerStore.updateAwsBedrockProviderConfig(provider.id, {
@@ -182,13 +178,12 @@ export default function BedrockProviderSettingsDetail({
     }
   };
 
-  const handleConfigChanged = async () => {
-    await initData();
-  };
+  // providerModels derive live from the model store, so a config change only
+  // needs the store itself to update; there is nothing local to re-read.
+  const handleConfigChanged = async () => {};
 
   const handleAddModelSaved = async () => {
     await modelStore.refreshProviderModels(provider.id);
-    await initData();
   };
 
   return (

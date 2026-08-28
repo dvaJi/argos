@@ -42,9 +42,8 @@ export default function ModelScopeMcpSync({ provider }: ModelScopeMcpSyncProps) 
     } catch (error) {
       console.error("MCP sync error:", error);
       setErrorMessage(error instanceof Error ? error.message : String(error));
-    } finally {
-      setIsSyncing(false);
     }
+    setIsSyncing(false);
   };
 
   return (

@@ -29,6 +29,26 @@ const getBasename = (value: string) =>
     .filter(Boolean)
     .pop() ?? value;
 
+// Module-scope so effects can trigger patch loads without capturing component
+// state (the setters are passed in explicitly).
+const fetchWorkspacePatch = async (
+  workspaceClient: ReturnType<typeof createWorkspaceClient>,
+  workspacePath: string,
+  filePath: string | null,
+  setPatch: (patch: string) => void,
+  setLoadingPatch: (loading: boolean) => void,
+) => {
+  setLoadingPatch(true);
+  try {
+    const diff = await workspaceClient.getGitDiff(workspacePath, filePath ?? undefined);
+    setPatch(diff ? [diff.staged, diff.unstaged].filter(Boolean).join("\n\n") : "");
+  } catch (err) {
+    console.error("[DiffsPanel] diff failed", err);
+    setPatch("");
+  }
+  setLoadingPatch(false);
+};
+
 /**
  * Top-level sidepanel "Diffs" tab. Lists every changed file (from `getGitStatus`)
  * and renders its diff with `@pierre/diffs <PatchDiff>`, consuming the unified
@@ -61,31 +81,15 @@ export function DiffsPanel({ workspacePath }: DiffsPanelProps) {
     } catch (err) {
       console.error("[DiffsPanel] status failed", err);
       setError("Failed to load git status");
-    } finally {
-      setLoading(false);
     }
+    setLoading(false);
   }, [workspaceClient, workspacePath]);
-
-  const loadPatch = useCallback(
-    async (filePath: string | null) => {
-      if (!workspacePath) return;
-      setLoadingPatch(true);
-      try {
-        const diff = await workspaceClient.getGitDiff(workspacePath, filePath ?? undefined);
-        const text = diff ? [diff.staged, diff.unstaged].filter(Boolean).join("\n\n") : "";
-        setPatch(text);
-      } catch (err) {
-        console.error("[DiffsPanel] diff failed", err);
-        setPatch("");
-      } finally {
-        setLoadingPatch(false);
-      }
-    },
-    [workspaceClient, workspacePath],
-  );
 
   useEffect(() => {
     if (!workspacePath) return;
+    // Reset the diff selection whenever the workspace changes (different
+    // session/project); the stale patch is cleared via the render-phase sync below.
+    resetDiffsSelection();
     let cancelled = false;
     let off: (() => void) | undefined;
     void (async () => {
@@ -112,18 +116,20 @@ export function DiffsPanel({ workspacePath }: DiffsPanelProps) {
     };
   }, [workspacePath, loadStatus, workspaceClient]);
 
-  // Reset selection when the workspace changes (different session/project).
-  useEffect(() => {
-    resetDiffsSelection();
+  // Reset the cached patch when the workspace changes (different session/project).
+  const [patchWorkspacePath, setPatchWorkspacePath] = useState(workspacePath);
+  if (patchWorkspacePath !== workspacePath) {
+    setPatchWorkspacePath(workspacePath);
     setPatch("");
-  }, [workspacePath]);
+  }
 
   // Load the focused diff only once a real selection exists — never the slow
   // full-workspace patch by default (null = "All changes", an explicit user choice).
   useEffect(() => {
     if (!selectionReady) return;
-    void loadPatch(selectedPath);
-  }, [selectedPath, selectionReady, loadPatch]);
+    if (!workspacePath) return;
+    void fetchWorkspacePatch(workspaceClient, workspacePath, selectedPath, setPatch, setLoadingPatch);
+  }, [selectedPath, selectionReady, workspacePath, workspaceClient]);
 
   const changes = useMemo(() => state?.changes ?? [], [state]);
 

@@ -87,13 +87,19 @@ export default function PromptEditorSheet({ open, prompt, onUpdateOpen, onSubmit
     });
   }, []);
 
-  useEffect(() => {
+  // Sync the form with the requested prompt; reset when the sheet closes
+  // (adjusted during render so the React Compiler can track it).
+  const [syncedOpen, setSyncedOpen] = useState(open);
+  const [syncedPrompt, setSyncedPrompt] = useState(prompt);
+  if (syncedOpen !== open || syncedPrompt !== prompt) {
+    setSyncedOpen(open);
+    setSyncedPrompt(prompt);
     if (!open) {
       resetForm();
-      return;
+    } else {
+      applyPrompt(prompt);
     }
-    applyPrompt(prompt);
-  }, [open, prompt, resetForm, applyPrompt]);
+  }
 
   const handleOpenChange = (value: boolean) => {
     onUpdateOpen(value);

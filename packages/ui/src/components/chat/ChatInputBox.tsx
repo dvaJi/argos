@@ -36,6 +36,44 @@ import ChatAttachmentItem from "./ChatAttachmentItem";
 
 const SlashMention = Mention.extend({ name: "slashMention" });
 
+const HardBreakWithShiftEnter = HardBreak.extend({
+  addKeyboardShortcuts() {
+    return {
+      "Shift-Enter": () => this.editor.chain().setHardBreak().scrollIntoView().run(),
+    };
+  },
+});
+
+const toEditorDoc = (text: string) => {
+  const lines = text.replace(/\r/g, "").split("\n");
+  return {
+    type: "doc" as const,
+    content: lines.map((line) => ({
+      type: "paragraph" as const,
+      content: line ? [{ type: "text" as const, text: line }] : [],
+    })),
+  };
+};
+
+const getEditorText = (ed: Editor): string => {
+  return ed.getText({ blockSeparator: "\n" });
+};
+
+const setCaretToEnd = (ed: Editor) => {
+  const end = TextSelection.atEnd(ed.state.doc);
+  ed.view.dispatch(ed.state.tr.setSelection(end));
+};
+
+const sameFiles = (a: MessageFile[], b: MessageFile[]) => {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i].name !== b[i].name) return false;
+    if ((a[i].path || "") !== (b[i].path || "")) return false;
+    if ((a[i].mimeType || "") !== (b[i].mimeType || "")) return false;
+  }
+  return true;
+};
+
 interface ChatInputBoxProps {
   modelValue?: string;
   placeholder?: string;
@@ -96,31 +134,17 @@ const ChatInputBox = forwardRef<
     const fileInputRef = useRef<HTMLInputElement>(null);
     const resolvedPlaceholder = placeholder?.trim() || "Type a message...";
 
-    const toEditorDoc = (text: string) => {
-      const lines = text.replace(/\r/g, "").split("\n");
-      return {
-        type: "doc" as const,
-        content: lines.map((line) => ({
-          type: "paragraph" as const,
-          content: line ? [{ type: "text" as const, text: line }] : [],
-        })),
-      };
-    };
-
-    const getEditorText = (ed: Editor): string => {
-      return ed.getText({ blockSeparator: "\n" });
-    };
-
-    const setCaretToEnd = (ed: Editor) => {
-      const end = TextSelection.atEnd(ed.state.doc);
-      ed.view.dispatch(ed.state.tr.setSelection(end));
-    };
-
     const conversationId = useMemo(() => sessionId, [sessionId]);
     const skillsData = useSkillsData(conversationId);
+    const { pendingSkills, applyPendingSkillsToConversation } = skillsData;
     const activeSkillNames = useMemo(() => skillsData.activeSkills, [skillsData.activeSkills]);
 
     const editorRef = useRef<Editor | null>(null);
+
+    const onPendingSkillsChangeRef = useRef(onPendingSkillsChange);
+    useEffect(() => {
+      onPendingSkillsChangeRef.current = onPendingSkillsChange;
+    }, [onPendingSkillsChange]);
 
     const mentions = useChatInputMentions({
       getEditor: () => editorRef.current,
@@ -145,6 +169,10 @@ const ChatInputBox = forwardRef<
     const filesHelper = useChatInputFiles(fileInputProxy as any, (_event: any, nextFiles: MessageFile[]) => {
       onUpdateFiles?.([...nextFiles]);
     });
+    const filesHelperRef = useRef(filesHelper);
+    useEffect(() => {
+      filesHelperRef.current = filesHelper;
+    }, [filesHelper]);
 
     const editor = useEditor({
       extensions: [
@@ -163,13 +191,7 @@ const ChatInputBox = forwardRef<
         Placeholder.configure({
           placeholder: () => resolvedPlaceholder,
         }),
-        HardBreak.extend({
-          addKeyboardShortcuts() {
-            return {
-              "Shift-Enter": () => this.editor.chain().setHardBreak().scrollIntoView().run(),
-            };
-          },
-        }),
+        HardBreakWithShiftEnter,
       ],
       content: toEditorDoc(modelValue || ""),
       onUpdate: ({ editor: ed }) => {
@@ -197,40 +219,34 @@ const ChatInputBox = forwardRef<
 
     useEffect(() => {
       if (!editor) return;
-      editor.view.updateState(editor.state);
+      // Re-apply the editor state so the placeholder extension picks up the new text.
+      if (resolvedPlaceholder) {
+        editor.view.updateState(editor.state);
+      }
     }, [resolvedPlaceholder, editor]);
 
-    const sameFiles = (a: MessageFile[], b: MessageFile[]) => {
-      if (a.length !== b.length) return false;
-      for (let i = 0; i < a.length; i += 1) {
-        if (a[i].name !== b[i].name) return false;
-        if ((a[i].path || "") !== (b[i].path || "")) return false;
-        if ((a[i].mimeType || "") !== (b[i].mimeType || "")) return false;
-      }
-      return true;
-    };
-
     useEffect(() => {
-      if (sameFiles(externalFiles, filesHelper.selectedFiles)) return;
-      filesHelper.selectedFiles = [...externalFiles];
+      const helper = filesHelperRef.current;
+      if (sameFiles(externalFiles, helper.selectedFiles)) return;
+      helper.syncExternalFiles(externalFiles);
     }, [externalFiles]);
 
     useEffect(() => {
       if (!sessionId) {
-        onPendingSkillsChange?.([...skillsData.pendingSkills]);
+        onPendingSkillsChangeRef.current?.([...pendingSkills]);
       }
-    }, [skillsData.pendingSkills]);
+    }, [pendingSkills, sessionId]);
 
     useEffect(() => {
       if (sessionId) {
-        if (skillsData.pendingSkills.length > 0) {
-          void skillsData.applyPendingSkillsToConversation(sessionId);
+        if (pendingSkills.length > 0) {
+          void applyPendingSkillsToConversation(sessionId);
         }
-        onPendingSkillsChange?.([]);
+        onPendingSkillsChangeRef.current?.([]);
         return;
       }
-      onPendingSkillsChange?.([...skillsData.pendingSkills]);
-    }, [sessionId]);
+      onPendingSkillsChangeRef.current?.([...pendingSkills]);
+    }, [sessionId, pendingSkills, applyPendingSkillsToConversation]);
 
     function removeSkill(skillName: string) {
       void skillsData.deactivateSkill(skillName);

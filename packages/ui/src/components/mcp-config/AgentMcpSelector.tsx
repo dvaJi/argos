@@ -13,17 +13,20 @@ interface AgentMcpSelectorProps {
   onUpdateSelections?: (selections: string[]) => void;
 }
 
+const configClient = createConfigClient();
+
 const AgentMcpSelector: FC<AgentMcpSelectorProps> = ({ onUpdateSelections }) => {
   const { toast } = useToast();
-  const configClient = createConfigClient();
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [availableServers, setAvailableServers] = useState<Array<{ name: string; config: AgentMcpServerConfig }>>([]);
   const [selections, setSelections] = useState<string[]>([]);
 
-  const isPluginOwnedServerConfig = (config: AgentMcpServerConfig): boolean =>
-    Boolean(config.ownerPluginId || config.source === "plugin");
+  const isPluginOwnedServerConfig = useCallback(
+    (config: AgentMcpServerConfig): boolean => Boolean(config.ownerPluginId || config.source === "plugin"),
+    [],
+  );
 
   const selectableServers = useMemo(
     () => availableServers.filter((server) => server.config.type !== "inmemory"),
@@ -53,10 +56,12 @@ const AgentMcpSelector: FC<AgentMcpSelectorProps> = ({ onUpdateSelections }) => 
       setSelections(next);
       // Report the *visible* count on mount so the parent badge matches the list.
       onUpdateSelections?.(next);
-    } finally {
       setLoading(false);
+    } catch (error) {
+      setLoading(false);
+      throw error;
     }
-  }, [configClient, onUpdateSelections]);
+  }, [isPluginOwnedServerConfig, onUpdateSelections]);
 
   const persist = useCallback(
     async (nextSelections: string[], previousSelections: string[] = selections) => {
@@ -72,12 +77,12 @@ const AgentMcpSelector: FC<AgentMcpSelectorProps> = ({ onUpdateSelections }) => 
           description: "Request failed",
           variant: "destructive",
         });
-        throw error;
-      } finally {
         setSaving(false);
+        throw error;
       }
+      setSaving(false);
     },
-    [selections, configClient, onUpdateSelections, toast],
+    [selections, onUpdateSelections, toast],
   );
 
   const toggleServer = useCallback(
@@ -98,7 +103,7 @@ const AgentMcpSelector: FC<AgentMcpSelectorProps> = ({ onUpdateSelections }) => 
   );
 
   useEffect(() => {
-    void load();
+    void Promise.resolve().then(() => load());
   }, [load]);
 
   return (

@@ -48,16 +48,21 @@ const McpResourceViewer: FC<McpResourceViewerProps> = ({ serverName, open, onOpe
     [mcpStore.resources, serverName],
   );
 
-  useEffect(() => {
+  // Reset the resource form when the dialog opens or the selection changes
+  // (adjusted during render so the React Compiler can track it).
+  const [wasOpen, setWasOpen] = useState(open);
+  if (wasOpen !== open) {
+    setWasOpen(open);
     if (open) {
       setSelectedResource("");
       setResourceContent("");
     }
-  }, [open]);
-
-  useEffect(() => {
+  }
+  const [syncedResource, setSyncedResource] = useState(selectedResource);
+  if (syncedResource !== selectedResource) {
+    setSyncedResource(selectedResource);
     setResourceContent("");
-  }, [selectedResource]);
+  }
 
   const selectResource = (resource: ResourceListEntry) => {
     setSelectedResource(resource.uri);
@@ -87,9 +92,8 @@ const McpResourceViewer: FC<McpResourceViewerProps> = ({ serverName, open, onOpe
     } catch (error) {
       console.error("Load resource failed:", error);
       setResourceContent(`Load failed: ${error}`);
-    } finally {
-      setResourceLoading(false);
     }
+    setResourceLoading(false);
   };
 
   const selectedResourceObj = useMemo(

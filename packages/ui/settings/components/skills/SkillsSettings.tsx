@@ -87,7 +87,7 @@ export default function SkillsSettings() {
       cancelled = true;
       unsubscribers.forEach((unsubscribe) => unsubscribe());
     };
-  }, [configClient]);
+  }, []);
 
   const openEditor = (skill: SkillMetadata) => {
     setEditingSkill(skill);

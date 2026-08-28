@@ -32,16 +32,9 @@ export function useImageActions() {
   };
 
   const copyImage = async (image: ImageActionSource) => {
+    let result;
     try {
-      const result = await fileClient.copyImage(image);
-      if (!result.copied) {
-        throw new Error("Image was not copied");
-      }
-
-      toast({
-        title: "Image copied",
-        description: "Image has been copied to clipboard",
-      });
+      result = await fileClient.copyImage(image);
     } catch (error) {
       console.error("Failed to copy image:", error);
       toast({
@@ -49,7 +42,23 @@ export function useImageActions() {
         description: "Failed to copy image to clipboard",
         variant: "destructive",
       });
+      return;
     }
+
+    if (!result.copied) {
+      console.error("Failed to copy image:", new Error("Image was not copied"));
+      toast({
+        title: "Copy failed",
+        description: "Failed to copy image to clipboard",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    toast({
+      title: "Image copied",
+      description: "Image has been copied to clipboard",
+    });
   };
 
   return {

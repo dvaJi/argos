@@ -16,7 +16,9 @@ export default function SyncStatusSection({ onImport }: SyncStatusSectionProps) 
   const { toast } = useToast();
 
   const [tools, setTools] = useState<ScanResult[]>([]);
-  const [scanning, setScanning] = useState(false);
+  // Starts true so the initial scan (kicked off by the mount effect below)
+  // shows the scanning indicator from the first paint.
+  const [scanning, setScanning] = useState(true);
 
   const sortedTools = [...tools]
     .filter((tool) => !tool.toolId.includes("project") && tool.available && tool.skills.length > 0)
@@ -34,9 +36,8 @@ export default function SyncStatusSection({ onImport }: SyncStatusSectionProps) 
         description: error instanceof Error ? error.message : String(error),
         variant: "destructive",
       });
-    } finally {
-      setScanning(false);
     }
+    setScanning(false);
   };
 
   const handleSync = (toolId: string) => {
@@ -50,8 +51,27 @@ export default function SyncStatusSection({ onImport }: SyncStatusSectionProps) 
   };
 
   useEffect(() => {
-    refresh();
-  }, []);
+    let cancelled = false;
+    void (async () => {
+      try {
+        const results = await skillSyncClient.scanExternalTools();
+        if (cancelled) return;
+        setTools(Array.isArray(results) ? results : []);
+      } catch (error) {
+        console.error("Failed to scan external tools:", error);
+        if (cancelled) return;
+        toast({
+          title: "Scan Error",
+          description: error instanceof Error ? error.message : String(error),
+          variant: "destructive",
+        });
+      }
+      if (!cancelled) setScanning(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [toast]);
 
   return (
     <div className="space-y-4">

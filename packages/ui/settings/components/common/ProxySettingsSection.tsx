@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { Input } from "#shadcn/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#shadcn/components/ui/select";
@@ -22,18 +22,21 @@ export default function ProxySettingsSection() {
   const [showUrlError, setShowUrlError] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const validateProxyUrl = (url?: string | null) => {
-    const value = (url ?? customProxyUrl) || "";
-    if (!value.trim()) {
-      setShowUrlError(false);
-      return;
-    }
-    const isValid = URL_PATTERN.test(value);
-    setShowUrlError(!isValid);
-    if (isValid || !value.trim()) {
-      configClient.setCustomProxyUrl(value);
-    }
-  };
+  const validateProxyUrl = useCallback(
+    (url?: string | null) => {
+      const value = (url ?? customProxyUrl) || "";
+      if (!value.trim()) {
+        setShowUrlError(false);
+        return;
+      }
+      const isValid = URL_PATTERN.test(value);
+      setShowUrlError(!isValid);
+      if (isValid || !value.trim()) {
+        configClient.setCustomProxyUrl(value);
+      }
+    },
+    [customProxyUrl],
+  );
 
   useEffect(() => {
     if (debounceRef.current !== null) {
@@ -47,11 +50,16 @@ export default function ProxySettingsSection() {
         clearTimeout(debounceRef.current);
       }
     };
-  }, [customProxyUrl]);
+  }, [validateProxyUrl]);
 
   useEffect(() => {
     configClient.setProxyMode(selectedProxyMode);
   }, [selectedProxyMode]);
+
+  const validateProxyUrlRef = useRef(validateProxyUrl);
+  useEffect(() => {
+    validateProxyUrlRef.current = validateProxyUrl;
+  }, [validateProxyUrl]);
 
   useEffect(() => {
     let cancelled = false;
@@ -61,10 +69,10 @@ export default function ProxySettingsSection() {
       setSelectedProxyMode(mode ?? "none");
       setCustomProxyUrl(url ?? "");
       if (mode === "custom" && url) {
-        validateProxyUrl(url);
+        validateProxyUrlRef.current(url);
       }
     };
-    init();
+    void init();
     return () => {
       cancelled = true;
     };

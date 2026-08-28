@@ -206,11 +206,11 @@ export function useChatStatusBarAcpConfig(options: UseChatStatusBarAcpConfigOpti
       modelId ||
       "ACP Agent"
     );
-  }, [options.activeAcpAgentId, options.selectedAgentId, options.selectedAgentName, options.resolveModelName]);
+  }, [options]);
 
   const acpAgentIconId = useMemo(
     () => options.resolveModelIconId("acp", options.activeAcpAgentId ?? options.selectedAgentId),
-    [options.activeAcpAgentId, options.selectedAgentId, options.resolveModelIconId],
+    [options],
   );
 
   const getAcpOptionDisplayValue = useCallback((option: AcpConfigOption): string => {
@@ -522,10 +522,12 @@ export function useChatStatusBarAcpConfig(options: UseChatStatusBarAcpConfigOpti
   );
 
   useEffect(() => {
-    const optionIds = acpInlineOptions.map((option) => option.id);
-    if (acpInlineOpenOptionId && !optionIds.includes(acpInlineOpenOptionId)) {
-      setAcpInlineOpenOptionId(null);
-    }
+    void Promise.resolve().then(() => {
+      const optionIds = acpInlineOptions.map((option) => option.id);
+      if (acpInlineOpenOptionId && !optionIds.includes(acpInlineOpenOptionId)) {
+        setAcpInlineOpenOptionId(null);
+      }
+    });
   }, [acpInlineOptions, acpInlineOpenOptionId]);
 
   return {

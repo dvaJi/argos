@@ -29,6 +29,12 @@ export function useChatInputFiles(
     setSelectedFiles([...selectedFilesRef.current]);
   }, []);
 
+  /** Replace all files from an external source (e.g. props-driven sync). */
+  const syncExternalFiles = useCallback((files: MessageFile[]) => {
+    selectedFilesRef.current = [...files];
+    setSelectedFiles([...files]);
+  }, []);
+
   const emitFiles = useCallback(() => {
     emit("file-upload", selectedFilesRef.current);
   }, [emit]);
@@ -89,7 +95,8 @@ export function useChatInputFiles(
 
       const path = fileClient.getPathForFile(file);
       if (!path) {
-        throw new Error(`Cannot resolve file path for ${getDisplayFileName(file)}`);
+        console.error("File processing failed:", new Error(`Cannot resolve file path for ${getDisplayFileName(file)}`));
+        return null;
       }
       const mimeType = await fileClient.getMimeType(path);
       return await fileClient.prepareFile(path, mimeType);
@@ -103,7 +110,11 @@ export function useChatInputFiles(
     try {
       const path = fileClient.getPathForFile(file);
       if (!path) {
-        throw new Error(`Cannot resolve file path for ${getDisplayFileName(file)}`);
+        console.error(
+          "Dropped file processing failed:",
+          new Error(`Cannot resolve file path for ${getDisplayFileName(file)}`),
+        );
+        return null;
       }
 
       if (file.type === "") {
@@ -258,6 +269,7 @@ export function useChatInputFiles(
 
   return {
     selectedFiles,
+    syncExternalFiles,
     handleFileSelect,
     handlePaste,
     handleDrop,

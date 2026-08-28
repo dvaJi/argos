@@ -1,4 +1,4 @@
-import { useEffect, useState, type FocusEvent } from "react";
+import { useState, type FocusEvent } from "react";
 import { Label } from "#shadcn/components/ui/label";
 import { Input } from "#shadcn/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#shadcn/components/ui/select";
@@ -28,14 +28,18 @@ export default function VertexProviderSettingsDetail({
   const [accountPrivateKey, setAccountPrivateKey] = useState(provider.accountPrivateKey || "");
   const [showPrivateKey, setShowPrivateKey] = useState(false);
 
-  useEffect(() => {
+  // Re-sync draft fields whenever a different provider object arrives (render-phase
+  // adjustment, replacing a setState-in-effect).
+  const [syncedProvider, setSyncedProvider] = useState(provider);
+  if (syncedProvider !== provider) {
+    setSyncedProvider(provider);
     setProjectId(provider.projectId || "");
     setLocation(provider.location || "");
     setApiVersion(provider.apiVersion || "v1");
     setEndpointMode(provider.endpointMode || "standard");
     setAccountClientEmail(provider.accountClientEmail || "");
     setAccountPrivateKey(provider.accountPrivateKey || "");
-  }, [provider]);
+  }
 
   const updateConfig = async (updates: Partial<VERTEX_PROVIDER>) => {
     await providerStore.updateVertexProviderConfig(provider.id, updates);

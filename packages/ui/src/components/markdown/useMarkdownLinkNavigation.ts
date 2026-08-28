@@ -44,9 +44,6 @@ export function useMarkdownLinkNavigation(options: UseMarkdownLinkNavigationOpti
   const browserClient = useMemo(() => createBrowserClient(), []);
   const workspaceClient = useMemo(() => createWorkspaceClient(), []);
 
-  const sessionId = options.linkContext?.sessionId;
-  const sourceFilePath = options.linkContext?.sourceFilePath;
-
   const navigateLink = useCallback(
     async (href: string, event?: MouseEvent | null): Promise<boolean> => {
       const linkContext = options.linkContext;
@@ -178,7 +175,7 @@ export function useMarkdownLinkNavigation(options: UseMarkdownLinkNavigationOpti
           return false;
       }
     },
-    [browserClient, workspaceClient, sessionId, sourceFilePath],
+    [browserClient, workspaceClient, options.linkContext],
   );
 
   return {

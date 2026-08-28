@@ -111,14 +111,17 @@ export default function WindowSideBar() {
   }, [sidebarSelectedAgentId, agentStore.enabledAgents]);
 
   const normalizedSearchQuery = sessionSearchQuery.trim().toLowerCase();
-  const matchesSessionSearch = (session: UISession) => {
-    if (!normalizedSearchQuery) return true;
-    return session.title.toLowerCase().includes(normalizedSearchQuery);
-  };
+  const matchesSessionSearch = useCallback(
+    (session: UISession) => {
+      if (!normalizedSearchQuery) return true;
+      return session.title.toLowerCase().includes(normalizedSearchQuery);
+    },
+    [normalizedSearchQuery],
+  );
 
   const pinnedSessions = useMemo(
     () => sessionStore.getPinnedSessions(sidebarSelectedAgentId).filter(matchesSessionSearch),
-    [sessionStore, sidebarSelectedAgentId, normalizedSearchQuery],
+    [sessionStore, sidebarSelectedAgentId, matchesSessionSearch],
   );
 
   const filteredGroups = useMemo(
@@ -130,12 +133,15 @@ export default function WindowSideBar() {
           sessions: group.sessions.filter(matchesSessionSearch),
         }))
         .filter((group) => group.sessions.length > 0),
-    [sessionStore, sidebarSelectedAgentId, normalizedSearchQuery],
+    [sessionStore, sidebarSelectedAgentId, matchesSessionSearch],
   );
 
-  const getGroupIdentifier = (group: SessionGroup) => group.id;
+  const getGroupIdentifier = useCallback((group: SessionGroup) => group.id, []);
   const getGroupLabel = (group: SessionGroup) => group.labelKey ?? group.label;
-  const isGroupCollapsed = (group: SessionGroup) => collapsedGroupIds.has(getGroupIdentifier(group));
+  const isGroupCollapsed = useCallback(
+    (group: SessionGroup) => collapsedGroupIds.has(getGroupIdentifier(group)),
+    [collapsedGroupIds, getGroupIdentifier],
+  );
 
   const handleSessionClick = useCallback(
     (session: { id: string }) => {
@@ -160,15 +166,18 @@ export default function WindowSideBar() {
     setIsPinnedSectionCollapsed((prev) => !prev);
   }, []);
 
-  const toggleGroup = useCallback((group: SessionGroup) => {
-    const groupId = getGroupIdentifier(group);
-    setCollapsedGroupIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(groupId)) next.delete(groupId);
-      else next.add(groupId);
-      return next;
-    });
-  }, []);
+  const toggleGroup = useCallback(
+    (group: SessionGroup) => {
+      const groupId = getGroupIdentifier(group);
+      setCollapsedGroupIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(groupId)) next.delete(groupId);
+        else next.add(groupId);
+        return next;
+      });
+    },
+    [getGroupIdentifier],
+  );
 
   const handleTogglePin = useCallback(
     async (session: UISession) => {
@@ -229,7 +238,7 @@ export default function WindowSideBar() {
       if (!isGroupCollapsed(group)) sessionsList.push(...group.sessions);
     }
     return sessionsList.filter((session) => session.id !== pinFlightSessionId).slice(0, 10);
-  }, [collapsed, isPinnedSectionCollapsed, pinnedSessions, filteredGroups, collapsedGroupIds, pinFlightSessionId]);
+  }, [collapsed, isPinnedSectionCollapsed, pinnedSessions, filteredGroups, isGroupCollapsed, pinFlightSessionId]);
 
   useEffect(() => {
     const handleKeydown = (event: KeyboardEvent) => {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { nanoid } from "nanoid";
 import {
   Dialog,
@@ -44,25 +44,31 @@ export default function AddCustomProviderDialog({ open, onOpenChange, onProvider
     return "";
   })();
 
+  const onOpenChangeRef = useRef(onOpenChange);
   useEffect(() => {
+    onOpenChangeRef.current = onOpenChange;
+  }, [onOpenChange]);
+
+  const [syncedPropOpen, setSyncedPropOpen] = useState(open);
+  if (syncedPropOpen !== open) {
+    setSyncedPropOpen(open);
     if (open && !isOpen) {
       setFormData({ ...DEFAULT_FORM });
     }
     setIsOpen(open);
-  }, [open]);
+  }
 
-  useEffect(() => {
-    onOpenChange(isOpen);
-  }, [isOpen]);
-
-  useEffect(() => {
+  const [syncedApiType, setSyncedApiType] = useState(formData.apiType);
+  if (syncedApiType !== formData.apiType) {
+    setSyncedApiType(formData.apiType);
     if (formData.apiType === "ollama") {
-      if (!formData.baseUrl) {
-        setFormData((prev) => ({ ...prev, baseUrl: "http://localhost:11434" }));
-      }
-      setFormData((prev) => ({ ...prev, apiKey: "" }));
+      setFormData((prev) => ({ ...prev, baseUrl: prev.baseUrl || "http://localhost:11434", apiKey: "" }));
     }
-  }, [formData.apiType]);
+  }
+
+  useEffect(() => {
+    onOpenChangeRef.current(isOpen);
+  }, [isOpen]);
 
   const resetForm = () => {
     setFormData({ ...DEFAULT_FORM });
@@ -82,9 +88,8 @@ export default function AddCustomProviderDialog({ open, onOpenChange, onProvider
       onProviderAdded?.(submittedProvider);
     } catch (error) {
       console.error("Failed to add custom provider:", error);
-    } finally {
-      setIsSubmitting(false);
     }
+    setIsSubmitting(false);
   };
 
   return (

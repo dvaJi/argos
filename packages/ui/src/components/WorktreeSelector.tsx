@@ -103,9 +103,29 @@ export default function WorktreeSelector({ workspacePath, value, onChange, disab
   }, [workspacePath]);
 
   useEffect(() => {
-    if (!open) return;
-    void refresh();
-  }, [open, refresh]);
+    if (!open || !workspacePath) return;
+    let cancelled = false;
+    void (async () => {
+      const seq = ++loadSeqRef.current;
+      setLoading(true);
+      const result = await fetchGitSummary(workspacePath).catch(() => null);
+      if (cancelled || seq !== loadSeqRef.current) return;
+      if (result) {
+        setBranches(result.branches);
+        setIsRepo(result.isRepo);
+        setWorktrees(result.worktrees);
+      } else {
+        console.warn("[WorktreeSelector] Failed to load git branches/worktrees");
+        setIsRepo(false);
+        setBranches([]);
+        setWorktrees([]);
+      }
+      setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, workspacePath]);
 
   const defaultBaseBranch = useMemo(() => {
     if (branches.length === 0) return null;

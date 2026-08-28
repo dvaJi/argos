@@ -82,7 +82,8 @@ export function useChatMode() {
     }
 
     const previousValue = sharedCurrentMode;
-    const updateVersion = ++modeUpdateVersion;
+    modeUpdateVersion = modeUpdateVersion + 1;
+    const updateVersion = modeUpdateVersion;
     sharedCurrentMode = mode;
     emitChange();
 
@@ -125,9 +126,8 @@ export function useChatMode() {
         emitChange();
       }
       console.error("Failed to load chat mode, using default:", error);
-    } finally {
-      hasLoaded = true;
     }
+    hasLoaded = true;
   }, [checkAcpAgents]);
 
   useEffect(() => {

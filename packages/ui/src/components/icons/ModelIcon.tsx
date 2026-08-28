@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useStore } from "@tanstack/react-store";
 import { providerStore } from "#/stores/providerStore";
 import { agentStore } from "#/stores/ui/agent";
@@ -253,9 +253,15 @@ export default function ModelIcon({ modelId, customClass = "w-4 h-4", isDark = f
     [dynamicAgentIcon, iconLoadFailed, iconKey],
   );
 
-  useEffect(() => {
+  // Reset the load-failed flag whenever the resolved icon identity changes
+  // (render-phase adjustment, replacing a setState-in-effect).
+  const [syncedModelId, setSyncedModelId] = useState(modelId);
+  const [syncedAgentIcon, setSyncedAgentIcon] = useState(dynamicAgentIcon);
+  if (syncedModelId !== modelId || syncedAgentIcon !== dynamicAgentIcon) {
+    setSyncedModelId(modelId);
+    setSyncedAgentIcon(dynamicAgentIcon);
     setIconLoadFailed(false);
-  }, [modelId, dynamicAgentIcon]);
+  }
 
   const handleIconError = () => {
     if (dynamicAgentIcon) {

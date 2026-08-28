@@ -42,6 +42,8 @@ import { isBrowserMode } from "#api/runtimeKind";
 
 const SETTINGS_SECTION_EVENT = "argos:settings-section";
 
+const isProviderStoreInitialized = () => Boolean(providerStore.state.initialized);
+
 const browserMode = isBrowserMode();
 const BROWSER_SUPPORTED_SETTINGS = new Set<SettingsNavigationItem["routeName"]>([
   "settings-overview",
@@ -196,8 +198,6 @@ function SettingsLayout() {
     return false;
   }, [pendingProviderImportPreview, providerState.providers]);
 
-  const isProviderStoreInitialized = () => Boolean(providerStore.state.initialized);
-
   const ensureProviderStoreReady = useCallback(async () => {
     if (isProviderStoreInitialized()) {
       return;
@@ -295,6 +295,7 @@ function SettingsLayout() {
     try {
       preview = await windowClient.consumePendingSettingsProviderInstall();
       if (!preview) {
+        setIsProcessingProviderPreview(false);
         return;
       }
 
@@ -309,10 +310,9 @@ function SettingsLayout() {
       }
 
       console.error("Failed to sync pending provider install preview:", error);
-    } finally {
-      setIsProcessingProviderPreview(false);
     }
-  }, [isProcessingProviderPreview, applyProviderInstallPreview]);
+    setIsProcessingProviderPreview(false);
+  }, [isProcessingProviderPreview, applyProviderInstallPreview, windowClient]);
 
   const releaseProviderPreviewProcessing = useCallback(() => {
     setIsProcessingProviderPreview(false);
@@ -347,6 +347,7 @@ function SettingsLayout() {
       if (preview.kind === "builtin") {
         const targetProvider = providerStore.state.providers.find((provider) => provider.id === preview.id);
         if (!targetProvider) {
+          setIsImportingProvider(false);
           return;
         }
 
@@ -383,9 +384,8 @@ function SettingsLayout() {
         description: error instanceof Error ? error.message : String(error),
         variant: "destructive",
       });
-    } finally {
-      setIsImportingProvider(false);
     }
+    setIsImportingProvider(false);
   }, [isImportingProvider, navigateToProviderSettings, releaseProviderPreviewProcessing]);
 
   const handleSettingsNavigate = useCallback(
@@ -446,10 +446,22 @@ function SettingsLayout() {
     };
   }, [handleSettingsNavigate, handleProviderInstall]);
 
+  // The mount effect below subscribes once; refs keep the latest callbacks
+  // reachable without re-running the effect (both are unstable per render).
+  const setupMcpDeeplinkRef = useRef(setupMcpDeeplink);
+  useEffect(() => {
+    setupMcpDeeplinkRef.current = setupMcpDeeplink;
+  }, [setupMcpDeeplink]);
+
+  const syncPendingProviderInstallRef = useRef(syncPendingProviderInstall);
+  useEffect(() => {
+    syncPendingProviderInstallRef.current = syncPendingProviderInstall;
+  }, [syncPendingProviderInstall]);
+
   useEffect(() => {
     void ensureIconsLoaded();
     logSettingsStartup("settings layout mounted");
-    const cleanupMcpDeeplinkListeners = setupMcpDeeplink();
+    const cleanupMcpDeeplinkListeners = setupMcpDeeplinkRef.current();
 
     const init = async () => {
       try {
@@ -467,7 +479,7 @@ function SettingsLayout() {
       }
 
       markStartupInteractive();
-      await syncPendingProviderInstall();
+      await syncPendingProviderInstallRef.current();
       logSettingsStartup("settings layout ready");
     };
 
@@ -476,7 +488,7 @@ function SettingsLayout() {
     return () => {
       cleanupMcpDeeplinkListeners();
     };
-  }, []);
+  }, [logSettingsStartup]);
 
   useEffect(() => {
     const currentPath = routerState.location.pathname;

@@ -90,16 +90,39 @@ export default function UsageView() {
         setDataKey((key) => key + 1);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load usage");
-      } finally {
-        setIsLoading(false);
       }
+      setIsLoading(false);
     },
     [usageClient],
   );
 
+  // Initial + window-change loads run in an effect-local async IIFE (with
+  // cancellation) so no setState happens synchronously inside the effect.
+  // The loading/error flags for window switches are set by `selectWindow`.
   useEffect(() => {
-    void load(window);
-  }, [window, load]);
+    let cancelled = false;
+    void (async () => {
+      try {
+        const result = await usageClient.getStats(window);
+        if (cancelled) return;
+        setData(result);
+        setDataKey((key) => key + 1);
+      } catch (err) {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : "Failed to load usage");
+      }
+      if (!cancelled) setIsLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [window, usageClient]);
+
+  const selectWindow = (next: UsageWindow) => {
+    setError("");
+    setIsLoading(true);
+    setWindow(next);
+  };
 
   // ---- Client-side derivation: service filter only (window is server-side) ----
   const filtered = useMemo(() => {
@@ -199,7 +222,7 @@ export default function UsageView() {
                 key={item.id}
                 type="button"
                 aria-pressed={window === item.id}
-                onClick={() => setWindow(item.id)}
+                onClick={() => selectWindow(item.id)}
                 className={`usage-press rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                   window === item.id ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground"
                 }`}

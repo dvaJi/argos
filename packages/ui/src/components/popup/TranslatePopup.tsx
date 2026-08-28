@@ -9,6 +9,8 @@ const POPUP_HEIGHT = 220;
 const VISIBLE_EDGE = 40;
 const DRAG_EXCLUDED_SELECTOR = 'button, a, input, textarea, select, [role="button"]';
 
+const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+
 export default function TranslatePopup() {
   const sessionClient = createSessionClient();
   const agentStore = useAgentStore();
@@ -25,8 +27,6 @@ export default function TranslatePopup() {
   const dragBounds = useRef({ minX: 0, maxX: 0, minY: 0, maxY: 0 });
   const dragFrameId = useRef<number | null>(null);
   const pendingDragPosition = useRef<{ x: number; y: number } | null>(null);
-
-  const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 
   const getBounds = useCallback(() => {
     const rect = popupRef.current?.getBoundingClientRect();
@@ -136,9 +136,8 @@ export default function TranslatePopup() {
         setTranslatedText(result);
       } catch {
         setTranslatedText("Translation failed");
-      } finally {
-        setIsTranslating(false);
       }
+      setIsTranslating(false);
     },
     [stopDrag, sessionClient, agentStore.selectedAgentId, position],
   );

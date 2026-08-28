@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef, type RefObject } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "#shadcn/components/ui/popover";
@@ -16,10 +16,10 @@ import {
   getEnabledPluginServers,
   getEnabledServerCount,
 } from "#/stores/mcp";
-import { useSessionStore, getActiveSession, getHasActiveSession } from "#/stores/ui/session";
-import { draftStore as draftStoreRef, useDraftStore } from "#/stores/ui/draft";
+import { useSessionStore, type UIActiveSessionSummary, type UISession } from "#/stores/ui/session";
+import { draftStore as draftStoreRef } from "#/stores/ui/draft";
 import { useAgentStore, selectedAgent as getSelectedAgent } from "#/stores/ui/agent";
-import { useProjectStore, selectedProject as getSelectedProject } from "#/stores/ui/project";
+import { useProjectStore } from "#/stores/ui/project";
 
 type ToolGroupItem =
   | { kind: "tool"; id: string; label: string; toolName: string }
@@ -38,6 +38,92 @@ const GROUP_ORDER = [
   "pi",
   "yobrowser",
 ];
+
+const toolClient = createToolClient();
+const sessionClient = createSessionClient();
+const settingsClient = createSettingsClient();
+const skillClient = createSkillClient();
+
+function normalizeToolNames(toolNames: string[] | null | undefined): string[] {
+  if (!Array.isArray(toolNames)) return [];
+  return Array.from(
+    new Set(
+      toolNames
+        .filter((s): s is string => typeof s === "string")
+        .map((s) => s.trim())
+        .filter(Boolean),
+    ),
+  ).sort();
+}
+
+/** Pure lookup of the active session over destructured session-store pieces. */
+function resolveActiveSession(input: {
+  activeSessionId: string | null;
+  activeSessionSummary: UIActiveSessionSummary | null;
+  sessions: UISession[];
+  bootstrapActiveSession: UISession | null;
+}): UISession | UIActiveSessionSummary | undefined {
+  const { activeSessionId, activeSessionSummary, sessions, bootstrapActiveSession } = input;
+  if (!activeSessionId) return undefined;
+  if (activeSessionSummary?.id === activeSessionId) return activeSessionSummary;
+  return (
+    sessions.find((session) => session.id === activeSessionId) ??
+    (bootstrapActiveSession?.id === activeSessionId ? bootstrapActiveSession : undefined)
+  );
+}
+
+type LoadAgentToolsArgs = {
+  isArgosContext: boolean;
+  argosSessionId: string | null;
+  workspacePath: string | null;
+  loadTokenRef: RefObject<number>;
+  setAgentTools: (tools: MCPToolDefinition[]) => void;
+  setDisabledToolNames: (toolNames: string[]) => void;
+  setToolsLoading: (loading: boolean) => void;
+};
+
+async function loadAgentTools(args: LoadAgentToolsArgs): Promise<void> {
+  const {
+    isArgosContext,
+    argosSessionId,
+    workspacePath,
+    loadTokenRef,
+    setAgentTools,
+    setDisabledToolNames,
+    setToolsLoading,
+  } = args;
+  if (!isArgosContext) {
+    setAgentTools([]);
+    setDisabledToolNames([]);
+    setToolsLoading(false);
+    return;
+  }
+  const loadToken = ++loadTokenRef.current;
+  setToolsLoading(true);
+  try {
+    const [toolDefinitions, persistedDisabledTools] = await Promise.all([
+      toolClient.getAllToolDefinitions({
+        chatMode: "agent",
+        conversationId: argosSessionId ?? undefined,
+        agentWorkspacePath: workspacePath ?? undefined,
+      }),
+      argosSessionId
+        ? sessionClient.getSessionDisabledAgentTools(argosSessionId)
+        : Promise.resolve([...draftStoreRef.state.disabledAgentTools]),
+    ]);
+    if (loadToken !== loadTokenRef.current) return;
+    setAgentTools(Array.isArray(toolDefinitions) ? toolDefinitions.filter((t) => t.source === "agent") : []);
+    setDisabledToolNames(
+      normalizeToolNames(
+        Array.isArray(persistedDisabledTools) ? persistedDisabledTools : draftStoreRef.state.disabledAgentTools,
+      ),
+    );
+  } catch {
+    if (loadToken !== loadTokenRef.current) return;
+    setAgentTools([]);
+  }
+  if (loadToken === loadTokenRef.current) setToolsLoading(false);
+}
 
 interface McpIndicatorProps {
   showSystemPromptSection?: boolean;
@@ -64,14 +150,9 @@ export default function McpIndicator({
   onToggleSubagents,
 }: McpIndicatorProps) {
   const mcpStore = useMcpStore();
-  const sessionStore = useSessionStore();
-  const draftStore = useDraftStore();
   const agentStore = useAgentStore();
-  const projectStore = useProjectStore();
-  const settingsClient = createSettingsClient();
-  const toolClient = createToolClient();
-  const sessionClient = createSessionClient();
-  const skillClient = createSkillClient();
+  const { activeSessionId, activeSessionSummary, sessions, bootstrapActiveSession } = useSessionStore();
+  const { projects, selectedProjectPath } = useProjectStore();
 
   const [panelOpen, setPanelOpen] = useState(false);
   const [toolsLoading, setToolsLoading] = useState(false);
@@ -81,13 +162,19 @@ export default function McpIndicator({
   const latestLoadTokenRef = useRef(0);
   const unsubscribeRef = useRef<(() => void) | null>(null);
 
+  const activeSession = resolveActiveSession({
+    activeSessionId,
+    activeSessionSummary,
+    sessions,
+    bootstrapActiveSession,
+  });
   const enabledServers = getEnabledServers();
   const enabledPluginServers = getEnabledPluginServers();
   const availableAgents = Array.isArray(agentStore.agents) ? agentStore.agents : [];
 
   const isArgosContext = useMemo(() => {
-    if (getHasActiveSession()) {
-      const sessionAgentId = getActiveSession()?.agentId ?? "argos";
+    if (activeSessionId !== null) {
+      const sessionAgentId = activeSession?.agentId ?? "argos";
       const matchedAgent = availableAgents.find((a) => a.id === sessionAgentId);
       const agentType = matchedAgent?.agentType ?? matchedAgent?.type ?? getSelectedAgent()?.type;
       if (agentType === "argos" || agentType === "acp") return agentType === "argos";
@@ -96,18 +183,16 @@ export default function McpIndicator({
     const selectedAgent = availableAgents.find((a) => a.id === agentStore.selectedAgentId);
     const agentType = selectedAgent?.type ?? (agentStore.selectedAgentId === "argos" ? "argos" : "acp");
     return agentType === "argos";
-  }, [sessionStore, agentStore, availableAgents]);
+  }, [activeSessionId, activeSession, availableAgents, agentStore]);
 
-  const argosSessionId = isArgosContext && getHasActiveSession() ? (getActiveSession()?.id ?? null) : null;
+  const argosSessionId = isArgosContext && activeSessionId !== null ? (activeSession?.id ?? null) : null;
 
   const workspacePath = useMemo(() => {
-    if (getHasActiveSession()) {
-      const projectDir = getActiveSession()?.projectDir?.trim();
-      return projectDir || null;
+    if (activeSessionId !== null) {
+      return activeSession?.projectDir?.trim() || null;
     }
-    const selectedProjectPath = getSelectedProject()?.path?.trim();
-    return selectedProjectPath || null;
-  }, [sessionStore, projectStore]);
+    return projects.find((project) => project.path === selectedProjectPath)?.path?.trim() || null;
+  }, [activeSessionId, activeSession, projects, selectedProjectPath]);
 
   const getGroupLabel = useCallback((serverName: string) => {
     const labels: Record<string, string> = {
@@ -155,18 +240,6 @@ export default function McpIndicator({
       });
   }, [agentTools, showSubagentToggle, getGroupLabel]);
 
-  const normalizeToolNames = (toolNames: string[] | null | undefined): string[] => {
-    if (!Array.isArray(toolNames)) return [];
-    return Array.from(
-      new Set(
-        toolNames
-          .filter((s): s is string => typeof s === "string")
-          .map((s) => s.trim())
-          .filter(Boolean),
-      ),
-    ).sort();
-  };
-
   const isToolEnabled = (toolName: string) => !disabledToolNames.includes(toolName);
   const isToolPending = (toolName: string) => pendingToolNames.includes(toolName);
   const isGroupItemEnabled = (item: ToolGroupItem) =>
@@ -191,45 +264,10 @@ export default function McpIndicator({
     [mcpStore],
   );
 
-  const loadArgosTools = useCallback(async () => {
-    if (!isArgosContext) {
-      setAgentTools([]);
-      setDisabledToolNames([]);
-      setToolsLoading(false);
-      return;
-    }
-    const loadToken = ++latestLoadTokenRef.current;
-    setToolsLoading(true);
-    try {
-      const [toolDefinitions, persistedDisabledTools] = await Promise.all([
-        toolClient.getAllToolDefinitions({
-          chatMode: "agent",
-          conversationId: argosSessionId ?? undefined,
-          agentWorkspacePath: workspacePath ?? undefined,
-        }),
-        argosSessionId
-          ? sessionClient.getSessionDisabledAgentTools(argosSessionId)
-          : Promise.resolve([...draftStore.disabledAgentTools]),
-      ]);
-      if (loadToken !== latestLoadTokenRef.current) return;
-      setAgentTools(Array.isArray(toolDefinitions) ? toolDefinitions.filter((t) => t.source === "agent") : []);
-      setDisabledToolNames(
-        normalizeToolNames(
-          Array.isArray(persistedDisabledTools) ? persistedDisabledTools : draftStore.disabledAgentTools,
-        ),
-      );
-    } catch {
-      if (loadToken !== latestLoadTokenRef.current) return;
-      setAgentTools([]);
-    } finally {
-      if (loadToken === latestLoadTokenRef.current) setToolsLoading(false);
-    }
-  }, [isArgosContext, argosSessionId, workspacePath, toolClient, sessionClient, draftStore]);
-
   const openSettings = useCallback(async () => {
     await settingsClient.openSettings({ routeName: "settings-mcp" });
     setPanelOpen(false);
-  }, [settingsClient]);
+  }, []);
 
   const persistDisabledTools = useCallback(
     async (nextList: string[], affectedToolNames: string[]) => {
@@ -248,19 +286,19 @@ export default function McpIndicator({
         return prev.filter((n) => !set.has(n));
       });
     },
-    [argosSessionId, pendingToolNames, sessionClient, draftStore],
+    [argosSessionId, pendingToolNames],
   );
 
   const toggleAgentTool = useCallback(
     async (toolName: string) => {
-      if (!isArgosContext || isToolPending(toolName)) return;
+      if (!isArgosContext || pendingToolNames.includes(toolName)) return;
       const next = new Set(disabledToolNames);
       if (next.has(toolName)) next.delete(toolName);
       else next.add(toolName);
       const nextList = Array.from(next).sort();
       await persistDisabledTools(nextList, [toolName]);
     },
-    [isArgosContext, disabledToolNames, persistDisabledTools],
+    [isArgosContext, disabledToolNames, pendingToolNames, persistDisabledTools],
   );
 
   const toggleGroupItem = useCallback(
@@ -277,7 +315,14 @@ export default function McpIndicator({
 
   const setGroupEnabled = useCallback(
     async (group: ToolGroup, enabled: boolean) => {
-      if (!isArgosContext || isGroupPending(group)) return;
+      if (
+        !isArgosContext ||
+        group.items.some((item) =>
+          item.kind === "subagent" ? subagentTogglePending : pendingToolNames.includes(item.toolName),
+        )
+      ) {
+        return;
+      }
       const groupToolNames = group.items.flatMap((item) => (item.kind === "tool" ? [item.toolName] : []));
       const next = new Set(disabledToolNames);
       for (const toolName of groupToolNames) {
@@ -290,29 +335,52 @@ export default function McpIndicator({
         onToggleSubagents?.(enabled);
       }
     },
-    [isArgosContext, disabledToolNames, persistDisabledTools, subagentEnabled, onToggleSubagents],
+    [
+      isArgosContext,
+      disabledToolNames,
+      pendingToolNames,
+      subagentTogglePending,
+      persistDisabledTools,
+      subagentEnabled,
+      onToggleSubagents,
+    ],
   );
 
-  useEffect(() => {
-    void loadArgosTools();
+  const refreshAgentTools = useCallback(() => {
+    void loadAgentTools({
+      isArgosContext,
+      argosSessionId,
+      workspacePath,
+      loadTokenRef: latestLoadTokenRef,
+      setAgentTools,
+      setDisabledToolNames,
+      setToolsLoading,
+    });
   }, [isArgosContext, argosSessionId, workspacePath]);
 
   useEffect(() => {
-    if (panelOpen && isArgosContext) void loadArgosTools();
+    refreshAgentTools();
+  }, [refreshAgentTools]);
+
+  useEffect(() => {
     onOpenChange?.(panelOpen);
-  }, [panelOpen]);
+  }, [panelOpen, onOpenChange]);
+
+  useEffect(() => {
+    if (panelOpen && isArgosContext) refreshAgentTools();
+  }, [panelOpen, isArgosContext, refreshAgentTools]);
 
   useEffect(() => {
     const handleSkillChange = (payload: { conversationId?: string | null }) => {
       if (!isArgosContext || !argosSessionId) return;
       if (payload?.conversationId !== argosSessionId) return;
-      void loadArgosTools();
+      refreshAgentTools();
     };
     unsubscribeRef.current = skillClient.onSessionChanged(handleSkillChange);
     return () => {
       unsubscribeRef.current?.();
     };
-  }, [isArgosContext, argosSessionId, skillClient, loadArgosTools]);
+  }, [isArgosContext, argosSessionId, refreshAgentTools]);
 
   const triggerTitle = "Advanced Settings";
 

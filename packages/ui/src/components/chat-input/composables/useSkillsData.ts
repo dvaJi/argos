@@ -5,7 +5,7 @@ import { skillsStore, loadSkills } from "#/stores/skillsStore";
 import { useStore } from "@tanstack/react-store";
 
 export function useSkillsData(conversationId: string | null) {
-  const skillClient = createSkillClient();
+  const skillClient = useMemo(() => createSkillClient(), []);
   const storeSkills = useStore(skillsStore, (s) => s.skills);
   const unsubscribeRef = useRef<(() => void) | null>(null);
 
@@ -36,79 +36,91 @@ export function useSkillsData(conversationId: string | null) {
     return skills.filter((skill) => !activeSet.has(skill.name));
   }, [effectiveActiveSkills, skills]);
 
-  const loadActiveSkills = useCallback(async () => {
-    if (!conversationIdRef.current) {
-      setActiveSkills([]);
-      return;
-    }
+  const loadActiveSkills = useCallback(
+    async (idOverride?: string | null) => {
+      const id = idOverride ?? conversationIdRef.current;
+      if (!id) {
+        setActiveSkills([]);
+        return;
+      }
 
-    setLoading(true);
-    try {
-      const result = await skillClient.getActiveSkills(conversationIdRef.current);
-      setActiveSkills(result);
-    } catch (error) {
-      console.error("[useSkillsData] Failed to load active skills:", error);
-      setActiveSkills([]);
-    } finally {
+      setLoading(true);
+      try {
+        const result = await skillClient.getActiveSkills(id);
+        setActiveSkills(result);
+      } catch (error) {
+        console.error("[useSkillsData] Failed to load active skills:", error);
+        setActiveSkills([]);
+      }
       setLoading(false);
-    }
-  }, []);
+    },
+    [skillClient],
+  );
 
-  const toggleSkill = useCallback(async (skillName: string) => {
-    if (!conversationIdRef.current) {
-      setPendingSkills((prev) =>
-        prev.includes(skillName) ? prev.filter((s) => s !== skillName) : [...prev, skillName],
-      );
-      return;
-    }
+  const toggleSkill = useCallback(
+    async (skillName: string) => {
+      if (!conversationIdRef.current) {
+        setPendingSkills((prev) =>
+          prev.includes(skillName) ? prev.filter((s) => s !== skillName) : [...prev, skillName],
+        );
+        return;
+      }
 
-    const current = activeSkillsRef.current;
-    const isCurrentlyActive = current.includes(skillName);
-    const updatedSkills = isCurrentlyActive ? current.filter((s) => s !== skillName) : [...current, skillName];
+      const current = activeSkillsRef.current;
+      const isCurrentlyActive = current.includes(skillName);
+      const updatedSkills = isCurrentlyActive ? current.filter((s) => s !== skillName) : [...current, skillName];
 
-    try {
-      await skillClient.setActiveSkills(conversationIdRef.current, updatedSkills);
-      setActiveSkills(updatedSkills);
-    } catch (error) {
-      console.error("[useSkillsData] Failed to toggle skill:", error);
-    }
-  }, []);
+      try {
+        await skillClient.setActiveSkills(conversationIdRef.current, updatedSkills);
+        setActiveSkills(updatedSkills);
+      } catch (error) {
+        console.error("[useSkillsData] Failed to toggle skill:", error);
+      }
+    },
+    [skillClient],
+  );
 
-  const activateSkill = useCallback(async (skillName: string) => {
-    if (!conversationIdRef.current) {
-      setPendingSkills((prev) => (prev.includes(skillName) ? prev : [...prev, skillName]));
-      return;
-    }
+  const activateSkill = useCallback(
+    async (skillName: string) => {
+      if (!conversationIdRef.current) {
+        setPendingSkills((prev) => (prev.includes(skillName) ? prev : [...prev, skillName]));
+        return;
+      }
 
-    const current = activeSkillsRef.current;
-    if (current.includes(skillName)) return;
+      const current = activeSkillsRef.current;
+      if (current.includes(skillName)) return;
 
-    const updatedSkills = [...current, skillName];
-    try {
-      await skillClient.setActiveSkills(conversationIdRef.current, updatedSkills);
-      setActiveSkills(updatedSkills);
-    } catch (error) {
-      console.error("[useSkillsData] Failed to activate skill:", error);
-    }
-  }, []);
+      const updatedSkills = [...current, skillName];
+      try {
+        await skillClient.setActiveSkills(conversationIdRef.current, updatedSkills);
+        setActiveSkills(updatedSkills);
+      } catch (error) {
+        console.error("[useSkillsData] Failed to activate skill:", error);
+      }
+    },
+    [skillClient],
+  );
 
-  const deactivateSkill = useCallback(async (skillName: string) => {
-    if (!conversationIdRef.current) {
-      setPendingSkills((prev) => prev.filter((s) => s !== skillName));
-      return;
-    }
+  const deactivateSkill = useCallback(
+    async (skillName: string) => {
+      if (!conversationIdRef.current) {
+        setPendingSkills((prev) => prev.filter((s) => s !== skillName));
+        return;
+      }
 
-    const current = activeSkillsRef.current;
-    if (!current.includes(skillName)) return;
+      const current = activeSkillsRef.current;
+      if (!current.includes(skillName)) return;
 
-    const updatedSkills = current.filter((s) => s !== skillName);
-    try {
-      await skillClient.setActiveSkills(conversationIdRef.current, updatedSkills);
-      setActiveSkills(updatedSkills);
-    } catch (error) {
-      console.error("[useSkillsData] Failed to deactivate skill:", error);
-    }
-  }, []);
+      const updatedSkills = current.filter((s) => s !== skillName);
+      try {
+        await skillClient.setActiveSkills(conversationIdRef.current, updatedSkills);
+        setActiveSkills(updatedSkills);
+      } catch (error) {
+        console.error("[useSkillsData] Failed to deactivate skill:", error);
+      }
+    },
+    [skillClient],
+  );
 
   const consumePendingSkills = useCallback(() => {
     const pending = [...pendingSkills];
@@ -128,11 +140,11 @@ export function useSkillsData(conversationId: string | null) {
         }
       }
     },
-    [pendingSkills],
+    [pendingSkills, skillClient],
   );
 
   useEffect(() => {
-    loadActiveSkills();
+    void loadActiveSkills(conversationId);
   }, [conversationId, loadActiveSkills]);
 
   useEffect(() => {
@@ -164,7 +176,7 @@ export function useSkillsData(conversationId: string | null) {
       unsubscribeRef.current?.();
       unsubscribeRef.current = null;
     };
-  }, []);
+  }, [skillClient]);
 
   return {
     skills,
