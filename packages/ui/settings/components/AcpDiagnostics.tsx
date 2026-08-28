@@ -233,6 +233,7 @@ export default function AcpDiagnostics({
           setRemoteSessions(extractRemoteSessions(result));
         }
         void refreshDiagnostics();
+        setLoading(false);
         return result;
       } catch (error) {
         toast({ title: "Request failed", description: String(error), variant: "destructive" });
