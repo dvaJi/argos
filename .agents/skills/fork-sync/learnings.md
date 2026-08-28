@@ -4,6 +4,47 @@ Dated gotchas and patterns discovered during integrations. Append a new entry
 after each run. Read this before adapting source code/tests to avoid repeating
 mistakes.
 
+## 2026-08 — Pi is the harness; source harness internals are non-portable
+
+- **The fork embeds `@earendil-works/pi-coding-agent`** (pinned, catalog-managed)
+  as its agent runtime: `apps/daemon/src/host/piWorker.ts` is a stdio worker
+  hosting Pi's `AgentSession`/`SessionManager`/`ModelRuntime` + extensions
+  (`packages/pi-orchestrator-extension`). The source's custom harness
+  (`src/main/agent/deepchat/*`: `DeepChatLoopRunner`, `DeepChatContextCoordinator`,
+  `CompactionService`, `ToolSurface`, journal/View machinery) has **no
+  counterpart** — never port from those paths. For such features: adopt from Pi
+  (run the `pi-update` skill review), contribute upstream to Pi, or reimplement
+  at our seams.
+- **Provider execution is ours**: Pi requests completions from the daemon via
+  `apps/daemon/src/host/pi-provider-execution.ts` — our provider layer makes the
+  HTTP calls (model configs, sampling params via the worker-provider model
+  registration). Provider-level fixes from the source (timeouts, retry/backoff,
+  cache markers, capability omissions) **are** portable, but land in the
+  provider-execution/backend-core provider layer, not any loop.
+- **Tool registration into Pi happens in `piWorker.ts`** (`defineTool`) — bound
+  catalogs / tool-search injection go there or in the MCP runtime before it.
+- **Per-turn usage stats** (input/output/cacheRead/cacheWrite/cost deltas) are
+  already emitted by the worker — reuse for occupancy/usage UX instead of
+  building source-style occupancy tracking.
+
+## 2026-08 — backend moved into `packages/backend-core` (post-refactor #67)
+
+- **Stale registry paths**: `ported-files.md` entries pointing at
+  `apps/desktop/src/main/presenter/<Name>/` predate the daemon-ownership
+  refactor. Most presenter logic now lives in `packages/backend-core/src/**`
+  (`runtime/` hosts the agent loop, compaction, contextBuilder, accumulator,
+  tapeEffectiveView; `config/providers.ts` the provider presets;
+  `services/` + `dispatch/` the route services). `apps/desktop/src/main/presenter/`
+  keeps only native-shell presenters (tray, tab, shortcut, notification, oauth,
+  github copilot device flow). **Grep for the symbol name; don't trust old paths.**
+- **Tests**: daemon/backend-core code runs under `bun test` (see `bun-file-io`
+  skill for `Bun.file`/`Bun.write` rules); desktop main/renderer tests are
+  vitest with `test/main` + `test/renderer` mirrors. The vitest-4 notes below
+  still apply to those suites.
+- **CLI tooling note**: `pnpm` in earlier notes → the repo now uses **Bun**
+  (`bun install`, `bun run ...`); gate is `bun run typecheck` + `bun test` /
+  `bun run test:main` / `bun run test:renderer` + `bun run lint` + `bun run format`.
+
 ## 2026-06 — general (fork-vs-source deltas)
 
 - **Language/style**: source uses no-semicolons + single quotes (Vue-era); the fork

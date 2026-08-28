@@ -4,6 +4,10 @@ Source: `ThinkInAIXYZ/deepchat` (remote `upstream`, default branch `dev`).
 Fork point: `b67332c` (v1.0.6-beta.6). Source changes after the fork point are
 listed below with integration status. One PR per feature.
 
+Roadmap: see `roadmap.md` (2026-08-25) for the feature-level plan covering
+source releases v1.0.7 → v1.1.1-beta.4, prioritized against the fork's current
+state; this file tracks per-commit integration status.
+
 Status: `pending` · `in-progress` · `PR #N` · `done` · `blocked` · `skip`
 
 ## Backend (port main-process / shared)
