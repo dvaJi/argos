@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Badge } from "#shadcn/components/ui/badge";
@@ -173,6 +173,8 @@ export function MemoryManagerPanel({
     void refresh();
   }, [agentId, refresh]);
 
+  const onRunSearch = useEffectEvent(runSearch);
+
   useEffect(() => {
     const query = searchQuery.trim();
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
@@ -185,12 +187,12 @@ export function MemoryManagerPanel({
     }
     const targetAgentId = agentIdRef.current;
     searchTimerRef.current = setTimeout(() => {
-      void runSearch(targetAgentId, query, requestId);
+      void onRunSearch(targetAgentId, query, requestId);
     }, 200);
     return () => {
       if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     };
-  }, [searchQuery, runSearch]);
+  }, [searchQuery]);
 
   const notifyAddOutcome = useCallback(
     (result: MemoryAddResult) => {

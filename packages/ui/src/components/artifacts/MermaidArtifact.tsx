@@ -1,11 +1,18 @@
 import { useCallback, useEffect, useRef } from "react";
-import mermaid from "mermaid";
 
 interface MermaidArtifactProps {
   block: { artifact: { type: string; title: string }; content: string };
   isPreview: boolean;
   className?: string;
 }
+
+// mermaid is heavy — keep it out of the main bundle and load it on first render.
+type MermaidAPI = (typeof import("mermaid"))["default"];
+let mermaidModulePromise: Promise<MermaidAPI> | null = null;
+const loadMermaid = () => {
+  mermaidModulePromise ??= import("mermaid").then((module) => module.default);
+  return mermaidModulePromise;
+};
 
 const sanitizeMermaidContent = (content: string): string => {
   if (!content || typeof content !== "string") return "";
@@ -33,13 +40,15 @@ type MermaidTheme = "default" | "base" | "dark" | "forest" | "neutral" | "null";
 
 const getTheme = (): MermaidTheme => (document.documentElement.classList.contains("dark") ? "dark" : "default");
 
-const initMermaid = (theme: MermaidTheme) => {
+const initMermaid = async (theme: MermaidTheme) => {
+  const mermaid = await loadMermaid();
   mermaid.initialize({
     startOnLoad: false,
     theme,
     securityLevel: "strict",
     fontFamily: "inherit",
   });
+  return mermaid;
 };
 
 export function MermaidArtifact({ block, isPreview, className }: MermaidArtifactProps) {
@@ -49,6 +58,7 @@ export function MermaidArtifact({ block, isPreview, className }: MermaidArtifact
   const renderDiagram = useCallback(async () => {
     if (!mermaidRef.current || !block.content) return;
     try {
+      const mermaid = await initMermaid(getTheme());
       const sanitizedContent = sanitizeMermaidContent(block.content);
       mermaidRef.current.textContent = sanitizedContent;
       await mermaid.run({ nodes: [mermaidRef.current] });
@@ -71,10 +81,10 @@ export function MermaidArtifact({ block, isPreview, className }: MermaidArtifact
   }, [renderDiagram]);
 
   useEffect(() => {
-    initMermaid(getTheme());
+    void initMermaid(getTheme());
 
     const applyThemeChange = () => {
-      initMermaid(getTheme());
+      // renderDiagram re-initializes mermaid with the current theme before rendering.
       if (isPreview) renderDiagramRef.current();
     };
 

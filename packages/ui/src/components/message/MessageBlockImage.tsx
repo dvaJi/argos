@@ -123,13 +123,19 @@ export const MessageBlockImage: FC<MessageBlockImageProps> = ({ block }) => {
           <div className="flex justify-center">
             {resolvedImageData ? (
               <ImageActionContextMenu source={resolvedImageSrc} mimeType={resolvedImageMimeType}>
-                <img
-                  src={resolvedImageSrc}
-                  alt="Generated image"
-                  className="max-w-[400px] rounded-md cursor-pointer hover:shadow-md transition-shadow"
+                <button
+                  type="button"
+                  className="block cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-label="Open full image"
                   onClick={openFullImage}
-                  onError={() => setImageError(true)}
-                />
+                >
+                  <img
+                    src={resolvedImageSrc}
+                    alt=""
+                    className="max-w-[400px] rounded-md hover:shadow-md transition-shadow"
+                    onError={() => setImageError(true)}
+                  />
+                </button>
               </ImageActionContextMenu>
             ) : imageError ? (
               <div className="text-sm text-red-500 p-4">Request failed</div>
@@ -169,11 +175,7 @@ export const MessageBlockImage: FC<MessageBlockImageProps> = ({ block }) => {
           <div className="flex items-center justify-center">
             {resolvedImageData && (
               <ImageActionContextMenu source={resolvedImageSrc} mimeType={resolvedImageMimeType}>
-                <img
-                  src={resolvedImageSrc}
-                  alt="Generated image"
-                  className="rounded-md max-h-[80vh] max-w-full object-contain"
-                />
+                <img src={resolvedImageSrc} alt="" className="rounded-md max-h-[80vh] max-w-full object-contain" />
               </ImageActionContextMenu>
             )}
           </div>

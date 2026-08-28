@@ -432,6 +432,14 @@ const MessageBlockToolCallBase: FC<MessageBlockToolCallProps> = ({ block }) => {
         data-testid="tool-call-trigger"
         className="tool-call-pill inline-flex w-fit min-h-7 border rounded-lg items-center gap-2 px-2 py-1.5 text-xs leading-4 transition-colors duration-150 select-none overflow-hidden bg-accent hover:bg-accent/40"
         onClick={toggleExpanded}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            toggleExpanded();
+          }
+        }}
       >
         {statusVariant === "running" && (
           <span

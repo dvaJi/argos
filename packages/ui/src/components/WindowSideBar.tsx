@@ -126,13 +126,10 @@ export default function WindowSideBar() {
 
   const filteredGroups = useMemo(
     () =>
-      sessionStore
-        .getFilteredGroups(sidebarSelectedAgentId)
-        .map((group: SessionGroup) => ({
-          ...group,
-          sessions: group.sessions.filter(matchesSessionSearch),
-        }))
-        .filter((group) => group.sessions.length > 0),
+      sessionStore.getFilteredGroups(sidebarSelectedAgentId).flatMap((group: SessionGroup) => {
+        const sessions = group.sessions.filter(matchesSessionSearch);
+        return sessions.length > 0 ? [{ ...group, sessions }] : [];
+      }),
     [sessionStore, sidebarSelectedAgentId, matchesSessionSearch],
   );
 

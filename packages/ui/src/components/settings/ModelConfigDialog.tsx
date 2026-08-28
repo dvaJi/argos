@@ -68,7 +68,7 @@ export default function ModelConfigDialog({
   const modelConfigStore = useModelConfigStore();
   const providerStore = useProviderStore();
 
-  const [config, setConfig] = useState<ModelConfig>(createDefaultConfig());
+  const [config, setConfig] = useState<ModelConfig>(() => createDefaultConfig());
   const [topPDraft, setTopPDraft] = useState("");
   const [samplingParamsDraft, setSamplingParamsDraft] = useState("");
   const [samplingParamsError, setSamplingParamsError] = useState("");

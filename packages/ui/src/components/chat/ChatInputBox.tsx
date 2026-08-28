@@ -386,6 +386,7 @@ const ChatInputBox = forwardRef<
                 <button
                   type="button"
                   className="inline-flex h-4 w-4 items-center justify-center rounded-sm hover:bg-primary/20"
+                  aria-label={`Remove skill ${skillName}`}
                   onClick={() => removeSkill(skillName)}
                 >
                   <Icon icon="lucide:x" className="h-3 w-3" />
@@ -399,7 +400,7 @@ const ChatInputBox = forwardRef<
           <div className={`flex flex-wrap gap-2 px-4 ${activeSkillNames.length > 0 ? "pt-2" : "pt-3"}`}>
             {filesHelper.selectedFiles.map((file: MessageFile, index: number) => (
               <ChatAttachmentItem
-                key={file.path || `${file.name}-${index}`}
+                key={file.path || file.name}
                 file={file}
                 removable
                 onRemove={() => filesHelper.deleteFile(index)}

@@ -154,32 +154,37 @@ function SettingsLayout() {
 
   const settings = useMemo(
     () =>
-      getSettingsRouteItems()
-        .filter((item) => isSettingAvailableInCurrentRuntime(item.routeName))
-        .map((item) => ({
-          title: item.titleKey,
-          name: item.routeName,
-          icon: item.icon,
-          path: resolveSettingsNavigationPath(item.routeName),
-        })),
+      getSettingsRouteItems().flatMap((item) =>
+        isSettingAvailableInCurrentRuntime(item.routeName)
+          ? [
+              {
+                title: item.titleKey,
+                name: item.routeName,
+                icon: item.icon,
+                path: resolveSettingsNavigationPath(item.routeName),
+              },
+            ]
+          : [],
+      ),
     [],
   );
 
   const settingGroups = useMemo(() => {
-    const groups = getSettingsNavigationGroups()
-      .map((group) => ({
-        key: group.key,
-        titleKey: resolveTitle(group.titleKey),
-        items: group.items
-          .filter((item) => isSettingAvailableInCurrentRuntime(item.routeName))
-          .map((item) => ({
-            title: resolveTitle(item.titleKey),
-            name: item.routeName,
-            icon: item.icon,
-            path: resolveSettingsNavigationPath(item.routeName),
-          })),
-      }))
-      .filter((group) => group.items.length > 0);
+    const groups = getSettingsNavigationGroups().flatMap((group) => {
+      const items = group.items.flatMap((item) =>
+        isSettingAvailableInCurrentRuntime(item.routeName)
+          ? [
+              {
+                title: resolveTitle(item.titleKey),
+                name: item.routeName,
+                icon: item.icon,
+                path: resolveSettingsNavigationPath(item.routeName),
+              },
+            ]
+          : [],
+      );
+      return items.length > 0 ? [{ key: group.key, titleKey: resolveTitle(group.titleKey), items }] : [];
+    });
     return groups;
   }, []);
 

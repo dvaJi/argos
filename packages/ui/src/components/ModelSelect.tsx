@@ -39,10 +39,12 @@ export default function ModelSelect({
   const providers = useMemo(() => {
     const enabledModels = modelStore.enabledModels;
     const currentMode = chatMode.currentMode;
+    const excludeSet = new Set(excludeProviders);
+    const typeSet = type && type.length > 0 ? new Set<ModelType>(type) : undefined;
 
     return sortedProviders
-      .filter((provider) => provider.enable && !excludeProviders.includes(provider.id))
       .map((provider) => {
+        if (!provider.enable || excludeSet.has(provider.id)) return null;
         if (respectChatMode) {
           if (currentMode === "acp agent" && provider.id !== "acp") return null;
           if (currentMode !== "acp agent" && provider.id === "acp") return null;
@@ -53,7 +55,7 @@ export default function ModelSelect({
 
         const filteredModels = enabledProvider.models.filter((model) => {
           const matchType =
-            !type || type.length === 0 || (model.type !== undefined && type.includes(model.type as ModelType));
+            !typeSet || typeSet.size === 0 || (model.type !== undefined && typeSet.has(model.type as ModelType));
           const matchVision = !visionOnly || Boolean(model.vision);
           return matchType && matchVision;
         });
@@ -76,12 +78,10 @@ export default function ModelSelect({
   const filteredProviders = useMemo(() => {
     if (!keyword) return providers;
     const lowerKeyword = keyword.toLowerCase();
-    return providers
-      .map((provider) => ({
-        ...provider,
-        models: provider.models.filter((model) => model.name.toLowerCase().includes(lowerKeyword)),
-      }))
-      .filter((provider) => provider.models.length > 0);
+    return providers.flatMap((provider) => {
+      const models = provider.models.filter((model) => model.name.toLowerCase().includes(lowerKeyword));
+      return models.length > 0 ? [{ ...provider, models }] : [];
+    });
   }, [providers, keyword]);
 
   const isSelected = useCallback(
@@ -110,16 +110,17 @@ export default function ModelSelect({
             <div className="px-2 text-xs text-muted-foreground">{provider.name}</div>
             <div className="p-1">
               {provider.models.map((model) => (
-                <div
+                <button
+                  type="button"
                   key={`${provider.id}-${model.id}`}
-                  className={`flex flex-row items-center gap-1 rounded-md p-2 hover:bg-muted dark:hover:bg-accent${
+                  className={`flex w-full flex-row items-center gap-1 rounded-md p-2 text-left hover:bg-muted dark:hover:bg-accent${
                     isSelected(provider.id, model.id) ? " bg-muted" : ""
                   }`}
                   onClick={() => handleModelSelect(provider.id, model)}
                 >
                   <ModelIcon modelId={provider.id === "acp" ? model.id : provider.id} isDark={themeStore.isDark} />
                   <span className="flex-1 truncate text-xs font-bold">{model.name}</span>
-                </div>
+                </button>
               ))}
             </div>
           </div>

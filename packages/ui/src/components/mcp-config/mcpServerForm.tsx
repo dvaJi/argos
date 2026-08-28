@@ -77,7 +77,7 @@ const McpServerForm: FC<McpServerFormProps> = ({
 
   const [name, setName] = useState(serverNameProp || "");
   const [command, setCommand] = useState(initialConfig?.command || "npx");
-  const [env, setEnv] = useState(JSON.stringify(initialConfig?.env || {}, null, 2));
+  const [env, setEnv] = useState(() => JSON.stringify(initialConfig?.env || {}, null, 2));
   const [descriptions, setDescriptions] = useState(initialConfig?.descriptions || "");
   const [icons, setIcons] = useState(initialConfig?.icons || "📁");
   const [type, setType] = useState<MCPServerTypeOption>(
@@ -89,12 +89,12 @@ const McpServerForm: FC<McpServerFormProps> = ({
   );
   const [customHeadersFocused, setCustomHeadersFocused] = useState(false);
   const [npmRegistry, setNpmRegistry] = useState(initialConfig?.customNpmRegistry || "");
-  const [autoApproveAll, setAutoApproveAll] = useState(initialConfig?.autoApprove?.includes("all") || false);
+  const [autoApproveAll, setAutoApproveAll] = useState(() => initialConfig?.autoApprove?.includes("all") || false);
   const [autoApproveRead, setAutoApproveRead] = useState(
-    initialConfig?.autoApprove?.includes("read") || initialConfig?.autoApprove?.includes("all") || false,
+    () => initialConfig?.autoApprove?.includes("read") || initialConfig?.autoApprove?.includes("all") || false,
   );
   const [autoApproveWrite, setAutoApproveWrite] = useState(
-    initialConfig?.autoApprove?.includes("write") || initialConfig?.autoApprove?.includes("all") || false,
+    () => initialConfig?.autoApprove?.includes("write") || initialConfig?.autoApprove?.includes("all") || false,
   );
   const [currentStep, setCurrentStep] = useState(editMode ? "detailed" : "simple");
   const [jsonConfig, setJsonConfig] = useState("");
@@ -303,7 +303,10 @@ const McpServerForm: FC<McpServerFormProps> = ({
     } else {
       const normalizedArgs = isBuildInFileSystem
         ? foldersList.filter((folder) => folder.trim().length > 0)
-        : argsRows.map((row) => row.value.trim()).filter((value) => value.length > 0);
+        : argsRows.flatMap((row) => {
+            const value = row.value.trim();
+            return value.length > 0 ? [value] : [];
+          });
       serverConfig = {
         ...baseConfig,
         command: command.trim(),
@@ -440,7 +443,7 @@ const McpServerForm: FC<McpServerFormProps> = ({
               <div className="space-y-2">
                 {foldersList.map((folder, index) => (
                   <div
-                    key={index}
+                    key={folder}
                     className="flex items-center justify-between p-2 border border-input rounded-md bg-background"
                   >
                     <span className="text-sm truncate flex-1 mr-2" title={folder}>

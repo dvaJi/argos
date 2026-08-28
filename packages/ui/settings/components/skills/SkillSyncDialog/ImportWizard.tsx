@@ -46,17 +46,14 @@ const ImportWizard: FC<ImportWizardProps> = ({
   );
 
   const conflictNames = useMemo(
-    () => importPreviews.filter((p) => p.conflict).map((p) => p.skill.name),
+    () => importPreviews.flatMap((p) => (p.conflict ? [p.skill.name] : [])),
     [importPreviews],
   );
 
   const conflictItems = useMemo((): ConflictItem[] => {
-    return importPreviews
-      .filter((p) => p.conflict)
-      .map((p) => ({
-        skillName: p.skill.name,
-        existingName: p.conflict!.existingSkillName,
-      }));
+    return importPreviews.flatMap((p) =>
+      p.conflict ? [{ skillName: p.skill.name, existingName: p.conflict!.existingSkillName }] : [],
+    );
   }, [importPreviews]);
 
   const allWarnings = useMemo(() => {

@@ -94,14 +94,9 @@ const ChatTopBar: FC<ChatTopBarProps> = ({
   );
   const transferAgents = useMemo(
     () =>
-      agentStore.enabledAgents
-        .filter((agent) => agent.type === "argos")
-        .map((agent) => ({
-          id: agent.id,
-          name: agent.name,
-          type: agent.type,
-          enabled: agent.enabled,
-        })),
+      agentStore.enabledAgents.flatMap((agent) =>
+        agent.type === "argos" ? [{ id: agent.id, name: agent.name, type: agent.type, enabled: agent.enabled }] : [],
+      ),
     [agentStore.enabledAgents],
   );
   const canMoveConversation = useMemo(

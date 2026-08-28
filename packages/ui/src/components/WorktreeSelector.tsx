@@ -307,26 +307,29 @@ export default function WorktreeSelector({ workspacePath, value, onChange, disab
                   return (
                     <li
                       key={worktree.path}
-                      role="button"
-                      tabIndex={0}
-                      aria-pressed={isSelected}
                       data-testid="worktree-item"
-                      className={`flex items-center gap-2 rounded-md border px-2 py-1.5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${isSelected ? "border-primary bg-primary/5" : "border-border/60"}`}
-                      onClick={() => onChange({ ...value, enabled: true, reuseWorktreePath: worktree.path })}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          onChange({ ...value, enabled: true, reuseWorktreePath: worktree.path });
-                        }
-                      }}
+                      className={`flex items-center gap-2 rounded-md border px-2 py-1.5 ${isSelected ? "border-primary bg-primary/5" : "border-border/60"}`}
                     >
-                      <div className="flex min-w-0 flex-1 flex-col">
-                        <span className="truncate font-mono text-[11px]">{worktree.branch ?? "(detached)"}</span>
-                        <span className="truncate text-[10px] text-muted-foreground" title={worktree.path}>
-                          {abbreviatePath(worktree.path)}
-                        </span>
-                      </div>
-                      {isSelected && <Icon icon="lucide:check" className="size-3.5 text-primary" />}
+                      <button
+                        type="button"
+                        aria-pressed={isSelected}
+                        className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        onClick={() => onChange({ ...value, enabled: true, reuseWorktreePath: worktree.path })}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            onChange({ ...value, enabled: true, reuseWorktreePath: worktree.path });
+                          }
+                        }}
+                      >
+                        <div className="flex min-w-0 flex-1 flex-col">
+                          <span className="truncate font-mono text-[11px]">{worktree.branch ?? "(detached)"}</span>
+                          <span className="truncate text-[10px] text-muted-foreground" title={worktree.path}>
+                            {abbreviatePath(worktree.path)}
+                          </span>
+                        </div>
+                        {isSelected && <Icon icon="lucide:check" className="size-3.5 text-primary" />}
+                      </button>
                       <Button
                         variant="ghost"
                         size="icon"

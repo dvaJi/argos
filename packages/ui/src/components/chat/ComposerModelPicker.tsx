@@ -94,12 +94,10 @@ const ComposerModelPicker = () => {
   const filteredGroups = useMemo(() => {
     const kw = keyword.trim().toLowerCase();
     if (!kw) return modelGroups;
-    return modelGroups
-      .map((g) => ({
-        ...g,
-        models: g.models.filter((m) => `${m.name} ${m.id} ${g.providerName}`.toLowerCase().includes(kw)),
-      }))
-      .filter((g) => g.models.length > 0);
+    return modelGroups.flatMap((g) => {
+      const models = g.models.filter((m) => `${m.name} ${m.id} ${g.providerName}`.toLowerCase().includes(kw));
+      return models.length > 0 ? [{ ...g, models }] : [];
+    });
   }, [modelGroups, keyword]);
 
   const filteredAcpAgents = useMemo(() => {

@@ -154,14 +154,19 @@ export default function BuiltinKnowledgeSettings({ onShowDetail }: BuiltinKnowle
         <CollapsibleContent>
           <div className="p-4 border-t space-y-4">
             {configs.map((config, index) => (
-              <div key={index} className="p-3 border rounded-md relative">
+              <div key={config.id} className="p-3 border rounded-md relative">
                 <div className="absolute top-2 right-2 flex gap-2">
                   <Switch checked={config.enabled === true} onCheckedChange={(v) => toggleConfigEnabled(index, v)} />
-                  <button className="text-muted-foreground hover:text-primary" onClick={() => handleSetting(config)}>
+                  <button
+                    className="text-muted-foreground hover:text-primary"
+                    aria-label="View knowledge base details"
+                    onClick={() => handleSetting(config)}
+                  >
                     <Icon icon="lucide:file-diff" className="h-4 w-4" />
                   </button>
                   <button
                     className="text-muted-foreground hover:text-primary"
+                    aria-label="Edit knowledge base"
                     onClick={() => {
                       setEditingConfig(config);
                       setIsEditDialogOpen(true);

@@ -138,11 +138,7 @@ export default function McpSamplingDialog() {
                         {message.type === "image" && (
                           <div className="flex flex-col items-start gap-2">
                             {message.dataUrl && (
-                              <img
-                                src={message.dataUrl}
-                                className="max-h-40 rounded-md border object-contain"
-                                alt={`Image ${index + 1}`}
-                              />
+                              <img src={message.dataUrl} className="max-h-40 rounded-md border object-contain" alt="" />
                             )}
                             <span className="text-xs text-muted-foreground">
                               {message.mimeType || "Unknown MIME type"}

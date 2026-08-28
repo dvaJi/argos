@@ -175,9 +175,9 @@ function groupByTime(sessions: UISession[]): SessionGroup[] {
     "common.time.older": "Older",
   };
 
-  return Object.entries(groups)
-    .filter(([, items]) => items.length > 0)
-    .map(([id, items]) => ({ id, label: timeGroupLabels[id] ?? id, sessions: items }));
+  return Object.entries(groups).flatMap(([id, items]) =>
+    items.length > 0 ? [{ id, label: timeGroupLabels[id] ?? id, sessions: items }] : [],
+  );
 }
 
 function normalizeProjectGroupId(projectDir: string): string {
@@ -607,7 +607,14 @@ async function loadNextPage(): Promise<void> {
 }
 
 async function refreshSessionsByIds(sessionIds: string[]): Promise<void> {
-  const normalizedIds = Array.from(new Set(sessionIds.map((sessionId) => sessionId.trim()).filter(Boolean)));
+  const normalizedIds = Array.from(
+    new Set(
+      sessionIds.flatMap((sessionId) => {
+        const id = sessionId.trim();
+        return id ? [id] : [];
+      }),
+    ),
+  );
   if (normalizedIds.length === 0) {
     await loadSessionPage({
       reset: true,
@@ -1006,14 +1013,10 @@ function getFilteredGroups(agentId: string | null): SessionGroup[] {
 
   if (agentId === null) return grouped;
 
-  return grouped
-    .map((group) => ({
-      id: group.id,
-      label: group.label,
-      labelKey: group.labelKey,
-      sessions: group.sessions.filter((session) => session.agentId === agentId),
-    }))
-    .filter((group) => group.sessions.length > 0);
+  return grouped.flatMap((group) => {
+    const sessions = group.sessions.filter((session) => session.agentId === agentId);
+    return sessions.length > 0 ? [{ id: group.id, label: group.label, labelKey: group.labelKey, sessions }] : [];
+  });
 }
 
 const cleanupIpcBindings = bindSessionStoreIpc({

@@ -321,7 +321,8 @@ const CustomPromptSettingsSection = forwardRef<CustomPromptSettingsSectionHandle
                         <span className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
                           {getSourceLabel(prompt.source)}
                         </span>
-                        <span
+                        <button
+                          type="button"
                           className={`cursor-pointer rounded-md px-2 py-0.5 text-xs transition-colors ${
                             prompt.enabled
                               ? "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50"
@@ -331,7 +332,7 @@ const CustomPromptSettingsSection = forwardRef<CustomPromptSettingsSectionHandle
                           onClick={() => void togglePromptEnabled(index)}
                         >
                           {prompt.enabled ? "Active" : "Inactive"}
-                        </span>
+                        </button>
                       </div>
                     </div>
                   </div>

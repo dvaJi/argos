@@ -75,9 +75,9 @@ const ExportWizard: FC<ExportWizardProps> = ({ currentStep, onStepChange, onComp
   const isKiroSelected = useMemo(() => selectedToolId === "kiro", [selectedToolId]);
 
   const conflictItems = useMemo((): ConflictItem[] => {
-    return exportPreviews
-      .filter((p) => p.conflict)
-      .map((p) => ({ skillName: p.skillName, existingName: p.conflict!.existingPath }));
+    return exportPreviews.flatMap((p) =>
+      p.conflict ? [{ skillName: p.skillName, existingName: p.conflict!.existingPath }] : [],
+    );
   }, [exportPreviews]);
 
   const allWarnings = useMemo(() => {
@@ -333,6 +333,14 @@ const ExportWizard: FC<ExportWizardProps> = ({ currentStep, onStepChange, onComp
                         selectedToolId === tool.id ? "border-accent-400 bg-accent-400/10" : "",
                       ].join(" ")}
                       onClick={() => setSelectedToolId(tool.id)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setSelectedToolId(tool.id);
+                        }
+                      }}
                     >
                       <div className="flex items-center gap-3">
                         <div

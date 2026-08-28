@@ -79,7 +79,7 @@ export const MessageBlockToolCallImagePreview: FC<MessageBlockToolCallImagePrevi
       <div className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-2">
         {previews.map((preview, index) => (
           <ImageActionContextMenu
-            key={preview.id || index}
+            key={preview.id}
             source={resolveImageSrc(preview)}
             mimeType={preview.mimeType === "argos/image-url" ? undefined : preview.mimeType}
           >

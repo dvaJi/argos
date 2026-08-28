@@ -327,8 +327,7 @@ function ChatPage({ sessionId }: ChatPageProps) {
     () =>
       messageStore
         .getMessages()
-        .filter((msg) => msg.role === "assistant" && (msg.traceCount ?? 0) > 0)
-        .map((msg) => msg.id),
+        .flatMap((msg) => (msg.role === "assistant" && (msg.traceCount ?? 0) > 0 ? [msg.id] : [])),
     [messageStore],
   );
 
@@ -347,13 +346,14 @@ function ChatPage({ sessionId }: ChatPageProps) {
           continue;
         const toolCallId = block.tool_call?.id;
         if (!toolCallId) continue;
+        const toolCall = block.tool_call;
         list.push({
           sessionId,
           messageId: message.id,
           toolCallId,
           actionType: block.action_type,
-          toolName: block.tool_call?.name || "",
-          toolArgs: block.tool_call?.params || "",
+          toolName: toolCall?.name || "",
+          toolArgs: toolCall?.params || "",
           block,
         });
       }

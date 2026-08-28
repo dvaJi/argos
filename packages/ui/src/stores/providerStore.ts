@@ -242,7 +242,8 @@ const updateProvidersOrder = async (newProviders: LLM_PROVIDER[]) => {
     const disabledList = newProviders.filter((provider) => !provider.enable);
     const newOrder = [...enabledList.map((p) => p.id), ...disabledList.map((p) => p.id)];
     const allIds = providerStore.state.providers.map((provider) => provider.id);
-    const missingIds = allIds.filter((id) => !newOrder.includes(id));
+    const newOrderIdSet = new Set(newOrder);
+    const missingIds = allIds.filter((id) => !newOrderIdSet.has(id));
     providerStore.setState((prev) => ({
       ...prev,
       providerOrder: [...newOrder, ...missingIds],
@@ -278,7 +279,8 @@ const optimizeProviderOrder = async (providerId: string, enable: boolean) => {
     const newOrder = enable
       ? [...enabledOrder, providerId, ...disabledOrder]
       : [...enabledOrder, providerId, ...disabledOrder];
-    const missingIds = availableProviders.map((p) => p.id).filter((id) => !newOrder.includes(id));
+    const newOrderSet = new Set(newOrder);
+    const missingIds = availableProviders.flatMap((p) => (newOrderSet.has(p.id) ? [] : [p.id]));
     providerStore.setState((prev) => ({
       ...prev,
       providerOrder: [...newOrder, ...missingIds],

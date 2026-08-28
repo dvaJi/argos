@@ -103,7 +103,7 @@ export default function ProviderConfigImportDialog({
   const selectableSourceCount = useMemo(() => visibleSources.filter((s) => s.selectable).length, [visibleSources]);
 
   const selectedSourceIds = useMemo(
-    () => visibleSources.filter((s) => s.selectable && selectedSources.has(s.id)).map((s) => s.id),
+    () => visibleSources.flatMap((s) => (s.selectable && selectedSources.has(s.id) ? [s.id] : [])),
     [visibleSources, selectedSources],
   );
 
@@ -164,7 +164,7 @@ export default function ProviderConfigImportDialog({
     try {
       const result = await providerClient.scanProviderImports();
       setScanResult(result);
-      setSelectedSources(new Set(result.sources.filter((s) => s.selectable && s.defaultSelected).map((s) => s.id)));
+      setSelectedSources(new Set(result.sources.flatMap((s) => (s.selectable && s.defaultSelected ? [s.id] : []))));
       const bySource: Record<string, string[]> = {};
       result.providers.forEach((p) => {
         if (!p.defaultSelected) return;
@@ -239,7 +239,7 @@ export default function ProviderConfigImportDialog({
     if (!sourceId) return;
     setSelectedProvidersBySource((prev) => ({
       ...prev,
-      [sourceId]: currentSourceProviders.filter(isProviderSelectable).map((p) => p.id),
+      [sourceId]: currentSourceProviders.flatMap((p) => (isProviderSelectable(p) ? [p.id] : [])),
     }));
   };
 

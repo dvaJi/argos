@@ -23,8 +23,9 @@ const SkillSelector: FC<SkillSelectorProps> = ({ skills, selectedSkills, conflic
     setSyncedSkills(skills);
     setSyncedSelectedSkills(selectedSkills);
     const newState: Record<string, boolean> = {};
+    const selectedSkillNames = new Set(selectedSkills);
     for (const skill of skills) {
-      newState[skill.name] = selectedSkills.includes(skill.name);
+      newState[skill.name] = selectedSkillNames.has(skill.name);
     }
     setSkillCheckedState(newState);
   }

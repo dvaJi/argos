@@ -48,7 +48,7 @@ export default function AcpDebugDialog({ open, onOpenChange, agentId, agentName 
   const [events, setEvents] = useState<AcpDebugEventEntry[]>([]);
   const [processReady, setProcessReady] = useState(false);
   const [customMethod, setCustomMethod] = useState("");
-  const [debugSessionId, setDebugSessionId] = useState(createDebugSessionId());
+  const [debugSessionId, setDebugSessionId] = useState(() => createDebugSessionId());
   const seenIds = useRef(new Set<string>());
 
   const requiresCustomMethod = useMemo(

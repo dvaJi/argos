@@ -240,52 +240,56 @@ const toHistoryItem = (hit: HistorySearchHit, normalizedQuery: string): Spotligh
 const buildProviderMatches = (normalizedQuery: string): SpotlightItem[] =>
   !external
     ? []
-    : external
-        .getSortedProviders()
-        .filter((provider) => provider.id !== "acp")
-        .map((provider) => ({
-          id: `setting:provider:${provider.id}`,
-          kind: "setting" as const,
-          icon: "lucide:cloud-cog",
-          title: provider.name,
-          subtitle: provider.apiType,
-          routeName: "settings-provider" as const,
-          routeParams: { providerId: provider.id },
-          keywords: [provider.id, provider.apiType, provider.baseUrl].filter(
-            (value): value is string => typeof value === "string" && value.trim().length > 0,
-          ),
-          score: scoreTextMatch(normalizedQuery, provider.name, provider.id, provider.apiType, provider.baseUrl),
-        }))
-        .filter((item) => item.score > 0);
+    : external.getSortedProviders().flatMap((provider) => {
+        if (provider.id === "acp") return [];
+        const score = scoreTextMatch(normalizedQuery, provider.name, provider.id, provider.apiType, provider.baseUrl);
+        if (score <= 0) return [];
+        return [
+          {
+            id: `setting:provider:${provider.id}`,
+            kind: "setting" as const,
+            icon: "lucide:cloud-cog",
+            title: provider.name,
+            subtitle: provider.apiType,
+            routeName: "settings-provider" as const,
+            routeParams: { providerId: provider.id },
+            keywords: [provider.id, provider.apiType, provider.baseUrl].filter(
+              (value): value is string => typeof value === "string" && value.trim().length > 0,
+            ),
+            score,
+          },
+        ];
+      });
 
 const buildSettingMatches = (normalizedQuery: string): SpotlightItem[] =>
-  SETTINGS_NAVIGATION_ITEMS.filter((item) => item.routeName !== "settings-provider")
-    .map((item) => ({
-      id: `setting:${item.routeName}`,
-      kind: "setting" as const,
-      icon: item.icon,
-      titleKey: item.titleKey,
-      routeName: item.routeName,
-      keywords: item.keywords,
-      score: scoreTextMatch(normalizedQuery, item.routeName, item.path, ...item.keywords),
-    }))
-    .filter((item) => item.score > 0);
+  SETTINGS_NAVIGATION_ITEMS.flatMap((item) => {
+    if (item.routeName === "settings-provider") return [];
+    const score = scoreTextMatch(normalizedQuery, item.routeName, item.path, ...item.keywords);
+    if (score <= 0) return [];
+    return [
+      {
+        id: `setting:${item.routeName}`,
+        kind: "setting" as const,
+        icon: item.icon,
+        titleKey: item.titleKey,
+        routeName: item.routeName,
+        keywords: item.keywords,
+        score,
+      },
+    ];
+  });
 
 const buildAgentMatches = (normalizedQuery: string): SpotlightItem[] =>
-  buildAgentItems()
-    .map((item) => ({
-      ...item,
-      score: scoreTextMatch(normalizedQuery, item.title, ...(item.keywords ?? [])),
-    }))
-    .filter((item) => item.score > 0);
+  buildAgentItems().flatMap((item) => {
+    const score = scoreTextMatch(normalizedQuery, item.title, ...(item.keywords ?? []));
+    return score > 0 ? [{ ...item, score }] : [];
+  });
 
 const buildActionMatches = (normalizedQuery: string): SpotlightItem[] =>
-  buildActionItems()
-    .map((item) => ({
-      ...item,
-      score: scoreTextMatch(normalizedQuery, item.titleKey, ...(item.keywords ?? [])),
-    }))
-    .filter((item) => item.score > 0);
+  buildActionItems().flatMap((item) => {
+    const score = scoreTextMatch(normalizedQuery, item.titleKey, ...(item.keywords ?? []));
+    return score > 0 ? [{ ...item, score }] : [];
+  });
 
 const sortResults = (items: SpotlightItem[]) =>
   items
@@ -329,7 +333,7 @@ const runSearch = debounce(
       ...prev,
       loading: false,
       results: sortResults([
-        ...historyHits.filter((hit) => hit.kind === "session").map((hit) => toHistoryItem(hit, normalizedQuery)),
+        ...historyHits.flatMap((hit) => (hit.kind === "session" ? [toHistoryItem(hit, normalizedQuery)] : [])),
         ...buildAgentMatches(normalizedQuery),
         ...buildProviderMatches(normalizedQuery),
         ...buildSettingMatches(normalizedQuery),

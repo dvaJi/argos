@@ -430,17 +430,13 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
     const filteredModelGroups = useMemo<GroupedModelList[]>(() => {
       const keyword = modelSearchKeyword.trim().toLowerCase();
       if (!keyword) return modelGroups;
-      return modelGroups
-        .map((group) => {
-          const providerMatched = `${group.providerName} ${group.providerId}`.toLowerCase().includes(keyword);
-          return {
-            ...group,
-            models: providerMatched
-              ? group.models
-              : group.models.filter((model) => `${model.name} ${model.id}`.toLowerCase().includes(keyword)),
-          };
-        })
-        .filter((group) => group.models.length > 0);
+      return modelGroups.flatMap((group) => {
+        const providerMatched = `${group.providerName} ${group.providerId}`.toLowerCase().includes(keyword);
+        const models = providerMatched
+          ? group.models
+          : group.models.filter((model) => `${model.name} ${model.id}`.toLowerCase().includes(keyword));
+        return models.length > 0 ? [{ ...group, models }] : [];
+      });
     }, [modelSearchKeyword, modelGroups]);
 
     const modelDisplaySections = useMemo<ModelDisplaySection[]>(() => {
@@ -1709,7 +1705,9 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                             <>
                               {!showOpenAIMediaGenerationSettings && showTemperatureControl && (
                                 <div className="space-y-1.5">
-                                  <label className="text-xs font-medium">Temperature</label>
+                                  <label htmlFor="model-setting-temperature" className="text-xs font-medium">
+                                    Temperature
+                                  </label>
                                   <div className="flex items-center gap-2">
                                     <Button
                                       variant="outline"
@@ -1723,6 +1721,7 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                                       <Icon icon="lucide:minus" className="h-3 w-3" />
                                     </Button>
                                     <Input
+                                      id="model-setting-temperature"
                                       className={`h-8 flex-1 text-xs tabular-nums ${hasNumericInputError("temperature") ? "border-destructive" : ""}`}
                                       data-setting-control="temperature"
                                       type="number"
@@ -1764,7 +1763,9 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                               )}
                               {showTopPControl && (
                                 <div className="space-y-1.5">
-                                  <label className="text-xs font-medium">Top P</label>
+                                  <label htmlFor="model-setting-top-p" className="text-xs font-medium">
+                                    Top P
+                                  </label>
                                   <div className="flex items-center gap-2">
                                     <Button
                                       variant="outline"
@@ -1778,6 +1779,7 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                                       <Icon icon="lucide:minus" className="h-3 w-3" />
                                     </Button>
                                     <Input
+                                      id="model-setting-top-p"
                                       className={`h-8 flex-1 text-xs tabular-nums ${hasNumericInputError("topP") ? "border-destructive" : ""}`}
                                       data-setting-control="topP"
                                       type="number"
@@ -1819,7 +1821,9 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                               {!showOpenAIMediaGenerationSettings && (
                                 <>
                                   <div className="space-y-1.5">
-                                    <label className="text-xs font-medium">Context Length</label>
+                                    <label htmlFor="model-setting-context-length" className="text-xs font-medium">
+                                      Context Length
+                                    </label>
                                     <div className="flex items-center gap-2">
                                       <Button
                                         variant="outline"
@@ -1835,6 +1839,7 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                                         <Icon icon="lucide:minus" className="h-3 w-3" />
                                       </Button>
                                       <Input
+                                        id="model-setting-context-length"
                                         className={`h-8 flex-1 text-xs tabular-nums ${hasNumericInputError("contextLength") ? "border-destructive" : ""}`}
                                         data-setting-control="contextLength"
                                         type="number"
@@ -1870,7 +1875,9 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                                     )}
                                   </div>
                                   <div className="space-y-1.5">
-                                    <label className="text-xs font-medium">Max Tokens</label>
+                                    <label htmlFor="model-setting-max-tokens" className="text-xs font-medium">
+                                      Max Tokens
+                                    </label>
                                     <div className="flex items-center gap-2">
                                       <Button
                                         variant="outline"
@@ -1884,6 +1891,7 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                                         <Icon icon="lucide:minus" className="h-3 w-3" />
                                       </Button>
                                       <Input
+                                        id="model-setting-max-tokens"
                                         className={`h-8 flex-1 text-xs tabular-nums ${hasNumericInputError("maxTokens") ? "border-destructive" : ""}`}
                                         data-setting-control="maxTokens"
                                         type="number"
@@ -1921,7 +1929,9 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                                 </>
                               )}
                               <div className="space-y-1.5">
-                                <label className="text-xs font-medium">Timeout</label>
+                                <label htmlFor="model-setting-timeout" className="text-xs font-medium">
+                                  Timeout
+                                </label>
                                 <div className="flex items-center gap-2">
                                   <Button
                                     variant="outline"
@@ -1937,6 +1947,7 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                                     <Icon icon="lucide:minus" className="h-3 w-3" />
                                   </Button>
                                   <Input
+                                    id="model-setting-timeout"
                                     className={`h-8 flex-1 text-xs tabular-nums ${hasNumericInputError("timeout") ? "border-destructive" : ""}`}
                                     data-setting-control="timeout"
                                     type="number"
@@ -1991,12 +2002,14 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                               )}
                               {!showOpenAIMediaGenerationSettings && showReasoningEffort && (
                                 <div className="space-y-1.5">
-                                  <label className="text-xs font-medium">Reasoning Effort</label>
+                                  <label htmlFor="model-setting-reasoning-effort" className="text-xs font-medium">
+                                    Reasoning Effort
+                                  </label>
                                   <Select
                                     value={localSettings.reasoningEffort ?? effortOptions[0]?.value}
                                     onValueChange={(v) => onReasoningEffortSelect(v ?? "")}
                                   >
-                                    <SelectTrigger className="h-8 text-xs">
+                                    <SelectTrigger id="model-setting-reasoning-effort" className="h-8 text-xs">
                                       <SelectValue placeholder="Select..." />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -2011,12 +2024,14 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                               )}
                               {!showOpenAIMediaGenerationSettings && showReasoningVisibility && (
                                 <div className="space-y-1.5">
-                                  <label className="text-xs font-medium">Reasoning Visibility</label>
+                                  <label htmlFor="model-setting-reasoning-visibility" className="text-xs font-medium">
+                                    Reasoning Visibility
+                                  </label>
                                   <Select
                                     value={localSettings.reasoningVisibility ?? reasoningVisibilityOptions[0]?.value}
                                     onValueChange={(v) => onReasoningVisibilitySelect(v ?? "")}
                                   >
-                                    <SelectTrigger className="h-8 text-xs">
+                                    <SelectTrigger id="model-setting-reasoning-visibility" className="h-8 text-xs">
                                       <SelectValue placeholder="Select..." />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -2031,12 +2046,14 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                               )}
                               {!showOpenAIMediaGenerationSettings && showVerbosity && (
                                 <div className="space-y-1.5">
-                                  <label className="text-xs font-medium">Verbosity</label>
+                                  <label htmlFor="model-setting-verbosity" className="text-xs font-medium">
+                                    Verbosity
+                                  </label>
                                   <Select
                                     value={localSettings.verbosity ?? verbosityOptions[0]?.value}
                                     onValueChange={(v) => onVerbositySelect(v ?? "")}
                                   >
-                                    <SelectTrigger className="h-8 text-xs">
+                                    <SelectTrigger id="model-setting-verbosity" className="h-8 text-xs">
                                       <SelectValue placeholder="Select..." />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -2052,12 +2069,18 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                               {!showOpenAIMediaGenerationSettings && showThinkingBudget && (
                                 <div className="space-y-1.5">
                                   <div className="flex items-center justify-between">
-                                    <label className="text-xs font-medium">Thinking Budget</label>
+                                    <label
+                                      htmlFor="model-setting-thinking-budget-toggle"
+                                      className="text-xs font-medium"
+                                    >
+                                      Thinking Budget
+                                    </label>
                                     <div className="flex items-center gap-2">
                                       {thinkingBudgetHint && (
                                         <span className="text-[11px] text-muted-foreground">{thinkingBudgetHint}</span>
                                       )}
                                       <Switch
+                                        id="model-setting-thinking-budget-toggle"
                                         data-setting-control="thinkingBudget-toggle"
                                         checked={isThinkingBudgetEnabled}
                                         onCheckedChange={(v) => onThinkingBudgetToggle(v)}
@@ -2117,12 +2140,18 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                                 <div className="space-y-1.5">
                                   <div className="flex items-start justify-between gap-3">
                                     <div className="min-w-0">
-                                      <label className="text-xs font-medium">Force Interleaved Thinking</label>
+                                      <label
+                                        htmlFor="model-setting-force-interleaved-thinking-toggle"
+                                        className="text-xs font-medium"
+                                      >
+                                        Force Interleaved Thinking
+                                      </label>
                                       <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
                                         Enables interleaved thinking for models that need compatibility mode.
                                       </p>
                                     </div>
                                     <Switch
+                                      id="model-setting-force-interleaved-thinking-toggle"
                                       data-setting-control="forceInterleavedThinkingCompat-toggle"
                                       checked={isInterleavedThinkingEnabled}
                                       onCheckedChange={(v) => onInterleavedThinkingToggle(v)}

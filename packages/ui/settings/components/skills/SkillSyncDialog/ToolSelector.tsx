@@ -67,6 +67,14 @@ const ToolSelector: FC<ToolSelectorProps> = ({ tools, selectedToolId, loading, o
                 selectedToolId === tool.toolId ? "border-accent-400 bg-accent-400/10" : "",
               ].join(" ")}
               onClick={() => handleSelect(tool)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  handleSelect(tool);
+                }
+              }}
             >
               <div className="flex items-center gap-3">
                 <div

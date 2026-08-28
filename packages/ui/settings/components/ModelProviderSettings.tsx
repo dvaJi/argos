@@ -367,6 +367,7 @@ export default function ModelProviderSettings({ providerId: routeProviderId }: M
           ref={editInputRef}
           value={editingName}
           onChange={(e) => setEditingName(e.target.value)}
+          aria-label="Provider name"
           className="text-sm font-medium flex-1 min-w-0 bg-background border border-input rounded px-2 py-0.5 outline-none focus:ring-1 focus:ring-ring"
           dir={languageStore.dir}
           onBlur={() => void saveEditingName()}

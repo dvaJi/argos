@@ -159,7 +159,7 @@ export default function DataSettings() {
   const [lastRepairReport, setLastRepairReport] = useState<DatabaseRepairReport | null>(null);
   const [cloudProviderMode, setCloudProviderMode] = useState<CloudSyncProviderMode>("r2");
   const [cloudPullMode, setCloudPullMode] = useState<"increment" | "overwrite">("increment");
-  const [cloudForm, setCloudForm] = useState(createDefaultCloudSyncForm());
+  const [cloudForm, setCloudForm] = useState(() => createDefaultCloudSyncForm());
 
   const dir = languageStore.dir;
   const isBackupActive = syncStore.isBackingUp;

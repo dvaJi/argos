@@ -205,9 +205,7 @@ export default function WorkspaceSelector() {
 
   const activeWorkspace = store.activeWorkspace;
   const workspaces = store.workspaces;
-  const remoteUrls = workspaces
-    .filter((workspace) => workspace.mode === "remote")
-    .map((workspace) => workspace.remoteUrl);
+  const remoteUrls = workspaces.flatMap((workspace) => (workspace.mode === "remote" ? [workspace.remoteUrl] : []));
 
   useEffect(() => {
     registerHandlers({

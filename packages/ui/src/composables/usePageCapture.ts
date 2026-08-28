@@ -2,6 +2,9 @@ import { useState, useCallback, useRef } from "react";
 import { createDeviceClient } from "#api/DeviceClient";
 import { createTabClient } from "#api/TabClient";
 
+const tabClient = createTabClient();
+const deviceClient = createDeviceClient();
+
 interface CaptureRect {
   x: number;
   y: number;
@@ -240,8 +243,6 @@ const performCapture = async (
 
 export function usePageCapture() {
   const [isCapturing, setIsCapturing] = useState(false);
-  const tabClientRef = useRef(createTabClient());
-  const deviceClientRef = useRef(createDeviceClient());
 
   const captureArea = useCallback(
     async (config: CaptureConfig): Promise<CaptureResult> => {
@@ -255,14 +256,10 @@ export function usePageCapture() {
       let result: CaptureResult;
 
       try {
-        result = await performCapture(
-          config,
-          tabClientRef.current,
-          (configuredContainer, configuredOriginalBehavior) => {
-            scrollContainer = configuredContainer;
-            originalScrollBehavior = configuredOriginalBehavior;
-          },
-        );
+        result = await performCapture(config, tabClient, (configuredContainer, configuredOriginalBehavior) => {
+          scrollContainer = configuredContainer;
+          originalScrollBehavior = configuredOriginalBehavior;
+        });
       } catch (error) {
         console.error("Error during capture:", error);
         result = {
@@ -288,7 +285,7 @@ export function usePageCapture() {
       const result = await captureArea(config);
 
       if (result.success && result.imageData) {
-        deviceClientRef.current.copyImage(result.imageData);
+        deviceClient.copyImage(result.imageData);
         return true;
       }
 

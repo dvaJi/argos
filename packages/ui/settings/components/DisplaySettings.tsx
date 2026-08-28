@@ -281,9 +281,9 @@ export default function DisplaySettings() {
               <span className="truncate">Font Size</span>
             </span>
             <ButtonGroup className="flex-wrap">
-              {fontSizeOptions.map((_sizeOption, index) => (
+              {fontSizeOptions.map((sizeOption, index) => (
                 <Button
-                  key={index}
+                  key={sizeOption}
                   variant={fontSizeLevel === index ? "default" : "outline"}
                   size="sm"
                   className="shrink-0 px-2 py-1.5 text-xs"

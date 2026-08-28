@@ -37,8 +37,8 @@ export default function ProviderRateLimitConfig({ provider, onConfigChanged }: P
   const { toast } = useToast();
 
   const [rateLimitEnabled, setRateLimitEnabled] = useState(provider.rateLimit?.enabled ?? false);
-  const [intervalValue, setIntervalValue] = useState(convertQpsToInterval(provider.rateLimit?.qpsLimit ?? 0.1));
-  const [previousValidValue, setPreviousValidValue] = useState(
+  const [intervalValue, setIntervalValue] = useState(() => convertQpsToInterval(provider.rateLimit?.qpsLimit ?? 0.1));
+  const [previousValidValue, setPreviousValidValue] = useState(() =>
     convertQpsToInterval(provider.rateLimit?.qpsLimit ?? 0.1),
   );
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);

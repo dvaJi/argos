@@ -23,7 +23,14 @@ const normalizeSelection = (value?: string[]): string[] => {
   if (!Array.isArray(value)) {
     return [];
   }
-  return Array.from(new Set(value.map((item) => item.trim()).filter(Boolean)));
+  return Array.from(
+    new Set(
+      value.flatMap((item) => {
+        const t = item.trim();
+        return t ? [t] : [];
+      }),
+    ),
+  );
 };
 
 function PolicyScopeList({

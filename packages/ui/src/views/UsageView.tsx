@@ -162,12 +162,7 @@ export default function UsageView() {
             outputTokens,
             reasoningTokens: 0,
             cacheSavingsUsd: null,
-            activeDays: new Set(
-              serviceDaily
-                .flat()
-                .filter((p) => p.totalTokens > 0)
-                .map((p) => p.date),
-            ).size,
+            activeDays: new Set(serviceDaily.flat().flatMap((p) => (p.totalTokens > 0 ? [p.date] : []))).size,
             messageCount,
             // Session count is not derivable client-side per service; use the
             // service count as a lower bound and let the full summary show the

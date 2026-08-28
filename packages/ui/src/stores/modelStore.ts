@@ -688,7 +688,7 @@ const refreshAllModels = async (): Promise<boolean> => {
 };
 
 const getActiveEnabledModels = () => {
-  const activeProviderIds = new Set(providerStore.state.providers.filter((p) => p.enable).map((p) => p.id));
+  const activeProviderIds = new Set(providerStore.state.providers.flatMap((p) => (p.enable ? [p.id] : [])));
   return modelStore.state.enabledModels.filter((group) => activeProviderIds.has(group.providerId));
 };
 
@@ -707,12 +707,11 @@ export const getChatSelectableModelGroupsFrom = (
   enabledModels: { providerId: string; models: RENDERER_MODEL_META[] }[],
 ): ChatSelectableModelGroup[] => {
   const modelsByProviderId = new Map(
-    enabledModels
-      .filter((group) => group.providerId !== "acp")
-      .map(
-        (group) => [group.providerId, group.models.filter((model) => isChatSelectableModelType(model.type))] as const,
-      )
-      .filter(([, models]) => models.length > 0),
+    enabledModels.flatMap((group) => {
+      if (group.providerId === "acp") return [];
+      const models = group.models.filter((model) => isChatSelectableModelType(model.type));
+      return models.length > 0 ? [[group.providerId, models] as const] : [];
+    }),
   );
 
   const result: ChatSelectableModelGroup[] = [];
@@ -769,14 +768,12 @@ const pickFirstChatSelectableModel = () => {
 
 const searchModels = (query: string) => {
   const normalized = query.toLowerCase();
-  return getActiveEnabledModels()
-    .map((group) => ({
-      providerId: group.providerId,
-      models: group.models.filter(
-        (model) => model.id.toLowerCase().includes(normalized) || model.name.toLowerCase().includes(normalized),
-      ),
-    }))
-    .filter((group) => group.models.length > 0);
+  return getActiveEnabledModels().flatMap((group) => {
+    const models = group.models.filter(
+      (model) => model.id.toLowerCase().includes(normalized) || model.name.toLowerCase().includes(normalized),
+    );
+    return models.length > 0 ? [{ providerId: group.providerId, models }] : [];
+  });
 };
 
 const updateLocalModelStatus = (providerId: string, modelId: string, enabled: boolean) => {
@@ -1113,8 +1110,8 @@ function syncWithProviderChanges(): void {
   const prevStatesKey = prevProviderStates.map((s) => `${s.id}:${s.enable}`).join(",");
   if (statesKey !== prevStatesKey) {
     const providerIds = new Set(currentStates.map((p) => p.id));
-    const enabledProviderIds = new Set(currentStates.filter((p) => p.enable).map((p) => p.id));
-    const previousEnabledProviderIds = new Set(prevProviderStates.filter((p) => p.enable).map((p) => p.id));
+    const enabledProviderIds = new Set(currentStates.flatMap((p) => (p.enable ? [p.id] : [])));
+    const previousEnabledProviderIds = new Set(prevProviderStates.flatMap((p) => (p.enable ? [p.id] : [])));
 
     pruneModelState(providerIds, enabledProviderIds);
 

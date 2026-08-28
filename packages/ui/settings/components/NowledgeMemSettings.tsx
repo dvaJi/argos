@@ -111,6 +111,14 @@ export default function NowledgeMemSettings() {
       <div
         className="flex items-center p-4 hover:bg-accent cursor-default"
         onClick={() => setShowConfigPanel(!showConfigPanel)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setShowConfigPanel(!showConfigPanel);
+          }
+        }}
       >
         <div className="flex-1">
           <div className="flex items-center">
@@ -180,12 +188,13 @@ export default function NowledgeMemSettings() {
                     <Icon icon="lucide:minus" className="h-3 w-3" />
                   </Button>
                   <div className="relative">
-                    <div
+                    <button
+                      type="button"
                       className="min-w-16 h-8 flex items-center justify-center text-sm font-semibold hover:bg-accent rounded px-2"
                       onClick={() => setIsEditingTimeout(true)}
                     >
                       {timeoutSeconds}
-                    </div>
+                    </button>
                   </div>
                   <Button
                     variant="outline"

@@ -183,8 +183,8 @@ export default function OllamaProviderSettingsDetail({
 
     return pullModelCatalog
       .map((model) => model.id || model.name)
-      .filter((modelName): modelName is string => Boolean(modelName))
-      .filter((modelName) => {
+      .filter((modelName): modelName is string => {
+        if (!modelName) return false;
         if (seenModelNames.has(modelName)) return false;
         seenModelNames.add(modelName);
         return !localModelNames.has(modelName) && !pullingModelNames.has(modelName);

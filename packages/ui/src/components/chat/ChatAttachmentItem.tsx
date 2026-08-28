@@ -1,4 +1,4 @@
-import { type FC, useMemo } from "react";
+import { type FC, type KeyboardEvent, useMemo } from "react";
 import { Icon } from "@iconify/react";
 import type { MessageFile } from "@argos/shared/types/agent-interface";
 import { getMimeTypeIcon } from "#/lib/utils";
@@ -18,7 +18,19 @@ const ChatAttachmentItem: FC<ChatAttachmentItemProps> = ({ file, removable = fal
   return (
     <div
       className="group inline-flex max-w-full items-center gap-2 rounded-full border bg-background/70 px-2.5 py-1 text-xs text-foreground shadow-sm transition-colors hover:bg-accent"
-      onClick={onClick}
+      {...(onClick
+        ? {
+            role: "button" as const,
+            tabIndex: 0,
+            onClick,
+            onKeyDown: (e: KeyboardEvent<HTMLDivElement>) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onClick();
+              }
+            },
+          }
+        : {})}
     >
       {thumbnail ? (
         <img src={thumbnail} className="h-5 w-5 shrink-0 rounded-full border object-cover" alt="attachment" />
@@ -30,6 +42,7 @@ const ChatAttachmentItem: FC<ChatAttachmentItemProps> = ({ file, removable = fal
         <button
           type="button"
           className="rounded-full p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          aria-label={`Remove ${file.name}`}
           onClick={(e) => {
             e.stopPropagation();
             e.preventDefault();

@@ -112,12 +112,13 @@ const McpToolPanel: FC<McpToolPanelProps> = ({ serverName, open, onOpenChange })
     if (!selectedTool?.function.parameters?.properties) return [];
     const properties = selectedTool.function.parameters.properties;
     const required = selectedTool.function.parameters.required || [];
+    const requiredSet = new Set(required);
     return Object.entries(properties).map(([key, prop]) => ({
       name: key,
       description: prop.description || "",
       type: prop.enum ? "enum" : prop.type === "array" && prop.items?.enum ? "array[enum]" : prop.type || "unknown",
       originalType: prop.type || "unknown",
-      required: required.includes(key),
+      required: requiredSet.has(key),
       annotations: prop.annotations,
       enum: prop.enum || null,
       items: prop.items || null,
@@ -313,6 +314,7 @@ const McpToolPanel: FC<McpToolPanelProps> = ({ serverName, open, onOpenChange })
                               }));
                               validateJson(val, selectedTool.function.name);
                             }}
+                            aria-label="Tool input parameters (JSON)"
                             className={[
                               "flex h-32 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                               jsonError[selectedTool.function.name] ? "border-destructive" : "",

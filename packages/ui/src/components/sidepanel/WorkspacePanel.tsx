@@ -455,6 +455,7 @@ export function WorkspacePanel({
             data-testid="workspace-nav-resize-handle"
             className="absolute inset-y-0 right-0 z-10 w-1.5 cursor-col-resize"
             type="button"
+            aria-label="Resize navigation"
             onMouseDown={startNavResize}
           />
         )}
