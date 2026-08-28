@@ -32,7 +32,7 @@ export default function EnvironmentsSettings() {
 
   const sortEnvironments = useCallback(
     (list: EnvironmentListItem[]) =>
-      [...list].sort((left, right) => {
+      list.toSorted((left, right) => {
         const leftDefault = left.path === defaultProjectPath;
         const rightDefault = right.path === defaultProjectPath;
         if (leftDefault !== rightDefault) return leftDefault ? -1 : 1;

@@ -100,7 +100,12 @@ export function WorkspacePreviewPane({ sessionId, previewKind, artifact, filePre
   if (documentPreviewUrl) {
     return (
       <div className="min-h-0 w-full flex-1 overflow-hidden" data-testid={`workspace-preview-${previewKind}`}>
-        <iframe src={documentPreviewUrl} className="h-full min-h-0 w-full border-0" sandbox={documentPreviewSandbox} />
+        <iframe
+          src={documentPreviewUrl}
+          className="h-full min-h-0 w-full border-0"
+          sandbox={documentPreviewSandbox}
+          title="File preview"
+        />
       </div>
     );
   }

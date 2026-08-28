@@ -157,6 +157,7 @@ export default function SettingsOverview() {
     new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(timestamp));
 
   useEffect(() => {
+    let cancelled = false;
     void (async () => {
       await Promise.allSettled([
         ensureInitialized(),
@@ -165,6 +166,7 @@ export default function SettingsOverview() {
         initializeSync(),
         fetchAgents(),
       ]);
+      if (cancelled) return;
       try {
         setActivities(await settingsClient.listRecentActivity(200));
       } catch (error) {
@@ -172,6 +174,9 @@ export default function SettingsOverview() {
         setActivities([]);
       }
     })();
+    return () => {
+      cancelled = true;
+    };
   }, [settingsClient]);
 
   return (

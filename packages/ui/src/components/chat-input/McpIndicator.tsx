@@ -228,7 +228,7 @@ export default function McpIndicator({
       .map(([name, items]) => ({
         name,
         label: getGroupLabel(name),
-        items: [...items].sort((a, b) => a.label.localeCompare(b.label)),
+        items: items.toSorted((a, b) => a.label.localeCompare(b.label)),
       }))
       .sort((a, b) => {
         const ai = GROUP_ORDER.indexOf(a.name);

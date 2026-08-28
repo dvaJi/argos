@@ -53,7 +53,7 @@ const ensureOrderIncludesProviders = (order: string[], list: LLM_PROVIDER[]) => 
 };
 
 const sortProviders = (providerList: LLM_PROVIDER[], useAscendingTime: boolean) => {
-  return [...providerList].sort((a, b) => {
+  return providerList.toSorted((a, b) => {
     const order = providerStore.state.providerOrder;
     const timestamps = providerStore.state.providerTimestamps;
     const aOrderIndex = order.indexOf(a.id);
@@ -88,7 +88,7 @@ export const getSortedProvidersFrom = (
   providerTimestamps: Record<string, number>,
 ): LLM_PROVIDER[] => {
   const sort = (providerList: LLM_PROVIDER[], useAscendingTime: boolean): LLM_PROVIDER[] => {
-    return [...providerList].sort((a, b) => {
+    return providerList.toSorted((a, b) => {
       const aOrderIndex = providerOrder.indexOf(a.id);
       const bOrderIndex = providerOrder.indexOf(b.id);
       if (aOrderIndex !== -1 && bOrderIndex !== -1) {

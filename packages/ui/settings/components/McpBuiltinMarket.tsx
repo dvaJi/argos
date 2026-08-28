@@ -54,7 +54,7 @@ export default function McpBuiltinMarket({ embedded = false, onBack }: McpBuilti
   };
 
   const openHowToGetKey = () => {
-    window.open("https://mcprouter.co/settings/keys", "_blank");
+    window.open("https://mcprouter.co/settings/keys", "_blank", "noopener,noreferrer");
   };
 
   const checkInstalledServers = async (currentItems: MarketItem[]) => {

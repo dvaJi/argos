@@ -58,7 +58,7 @@ export default function FontSettingsSection() {
   const [isResetting, setIsResetting] = useState(false);
 
   const availableFonts = useMemo(
-    () => [...(systemFonts.length > 0 ? systemFonts : FALLBACK_FONTS)].sort((a, b) => a.localeCompare(b)),
+    () => (systemFonts.length > 0 ? systemFonts : FALLBACK_FONTS).toSorted((a, b) => a.localeCompare(b)),
     [systemFonts],
   );
 

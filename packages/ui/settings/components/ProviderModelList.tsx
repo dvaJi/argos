@@ -102,7 +102,7 @@ const getModelKey = (model: RENDERER_MODEL_META) => `${model.providerId}:${model
 const statusSortWeight = (model: RENDERER_MODEL_META) => (model.enabled ? 0 : 1);
 
 const buildStatusSortOrder = (models: RENDERER_MODEL_META[]) => {
-  const orderedModels = [...models].sort((left, right) => {
+  const orderedModels = models.toSorted((left, right) => {
     const statusDifference = statusSortWeight(left) - statusSortWeight(right);
     if (statusDifference !== 0) return statusDifference;
     return modelNameCollator.compare(left.name, right.name);
@@ -151,7 +151,7 @@ const matchesAdvancedFilters = (
 };
 
 const sortModels = (models: RENDERER_MODEL_META[], filterSort: ModelSortKey, statusSortOrder: Record<string, number>) =>
-  [...models].sort((left, right) => {
+  models.toSorted((left, right) => {
     if (filterSort === "name") {
       return modelNameCollator.compare(left.name, right.name);
     }

@@ -55,7 +55,7 @@ export default function AcpDebugDialog({ open, onOpenChange, agentId, agentName 
     () => ["extMethod", "extNotification"].includes(selectedMethod),
     [selectedMethod],
   );
-  const sortedEvents = useMemo(() => [...events].sort((a, b) => b.timestamp - a.timestamp), [events]);
+  const sortedEvents = useMemo(() => events.toSorted((a, b) => b.timestamp - a.timestamp), [events]);
 
   const appendEvents = (items: AcpDebugEventEntry[]) => {
     const newItems = items.filter((e) => !seenIds.current.has(e.id));

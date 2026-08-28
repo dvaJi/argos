@@ -21,8 +21,16 @@ export function LinkNode({ node, linkContext, children }: LinkNodeProps) {
   const href = (node.href ?? node.url ?? "").trim();
   const linkText = node.text?.trim() || href;
 
+  const handleClick = useCallback(
+    (event: React.MouseEvent<HTMLAnchorElement>) => {
+      void navigateLink(href, event.nativeEvent);
+    },
+    [href, navigateLink],
+  );
+
   // Degenerate links (empty href, e.g. `[label]()`) have nowhere to go —
   // render plain text instead of a dead anchor that errors on click.
+  // (Hooks above must run unconditionally, so this branch stays after them.)
   if (!href) {
     return <span className="text-foreground">{children ?? linkText}</span>;
   }
@@ -32,13 +40,6 @@ export function LinkNode({ node, linkContext, children }: LinkNodeProps) {
   const baseClass = "cursor-pointer underline decoration-from-font hover:opacity-80";
   const colorClass = isLocalOrFragment ? "text-purple-600 dark:text-purple-400" : "text-blue-600 dark:text-blue-400";
   const linkClass = `${baseClass} ${colorClass}`;
-
-  const handleClick = useCallback(
-    (event: React.MouseEvent<HTMLAnchorElement>) => {
-      void navigateLink(href, event.nativeEvent);
-    },
-    [href, navigateLink],
-  );
 
   return (
     <a href={href} className={linkClass} title={node.title ?? undefined} onClick={handleClick}>

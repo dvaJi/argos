@@ -211,10 +211,18 @@ export default function AcpDiagnostics({
   }, [agentId, providerClient, selectedWorkdir]);
 
   useEffect(() => {
+    let cancelled = false;
     void providerClient
       .getAcpAgentDiagnostics(agentId, workdir ?? null)
-      .then(setDiagnostics)
-      .catch(() => setDiagnostics(null));
+      .then((next) => {
+        if (!cancelled) setDiagnostics(next);
+      })
+      .catch(() => {
+        if (!cancelled) setDiagnostics(null);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [agentId, providerClient, workdir]);
 
   const runAction = useCallback(

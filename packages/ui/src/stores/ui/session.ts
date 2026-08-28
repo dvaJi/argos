@@ -236,7 +236,7 @@ function compareSessions(left: UISession, right: UISession): number {
 }
 
 function sortSessions(items: UISession[]): UISession[] {
-  return [...items].sort((left, right) => {
+  return items.toSorted((left, right) => {
     return compareSessions(left, right);
   });
 }

@@ -62,8 +62,8 @@ function areShortcutsEquivalent(s1: string, s2: string): boolean {
   const parts1 = normalizeShortcut(s1);
   const parts2 = normalizeShortcut(s2);
   if (parts1.length !== parts2.length) return false;
-  const sorted1 = [...parts1].sort();
-  const sorted2 = [...parts2].sort();
+  const sorted1 = parts1.toSorted();
+  const sorted2 = parts2.toSorted();
   return sorted1.every((p, i) => p === sorted2[i]);
 }
 

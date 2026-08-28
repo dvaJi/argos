@@ -266,8 +266,9 @@ const openRequest = (payload: McpSamplingRequestPayload) => {
       selectedModel: null,
     }));
 
-    const ready = await ensureModelsReady();
     if (!mcpSamplingStore.state.request || mcpSamplingStore.state.request.requestId !== payload.requestId) return;
+
+    const ready = await ensureModelsReady();
     if (!ready) return;
 
     if (getIsActiveSession()) {

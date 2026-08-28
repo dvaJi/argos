@@ -388,7 +388,7 @@ export default function ArgosAgentsSettings() {
       const prompts = await configClient.getSystemPrompts();
       setSystemPromptTemplates(
         Array.isArray(prompts)
-          ? [...prompts].sort(
+          ? prompts.toSorted(
               (left, right) =>
                 Number(Boolean(right.isDefault)) - Number(Boolean(left.isDefault)) ||
                 left.name.localeCompare(right.name),
@@ -647,7 +647,7 @@ export default function ArgosAgentsSettings() {
       .map(([name, items]) => ({
         name,
         label: getGroupLabel(name),
-        tools: [...items].sort((left, right) => left.function.name.localeCompare(right.function.name)),
+        tools: items.toSorted((left, right) => left.function.name.localeCompare(right.function.name)),
       }))
       .sort((left, right) => {
         const leftIndex = GROUP_ORDER.indexOf(left.name as (typeof GROUP_ORDER)[number]);

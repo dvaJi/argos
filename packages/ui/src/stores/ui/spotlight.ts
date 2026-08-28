@@ -288,8 +288,8 @@ const buildActionMatches = (normalizedQuery: string): SpotlightItem[] =>
     .filter((item) => item.score > 0);
 
 const sortResults = (items: SpotlightItem[]) =>
-  [...items]
-    .sort((left, right) => {
+  items
+    .toSorted((left, right) => {
       if (right.score !== left.score) return right.score - left.score;
       return (right.updatedAt ?? 0) - (left.updatedAt ?? 0);
     })
