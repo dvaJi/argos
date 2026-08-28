@@ -477,6 +477,7 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
               status: "error",
               timestamp: Date.now(),
             });
+            this.publishSnapshot(sessionId, turn);
           }
           await this.markError(sessionId);
         }

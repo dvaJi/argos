@@ -1,6 +1,7 @@
 import readline from "node:readline";
 import {
   createAgentSession,
+  createPowerShellTool,
   DefaultResourceLoader,
   defineTool,
   ModelRuntime,
@@ -330,22 +331,19 @@ async function initialize(config: PiWorkerInit): Promise<void> {
   const sessionManager = config.sessionFile
     ? SessionManager.open(config.sessionFile, config.sessionDir, config.cwd)
     : SessionManager.create(config.cwd, config.sessionDir);
-  // The PowerShell tool is opt-in (Windows only): pass an explicit allowlist
-  // that appends it to the pi defaults. Omitted otherwise, so pi keeps its
-  // own default tool selection (docs/features/pi-0843-adoptions).
-  const toolsAllowlist =
-    config.enablePowershellTool && process.platform === "win32"
-      ? ["read", "bash", "edit", "write", "powershell"]
-      : undefined;
+  // The PowerShell tool is opt-in (Windows only): register it as an additional
+  // SDK tool instead of narrowing pi's own tool selection
+  // (docs/features/pi-0843-adoptions).
+  const powershellTools =
+    config.enablePowershellTool && process.platform === "win32" ? [createPowerShellTool(config.cwd)] : [];
   const created = await createAgentSession({
     cwd: config.cwd,
     agentDir: config.agentDir,
     modelRuntime,
     model,
     thinkingLevel: config.thinkingLevel as any,
-    tools: toolsAllowlist,
     excludeTools: config.disabledTools,
-    customTools: createMcpTools(config),
+    customTools: [...createMcpTools(config), ...powershellTools],
     resourceLoader: loader,
     sessionManager,
     settingsManager,
