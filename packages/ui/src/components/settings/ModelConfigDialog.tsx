@@ -404,7 +404,9 @@ export default function ModelConfigDialog({
                   }}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Arbitrary OpenAI-compatible sampling parameters sent as-is to the provider.
+                  Arbitrary OpenAI-compatible sampling parameters sent as-is to the provider. Pi-runtime models on
+                  vLLM/SGLang servers can also set a thinking-token budget, e.g.{" "}
+                  <code className="rounded bg-muted/60 px-1">{`{ "thinking_token_budget": 4096 }`}</code>.
                 </p>
                 {errors.samplingParams && <p className="text-xs text-destructive">{errors.samplingParams}</p>}
               </div>

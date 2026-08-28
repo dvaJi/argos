@@ -639,14 +639,12 @@ Please ensure:
 
       return {
         query,
-        results: results.map(
-          (item): SearchResult => ({
-            title: item.name,
-            url: item.url,
-            snippet: item.summary, // Use the summary returned by Bocha as the snippet
-            published_date: item.datePublished,
-          }),
-        ),
+        results: results.map((item): SearchResult => ({
+          title: item.name,
+          url: item.url,
+          snippet: item.summary, // Use the summary returned by Bocha as the snippet
+          published_date: item.datePublished,
+        })),
       };
     } catch (error) {
       console.error(`Query "${query}" search failed:`, error);

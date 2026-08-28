@@ -334,6 +334,7 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
       agentDir: config.agentDir,
       provider: config.provider,
       disabledTools: config.disabledTools,
+      enablePowershellTool: config.enablePowershellTool === true,
       projectTrusted: config.projectTrusted,
       permissionMode: config.permissionMode,
       profileFingerprint: config.profileFingerprint,
@@ -411,6 +412,8 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
       provider: workerProvider(this.configPresenter, provider, session.modelId),
       thinkingLevel: (await this.sessionRepository.getGenerationSettings(sessionId))?.reasoningEffort,
       disabledTools: await this.sessionRepository.getDisabledAgentTools(sessionId),
+      enablePowershellTool:
+        process.platform === "win32" && this.configPresenter.getSetting<boolean>("pi_enable_powershell_tool") === true,
       tools: availableTools.filter((tool) => tool.server.name !== "argos-orchestration"),
       orchestrationTools: availableTools.filter((tool) => tool.server.name === "argos-orchestration"),
       projectTrusted: trustedProjects.includes(path.resolve(cwd)),
@@ -455,6 +458,30 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
       console[event.level === "error" ? "error" : event.level === "warning" ? "warn" : "info"](
         `[pi:extension] ${event.message}`,
       );
+      return;
+    }
+    if (event.type === "compaction") {
+      if (event.phase === "failed") {
+        const retryState = event.willRetry ? "will retry" : event.aborted ? "aborted" : "no retry";
+        const detail = event.error ?? (event.aborted ? "aborted" : "unknown error");
+        console.warn(`[pi:${sessionId}] compaction failed (reason=${event.reason}, ${retryState}): ${detail}`);
+        if (!event.aborted && !event.willRetry) {
+          // Terminal failure: annotate the active turn so the failure persists
+          // in the message, and surface it in the session state
+          // (docs/features/pi-0843-adoptions).
+          const turn = worker.turn;
+          if (turn) {
+            turn.blocks.push({
+              type: "content",
+              content: `Context compaction failed (${event.reason}): ${detail}`,
+              status: "error",
+              timestamp: Date.now(),
+            });
+            this.publishSnapshot(sessionId, turn);
+          }
+          await this.markError(sessionId);
+        }
+      }
       return;
     }
     if (event.type === "mcpRequest") {
