@@ -22,6 +22,17 @@ vi.mock("../../../src/main/presenter/configPresenter/providerDbLoader", () => ({
           },
         };
       }
+      if (providerId === "tiered" && modelId === "gpt-long") {
+        return {
+          cost: {
+            input: 5,
+            output: 30,
+            cache_read: 0.5,
+            context_over_200k: { input: 10, output: 45 },
+            tiers: [{ tier: { type: "context", size: 272_000 }, input: 12, output: 50 }],
+          },
+        };
+      }
       return undefined;
     }),
   },
@@ -58,6 +69,45 @@ describe("usageStats cache pricing", () => {
     });
 
     expect(cost).toBeCloseTo((400 * 4 + 300 * 0.5 + 200 * 4 + 100 * 20) / 1_000_000);
+  });
+
+  it("charges flat rates for tiered models below the context threshold", () => {
+    const cost = estimateUsageCostUsd({
+      providerId: "tiered",
+      modelId: "gpt-long",
+      inputTokens: 100_000,
+      outputTokens: 0,
+      cachedInputTokens: 0,
+      cacheWriteInputTokens: 0,
+    });
+
+    expect(cost).toBeCloseTo((100_000 * 5) / 1_000_000);
+  });
+
+  it("applies the context_over_200k shorthand above 200k prompt tokens", () => {
+    const cost = estimateUsageCostUsd({
+      providerId: "tiered",
+      modelId: "gpt-long",
+      inputTokens: 250_000,
+      outputTokens: 0,
+      cachedInputTokens: 0,
+      cacheWriteInputTokens: 0,
+    });
+
+    expect(cost).toBeCloseTo((250_000 * 10) / 1_000_000);
+  });
+
+  it("prefers the largest explicit tier at or above its context size", () => {
+    const cost = estimateUsageCostUsd({
+      providerId: "tiered",
+      modelId: "gpt-long",
+      inputTokens: 300_000,
+      outputTokens: 0,
+      cachedInputTokens: 0,
+      cacheWriteInputTokens: 0,
+    });
+
+    expect(cost).toBeCloseTo((300_000 * 12) / 1_000_000);
   });
 
   it("caps cached and cache-write counts against total input tokens", () => {

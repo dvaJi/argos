@@ -44,6 +44,32 @@ type PendingSettingsMessage = {
   args: unknown[];
 };
 
+/**
+ * Send to a WebContents without throwing. Render frames can be disposed between
+ * the isDestroyed() checks and the send (window teardown race, navigation frame
+ * swap, renderer crash) — Electron's WebContents.send then throws
+ * "Render frame was disposed before WebFrameMain could be accessed". One dead
+ * frame must not abort a broadcast to the remaining windows or escape through
+ * window lifecycle listeners (docs/issues/renderer-frame-disposed-send-guard).
+ * @returns true when the send went through, false when it was skipped/failed.
+ */
+function safeSendWebContents(
+  target: Electron.WebContents | null | undefined,
+  channel: string,
+  ...args: unknown[]
+): boolean {
+  if (!target || target.isDestroyed()) {
+    return false;
+  }
+  try {
+    target.send(channel, ...args);
+    return true;
+  } catch (error) {
+    log.warn(`Skipping send of "${channel}": render frame unavailable (${(error as Error).message})`);
+    return false;
+  }
+}
+
 // Window Controls Overlay (WCO): on Windows the native caption buttons are drawn by
 // Chromium into the top-right of the web contents. The overlay height matches the AppBar
 // (h-9 = 36px); the overlay color is effectively transparent so the buttons float directly
@@ -159,7 +185,7 @@ export class WindowPresenter implements IWindowPresenter {
       log.info("System theme updated, notifying all windows.");
       this.windows.forEach((window) => {
         if (!window.isDestroyed()) {
-          window.webContents.send("system-theme-updated", isDark);
+          safeSendWebContents(window.webContents, "system-theme-updated", isDark);
         } else {
           log.warn(`Skipping theme update for destroyed window ${window.id}.`);
         }
@@ -452,7 +478,7 @@ export class WindowPresenter implements IWindowPresenter {
     for (const window of Array.from(this.windows.values())) {
       if (!window.isDestroyed()) {
         // Send to the window's main WebContents
-        window.webContents.send(channel, ...args);
+        safeSendWebContents(window.webContents, channel, ...args);
 
         // Send to the WebContents of every tab in the window (async)
         try {
@@ -462,8 +488,8 @@ export class WindowPresenter implements IWindowPresenter {
             if (tabsData && tabsData.length > 0) {
               for (const tabData of tabsData) {
                 const tab = await tabPresenterInstance.getTab(tabData.id);
-                if (tab && !tab.webContents.isDestroyed()) {
-                  tab.webContents.send(channel, ...args);
+                if (tab) {
+                  safeSendWebContents(tab.webContents, channel, ...args);
                 }
               }
             }
@@ -527,7 +553,7 @@ export class WindowPresenter implements IWindowPresenter {
     const window = this.windows.get(windowId);
     if (window && !window.isDestroyed()) {
       // Send to the window's main WebContents
-      window.webContents.send(channel, ...args);
+      safeSendWebContents(window.webContents, channel, ...args);
 
       // Send to the WebContents of every tab in the window (async)
       const tabPresenterInstance = presenter.tabPresenter as TabPresenter;
@@ -537,8 +563,8 @@ export class WindowPresenter implements IWindowPresenter {
           if (tabsData && tabsData.length > 0) {
             tabsData.forEach(async (tabData) => {
               const tab = await tabPresenterInstance.getTab(tabData.id);
-              if (tab && !tab.webContents.isDestroyed()) {
-                tab.webContents.send(channel, ...args);
+              if (tab) {
+                safeSendWebContents(tab.webContents, channel, ...args);
               }
             });
           }
@@ -559,7 +585,7 @@ export class WindowPresenter implements IWindowPresenter {
       return false;
     }
 
-    targetWindow.webContents.send(channel, ...args);
+    safeSendWebContents(targetWindow.webContents, channel, ...args);
 
     if (switchToTarget) {
       targetWindow.show();
@@ -576,7 +602,7 @@ export class WindowPresenter implements IWindowPresenter {
       return false;
     }
 
-    target.send(channel, ...args);
+    safeSendWebContents(target, channel, ...args);
     return true;
   }
 
@@ -773,7 +799,7 @@ export class WindowPresenter implements IWindowPresenter {
       this.focusedWindowId = windowId;
       eventBus.sendToMain(WINDOW_EVENTS.WINDOW_FOCUSED, windowId);
       if (!appWindow.isDestroyed()) {
-        appWindow.webContents.send("window-focused", windowId);
+        safeSendWebContents(appWindow.webContents, "window-focused", windowId);
       }
     });
 
@@ -785,7 +811,7 @@ export class WindowPresenter implements IWindowPresenter {
       }
       eventBus.sendToMain(WINDOW_EVENTS.WINDOW_BLURRED, windowId);
       if (!appWindow.isDestroyed()) {
-        appWindow.webContents.send("window-blurred", windowId);
+        safeSendWebContents(appWindow.webContents, "window-blurred", windowId);
       }
     });
 
@@ -793,7 +819,7 @@ export class WindowPresenter implements IWindowPresenter {
     appWindow.on("maximize", () => {
       log.info(`Window ${windowId} maximized.`);
       if (!appWindow.isDestroyed()) {
-        appWindow.webContents.send(WINDOW_EVENTS.WINDOW_MAXIMIZED);
+        safeSendWebContents(appWindow.webContents, WINDOW_EVENTS.WINDOW_MAXIMIZED);
         eventBus.sendToMain(WINDOW_EVENTS.WINDOW_MAXIMIZED, windowId);
         // Trigger restore logic to update tab bounds
         this.handleWindowRestore(windowId).catch((error) => {
@@ -806,7 +832,7 @@ export class WindowPresenter implements IWindowPresenter {
     appWindow.on("unmaximize", () => {
       log.info(`Window ${windowId} unmaximized.`);
       if (!appWindow.isDestroyed()) {
-        appWindow.webContents.send(WINDOW_EVENTS.WINDOW_UNMAXIMIZED);
+        safeSendWebContents(appWindow.webContents, WINDOW_EVENTS.WINDOW_UNMAXIMIZED);
         eventBus.sendToMain(WINDOW_EVENTS.WINDOW_UNMAXIMIZED, windowId);
         // Trigger restore logic to update tab bounds
         this.handleWindowRestore(windowId).catch((error) => {
@@ -821,7 +847,7 @@ export class WindowPresenter implements IWindowPresenter {
       this.handleWindowRestore(windowId).catch((error) => {
         log.error(`Error handling restore logic for window ${windowId}:`, error);
       });
-      appWindow.webContents.send(WINDOW_EVENTS.WINDOW_UNMAXIMIZED);
+      safeSendWebContents(appWindow.webContents, WINDOW_EVENTS.WINDOW_UNMAXIMIZED);
       eventBus.sendToMain(WINDOW_EVENTS.WINDOW_RESTORED, windowId);
     };
     appWindow.on("restore", handleRestore);
@@ -830,7 +856,7 @@ export class WindowPresenter implements IWindowPresenter {
     appWindow.on("enter-full-screen", () => {
       log.info(`Window ${windowId} entered fullscreen.`);
       if (!appWindow.isDestroyed()) {
-        appWindow.webContents.send(WINDOW_EVENTS.WINDOW_ENTER_FULL_SCREEN);
+        safeSendWebContents(appWindow.webContents, WINDOW_EVENTS.WINDOW_ENTER_FULL_SCREEN);
         eventBus.sendToMain(WINDOW_EVENTS.WINDOW_ENTER_FULL_SCREEN, windowId);
         // Trigger restore logic to update tab bounds
         this.handleWindowRestore(windowId).catch((error) => {
@@ -843,7 +869,7 @@ export class WindowPresenter implements IWindowPresenter {
     appWindow.on("leave-full-screen", () => {
       log.info(`Window ${windowId} left fullscreen.`);
       if (!appWindow.isDestroyed()) {
-        appWindow.webContents.send(WINDOW_EVENTS.WINDOW_LEAVE_FULL_SCREEN);
+        safeSendWebContents(appWindow.webContents, WINDOW_EVENTS.WINDOW_LEAVE_FULL_SCREEN);
         eventBus.sendToMain(WINDOW_EVENTS.WINDOW_LEAVE_FULL_SCREEN, windowId);
         // Trigger restore logic to update tab bounds
         this.handleWindowRestore(windowId).catch((error) => {
@@ -1105,10 +1131,13 @@ export class WindowPresenter implements IWindowPresenter {
     const activeTabId = await tabPresenterInstance.getActiveTabId(windowId);
     if (activeTabId) {
       const tab = await tabPresenterInstance.getTab(activeTabId);
-      if (tab && !tab.webContents.isDestroyed()) {
-        tab.webContents.send(channel, ...args);
-        log.info(`  - Event sent to tab ${activeTabId}.`);
-        return true;
+      if (tab) {
+        const sent = safeSendWebContents(tab.webContents, channel, ...args);
+        if (sent) {
+          log.info(`  - Event sent to tab ${activeTabId}.`);
+          return true;
+        }
+        log.warn(`  - Active tab ${activeTabId} render frame unavailable, could not send event.`);
       } else {
         log.warn(`  - Active tab ${activeTabId} does not exist or is destroyed, cannot send event.`);
       }
@@ -1116,9 +1145,10 @@ export class WindowPresenter implements IWindowPresenter {
       // Fallback: chat windows have no tabs, send directly to BrowserWindow webContents
       const targetWindow = BrowserWindow.fromId(windowId);
       if (targetWindow && !targetWindow.isDestroyed() && !targetWindow.webContents.isDestroyed()) {
-        targetWindow.webContents.send(channel, ...args);
-        log.info(`  - No active tab, sent event directly to window ${windowId} webContents.`);
-        return true;
+        if (safeSendWebContents(targetWindow.webContents, channel, ...args)) {
+          log.info(`  - No active tab, sent event directly to window ${windowId} webContents.`);
+          return true;
+        }
       }
       log.warn(`No active tab found in window ${windowId}, cannot send event "${channel}".`);
     }
@@ -1161,13 +1191,14 @@ export class WindowPresenter implements IWindowPresenter {
       if (tabsData.length === 0) {
         // Fallback: chat windows have no tabs, send directly to BrowserWindow webContents
         if (targetWindow && !targetWindow.isDestroyed() && !targetWindow.webContents.isDestroyed()) {
-          targetWindow.webContents.send(channel, ...args);
-          log.info(`  - Window ${windowId} has no tabs, sent message directly to window webContents.`);
-          if (switchToTarget) {
-            targetWindow.show();
-            targetWindow.focus();
+          if (safeSendWebContents(targetWindow.webContents, channel, ...args)) {
+            log.info(`  - Window ${windowId} has no tabs, sent message directly to window webContents.`);
+            if (switchToTarget) {
+              targetWindow.show();
+              targetWindow.focus();
+            }
+            return true;
           }
-          return true;
         }
         log.warn(`Window ${windowId} has no tabs and window is unavailable.`);
         return false;
@@ -1177,9 +1208,12 @@ export class WindowPresenter implements IWindowPresenter {
       const targetTabData = tabsData.find((tab) => tab.isActive) || tabsData[0];
       const targetTab = await tabPresenterInstance.getTab(targetTabData.id);
 
-      if (targetTab && !targetTab.webContents.isDestroyed()) {
+      if (targetTab) {
         // Send the message to the target tab
-        targetTab.webContents.send(channel, ...args);
+        if (!safeSendWebContents(targetTab.webContents, channel, ...args)) {
+          log.warn(`  - Tab ${targetTabData.id} render frame unavailable, could not send message.`);
+          return false;
+        }
         log.info(`  - Message sent to tab ${targetTabData.id} in window ${windowId}.`);
 
         // If requested, switch to the target window and tab

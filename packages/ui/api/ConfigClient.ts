@@ -3,6 +3,7 @@ import {
   configAgentsChangedEvent,
   configCustomPromptsChangedEvent,
   configDefaultProjectPathChangedEvent,
+  configEntriesChangedEvent,
   configFloatingButtonChangedEvent,
   configLanguageChangedEvent,
   configShortcutKeysChangedEvent,
@@ -662,6 +663,10 @@ export function createConfigClient(bridge: ArgosBridge = getArgosBridge()) {
     });
   }
 
+  function onEntriesChanged(listener: (payload: { changedKeys: string[]; version: number }) => void) {
+    return bridge.on(configEntriesChangedEvent.name, listener);
+  }
+
   return {
     ...settingsClient,
     getSetting,
@@ -760,6 +765,7 @@ export function createConfigClient(bridge: ArgosBridge = getArgosBridge()) {
     onShortcutKeysChanged,
     onSystemPromptsChanged,
     onCustomPromptsChanged,
+    onEntriesChanged,
   };
 }
 

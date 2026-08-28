@@ -27,6 +27,8 @@ export interface UsageAggregation {
 export type UsageCostEstimator = (
   providerId: string,
   modelId: string,
+  /** Prompt size of the request — enables long-context tiered pricing. */
+  contextTokens?: number,
 ) => {
   input: number;
   output: number;
@@ -98,7 +100,9 @@ export function aggregateUsageStats(
 }
 
 function estimateRowCost(row: UsageStatRecord, estimateCost: UsageCostEstimator): UsageStatRecord {
-  const rate = estimateCost(row.providerId, row.modelId);
+  // The context size that drives long-context tiered pricing is the prompt
+  // size (inputTokens includes cached + cache-write portions; output excluded).
+  const rate = estimateCost(row.providerId, row.modelId, row.inputTokens);
   if (!rate) return row;
   const uncachedInput = Math.max(row.inputTokens - row.cachedInputTokens - row.cacheWriteInputTokens, 0);
   const costUsd =
@@ -127,22 +131,43 @@ function buildSummary(rows: UsageStatRecord[], estimateCost?: UsageCostEstimator
   const rawCost = rows.reduce((sum, row) => sum + (row.costUsd ?? 0), 0);
 
   // Cache savings: what cached input would have cost at the real input rate.
-  // Use the cost estimator's input price (per MTok), never the observed
-  // cost/token ratio (which includes output + cache cost and overstates).
+  // Use the cost estimator's input price (per MTok) for each row's own context
+  // size (tier-aware — docs/features/tiered-cost-estimation), never the
+  // observed cost/token ratio (which includes output + cache cost).
   let cacheSavingsUsd: number | null = null;
   if (estimateCost && cachedInputTokens > 0) {
-    const inputRates = new Set<number>();
+    let savings = 0;
+    let anyPriced = false;
     for (const row of rows) {
-      const rate = estimateCost(row.providerId, row.modelId);
-      if (rate) inputRates.add(rate.input);
+      if (row.cachedInputTokens <= 0) continue;
+      const rate = estimateCost(row.providerId, row.modelId, row.inputTokens);
+      if (!rate) continue;
+      savings += (row.cachedInputTokens * rate.input) / 1_000_000;
+      anyPriced = true;
     }
-    if (inputRates.size === 1) {
-      cacheSavingsUsd = (cachedInputTokens * Array.from(inputRates)[0]) / 1_000_000;
-    }
+    cacheSavingsUsd = anyPriced ? savings : null;
   }
 
   const activeDays = new Set(rows.map((row) => row.usageDate)).size;
   const sessionIds = new Set(rows.map((row) => row.sessionId));
+
+  // Cost quality (t3code-style CostQuality shares): how much of the computed
+  // cost is provider-reported vs estimated from the catalog, plus how many
+  // turns carried no cost data at all.
+  let reportedCostUsd = 0;
+  let estimatedCostUsd = 0;
+  let unpricedTurns = 0;
+  for (const row of rows) {
+    if (row.costSource === "reported" && row.costUsd !== null) reportedCostUsd += row.costUsd;
+    else if (row.costSource === "estimated" && row.costUsd !== null) estimatedCostUsd += row.costUsd;
+    else unpricedTurns += 1;
+  }
+  const qualityTotal = reportedCostUsd + estimatedCostUsd;
+  const costQuality: UsageSummary["costQuality"] = {
+    reportedShare: qualityTotal > 0 ? reportedCostUsd / qualityTotal : null,
+    estimatedShare: qualityTotal > 0 ? estimatedCostUsd / qualityTotal : null,
+    unpricedTurns,
+  };
 
   return {
     rawTokenCostUsd: rawCost > 0 ? rawCost : null,
@@ -156,6 +181,7 @@ function buildSummary(rows: UsageStatRecord[], estimateCost?: UsageCostEstimator
     messageCount: rows.length,
     sessionCount: sessionIds.size,
     costSource: costSourceFor(rows),
+    costQuality,
   };
 }
 

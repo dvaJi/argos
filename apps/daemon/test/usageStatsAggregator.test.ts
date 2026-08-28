@@ -50,6 +50,29 @@ describe("aggregateUsageStats", () => {
     expect(summary.costSource).toBe("mixed");
   });
 
+  it("computes cost-quality shares (reported vs estimated) and unpriced turns", () => {
+    const rows = [
+      record({ messageId: "a", costUsd: 0.03, costSource: "reported" }),
+      record({ messageId: "b", costUsd: 0.01, costSource: "estimated" }),
+      record({ messageId: "c", costUsd: null, costSource: "none" }),
+    ];
+    const { summary } = aggregateUsageStats(rows, "30d");
+
+    expect(summary.costSource).toBe("mixed");
+    expect(summary.costQuality.reportedShare).toBeCloseTo(0.75);
+    expect(summary.costQuality.estimatedShare).toBeCloseTo(0.25);
+    expect(summary.costQuality.unpricedTurns).toBe(1);
+  });
+
+  it("returns null cost-quality shares when nothing is priced", () => {
+    const rows = [record({ messageId: "a", costUsd: null, costSource: "none" })];
+    const { summary } = aggregateUsageStats(rows, "30d");
+
+    expect(summary.costQuality.reportedShare).toBeNull();
+    expect(summary.costQuality.estimatedShare).toBeNull();
+    expect(summary.costQuality.unpricedTurns).toBe(1);
+  });
+
   it("returns null cost when no row has a cost", () => {
     const rows = [record({ messageId: "a", costUsd: null, costSource: "none" })];
     const { summary } = aggregateUsageStats(rows, "30d");

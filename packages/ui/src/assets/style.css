@@ -710,6 +710,24 @@
   overscroll-behavior: contain;
 }
 
+/* Visible focus ring on the prose-mirror editor when keyboard users tab in.
+   Native browser focus rings don't work on contenteditable surfaces, so
+   this ring is the only visible "where am I" affordance for keyboard users.
+   The transition is short — fast enough not to feel laggy on Tab, slow
+   enough that the eye can track the focus. Reduced motion: instant. */
+.chat-input-editor {
+  transition: box-shadow 150ms cubic-bezier(0.2, 0, 0, 1);
+}
+.chat-input-editor:focus-within {
+  box-shadow: 0 0 0 2px var(--ring);
+  border-radius: 0.75rem;
+}
+@media (prefers-reduced-motion: reduce) {
+  .chat-input-editor {
+    transition: none;
+  }
+}
+
 .chat-input-editor .tiptap p.is-editor-empty:first-child::before {
   color: var(--muted-foreground);
   content: attr(data-placeholder);

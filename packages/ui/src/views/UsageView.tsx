@@ -151,6 +151,13 @@ export default function UsageView() {
             // real value when no filter is active.
             sessionCount: services.length,
             costSource: data.summary.costSource,
+            // Shares are only computed server-side over the full dataset; the
+            // filtered view keeps the badge but not the share breakdown.
+            costQuality: {
+              reportedShare: null,
+              estimatedShare: null,
+              unpricedTurns: 0,
+            },
           } satisfies UsageStatsOutput["summary"]);
 
     return {
@@ -261,6 +268,12 @@ export default function UsageView() {
                   </div>
                   <div className="flex items-center gap-2">
                     <CostSourceBadge source={summary.costSource} />
+                    {summary.costQuality.estimatedShare !== null && summary.costQuality.estimatedShare > 0 && (
+                      <span className="text-xs text-muted-foreground" data-testid="usage-cost-quality">
+                        {Math.round((summary.costQuality.reportedShare ?? 0) * 100)}% reported ·{" "}
+                        {Math.round(summary.costQuality.estimatedShare * 100)}% estimated
+                      </span>
+                    )}
                     <Button variant="outline" size="sm" onClick={() => void load(window)} disabled={isLoading}>
                       <RefreshIcon className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
                       Refresh

@@ -49,9 +49,17 @@ export class DaemonMirrorStore<T extends Record<string, unknown>> implements Sto
     this.snapshot = { ...options.defaults };
   }
 
-  get<Key extends keyof T>(key: Key): T[Key] | undefined {
+  get<Key extends keyof T>(key: Key): T[Key] | undefined;
+  get<TValue = unknown>(key: string, defaultValue: TValue): TValue;
+  get(key: string, defaultValue?: unknown): unknown {
     this.ensureFresh();
-    return this.snapshot[key];
+    const value = (this.snapshot as Record<string, unknown>)[key];
+    return value === undefined ? defaultValue : value;
+  }
+
+  has(key: string): boolean {
+    this.ensureFresh();
+    return Object.prototype.hasOwnProperty.call(this.snapshot, key);
   }
 
   set(keyOrValues: string | Record<string, unknown>, value?: unknown): void {
@@ -74,6 +82,22 @@ export class DaemonMirrorStore<T extends Record<string, unknown>> implements Sto
 
   /** Force a re-hydration from the daemon. */
   refresh(): Promise<void> {
+    return this.hydrate();
+  }
+
+  /**
+   * Resolves once the snapshot is fresh: awaits an in-flight hydration, starts one
+   * when stale, and resolves immediately otherwise. Awaitable form of ensureFresh
+   * for read-modify-write flows (e.g. McpConfHelper.getMcpServers self-heal) that
+   * must not operate on un-hydrated defaults.
+   */
+  whenHydrated(): Promise<void> {
+    if (this.hydrating) {
+      return this.hydrating;
+    }
+    if (Date.now() - this.lastHydratedAt < MIRROR_STALE_MS) {
+      return Promise.resolve();
+    }
     return this.hydrate();
   }
 

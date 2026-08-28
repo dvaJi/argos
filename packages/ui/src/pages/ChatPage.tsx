@@ -9,9 +9,7 @@ import type {
   DisplayMessageUsage,
 } from "#/components/chat/messageListItems";
 import { ErrorBoundary } from "#/components/ErrorBoundary";
-import ChatInputBox from "#/components/chat/ChatInputBox";
-import ChatInputToolbar from "#/components/chat/ChatInputToolbar";
-import ComposerFooterBar from "#/components/chat/ComposerFooterBar";
+import SettledBanner from "#/components/threads/SettledBanner";
 import AgentProgressFloat from "#/components/chat/AgentProgressFloat";
 import PendingInputLane from "#/components/chat/PendingInputLane";
 import ChatStatusBar from "#/components/chat/ChatStatusBar";
@@ -19,9 +17,9 @@ import ChatToolInteractionOverlay from "#/components/chat/ChatToolInteractionOve
 import TraceDialog from "#/components/trace/TraceDialog";
 import { useToast } from "#/components/use-toast";
 import { createChatClient } from "../../api/ChatClient";
-import { createModelClient } from "#api/ModelClient";
 import { useUiSettingsStore } from "#/stores/uiSettingsStore";
 import { sessionStore, fetchSessions, selectSession, applyRestoredSession } from "#/stores/ui/session";
+import { unsettleSession } from "#/stores/ui/threadSidebar";
 import { useMessageStore, addOptimisticUserMessage } from "#/stores/ui/message";
 
 import { agentPlanStore } from "#/stores/ui/agentPlan";
@@ -47,15 +45,16 @@ import {
   applySnapshot,
 } from "#/stores/ui/agentPlan";
 import { useSpotlightStore } from "#/stores/ui/spotlight";
-import { useModelStore, findChatSelectableModel } from "#/stores/modelStore";
+import { useModelStore } from "#/stores/modelStore";
 import { createSessionClient } from "#api/SessionClient";
 import { isManualCompactionCommand } from "#/components/chat/mentions/utils";
 import { clearChatSearchHighlights, setActiveChatSearchMatch, type ChatSearchMatch } from "#/lib/chatSearch";
 import { scheduleStartupDeferredTask } from "#/lib/startupDeferred";
 import { WORKSPACE_EVENTS } from "#/events";
-import { filterUnsupportedAudioAttachments } from "#/lib/audioInputSupport";
 import { useMessageWindow } from "#/composables/message/useMessageWindow";
 import { playChatInputHeroFlight } from "#/lib/chatInputHero";
+import { useModelAwareAttachments } from "#/composables/chat/useModelAwareAttachments";
+import ThreadComposer, { type ThreadComposerHandle } from "#/components/chat/ThreadComposer";
 import { useRuntimeConnectionState } from "#/composables/useRuntimeConnectionState";
 import type {
   ChatMessageRecord,
@@ -102,7 +101,6 @@ function ChatPage({ sessionId }: ChatPageProps) {
   const connectionState = useRuntimeConnectionState();
   const isDaemonConnected = connectionState.connected;
   const chatClient = useMemo(() => createChatClient(), []);
-  const modelClient = useMemo(() => createModelClient(), []);
   const sessionClient = useMemo(() => createSessionClient(), []);
   const activeSession = (sessionState.activeSessionSummary ?? sessionState.bootstrapActiveSession) as
     | import("#/stores/ui/session").UIActiveSessionSummary
@@ -113,14 +111,7 @@ function ChatPage({ sessionId }: ChatPageProps) {
   const bottomScrollAnchorRef = useRef<HTMLDivElement>(null);
   const planFloatLayerRef = useRef<HTMLDivElement>(null);
   const chatInputHeroHostRef = useRef<HTMLDivElement>(null);
-  const chatInputRef = useRef<{
-    triggerAttach: () => void;
-    insertRecognizedText: (text: string) => void;
-    insertWorkspaceReference: (targetPath: string) => boolean;
-    getPendingSkillsSnapshot: () => string[];
-    focusInput: () => void;
-    clearInput: () => void;
-  } | null>(null);
+  const chatInputRef = useRef<ThreadComposerHandle | null>(null);
   const chatSearchBarRef = useRef<{ focusInput: () => void; selectInput: () => void } | null>(null);
 
   const [shouldAutoFollow, setShouldAutoFollow] = useState(true);
@@ -149,7 +140,6 @@ function ChatPage({ sessionId }: ChatPageProps) {
   const [activeChatSearchIndex, setActiveChatSearchIndex] = useState(0);
   const [message, setMessage] = useState("");
   const [attachedFiles, setAttachedFiles] = useState<MessageFile[]>([]);
-  const isVoiceInputEnabled = false;
   const [isHandlingInteraction, setIsHandlingInteraction] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
 
@@ -167,7 +157,6 @@ function ChatPage({ sessionId }: ChatPageProps) {
   const planFloatResizeObserverRef = useRef<ResizeObserver | null>(null);
   const sessionRestoreResizeObserverRef = useRef<ResizeObserver | null>(null);
   const anchorRestoreFrameRef = useRef<number | null>(null);
-  const attachmentFilterTokenRef = useRef(0);
 
   const sessionTitle = activeSession?.title ?? "New Chat";
   const sessionProject = activeSession?.projectDir ?? "";
@@ -388,45 +377,14 @@ function ChatPage({ sessionId }: ChatPageProps) {
     (isGenerating && isAtCapacity()) ||
     !hasDraftInput;
 
-  const getActiveModelSelection = useCallback((): {
-    providerId: string;
-    modelId: string;
-  } | null => {
+  const getActiveModelSelection = useCallback((): { providerId: string; modelId: string } | null => {
     const s = activeSession;
     if (!s?.providerId || !s?.modelId) return null;
     return { providerId: s.providerId, modelId: s.modelId };
   }, [activeSession]);
 
-  const notifyUnsupportedAudioAttachments = useCallback(
-    (selection: { providerId: string; modelId: string }, rejectedAudioFiles: MessageFile[]) => {
-      if (rejectedAudioFiles.length === 0) return;
-      const modelLabel =
-        findChatSelectableModel(selection.providerId, selection.modelId)?.model.name ?? selection.modelId;
-      toast({
-        title: "Audio Input Not Supported",
-        description: `${rejectedAudioFiles.length} audio file(s) not supported by ${modelLabel}.`,
-      });
-    },
-    [toast],
-  );
-
-  const prepareFilesForCurrentModel = useCallback(
-    async (files: MessageFile[]): Promise<MessageFile[]> => {
-      const selection = getActiveModelSelection();
-      if (!selection || files.length === 0) return files;
-      try {
-        const capabilities = await modelClient.getCapabilities(selection.providerId, selection.modelId);
-        if (capabilities.supportsAudioInput !== false) return files;
-        const { acceptedFiles, rejectedAudioFiles } = filterUnsupportedAudioAttachments(files, false);
-        notifyUnsupportedAudioAttachments(selection, rejectedAudioFiles);
-        return acceptedFiles;
-      } catch (error) {
-        console.warn("[ChatPage] Failed to resolve audio input capability:", error);
-        return files;
-      }
-    },
-    [getActiveModelSelection, modelClient, notifyUnsupportedAudioAttachments],
-  );
+  const { prepareFiles: prepareFilesForCurrentModel, handleFilesChange: filterAttachmentFiles } =
+    useModelAwareAttachments(getActiveModelSelection);
 
   const handleManualCompactionCommand = useCallback(
     async (text: string): Promise<boolean> => {
@@ -468,6 +426,7 @@ function ChatPage({ sessionId }: ChatPageProps) {
       addOptimisticUserMessage(sessionId, text, files);
       await chatClient.sendMessage(sessionId, { text, files });
     }
+    unsettleSession(sessionId);
     setMessage("");
     setAttachedFiles([]);
     chatInputRef.current?.clearInput();
@@ -503,6 +462,7 @@ function ChatPage({ sessionId }: ChatPageProps) {
         addOptimisticUserMessage(sessionId, text, files);
         await chatClient.sendMessage(sessionId, { text, files });
       }
+      unsettleSession(sessionId);
       setAttachedFiles([]);
       chatInputRef.current?.clearInput();
       setMessage("");
@@ -576,18 +536,11 @@ function ChatPage({ sessionId }: ChatPageProps) {
     chatClient,
   ]);
 
-  const onAttach = useCallback(() => {
-    chatInputRef.current?.triggerAttach();
-  }, []);
-
   const onFilesChange = useCallback(
-    async (files: MessageFile[]) => {
-      const token = ++attachmentFilterTokenRef.current;
-      const filteredFiles = await prepareFilesForCurrentModel(files);
-      if (token !== attachmentFilterTokenRef.current) return;
-      setAttachedFiles(filteredFiles);
+    (files: MessageFile[]) => {
+      void filterAttachmentFiles(files, setAttachedFiles);
     },
-    [prepareFilesForCurrentModel],
+    [filterAttachmentFiles],
   );
 
   const onToolInteractionRespond = useCallback(
@@ -1186,44 +1139,27 @@ function ChatPage({ sessionId }: ChatPageProps) {
                 )}
                 {!activePendingInteraction && (
                   <div ref={chatInputHeroHostRef} className="mx-auto flex w-full max-w-4xl flex-col">
-                    <ChatInputBox
+                    <SettledBanner sessionId={sessionId} />
+                    <ThreadComposer
                       ref={chatInputRef}
-                      modelValue={message}
-                      onUpdateModelValue={setMessage}
+                      message={message}
+                      onMessageChange={setMessage}
                       maxWidthClass="max-w-4xl"
                       files={attachedFiles}
+                      onFilesChange={onFilesChange}
                       sessionId={sessionId}
                       workspacePath={activeSession?.projectDir ?? null}
                       isAcpSession={activeSession?.providerId === "acp"}
                       isGenerating={isGenerating}
+                      isCancelling={isCancelling}
                       submitDisabled={isInputSubmitDisabled}
-                      queueSubmitEnabled={isGenerating && hasDraftInput}
-                      queueSubmitDisabled={isQueueSubmitDisabled}
-                      onUpdateFiles={onFilesChange}
-                      onCommandSubmit={onCommandSubmit}
+                      sendDisabled={isInputSubmitDisabled}
+                      queueDisabled={isQueueSubmitDisabled}
                       onQueueSubmit={onQueueSubmit}
-                      onSubmit={onSubmit}
-                      onToggleVoiceInput={() => {}}
-                      footerLeft={<ComposerFooterBar />}
-                      toolbar={
-                        <ChatInputToolbar
-                          compact
-                          isGenerating={isGenerating}
-                          isCancelling={isCancelling}
-                          hasInput={hasDraftInput}
-                          sendDisabled={isInputSubmitDisabled}
-                          queueDisabled={isQueueSubmitDisabled}
-                          showVoiceInput={isVoiceInputEnabled}
-                          isVoiceInputListening={false}
-                          isVoiceInputTranscribing={false}
-                          onAttach={onAttach}
-                          onVoiceInput={() => {}}
-                          onQueue={onQueueSubmit}
-                          onSteer={onSteer}
-                          onSend={onSubmit}
-                          onStop={onStop}
-                        />
-                      }
+                      onSteer={onSteer}
+                      onStop={onStop}
+                      onCommandSubmit={onCommandSubmit}
+                      onSubmit={() => void onSubmit()}
                     />
                     <ErrorBoundary>
                       <ChatStatusBar maxWidthClass="max-w-4xl" composerFooterActive />

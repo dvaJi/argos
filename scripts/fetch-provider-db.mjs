@@ -1,10 +1,17 @@
 #!/usr/bin/env node
-// Build-time fetch of Provider DB (aggregated all.json) into resources/model-db/providers.json
+// Build-time fetch of Provider DB (aggregated all.json) into the single-source
+// bundled catalog: apps/desktop/resources/model-db/providers.json
+// (daemon build.mjs copies it next to the daemon binary; commit the refreshed
+// snapshot so packaged/offline builds ship it).
 
 import fs from 'node:fs'
 import fsp from 'node:fs/promises'
 import path from 'node:path'
 import process from 'node:process'
+import { fileURLToPath } from 'node:url'
+// Relative import: root scripts can't resolve the @argos/shared workspace
+// subpath, but bun runs the shared TS source directly.
+import { ProviderAggregateSchema } from '../packages/shared/src/types/model-db.ts'
 
 const DEFAULT_URL =
   'https://raw.githubusercontent.com/ThinkInAIXYZ/PublicProviderConf/refs/heads/dev/dist/all.json'
@@ -229,7 +236,10 @@ function sanitizeAggregateJson(json) {
 
 async function main() {
   const url = process.env.PROVIDER_DB_URL || DEFAULT_URL
-  const outDir = path.resolve(process.cwd(), 'resources', 'model-db')
+  // Anchor on the script location so the output lands in the tracked
+  // single-source path regardless of the caller's cwd.
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+  const outDir = path.join(repoRoot, 'apps', 'desktop', 'resources', 'model-db')
   const outFile = path.join(outDir, 'providers.json')
   const tmpFile = outFile + '.tmp'
 
@@ -254,8 +264,8 @@ async function main() {
     process.exit(1)
   }
 
-  if (text.length > 5 * 1024 * 1024) {
-    error('Downloaded file too large (>5MB). Aborting.')
+  if (text.length > 25 * 1024 * 1024) {
+    error('Downloaded file too large (>25MB). Aborting.')
     if (!fs.existsSync(outFile)) process.exit(1)
     return
   }
@@ -273,6 +283,21 @@ async function main() {
   if (!sanitized) {
     error('No valid providers after sanitization.')
     if (!fs.existsSync(outFile)) process.exit(1)
+    return
+  }
+
+  // Validate against the runtime contract BEFORE writing: upstream schema
+  // drift (e.g. new cost shapes) must fail at refresh — keeping the last good
+  // snapshot — instead of producing a catalog the daemon rejects at load
+  // (docs/issues/provider-catalog-refresh).
+  const validated = ProviderAggregateSchema.safeParse(sanitized)
+  if (!validated.success) {
+    error('Sanitized catalog failed schema validation:')
+    for (const issue of validated.error.issues.slice(0, 5)) {
+      error(`  - ${issue.path.join('.')}: ${issue.message}`)
+    }
+    if (!fs.existsSync(outFile)) process.exit(1)
+    warn('Keeping existing providers.json snapshot')
     return
   }
 

@@ -172,6 +172,7 @@ export class WebSocketBridge implements ArgosBridge {
           clearTimeout(this.probeTimer);
           this.probeTimer = null;
         }
+        console.info("[WebSocketBridge] connected:", this.url);
         this.emitConnectionState({ connected: true, lastError: null });
         this.flushPendingMessages();
         this.resubscribeAll();
@@ -190,6 +191,11 @@ export class WebSocketBridge implements ArgosBridge {
           this.emitConnectionState({ connected: false, lastError: error.message });
           reject(error);
           return;
+        }
+        if (!this.closed) {
+          console.warn(
+            `[WebSocketBridge] connection closed (code=${event.code}${event.reason ? `, reason=${event.reason}` : ""})`,
+          );
         }
         this.emitConnectionState({ connected: false, lastError: "Daemon connection closed" });
         if (!this.closed) {
@@ -286,7 +292,9 @@ export class WebSocketBridge implements ArgosBridge {
     return new Promise<ArgosRouteOutput<T>>((resolve, reject) => {
       const timeout = setTimeout(() => {
         this.requestCallbacks.delete(requestId);
-        reject(new Error("Request timeout"));
+        // Name the route + elapsed so "Request timeout" logs are attributable
+        // (docs/issues/stream-diagnostics-logging).
+        reject(new Error(`Request timeout after ${REQUEST_TIMEOUT_MS}ms: ${routeName}`));
       }, REQUEST_TIMEOUT_MS);
 
       this.requestCallbacks.set(requestId, {
@@ -456,6 +464,9 @@ export class WebSocketBridge implements ArgosBridge {
     const delay = Math.min(this.reconnectDelayMs * Math.pow(2, this.reconnectAttempts), this.maxReconnectDelayMs);
     this.reconnectAttempts++;
     this.emitConnectionState();
+    console.warn(
+      `[WebSocketBridge] reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`,
+    );
 
     this.reconnectTimer = setTimeout(() => {
       this.connect().catch(() => {
@@ -469,6 +480,9 @@ export class WebSocketBridge implements ArgosBridge {
     if (this.closed || this.probing) return;
     this.probing = true;
     this.emitConnectionState({ connected: false, lastError: RECONNECT_EXHAUSTED_ERROR });
+    console.warn(
+      `[WebSocketBridge] fast reconnect exhausted after ${this.maxReconnectAttempts} attempts; probing every ${this.maxReconnectDelayMs}ms`,
+    );
 
     this.probeTimer = setTimeout(() => {
       this.probeTimer = null;

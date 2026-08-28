@@ -87,29 +87,3 @@ export const resolveSamplingChatModel = (input: {
 
   return pickFirstChatModel(input.modelGroups, input.requiresVision);
 };
-
-export const resolveChatModelByQuery = (
-  modelGroups: ChatSelectableModelGroup[],
-  query: string | null | undefined,
-): ResolvedChatModel | null => {
-  const normalizedQuery = query?.trim().toLowerCase();
-  if (!normalizedQuery) {
-    return null;
-  }
-
-  for (const group of modelGroups) {
-    const exactModel = group.models.find((model) => model.id.toLowerCase() === normalizedQuery);
-    if (exactModel) {
-      return { providerId: group.providerId, model: exactModel };
-    }
-  }
-
-  for (const group of modelGroups) {
-    const fuzzyModel = group.models.find((model) => model.id.toLowerCase().includes(normalizedQuery));
-    if (fuzzyModel) {
-      return { providerId: group.providerId, model: fuzzyModel };
-    }
-  }
-
-  return null;
-};
