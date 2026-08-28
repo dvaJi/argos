@@ -62,6 +62,9 @@ export function readConfigEntries(
   if (shouldRead("sidebar_group_mode")) {
     assignValue("sidebar_group_mode", configPresenter.getSetting<string>("sidebar_group_mode"));
   }
+  if (shouldRead("thread_sidebar_enabled")) {
+    assignValue("thread_sidebar_enabled", configPresenter.getSetting<boolean>("thread_sidebar_enabled") ?? false);
+  }
   if (shouldRead("input_enabledMcpTools")) {
     assignValue("input_enabledMcpTools", configPresenter.getSetting<string[]>("input_enabledMcpTools"));
   }

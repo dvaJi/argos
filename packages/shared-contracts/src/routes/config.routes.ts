@@ -66,6 +66,7 @@ export const CONFIG_ENTRY_KEYS = [
   "providerOrder",
   "providerTimestamps",
   "sidebar_group_mode",
+  "thread_sidebar_enabled",
   "input_enabledMcpTools",
   "remoteControl",
 ] as const;
@@ -84,6 +85,7 @@ export const ConfigEntryValuesSchema = zod.object({
   providerOrder: zod.array(zod.string()),
   providerTimestamps: zod.record(zod.string(), zod.number().int()),
   sidebar_group_mode: zod.string(),
+  thread_sidebar_enabled: zod.boolean(),
   input_enabledMcpTools: zod.array(zod.string()),
   // Remote-control config is a large nested blob owned/validated by
   // @argos/remote-control-runtime (normalizeRemoteControlConfig). Stored
@@ -135,6 +137,10 @@ export const ConfigEntryChangeSchema = zod.discriminatedUnion("key", [
   zod.object({
     key: zod.literal("sidebar_group_mode"),
     value: zod.string(),
+  }),
+  zod.object({
+    key: zod.literal("thread_sidebar_enabled"),
+    value: zod.boolean(),
   }),
   zod.object({
     key: zod.literal("input_enabledMcpTools"),

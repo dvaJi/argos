@@ -27,6 +27,7 @@ import SpotlightOverlay from "../components/spotlight/SpotlightOverlay";
 import { spotlightStore } from "../stores/ui/spotlight";
 import { sidepanelStore, toggleWorkspace } from "../stores/ui/sidepanel";
 import { sidebarStore, toggleSidebar } from "../stores/ui/sidebar";
+import { loadThreadSidebarEnabled } from "../stores/ui/threadSidebar";
 import { providerStore, ensureInitialized as ensureProvidersInitialized } from "../stores/providerStore";
 import { modelStore, initialize as initializeModels } from "../stores/modelStore";
 import { useAppIpcRuntime } from "../composables/useAppIpcRuntime";
@@ -387,7 +388,13 @@ function MainLayout() {
       handleStartDeeplink(event, payload as Omit<StartDeeplinkPayload, "token"> | undefined);
     },
     handleStartGuidedOnboardingDev,
-    handleWindowFocused: () => handleResumeGuidedOnboarding("window-focus"),
+    handleWindowFocused: () => {
+      handleResumeGuidedOnboarding("window-focus");
+      // Re-read the thread-sidebar experiment flag: the settings window can
+      // toggle it while the main window is unfocused, and the daemon emits no
+      // change event for config entries.
+      void loadThreadSidebarEnabled();
+    },
     showErrorToast,
     handleDatabaseRepairSuggested,
     handleZoomIn,
@@ -466,6 +473,7 @@ function MainLayout() {
     void ensureProvidersInitialized();
     void initializeModels();
     void fetchSessions();
+    void loadThreadSidebarEnabled();
     const cleanupMcpDeeplinkListeners = setupMcpDeeplink();
 
     // When the daemon bridge comes back after a failed startup, re-run the
