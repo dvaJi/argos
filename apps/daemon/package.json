@@ -26,19 +26,19 @@
     "@argos/shared": "workspace:*",
     "@argos/shared-contracts": "workspace:*",
     "@argos/skills-runtime": "workspace:*",
-    "@duckdb/node-api": "1.5.5-r.3",
+    "@duckdb/node-api": "1.5.5-r.4",
     "@earendil-works/pi-coding-agent": "catalog:",
     "ai": "catalog:",
     "chokidar": "^5.0.0",
     "fflate": "catalog:",
     "gray-matter": "^4.0.3",
     "nanoid": "catalog:",
-    "sharp": "^0.35.3",
-    "typebox": "1.3.9",
+    "sharp": "^0.35.4",
+    "typebox": "1.3.19",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@types/bun": "^1.3.14",
+    "@types/bun": "^1.4.0",
     "typescript": "catalog:"
   }
 }

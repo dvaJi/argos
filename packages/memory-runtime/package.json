@@ -11,7 +11,7 @@
   "dependencies": {
     "@argos/shared": "workspace:*",
     "@argos/shared-contracts": "workspace:*",
-    "@duckdb/node-api": "1.5.5-r.3",
+    "@duckdb/node-api": "1.5.5-r.4",
     "nanoid": "catalog:"
   },
   "devDependencies": {

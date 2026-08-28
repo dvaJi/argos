@@ -11,7 +11,7 @@
   "dependencies": {
     "@argos/shared": "workspace:*",
     "@earendil-works/pi-coding-agent": "catalog:",
-    "typebox": "1.3.9"
+    "typebox": "1.3.19"
   },
   "devDependencies": {
     "typescript": "catalog:"
