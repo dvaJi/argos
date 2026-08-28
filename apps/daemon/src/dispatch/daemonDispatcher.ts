@@ -307,6 +307,7 @@ import {
   pluginsEnableRoute,
   pluginsDisableRoute,
   pluginsInvokeActionRoute,
+  configUpdateEntriesRoute,
 } from "@argos/shared-contracts/routes";
 
 type RouteDispatcher = (route: ArgosRouteName, input: unknown) => Promise<unknown>;
@@ -2022,7 +2023,19 @@ export function createDaemonDispatcher(
     }
 
     if (route.startsWith("config.")) {
-      return dispatchConfigRoute(configPresenter, route, rawInput);
+      const result = await dispatchConfigRoute(configPresenter, route, rawInput);
+
+      // Broadcast config-entry changes so open renderers (e.g. the main
+      // window's thread-sidebar experiment flag) update without a restart.
+      if (route === configUpdateEntriesRoute.name) {
+        const input = configUpdateEntriesRoute.input.parse(rawInput);
+        eventPublisher.publish("config.entries.changed", {
+          changedKeys: input.changes.map((change) => change.key),
+          version: Date.now(),
+        });
+      }
+
+      return result;
     }
 
     if (route === onboardingGetStateRoute.name) {
@@ -2697,9 +2710,11 @@ export function createDaemonDispatcher(
       );
       return usageGetStatsRoute.output.parse({
         window: input.window,
-        ...aggregateUsageStats(rows, input.window, (providerId, modelId) => {
+        ...aggregateUsageStats(rows, input.window, (providerId, modelId, contextTokens) => {
           // Provider DB pricing first, then the built-in table (Codex/Claude etc.).
-          return resolveModelCost(configPresenter, providerId, modelId) ?? resolveBuiltinModelPrice(modelId);
+          return (
+            resolveModelCost(configPresenter, providerId, modelId, contextTokens) ?? resolveBuiltinModelPrice(modelId)
+          );
         }),
       });
     }

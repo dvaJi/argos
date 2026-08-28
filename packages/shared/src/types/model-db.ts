@@ -108,11 +108,66 @@ export const ModelSchema = zod.object({
   knowledge: zod.string().optional(),
   release_date: zod.string().optional(),
   last_updated: zod.string().optional(),
-  cost: zod.record(zod.string(), zod.union([zod.string(), zod.number()])).optional(),
+  // Flat per-MTok rates plus optional nested pricing structures emitted by
+  // upstream (tiers, context_over_200k); consumers narrow at runtime.
+  cost: zod
+    .record(
+      zod.string(),
+      zod.union([zod.string(), zod.number(), zod.array(zod.unknown()), zod.record(zod.string(), zod.unknown())]),
+    )
+    .optional(),
   type: zod.enum(["chat", "embedding", "rerank", "imageGeneration", "videoGeneration", "tts"]).optional(),
 });
 
 export type ProviderModel = zod.infer<typeof ModelSchema>;
+
+export type ProviderModelCostValue = string | number | unknown[] | { [key: string]: unknown };
+export type ProviderModelCost = Record<string, ProviderModelCostValue>;
+
+/**
+ * Effective cost record for a request of `contextTokens` prompt tokens
+ * (docs/features/tiered-cost-estimation). Some providers charge higher
+ * per-MTok rates once the prompt context crosses a threshold (OpenAI-style
+ * long-context pricing), encoded upstream either as `context_over_200k`
+ * shorthand or as a generic `tiers` list (`tier.type === "context"` with a
+ * `tier.size` threshold). Returns the flat record untouched when no tier
+ * applies or the context size is unknown. Keys missing on the winning tier
+ * fall back to the flat rates.
+ */
+export function resolveCostForContext(
+  cost: ProviderModelCost | undefined,
+  contextTokens: number | undefined,
+): ProviderModelCost | undefined {
+  if (!cost) return cost;
+  if (contextTokens === undefined || !Number.isFinite(contextTokens) || contextTokens <= 0) return cost;
+
+  let bestSize = 0;
+  let best: ProviderModelCost | null = null;
+  const tiers = Array.isArray(cost.tiers) ? cost.tiers : [];
+  for (const entry of tiers) {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
+    const record = entry as Record<string, unknown>;
+    const meta = record.tier;
+    if (!meta || typeof meta !== "object" || Array.isArray(meta)) continue;
+    const metaRecord = meta as Record<string, unknown>;
+    if (metaRecord.type !== "context") continue;
+    const size = metaRecord.size;
+    if (typeof size !== "number" || !Number.isFinite(size)) continue;
+    if (contextTokens >= size && size > bestSize) {
+      bestSize = size;
+      best = record as ProviderModelCost;
+    }
+  }
+
+  // OpenAI-style shorthand when no explicit tier matched.
+  const shorthand = cost.context_over_200k;
+  if (!best && contextTokens > 200_000 && shorthand && typeof shorthand === "object" && !Array.isArray(shorthand)) {
+    best = shorthand as ProviderModelCost;
+  }
+
+  if (!best) return cost;
+  return { ...cost, ...best };
+}
 
 export const ProviderSchema = zod.object({
   id: zod.string().min(1),
@@ -340,11 +395,18 @@ function getStringArray(obj: Record<string, unknown>, key: string): string[] | u
   const arr = v.filter((x) => typeof x === "string") as string[];
   return arr.length ? arr : [];
 }
-function getStringNumberRecord(obj: unknown): Record<string, string | number> | undefined {
+/**
+ * Cost records carry flat string/number rates plus optional nested pricing
+ * structures (tiers, context_over_200k) — preserve both so runtime-refreshed
+ * catalogs keep tier data (docs/features/tiered-cost-estimation).
+ */
+function getFlexibleCostRecord(obj: unknown): ProviderModelCost | undefined {
   if (!isRecord(obj)) return undefined;
-  const out: Record<string, string | number> = {};
+  const out: ProviderModelCost = {};
   for (const [k, v] of Object.entries(obj)) {
     if (typeof v === "string" || typeof v === "number") out[k] = v;
+    else if (Array.isArray(v)) out[k] = v;
+    else if (isRecord(v)) out[k] = v;
   }
   return Object.keys(out).length ? out : undefined;
 }
@@ -639,7 +701,7 @@ export function sanitizeAggregate(input: unknown): ProviderAggregate | null {
         knowledge: getString(rm, "knowledge"),
         release_date: getString(rm, "release_date"),
         last_updated: getString(rm, "last_updated"),
-        cost: getStringNumberRecord(rm["cost"]),
+        cost: getFlexibleCostRecord(rm["cost"]),
         type: getModelTypeValue(rm["type"]),
       };
 

@@ -34,6 +34,15 @@ export const UsageModelBreakdownItemSchema = zod.object({
   messageCount: zod.number(),
 });
 
+export const UsageCostQualitySchema = zod.object({
+  /** Fraction of the computed cost that is provider-reported (0..1). */
+  reportedShare: zod.number().nullable(),
+  /** Fraction of the computed cost that was estimated from the catalog (0..1). */
+  estimatedShare: zod.number().nullable(),
+  /** Turns with no cost data at all. */
+  unpricedTurns: zod.number(),
+});
+
 export const UsageSummarySchema = zod.object({
   rawTokenCostUsd: zod.number().nullable(),
   processedTokens: zod.number(),
@@ -46,6 +55,7 @@ export const UsageSummarySchema = zod.object({
   messageCount: zod.number(),
   sessionCount: zod.number(),
   costSource: zod.enum(["reported", "estimated", "mixed", "none"]),
+  costQuality: UsageCostQualitySchema,
 });
 
 export const UsageServiceDailySeriesSchema = zod.object({
@@ -74,6 +84,7 @@ export const usageGetStatsRoute = defineRouteContract({
 export type UsageWindow = zod.infer<typeof UsageWindowSchema>;
 export type UsageStatsOutput = zod.infer<typeof UsageStatsOutputSchema>;
 export type UsageSummary = zod.infer<typeof UsageSummarySchema>;
+export type UsageCostQuality = zod.infer<typeof UsageCostQualitySchema>;
 export type UsageDailySeriesPoint = zod.infer<typeof UsageDailySeriesPointSchema>;
 export type UsageServiceShare = zod.infer<typeof UsageServiceShareSchema>;
 export type UsageServiceDailySeries = zod.infer<typeof UsageServiceDailySeriesSchema>;

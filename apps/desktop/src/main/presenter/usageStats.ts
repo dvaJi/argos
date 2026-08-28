@@ -4,7 +4,8 @@ import type {
   UsageStatsBackfillStatus,
 } from "@argos/shared/types/agent-interface";
 import type { IConfigPresenter } from "@argos/shared/presenter";
-import type { ProviderModel } from "@argos/shared/types/model-db";
+import type { ProviderModel, ProviderModelCost } from "@argos/shared/types/model-db";
+import { resolveCostForContext } from "@argos/shared/types/model-db";
 import { providerDbLoader } from "./configPresenter/providerDbLoader";
 
 export const DASHBOARD_STATS_BACKFILL_KEY = "dashboardStatsBackfillV1";
@@ -59,8 +60,8 @@ function normalizeTextId(value: unknown): string | undefined {
   return normalized.length > 0 ? normalized : undefined;
 }
 
-function getCostNumber(model: ProviderModel | undefined, key: string): number | undefined {
-  const raw = model?.cost?.[key];
+function getCostNumber(cost: ProviderModelCost | undefined, key: string): number | undefined {
+  const raw = cost?.[key];
   if (typeof raw === "number" && Number.isFinite(raw)) {
     return raw;
   }
@@ -190,15 +191,18 @@ export function estimateUsageCostUsd(params: {
   cacheWriteInputTokens: number;
 }): number | null {
   const model = resolvePricedModel(params.providerId, params.modelId);
-  const inputRate = getCostNumber(model, "input");
-  const outputRate = getCostNumber(model, "output");
+  // Long-context tiered pricing: the prompt size selects the applicable rates
+  // (docs/features/tiered-cost-estimation).
+  const effectiveCost = resolveCostForContext(model?.cost, params.inputTokens);
+  const inputRate = getCostNumber(effectiveCost, "input");
+  const outputRate = getCostNumber(effectiveCost, "output");
 
   if (inputRate === undefined || outputRate === undefined) {
     return null;
   }
 
-  const cacheReadRate = getCostNumber(model, "cache_read");
-  const cacheWriteRate = getCostNumber(model, "cache_write");
+  const cacheReadRate = getCostNumber(effectiveCost, "cache_read");
+  const cacheWriteRate = getCostNumber(effectiveCost, "cache_write");
   const uncachedInput = Math.max(params.inputTokens - params.cachedInputTokens - params.cacheWriteInputTokens, 0);
 
   return (
