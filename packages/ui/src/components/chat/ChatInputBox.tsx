@@ -212,7 +212,7 @@ const ChatInputBox = forwardRef<
 
     useEffect(() => {
       if (sameFiles(externalFiles, filesHelper.selectedFiles)) return;
-      filesHelper.selectedFiles = [...externalFiles];
+      filesHelper.syncExternalFiles(externalFiles);
     }, [externalFiles]);
 
     useEffect(() => {

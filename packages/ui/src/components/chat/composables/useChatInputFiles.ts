@@ -29,6 +29,12 @@ export function useChatInputFiles(
     setSelectedFiles([...selectedFilesRef.current]);
   }, []);
 
+  /** Replace all files from an external source (e.g. props-driven sync). */
+  const syncExternalFiles = useCallback((files: MessageFile[]) => {
+    selectedFilesRef.current = [...files];
+    setSelectedFiles([...files]);
+  }, []);
+
   const emitFiles = useCallback(() => {
     emit("file-upload", selectedFilesRef.current);
   }, [emit]);
@@ -258,6 +264,7 @@ export function useChatInputFiles(
 
   return {
     selectedFiles,
+    syncExternalFiles,
     handleFileSelect,
     handlePaste,
     handleDrop,

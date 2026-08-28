@@ -171,7 +171,7 @@ export const McpServers = forwardRef<McpServersRef, McpServersProps>(
         builtinKnowledge: "builtinKnowledge",
       };
       if (specialServers[serverName]) {
-        window.location.href = `/settings/knowledge-base?subtab=${specialServers[serverName]}`;
+        window.location.assign(`/settings/knowledge-base?subtab=${specialServers[serverName]}`);
         return;
       }
       const config = mcpStore.config.mcpServers[serverName];

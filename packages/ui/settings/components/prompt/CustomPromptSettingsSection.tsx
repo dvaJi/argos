@@ -114,7 +114,7 @@ const CustomPromptSettingsSection = forwardRef<CustomPromptSettingsSectionHandle
       [prompts, promptsStore, toast, loadPrompts],
     );
 
-    const deletePrompt = useCallback(
+    const handleDeletePrompt = useCallback(
       async (index: number) => {
         const prompt = prompts[index];
         try {
@@ -352,7 +352,7 @@ const CustomPromptSettingsSection = forwardRef<CustomPromptSettingsSectionHandle
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => void deletePrompt(index)}>Confirm</AlertDialogAction>
+                          <AlertDialogAction onClick={() => void handleDeletePrompt(index)}>Confirm</AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>

@@ -5,7 +5,7 @@ import { Badge } from "#shadcn/components/ui/badge";
 import { ScrollArea } from "#shadcn/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "#shadcn/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#shadcn/components/ui/select";
-import { useMcpStore } from "#/stores/mcp";
+import { useMcpStore, mcpStore as mcpStoreInstance } from "#/stores/mcp";
 
 function useMediaQuery(query: string): boolean {
   const [matches, setMatches] = useState(() => window.matchMedia(query).matches);
@@ -80,7 +80,10 @@ const McpToolPanel: FC<McpToolPanelProps> = ({ serverName, open, onOpenChange })
     if (!validateJson(localToolInputs[toolName], toolName)) return;
     try {
       const params = JSON.parse(localToolInputs[toolName]);
-      mcpStore.toolInputs[toolName] = params;
+      mcpStoreInstance.setState((s) => ({
+        ...s,
+        toolInputs: { ...s.toolInputs, [toolName]: params },
+      }));
       const result = await mcpStore.callTool(toolName);
       if (result) {
         setLocalToolResults((prev) => ({ ...prev, [toolName]: result.content || "" }));
