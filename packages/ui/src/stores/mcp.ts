@@ -247,9 +247,11 @@ const startEnabledServers = async () => {
 };
 
 const updateAllServerStatuses = async () => {
-  await Promise.all(
-    Object.keys(mcpStore.state.config.mcpServers).map((serverName) => updateServerStatus(serverName, true)),
-  );
+  // Sequential: each updateServerStatus reads and writes the shared
+  // enabledToolNames list — parallel calls would lose concurrent updates.
+  for (const serverName of Object.keys(mcpStore.state.config.mcpServers)) {
+    await updateServerStatus(serverName, true);
+  }
   await new Promise((resolve) => setTimeout(resolve, 100));
   await Promise.all([loadTools(), loadClients()]);
 };

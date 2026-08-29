@@ -121,8 +121,8 @@ export default function ModelProviderSettingsDetail({
           providerStore
             .getGeminiSafety(categoryKey)
             .then((v) => ({ categoryKey, savedValue: v as string }))
-            .catch(() => {
-              console.error(`Failed to fetch Gemini safety setting for ${categoryKey}:`);
+            .catch((err) => {
+              console.error(`Failed to fetch Gemini safety setting for ${categoryKey}:`, err);
               return { categoryKey, savedValue: null as string | null };
             }),
         ),
