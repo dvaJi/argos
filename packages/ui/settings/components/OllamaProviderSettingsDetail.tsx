@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Label } from "#shadcn/components/ui/label";
 import { Input } from "#shadcn/components/ui/input";
 import { Button } from "#shadcn/components/ui/button";
@@ -21,13 +21,11 @@ import { createModelClient } from "../../api/ModelClient";
 import type { LLM_PROVIDER, MODEL_META, OllamaModel, RENDERER_MODEL_META } from "@argos/shared/presenter";
 import ModelConfigItem from "#/components/settings/ModelConfigItem";
 import { ModelType } from "@argos/shared/model";
-
 interface OllamaProviderSettingsDetailProps {
   provider: LLM_PROVIDER;
   onProviderConfigured?: () => void;
   onProviderModelEnabled?: () => void;
 }
-
 export default function OllamaProviderSettingsDetail({
   provider,
   onProviderConfigured,
@@ -38,7 +36,6 @@ export default function OllamaProviderSettingsDetail({
   const providerStore = useProviderStore();
   const modelCheckStore = useModelCheckStore();
   const modelClient = createModelClient();
-
   const [apiHost, setApiHost] = useState(provider.baseUrl || "");
   const [apiKey, setApiKey] = useState(provider.apiKey || "");
   const [showApiKey, setShowApiKey] = useState(false);
@@ -48,53 +45,39 @@ export default function OllamaProviderSettingsDetail({
   const [showDeleteProviderDialog, setShowDeleteProviderDialog] = useState(false);
   const [pullModelCatalog, setPullModelCatalog] = useState<MODEL_META[]>([]);
   const isPullModelCatalogLoadingRef = useRef(false);
-
   const defaultBaseUrl = "http://127.0.0.1:11434";
   const hasDefaultBaseUrl = defaultBaseUrl.length > 0;
-
   const isProviderReadyForOnboarding = (p: Pick<LLM_PROVIDER, "apiKey" | "baseUrl" | "custom" | "enable">) => {
     if (!p.enable) return false;
     if (!(p.apiKey?.trim().length > 0)) return false;
     if (p.custom) return Boolean(p.baseUrl?.trim());
     return true;
   };
-
   const maybeEmitProviderConfigured = (p: LLM_PROVIDER) => {
     if (isProviderReadyForOnboarding(p)) {
       onProviderConfigured?.();
     }
   };
-
-  const runningModels = useMemo(() => ollamaStore.getOllamaRunningModels(provider.id), [ollamaStore, provider.id]);
-  const localModels = useMemo(() => ollamaStore.getOllamaLocalModels(provider.id), [ollamaStore, provider.id]);
-  const pullingModels = useMemo(
-    () => new Map(Object.entries(ollamaStore.getOllamaPullingModels(provider.id))),
-    [ollamaStore, provider.id],
-  );
-  const providerCatalogModels = useMemo<MODEL_META[]>(
-    () =>
-      (modelStore.allProviderModels.find((p) => p.providerId === provider.id)?.models ?? []) as unknown as MODEL_META[],
-    [modelStore.allProviderModels, provider.id],
-  );
-
-  const providerModelMetas = useMemo<RENDERER_MODEL_META[]>(() => {
+  const runningModels = ollamaStore.getOllamaRunningModels(provider.id);
+  const localModels = ollamaStore.getOllamaLocalModels(provider.id);
+  const pullingModels = new Map(Object.entries(ollamaStore.getOllamaPullingModels(provider.id)));
+  const providerCatalogModels = (modelStore.allProviderModels.find((p) => p.providerId === provider.id)?.models ??
+    []) as unknown as MODEL_META[];
+  const providerModelMetas = (() => {
     const localModelNames = new Set(localModels.map((model) => model.name));
     const catalogModelNames = new Set(providerCatalogModels.map((model) => model.id));
     const installedModelNames = localModelNames.size > 0 ? localModelNames : catalogModelNames;
     const providerEntry = modelStore.allProviderModels.find((item) => item.providerId === provider.id);
     const metaMap = new Map<string, RENDERER_MODEL_META>();
-
     for (const model of providerEntry?.models ?? []) {
       if (installedModelNames.has(model.id)) {
         metaMap.set(model.id, model);
       }
     }
-
     for (const model of providerCatalogModels) {
       if (!installedModelNames.has(model.id) || metaMap.has(model.id)) {
         continue;
       }
-
       metaMap.set(model.id, {
         id: model.id,
         name: model.name || model.id,
@@ -114,43 +97,36 @@ export default function OllamaProviderSettingsDetail({
         endpointType: model.endpointType,
       });
     }
-
     return Array.from(metaMap.values());
-  }, [localModels, providerCatalogModels, modelStore, provider.id]);
-
-  const createFallbackLocalModel = useCallback(
-    (meta: RENDERER_MODEL_META): OllamaModel => ({
-      name: meta.id,
-      model: meta.id,
-      modified_at: new Date(),
-      size: 0,
-      digest: "",
-      details: {
-        format: "",
-        family: "",
-        families: [],
-        parameter_size: "",
-        quantization_level: "",
-      },
-      model_info: {
-        context_length: meta.contextLength ?? 0,
-        embedding_length: 0,
-      },
-      capabilities: [
-        meta.type === ModelType.Embedding ? "embedding" : "completion",
-        ...(meta.vision ? ["vision"] : []),
-        ...(meta.functionCall ? ["tools"] : []),
-        ...(meta.reasoning ? ["thinking"] : []),
-      ],
-    }),
-    [],
-  );
-
-  const effectiveLocalModels = useMemo<OllamaModel[]>(() => {
+  })();
+  const createFallbackLocalModel = (meta: RENDERER_MODEL_META): OllamaModel => ({
+    name: meta.id,
+    model: meta.id,
+    modified_at: new Date(),
+    size: 0,
+    digest: "",
+    details: {
+      format: "",
+      family: "",
+      families: [],
+      parameter_size: "",
+      quantization_level: "",
+    },
+    model_info: {
+      context_length: meta.contextLength ?? 0,
+      embedding_length: 0,
+    },
+    capabilities: [
+      meta.type === ModelType.Embedding ? "embedding" : "completion",
+      ...(meta.vision ? ["vision"] : []),
+      ...(meta.functionCall ? ["tools"] : []),
+      ...(meta.reasoning ? ["thinking"] : []),
+    ],
+  });
+  const effectiveLocalModels = (() => {
     if (localModels.length > 0) {
       return localModels;
     }
-
     return providerCatalogModels.map((model) =>
       createFallbackLocalModel(
         providerModelMetas.find((meta) => meta.id === model.id) ?? {
@@ -173,14 +149,14 @@ export default function OllamaProviderSettingsDetail({
         },
       ),
     );
-  }, [localModels, providerCatalogModels, providerModelMetas, createFallbackLocalModel, provider.id]);
-
-  type PullModelCatalogItem = { name: string };
-  const availableModels = useMemo<PullModelCatalogItem[]>(() => {
+  })();
+  type PullModelCatalogItem = {
+    name: string;
+  };
+  const availableModels = (() => {
     const localModelNames = new Set(effectiveLocalModels.map((model) => model.name));
     const pullingModelNames = new Set(Array.from(pullingModels.keys()));
     const seenModelNames = new Set<string>();
-
     return pullModelCatalog
       .map((model) => model.id || model.name)
       .filter((modelName): modelName is string => {
@@ -189,14 +165,24 @@ export default function OllamaProviderSettingsDetail({
         seenModelNames.add(modelName);
         return !localModelNames.has(modelName) && !pullingModelNames.has(modelName);
       })
-      .map((modelName) => ({ name: modelName }));
-  }, [effectiveLocalModels, pullingModels, pullModelCatalog]);
-
-  const displayLocalModels = useMemo(() => {
-    const metaMap = new Map<string, RENDERER_MODEL_META & { ollamaModel?: any }>(
-      providerModelMetas.map((meta) => [meta.id, meta as RENDERER_MODEL_META & { ollamaModel?: any }]),
+      .map((modelName) => ({
+        name: modelName,
+      }));
+  })();
+  const displayLocalModels = (() => {
+    const metaMap = new Map<
+      string,
+      RENDERER_MODEL_META & {
+        ollamaModel?: any;
+      }
+    >(
+      providerModelMetas.map((meta) => [
+        meta.id,
+        meta as RENDERER_MODEL_META & {
+          ollamaModel?: any;
+        },
+      ]),
     );
-
     const models = effectiveLocalModels.map((model: any) => {
       const meta = metaMap.get(model.name);
       const capabilitySources: string[] = [];
@@ -207,9 +193,7 @@ export default function OllamaProviderSettingsDetail({
         capabilitySources.push(...(meta.ollamaModel.capabilities as string[]));
       }
       const capabilitySet = new Set(capabilitySources);
-
       const resolvedType = meta?.type ?? (capabilitySet.has("embedding") ? ModelType.Embedding : ModelType.Chat);
-
       return {
         ...model,
         meta,
@@ -224,7 +208,6 @@ export default function OllamaProviderSettingsDetail({
         type: resolvedType,
       };
     });
-
     for (const [modelName, progress] of pullingModels.entries()) {
       if (!models.some((m: any) => m.name === modelName)) {
         const meta = metaMap.get(modelName);
@@ -234,7 +217,6 @@ export default function OllamaProviderSettingsDetail({
         }
         const capabilitySet = new Set(capabilitySources);
         const resolvedType = meta?.type ?? (capabilitySet.has("embedding") ? ModelType.Embedding : ModelType.Chat);
-
         models.unshift({
           name: modelName,
           model: modelName,
@@ -266,14 +248,12 @@ export default function OllamaProviderSettingsDetail({
         });
       }
     }
-
     return models.sort((a: any, b: any) => {
       if (a.pulling && !b.pulling) return -1;
       if (!a.pulling && b.pulling) return 1;
       return a.name.localeCompare(b.name);
     });
-  }, [effectiveLocalModels, providerModelMetas, pullingModels]);
-
+  })();
   useEffect(() => {
     void ollamaStore.ensureProviderReady(provider.id);
   }, [provider.id, ollamaStore]);
@@ -285,7 +265,6 @@ export default function OllamaProviderSettingsDetail({
     setApiHost(provider.baseUrl || "");
     setApiKey(provider.apiKey || "");
   }
-
   const loadPullModelCatalog = async () => {
     if (isPullModelCatalogLoadingRef.current) return;
     isPullModelCatalogLoadingRef.current = true;
@@ -297,11 +276,9 @@ export default function OllamaProviderSettingsDetail({
     }
     isPullModelCatalogLoadingRef.current = false;
   };
-
   const refreshModels = async () => {
     await ollamaStore.refreshOllamaModels(provider.id);
   };
-
   const pullModel = async (modelName: string) => {
     try {
       const success = await ollamaStore.pullOllamaModel(provider.id, modelName);
@@ -312,7 +289,6 @@ export default function OllamaProviderSettingsDetail({
       console.error(`Failed to pull model ${modelName}:`, error);
     }
   };
-
   const handleDeleteModel = async (modelName: string) => {
     try {
       await modelClient.removeCustomModel(provider.id, modelName);
@@ -321,7 +297,6 @@ export default function OllamaProviderSettingsDetail({
       console.error(`Failed to delete model ${modelName}:`, error);
     }
   };
-
   const handleModelEnabledChange = async (modelName: string, enabled: boolean) => {
     try {
       await modelStore.updateModelStatus(provider.id, modelName, enabled);
@@ -332,7 +307,6 @@ export default function OllamaProviderSettingsDetail({
       console.error(`Failed to update model status for ${modelName}:`, error);
     }
   };
-
   const formatModelSize = (sizeInBytes: number): string => {
     if (!sizeInBytes) return "";
     const GB = 1024 * 1024 * 1024;
@@ -342,29 +316,24 @@ export default function OllamaProviderSettingsDetail({
     const KB = 1024;
     return `${(sizeInBytes / KB).toFixed(2)} KB`;
   };
-
   const isModelLocal = (modelName: string): boolean => {
     return (
       ollamaStore.isOllamaModelLocal(provider.id, modelName) || providerModelMetas.some((meta) => meta.id === modelName)
     );
   };
-
   const handleApiHostChange = async (value: string) => {
     const result = await providerStore.updateProviderApi(provider.id, undefined, value);
     maybeEmitProviderConfigured(result.updated as LLM_PROVIDER);
   };
-
   const fillDefaultBaseUrl = async () => {
     if (!hasDefaultBaseUrl) return;
     setApiHost(defaultBaseUrl);
     await handleApiHostChange(defaultBaseUrl);
   };
-
   const handleApiKeyChange = async (value: string) => {
     const result = await providerStore.updateProviderApi(provider.id, value, undefined);
     maybeEmitProviderConfigured(result.updated as LLM_PROVIDER);
   };
-
   const handleApiKeyEnter = async (value: string) => {
     const inputElement = document.getElementById(`${provider.id}-apikey`);
     if (inputElement) {
@@ -374,7 +343,6 @@ export default function OllamaProviderSettingsDetail({
     maybeEmitProviderConfigured(result.updated as LLM_PROVIDER);
     await validateApiKey();
   };
-
   const validateApiKey = async () => {
     if (!provider.enable) return;
     try {
@@ -393,12 +361,10 @@ export default function OllamaProviderSettingsDetail({
       setShowCheckModelDialog(true);
     }
   };
-
   const openModelCheckDialog = () => {
     if (!provider.enable) return;
     modelCheckStore.openDialog(provider.id);
   };
-
   const confirmDeleteProvider = async () => {
     try {
       await providerStore.removeProvider(provider.id);
@@ -407,11 +373,9 @@ export default function OllamaProviderSettingsDetail({
       console.error("Failed to delete provider:", error);
     }
   };
-
   useEffect(() => {
     void ollamaStore.ensureProviderReady(provider.id);
   }, [provider, ollamaStore]);
-
   return (
     <section className="w-full h-full">
       <div className="w-full h-full p-2 flex flex-col gap-2 overflow-y-auto">
@@ -481,7 +445,9 @@ export default function OllamaProviderSettingsDetail({
               }}
               type={showApiKey ? "text" : "password"}
               placeholder="Enter API Key"
-              style={{ paddingRight: "2.5rem" }}
+              style={{
+                paddingRight: "2.5rem",
+              }}
             />
             <Button
               variant="ghost"
@@ -623,9 +589,7 @@ export default function OllamaProviderSettingsDetail({
               {availableModels.map((model) => (
                 <div
                   key={model.name}
-                  className={`flex flex-row items-center justify-between p-2 border rounded-lg hover:bg-accent ${
-                    isModelLocal(model.name) ? "opacity-50" : ""
-                  }`}
+                  className={`flex flex-row items-center justify-between p-2 border rounded-lg hover:bg-accent ${isModelLocal(model.name) ? "opacity-50" : ""}`}
                 >
                   <div className="flex flex-col">
                     <span className="text-sm font-medium">{model.name}</span>

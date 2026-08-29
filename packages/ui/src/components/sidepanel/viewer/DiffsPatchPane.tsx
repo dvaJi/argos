@@ -1,7 +1,5 @@
-import { useMemo } from "react";
 import { PatchDiff } from "@pierre/diffs/react";
 import { useDiffsBaseOptions } from "./diffsOptions";
-
 interface DiffsPatchPaneProps {
   /**
    * Unified diff patch text (e.g. `git diff` output). May contain any number of
@@ -12,7 +10,6 @@ interface DiffsPatchPaneProps {
   diffStyle?: "split" | "unified";
   className?: string;
 }
-
 const splitIntoFilePatches = (patch: string): string[] => {
   const segments = patch
     .split(/(?=^diff --git )/m)
@@ -22,16 +19,15 @@ const splitIntoFilePatches = (patch: string): string[] => {
   // cannot render them.
   return segments.filter((segment) => segment.includes("@@"));
 };
-
 export function DiffsPatchPane({ patch, diffStyle = "unified", className }: DiffsPatchPaneProps) {
   const base = useDiffsBaseOptions();
-  const filePatches = useMemo(() => splitIntoFilePatches(patch), [patch]);
-
-  const options = useMemo(
-    () => ({ ...base, diffStyle, disableLineNumbers: false, stickyHeader: true }),
-    [base, diffStyle],
-  );
-
+  const filePatches = splitIntoFilePatches(patch);
+  const options = {
+    ...base,
+    diffStyle,
+    disableLineNumbers: false,
+    stickyHeader: true,
+  };
   if (filePatches.length === 0) {
     return (
       <div className={`px-4 py-3 text-xs text-muted-foreground ${className ?? ""}`} data-testid="diffs-patch-pane">
@@ -39,7 +35,6 @@ export function DiffsPatchPane({ patch, diffStyle = "unified", className }: Diff
       </div>
     );
   }
-
   return (
     <div
       className={`diffs-patch-pane-host h-full min-h-0 w-full overflow-auto bg-background ${className ?? ""}`}

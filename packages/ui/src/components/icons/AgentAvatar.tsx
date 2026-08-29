@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { Icon } from "@iconify/react";
 import { useStore } from "@tanstack/react-store";
 import { themeStore } from "#/stores/theme";
@@ -6,14 +5,12 @@ import type { UIAgent } from "#/stores/ui/agent";
 import AcpAgentIcon from "./AcpAgentIcon";
 import argosLogo from "#/assets/logo.png";
 import orchiLogo from "#/assets/icons/orchi_logo.jpg";
-
 interface AgentAvatarProps {
   agent: Pick<UIAgent, "id" | "name" | "type" | "icon" | "avatar">;
   className?: string;
   fallbackClassName?: string;
   theme?: "dark" | "light";
 }
-
 export default function AgentAvatar({
   agent,
   className = "h-4 w-4",
@@ -21,10 +18,8 @@ export default function AgentAvatar({
   theme,
 }: AgentAvatarProps) {
   const isDark = useStore(themeStore, (s) => s.isDark);
-
   const isDarkTheme = theme ? theme === "dark" : isDark;
-
-  const initials = useMemo(() => {
+  const initials = (() => {
     const name = agent.name.trim();
     if (!name) return "?";
     const latin = name.match(/[A-Za-z]/g);
@@ -32,30 +27,22 @@ export default function AgentAvatar({
       return latin.slice(0, 2).join("").toUpperCase();
     }
     return name.slice(0, 1);
-  }, [agent.name]);
-
+  })();
   const monogramBackground = agent.avatar?.kind === "monogram" ? agent.avatar.backgroundColor : undefined;
-
-  const lucideColor = useMemo(() => {
+  const lucideColor = (() => {
     if (agent.avatar?.kind !== "lucide") return undefined;
     return isDarkTheme ? agent.avatar.darkColor : agent.avatar.lightColor;
-  }, [agent.avatar, isDarkTheme]);
-
+  })();
   const showBuiltinArgosLogo = agent.id === "argos" && agent.type === "argos" && !agent.avatar && !agent.icon;
-
   const showOrchiLogo = agent.id === "argos-orchestrator" && agent.type === "argos";
-
   const showAcpIcon = agent.type === "acp" && Boolean(agent.icon?.trim());
-
   const showAcpTerminalIcon = agent.type === "acp" && !agent.icon?.trim() && agent.avatar?.kind !== "lucide";
-
   const showImageIcon =
     Boolean(agent.icon?.trim()) &&
     !showBuiltinArgosLogo &&
     !showOrchiLogo &&
     !showAcpIcon &&
     agent.avatar?.kind !== "lucide";
-
   if (showAcpIcon) {
     return (
       <AcpAgentIcon
@@ -67,7 +54,6 @@ export default function AgentAvatar({
       />
     );
   }
-
   if (showBuiltinArgosLogo || showOrchiLogo || showImageIcon) {
     return (
       <img
@@ -77,18 +63,22 @@ export default function AgentAvatar({
       />
     );
   }
-
   if (agent.avatar?.kind === "lucide") {
     return (
       <span
         className={`inline-flex items-center justify-center text-foreground ${className} ${fallbackClassName}`}
-        style={lucideColor ? { color: lucideColor } : undefined}
+        style={
+          lucideColor
+            ? {
+                color: lucideColor,
+              }
+            : undefined
+        }
       >
         <Icon icon={`lucide:${agent.avatar.icon}`} className="h-full w-full" />
       </span>
     );
   }
-
   if (showAcpTerminalIcon) {
     return (
       <span
@@ -98,11 +88,16 @@ export default function AgentAvatar({
       </span>
     );
   }
-
   return (
     <span
       className={`inline-flex items-center justify-center bg-muted/70 text-[0.72em] font-semibold text-foreground ${className} ${fallbackClassName}`}
-      style={monogramBackground ? { backgroundColor: monogramBackground } : undefined}
+      style={
+        monogramBackground
+          ? {
+              backgroundColor: monogramBackground,
+            }
+          : undefined
+      }
     >
       {agent.avatar?.kind === "monogram" ? agent.avatar.text : initials}
     </span>

@@ -1,10 +1,9 @@
-import { type FC, useState, useEffect, useMemo, useRef } from "react";
+import { type FC, useState, useEffect, useRef } from "react";
 import { useSelector } from "@tanstack/react-store";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import type { DisplayAssistantMessageBlock } from "#/components/chat/messageListItems";
 import { uiSettingsStore } from "#/stores/uiSettingsStore";
-
 interface MessageBlockActionProps {
   messageId: string;
   conversationId: string;
@@ -12,7 +11,6 @@ interface MessageBlockActionProps {
   isReadOnly?: boolean;
   onContinue?: (conversationId: string, messageId: string) => void;
 }
-
 export const MessageBlockAction: FC<MessageBlockActionProps> = ({
   messageId,
   conversationId,
@@ -26,27 +24,21 @@ export const MessageBlockAction: FC<MessageBlockActionProps> = ({
   const isRateLimitBlock = block.action_type === "rate_limit";
   const isRateLimitActive = isRateLimitBlock && (block.status === "loading" || block.status === "pending");
   const showContinueIndicator = useSelector(uiSettingsStore, (s) => s.showContinueIndicator);
-
-  const elapsedSeconds = useMemo(() => {
+  const elapsedSeconds = (() => {
     if (!isRateLimitBlock) return 0;
     const elapsed = currentTime - block.timestamp;
     return Math.max(0, Math.floor(Math.max(0, elapsed) / 1000));
-  }, [isRateLimitBlock, currentTime, block.timestamp]);
-
+  })();
   const rateLimitStatusLabel = `Rate limiting ${elapsedSeconds}s`;
-
   const containerClass = isRateLimitBlock
     ? "my-2"
     : "flex flex-col w-[360px] break-all shadow-sm my-2 items-start p-2 gap-2 rounded-lg border bg-card text-card-foreground";
-
   const handleClick = () => {
     onContinue?.(conversationId, messageId);
   };
-
   useEffect(() => {
     if (!isRateLimitActive) return;
     if (Date.now() - block.timestamp > 180_000) return;
-
     progressTimer.current = window.setInterval(() => {
       setCurrentTime(Date.now());
       if (Date.now() - block.timestamp > 180_000) {
@@ -56,21 +48,17 @@ export const MessageBlockAction: FC<MessageBlockActionProps> = ({
         }
       }
     }, 1000);
-
     return () => {
       if (progressTimer.current) {
         clearInterval(progressTimer.current);
       }
     };
   }, [isRateLimitActive, block.timestamp]);
-
   const hasContent =
     Boolean(block.extra?.needContinue) ||
     isRateLimitBlock ||
     (!block.extra?.needContinue && block.action_type !== "rate_limit" && showContinueIndicator);
-
   if (!hasContent) return null;
-
   return (
     <div className={containerClass}>
       {block.extra?.needContinue ? (

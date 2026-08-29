@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import {
@@ -12,7 +12,6 @@ import { useSessionStore, getActiveSession, getHasActiveSession } from "#/stores
 import { draftStore, useDraftStore } from "#/stores/ui/draft";
 import { usePreSessionAgentType } from "#/composables/chat/usePreSessionAgentType";
 import type { PermissionMode } from "@argos/shared/types/agent-interface";
-
 type ModeOption = {
   value: PermissionMode;
   label: string;
@@ -21,7 +20,6 @@ type ModeOption = {
   /** v1 only supports `default`/`full_access`; interim labels are disabled until the enum expands. */
   disabled?: boolean;
 };
-
 const MODE_OPTIONS: ModeOption[] = [
   {
     value: "default",
@@ -50,24 +48,18 @@ const MODE_OPTIONS: ModeOption[] = [
     icon: "lucide:unlock",
   },
 ];
-
 const uniqueModeOptions = MODE_OPTIONS.filter((opt, idx, arr) => arr.findIndex((o) => o.label === opt.label) === idx);
-
 const ComposerModePicker = () => {
   const sessionState = useSessionStore();
   void sessionState;
   const draftState = useDraftStore();
   void draftState;
-  const sessionClient = useMemo(() => createSessionClient(), []);
+  const sessionClient = createSessionClient();
   const preSessionAgentType = usePreSessionAgentType();
-
   const hasActiveSession = getHasActiveSession();
   const activeSession = getActiveSession();
-
   const isAcpAgent = hasActiveSession ? activeSession?.providerId === "acp" : preSessionAgentType === "acp";
-
   const [permissionMode, setPermissionMode] = useState<PermissionMode>("full_access");
-
   useEffect(() => {
     let cancelled = false;
     if (hasActiveSession && activeSession?.id) {
@@ -88,28 +80,24 @@ const ComposerModePicker = () => {
       cancelled = true;
     };
   }, [hasActiveSession, activeSession?.id, draftState.permissionMode, sessionClient]);
-
   const currentLabel = permissionMode === "default" ? "Supervised" : "Full access";
   const currentIcon = permissionMode === "default" ? "lucide:shield" : "lucide:unlock";
-
-  const handleSelect = useCallback(
-    async (mode: PermissionMode) => {
-      setPermissionMode(mode);
-      if (hasActiveSession && activeSession?.id) {
-        try {
-          await sessionClient.setPermissionMode(activeSession.id, mode);
-        } catch {}
-      } else {
-        draftStore.setState((prev) => ({ ...prev, permissionMode: mode }));
-      }
-    },
-    [hasActiveSession, activeSession?.id, sessionClient],
-  );
-
+  const handleSelect = async (mode: PermissionMode) => {
+    setPermissionMode(mode);
+    if (hasActiveSession && activeSession?.id) {
+      try {
+        await sessionClient.setPermissionMode(activeSession.id, mode);
+      } catch {}
+    } else {
+      draftStore.setState((prev) => ({
+        ...prev,
+        permissionMode: mode,
+      }));
+    }
+  };
   if (isAcpAgent) {
     return null;
   }
-
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -156,5 +144,4 @@ const ComposerModePicker = () => {
     </DropdownMenu>
   );
 };
-
 export default ComposerModePicker;

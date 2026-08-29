@@ -1,4 +1,4 @@
-import { type FC, useState, useMemo } from "react";
+import { type FC, useState } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "#shadcn/components/ui/dialog";
@@ -6,18 +6,15 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "#shadcn/components/ui/t
 import type { DisplayAssistantMessageBlock } from "#/components/chat/messageListItems";
 import { ImageActionContextMenu } from "./ImageActionContextMenu";
 import { useImageActions } from "#/composables/useImageActions";
-
 interface MessageBlockImageProps {
   block: DisplayAssistantMessageBlock;
   messageId?: string;
   threadId?: string;
 }
-
 type LegacyImageBlockContent = {
   data?: string;
   mimeType?: string;
 };
-
 const inferMimeType = (data: string, mimeType?: string): string => {
   if (mimeType && mimeType.trim().length > 0) return mimeType;
   if (data.startsWith("imgcache://") || data.startsWith("http://") || data.startsWith("https://"))
@@ -28,22 +25,21 @@ const inferMimeType = (data: string, mimeType?: string): string => {
   }
   return "image/png";
 };
-
 export const MessageBlockImage: FC<MessageBlockImageProps> = ({ block }) => {
   const [imageError, setImageError] = useState(false);
   const [showFullImage, setShowFullImage] = useState(false);
   const { saveImage } = useImageActions();
-
-  const resolvedImageData = useMemo(() => {
+  const resolvedImageData = (() => {
     if (block.image_data?.data) {
       const rawData = block.image_data.data;
       if (rawData.startsWith("imgcache://") || rawData.startsWith("http://") || rawData.startsWith("https://")) {
-        return { data: rawData, mimeType: "argos/image-url" };
+        return {
+          data: rawData,
+          mimeType: "argos/image-url",
+        };
       }
-
       let normalizedData = rawData;
       let normalizedMimeType = inferMimeType(rawData, block.image_data.mimeType);
-
       if (rawData.startsWith("data:image/")) {
         const match = rawData.match(/^data:([^;]+);base64,(.*)$/);
         if (match?.[1] && match?.[2]) {
@@ -51,22 +47,24 @@ export const MessageBlockImage: FC<MessageBlockImageProps> = ({ block }) => {
           normalizedData = match[2];
         }
       }
-
-      return { data: normalizedData, mimeType: normalizedMimeType };
+      return {
+        data: normalizedData,
+        mimeType: normalizedMimeType,
+      };
     }
-
     const content = block.content;
     if (content && typeof content === "object" && "data" in (content as LegacyImageBlockContent)) {
       const legacyContent = content as LegacyImageBlockContent;
       if (legacyContent.data) {
         const rawData = legacyContent.data;
         if (rawData.startsWith("imgcache://") || rawData.startsWith("http://") || rawData.startsWith("https://")) {
-          return { data: rawData, mimeType: "argos/image-url" };
+          return {
+            data: rawData,
+            mimeType: "argos/image-url",
+          };
         }
-
         let normalizedData = rawData;
         let normalizedMimeType = inferMimeType(rawData, legacyContent.mimeType);
-
         if (rawData.startsWith("data:image/")) {
           const match = rawData.match(/^data:([^;]+);base64,(.*)$/);
           if (match?.[1] && match?.[2]) {
@@ -74,48 +72,55 @@ export const MessageBlockImage: FC<MessageBlockImageProps> = ({ block }) => {
             normalizedData = match[2];
           }
         }
-
-        return { data: normalizedData, mimeType: normalizedMimeType };
+        return {
+          data: normalizedData,
+          mimeType: normalizedMimeType,
+        };
       }
     }
-
     if (typeof content === "string" && content.length > 0) {
       if (content.startsWith("data:image/")) {
         const match = content.match(/^data:([^;]+);base64,(.*)$/);
         if (match?.[1] && match?.[2]) {
-          return { data: match[2], mimeType: match[1] };
+          return {
+            data: match[2],
+            mimeType: match[1],
+          };
         }
       }
       if (content.startsWith("imgcache://") || content.startsWith("http://") || content.startsWith("https://")) {
-        return { data: content, mimeType: "argos/image-url" };
+        return {
+          data: content,
+          mimeType: "argos/image-url",
+        };
       }
-      return { data: content, mimeType: inferMimeType(content) };
+      return {
+        data: content,
+        mimeType: inferMimeType(content),
+      };
     }
-
     return null;
-  }, [block.image_data, block.content]);
-
-  const resolvedImageSrc = useMemo(() => {
+  })();
+  const resolvedImageSrc = (() => {
     if (!resolvedImageData) return "";
     return resolvedImageData.mimeType === "argos/image-url"
       ? resolvedImageData.data
       : `data:${resolvedImageData.mimeType};base64,${resolvedImageData.data}`;
-  }, [resolvedImageData]);
-
-  const resolvedImageMimeType = useMemo(() => {
+  })();
+  const resolvedImageMimeType = (() => {
     const mimeType = resolvedImageData?.mimeType;
     return mimeType === "argos/image-url" ? undefined : mimeType;
-  }, [resolvedImageData]);
-
+  })();
   const openFullImage = () => {
     if (resolvedImageData) setShowFullImage(true);
   };
-
   const handleSaveImage = () => {
     if (!resolvedImageSrc) return;
-    void saveImage({ source: resolvedImageSrc, mimeType: resolvedImageMimeType });
+    void saveImage({
+      source: resolvedImageSrc,
+      mimeType: resolvedImageMimeType,
+    });
   };
-
   return (
     <div className="my-1">
       <div className="rounded-lg border bg-card text-card-foreground p-4 w-fit">

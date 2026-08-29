@@ -1,25 +1,21 @@
-import { type FC, useMemo } from "react";
+import { type FC } from "react";
 import type { DisplayAssistantMessageBlock } from "#/components/chat/messageListItems";
-
 interface MessageBlockQuestionRequestProps {
   block: DisplayAssistantMessageBlock;
 }
-
 export const MessageBlockQuestionRequest: FC<MessageBlockQuestionRequestProps> = ({ block }) => {
-  const questionText = useMemo(() => {
+  const questionText = (() => {
     const raw = block.extra?.questionText;
     if (typeof raw === "string" && raw.trim()) {
       return raw;
     }
     return block.content || "";
-  }, [block.extra?.questionText, block.content]);
-
-  const answerText = useMemo(() => {
+  })();
+  const answerText = (() => {
     const raw = block.extra?.answerText;
     return typeof raw === "string" ? raw : "";
-  }, [block.extra?.answerText]);
-
-  const options = useMemo(() => {
+  })();
+  const options = (() => {
     const raw = block.extra?.questionOptions;
     let items: unknown[] = [];
     if (Array.isArray(raw)) {
@@ -32,25 +28,45 @@ export const MessageBlockQuestionRequest: FC<MessageBlockQuestionRequestProps> =
         items = [];
       }
     }
-
     return items
-      .map((option): { label: string; description?: string } | null => {
-        if (!option || typeof option !== "object") return null;
-        const candidate = option as { label?: unknown; description?: unknown };
-        if (typeof candidate.label !== "string") return null;
-        const label = candidate.label.trim();
-        if (!label) return null;
-        if (typeof candidate.description === "string") {
-          const description = candidate.description.trim();
-          if (description) {
-            return { label, description };
+      .map(
+        (
+          option,
+        ): {
+          label: string;
+          description?: string;
+        } | null => {
+          if (!option || typeof option !== "object") return null;
+          const candidate = option as {
+            label?: unknown;
+            description?: unknown;
+          };
+          if (typeof candidate.label !== "string") return null;
+          const label = candidate.label.trim();
+          if (!label) return null;
+          if (typeof candidate.description === "string") {
+            const description = candidate.description.trim();
+            if (description) {
+              return {
+                label,
+                description,
+              };
+            }
           }
-        }
-        return { label };
-      })
-      .filter((o): o is { label: string; description?: string } => o !== null);
-  }, [block.extra?.questionOptions]);
-
+          return {
+            label,
+          };
+        },
+      )
+      .filter(
+        (
+          o,
+        ): o is {
+          label: string;
+          description?: string;
+        } => o !== null,
+      );
+  })();
   return (
     <div className="my-1 flex flex-col gap-2">
       <p className="text-sm text-foreground whitespace-pre-wrap break-words">{questionText}</p>

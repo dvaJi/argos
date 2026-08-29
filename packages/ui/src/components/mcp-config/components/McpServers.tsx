@@ -1,4 +1,4 @@
-import { type ReactNode, useState, useEffect, useMemo, useCallback, useImperativeHandle, forwardRef } from "react";
+import { type ReactNode, useState, useEffect, useCallback, useImperativeHandle, forwardRef } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { ScrollArea } from "#shadcn/components/ui/scroll-area";
@@ -22,26 +22,21 @@ import McpToolPanel from "./McpToolPanel";
 import McpPromptPanel from "./McpPromptPanel";
 import McpResourceViewer from "./McpResourceViewer";
 import type { MCPServerConfig } from "@argos/shared/presenter";
-
 interface McpServersProps {
   showFooterAddButton?: boolean;
   statusBar?: ReactNode;
   footerActionsAfter?: ReactNode;
 }
-
 export interface McpServersRef {
   openAddServerDialog: () => void;
 }
-
 const MCP_FILTERS = ["all", "running", "stopped"] as const;
 type McpFilter = (typeof MCP_FILTERS)[number];
-
 export const McpServers = forwardRef<McpServersRef, McpServersProps>(
   ({ showFooterAddButton = true, statusBar, footerActionsAfter }, ref) => {
     const mcpStore = useMcpStore();
     const { toast } = useToast();
     const navigate = useNavigate();
-
     const [isAddServerDialogOpen, setIsAddServerDialogOpen] = useState(false);
     const [isEditServerDialogOpen, setIsEditServerDialogOpen] = useState(false);
     const [isRemoveConfirmDialogOpen, setIsRemoveConfirmDialogOpen] = useState(false);
@@ -55,26 +50,21 @@ export const McpServers = forwardRef<McpServersRef, McpServersProps>(
     const [selectedDetailServerName, setSelectedDetailServerName] = useState("");
     const [searchQuery, setSearchQuery] = useState("");
     const [activeFilter, setActiveFilter] = useState<McpFilter>("all");
-
     useEffect(() => {
       if (!mcpStore.mcpInstallCache) return;
       void Promise.resolve().then(() => setIsAddServerDialogOpen(true));
     }, [mcpStore.mcpInstallCache]);
-
     useEffect(() => {
       if (isAddServerDialogOpen) return;
       if (!mcpStore.mcpInstallCache) return;
       mcpStore.clearMcpInstallCache();
     }, [isAddServerDialogOpen, mcpStore]);
-
     const isArgosManagedServer = (config?: MCPServerConfig) => config?.source === "argos";
-
     const isBuiltInServer = (serverName: string) => {
       const config = mcpStore.config.mcpServers[serverName];
       return config?.type === "inmemory" || isArgosManagedServer(config);
     };
-
-    const filteredServers = useMemo(() => {
+    const filteredServers = (() => {
       const query = searchQuery.trim().toLowerCase();
       return mcpStore.serverList.filter((server) => {
         const matchesQuery =
@@ -85,31 +75,22 @@ export const McpServers = forwardRef<McpServersRef, McpServersProps>(
           (activeFilter === "stopped" && !server.isRunning);
         return matchesQuery && matchesFilter;
       });
-    }, [searchQuery, activeFilter, mcpStore.serverList]);
-
-    const selectedDetailServer = useMemo(
-      () => mcpStore.serverList.find((server) => server.name === selectedDetailServerName),
-      [mcpStore.serverList, selectedDetailServerName],
-    );
-
+    })();
+    const selectedDetailServer = mcpStore.serverList.find((server) => server.name === selectedDetailServerName);
     const getServerToolsCount = (serverName: string) =>
       mcpStore.getVisibleTools().filter((tool) => tool.server.name === serverName).length;
-
     const getServerPromptsCount = (serverName: string) =>
       mcpStore.getVisiblePrompts().filter((prompt) => prompt.client.name === serverName).length;
-
     const getServerResourcesCount = (serverName: string) =>
       mcpStore.getVisibleResources().filter((resource) => resource.client.name === serverName).length;
-
     const handleAddServer = async (serverName: string, serverConfig: MCPServerConfig) => {
       const result = await mcpStore.addServer(serverName, serverConfig);
       if (result.success) setIsAddServerDialogOpen(false);
     };
-
     const openAddServerDialog = () => setIsAddServerDialogOpen(true);
-
-    useImperativeHandle(ref, () => ({ openAddServerDialog }));
-
+    useImperativeHandle(ref, () => ({
+      openAddServerDialog,
+    }));
     const handleEditServer = async (serverName: string, serverConfig: Partial<MCPServerConfig>) => {
       const success = await mcpStore.updateServer(serverName, serverConfig);
       if (success) {
@@ -117,7 +98,6 @@ export const McpServers = forwardRef<McpServersRef, McpServersProps>(
         setSelectedServer("");
       }
     };
-
     const handleRemoveServer = async (serverName: string) => {
       const config = mcpStore.config.mcpServers[serverName];
       if (config?.type === "inmemory" || isArgosManagedServer(config)) {
@@ -131,26 +111,30 @@ export const McpServers = forwardRef<McpServersRef, McpServersProps>(
       setSelectedServer(serverName);
       setIsRemoveConfirmDialogOpen(true);
     };
-
     const confirmRemoveServer = async () => {
       await mcpStore.removeServer(selectedServer);
       setIsRemoveConfirmDialogOpen(false);
     };
-
     const handleToggleServer = async (serverName: string) => {
       const config = mcpStore.config.mcpServers[serverName];
       if (isArgosManagedServer(config)) {
-        toast({ title: "Read Only", description: "Managed servers are read-only" });
+        toast({
+          title: "Read Only",
+          description: "Managed servers are read-only",
+        });
         return;
       }
       if (mcpStore.serverLoadingStates[serverName]) return;
       const success = await mcpStore.toggleServer(serverName);
       if (!success) {
         const message = mcpStore.getServerError(serverName) || "The server lifecycle request failed";
-        toast({ title: "Operation Failed", description: message, variant: "destructive" });
+        toast({
+          title: "Operation Failed",
+          description: message,
+          variant: "destructive",
+        });
       }
     };
-
     const handleRuntimeToggle = async (serverName: string, isRunning: boolean) => {
       const result = await mcpStore.setServerRunning(serverName, !isRunning);
       if (!result.success) {
@@ -161,7 +145,6 @@ export const McpServers = forwardRef<McpServersRef, McpServersProps>(
         });
       }
     };
-
     const openEditServerDialog = (serverName: string) => {
       const specialServers: Record<string, string> = {
         difyKnowledge: "dify",
@@ -175,35 +158,33 @@ export const McpServers = forwardRef<McpServersRef, McpServersProps>(
       }
       const config = mcpStore.config.mcpServers[serverName];
       if (isArgosManagedServer(config)) {
-        toast({ title: "Read Only", description: "Managed servers are read-only" });
+        toast({
+          title: "Read Only",
+          description: "Managed servers are read-only",
+        });
         return;
       }
       setSelectedServer(serverName);
       setIsEditServerDialogOpen(true);
     };
-
     const handleViewTools = async (serverName: string) => {
       setSelectedServerForTools(serverName);
       await mcpStore.loadTools();
       setIsToolPanelOpen(true);
     };
-
     const handleViewPrompts = async (serverName: string) => {
       setSelectedServerForPrompts(serverName);
       await mcpStore.loadPrompts();
       setIsPromptPanelOpen(true);
     };
-
     const handleViewResources = async (serverName: string) => {
       setSelectedServerForResources(serverName);
       await mcpStore.loadResources();
       setIsResourceViewerOpen(true);
     };
-
     const closeDetail = (open: boolean) => {
       if (!open) setSelectedDetailServerName("");
     };
-
     return (
       <div className="h-full min-h-0 flex flex-col">
         <ScrollArea className="min-h-0 flex-1 px-3">
@@ -438,5 +419,4 @@ export const McpServers = forwardRef<McpServersRef, McpServersProps>(
     );
   },
 );
-
 McpServers.displayName = "McpServers";

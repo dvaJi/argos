@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Badge } from "#shadcn/components/ui/badge";
@@ -21,35 +21,32 @@ import { createMemoryClient, type MemoryClient } from "#api/MemoryClient";
 import { useToast } from "#/components/use-toast";
 import { AGENT_MEMORY_CATEGORIES, type AgentMemoryCategory } from "@argos/shared/types/agent-memory";
 import type { MemoryAddResult, MemoryItem, MemoryStatusDto } from "@argos/shared-contracts/routes";
-
 const ADD_CATEGORY_NONE = "none";
-const IMPORTANCE_VALUES: Record<string, number> = { low: 0.3, medium: 0.5, high: 0.8 };
-
+const IMPORTANCE_VALUES: Record<string, number> = {
+  low: 0.3,
+  medium: 0.5,
+  high: 0.8,
+};
 type CategoryFilter = AgentMemoryCategory | "all" | "uncategorized";
-
 function statusVariant(status: MemoryItem["status"]): "default" | "secondary" | "destructive" | "outline" {
   if (status === "error" || status === "conflicted") return "destructive";
   if (status === "embedded") return "default";
   if (status === "archived") return "outline";
   return "secondary";
 }
-
 function categoryLabel(category: AgentMemoryCategory | null | undefined): string {
   if (category == null) return "Uncategorized";
   return category.replace(/_/g, " ");
 }
-
 function formatTime(ms: number): string {
   return new Date(ms).toLocaleString();
 }
-
 export interface MemoryManagerPanelProps {
   agentId: string;
   memoryEnabled?: boolean;
   hasEmbeddingConfigured?: boolean;
   client?: MemoryClient;
 }
-
 export function MemoryManagerPanel({
   agentId,
   memoryEnabled,
@@ -57,85 +54,73 @@ export function MemoryManagerPanel({
   client,
 }: MemoryManagerPanelProps) {
   const { toast } = useToast();
-  const memoryClient = useMemo(() => client ?? createMemoryClient(), [client]);
-
+  const memoryClient = client ?? createMemoryClient();
   const [memories, setMemories] = useState<MemoryItem[]>([]);
   const [status, setStatus] = useState<MemoryStatusDto | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<MemoryItem[]>([]);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
-
   const [showAddForm, setShowAddForm] = useState(false);
   const [addContent, setAddContent] = useState("");
   const [addKind, setAddKind] = useState<"episodic" | "semantic">("semantic");
   const [addCategory, setAddCategory] = useState<string>(ADD_CATEGORY_NONE);
   const [addImportance, setAddImportance] = useState<"low" | "medium" | "high">("medium");
   const [adding, setAdding] = useState(false);
-
   const memoryDisabled = memoryEnabled === false;
   const addCategorySelected = addCategory !== ADD_CATEGORY_NONE;
-
   const refreshRequestIdRef = useRef(0);
   const searchRequestIdRef = useRef(0);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const agentIdRef = useRef(agentId);
+  // Liveness flag flipped by the refresh effect; post-await state writes are
+  // skipped once the effect is torn down so unmounted refreshes never write state.
+  const panelLiveRef = useRef(false);
   useEffect(() => {
     agentIdRef.current = agentId;
   }, [agentId]);
-
   const searchActive = searchQuery.trim().length > 0;
   // Stale search errors are only meaningful while a query is active.
   const visibleSearchError = searchActive ? searchError : null;
   const categoryFilterActive = categoryFilter !== "all";
-
-  const displayedMemories = useMemo(() => {
+  const displayedMemories = (() => {
     const base = searchActive ? searchResults : memories;
     return base.filter((memory) => {
       if (categoryFilter === "all") return true;
       if (categoryFilter === "uncategorized") return memory.category == null;
       return memory.category === categoryFilter;
     });
-  }, [searchActive, searchResults, memories, categoryFilter]);
-
-  const emptyMessage = useMemo(() => {
+  })();
+  const emptyMessage = (() => {
     const base = searchActive ? searchResults : memories;
     if (searchActive && base.length === 0) return "No memories matched your search.";
     if (categoryFilterActive) return "No memories in this category.";
     return "No memories yet.";
-  }, [searchActive, categoryFilterActive, searchResults, memories]);
-
-  const notifyActionFailed = useCallback(
-    (e?: unknown) => {
-      toast({
-        variant: "destructive",
-        title: "Action failed",
-        description: e instanceof Error ? e.message : e ? String(e) : undefined,
-      });
-    },
-    [toast],
-  );
-
-  const runSearch = useCallback(
-    async (targetAgentId: string, query: string, requestId: number) => {
-      setSearchError(null);
-      try {
-        const results = await memoryClient.search(targetAgentId, query);
-        if (requestId !== searchRequestIdRef.current || agentIdRef.current !== targetAgentId) return;
-        setSearchResults(results);
-      } catch (e) {
-        if (requestId !== searchRequestIdRef.current || agentIdRef.current !== targetAgentId) return;
-        setSearchResults([]);
-        setSearchError(e instanceof Error ? e.message : "Search failed.");
-      }
-    },
-    [memoryClient],
-  );
-
-  const refresh = useCallback(async () => {
+  })();
+  const notifyActionFailed = (e?: unknown) => {
+    toast({
+      variant: "destructive",
+      title: "Action failed",
+      description: e instanceof Error ? e.message : e ? String(e) : undefined,
+    });
+  };
+  const runSearch = async (targetAgentId: string, query: string, requestId: number) => {
+    setSearchError(null);
+    try {
+      const results = await memoryClient.search(targetAgentId, query);
+      if (!panelLiveRef.current) return;
+      if (requestId !== searchRequestIdRef.current || agentIdRef.current !== targetAgentId) return;
+      setSearchResults(results);
+    } catch (e) {
+      if (!panelLiveRef.current) return;
+      if (requestId !== searchRequestIdRef.current || agentIdRef.current !== targetAgentId) return;
+      setSearchResults([]);
+      setSearchError(e instanceof Error ? e.message : "Search failed.");
+    }
+  };
+  const refresh = async () => {
     const targetAgentId = agentIdRef.current;
     if (!targetAgentId) return;
     refreshRequestIdRef.current += 1;
@@ -147,6 +132,7 @@ export function MemoryManagerPanel({
         memoryClient.list(targetAgentId),
         memoryClient.getStatus(targetAgentId),
       ]);
+      if (!panelLiveRef.current) return;
       if (requestId !== refreshRequestIdRef.current || agentIdRef.current !== targetAgentId) return;
       setMemories(list);
       setStatus(currentStatus);
@@ -155,21 +141,24 @@ export function MemoryManagerPanel({
         void runSearch(targetAgentId, searchQuery.trim(), searchRequestIdRef.current);
       }
     } catch (e) {
+      if (!panelLiveRef.current) return;
       if (requestId !== refreshRequestIdRef.current || agentIdRef.current !== targetAgentId) return;
       setError(e instanceof Error ? e.message : String(e));
     }
+    if (!panelLiveRef.current) return;
     if (requestId === refreshRequestIdRef.current && agentIdRef.current === targetAgentId) {
       setLoading(false);
     }
-  }, [memoryClient, runSearch, searchQuery]);
-
+  };
   useEffect(() => {
+    panelLiveRef.current = true;
     if (!agentId) return;
     void refresh();
+    return () => {
+      panelLiveRef.current = false;
+    };
   }, [agentId, refresh]);
-
   const onRunSearch = useEffectEvent(runSearch);
-
   useEffect(() => {
     const query = searchQuery.trim();
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
@@ -188,38 +177,48 @@ export function MemoryManagerPanel({
       if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     };
   }, [searchQuery]);
-
-  const notifyAddOutcome = useCallback(
-    (result: MemoryAddResult) => {
-      if (result.action === "challenged") {
-        toast({ title: "Memory conflicts with an existing one." });
-        return;
-      }
-      if (result.action === "noop") {
-        toast({ title: result.reason === "duplicate" ? "Duplicate memory." : "Memory not added." });
-        return;
-      }
-      toast({ title: "Memory added." });
-    },
-    [toast],
-  );
-
-  const resetAddForm = useCallback(() => {
+  const notifyAddOutcome = (result: MemoryAddResult) => {
+    if (result.action === "challenged") {
+      toast({
+        title: "Memory conflicts with an existing one.",
+      });
+      return;
+    }
+    if (result.action === "noop") {
+      toast({
+        title: result.reason === "duplicate" ? "Duplicate memory." : "Memory not added.",
+      });
+      return;
+    }
+    toast({
+      title: "Memory added.",
+    });
+  };
+  const resetAddForm = () => {
     setShowAddForm(false);
     setAddContent("");
     setAddKind("semantic");
     setAddCategory(ADD_CATEGORY_NONE);
     setAddImportance("medium");
-  }, []);
-
-  const handleAdd = useCallback(async () => {
+  };
+  const handleAdd = async () => {
     const content = addContent.trim();
     if (!content || adding || memoryDisabled) return;
     setAdding(true);
     try {
       const importance = IMPORTANCE_VALUES[addImportance];
       const category = addCategorySelected ? (addCategory as AgentMemoryCategory) : undefined;
-      const input = category ? { content, category, importance } : { content, kind: addKind, importance };
+      const input = category
+        ? {
+            content,
+            category,
+            importance,
+          }
+        : {
+            content,
+            kind: addKind,
+            importance,
+          };
       const result = await memoryClient.add(agentIdRef.current, input);
       notifyAddOutcome(result);
       resetAddForm();
@@ -228,49 +227,40 @@ export function MemoryManagerPanel({
       notifyActionFailed(e);
     }
     setAdding(false);
-  }, [
-    addContent,
-    adding,
-    memoryDisabled,
-    addCategorySelected,
-    addCategory,
-    addImportance,
-    addKind,
-    memoryClient,
-    notifyAddOutcome,
-    resetAddForm,
-    refresh,
-    notifyActionFailed,
-  ]);
-
-  const handleDelete = useCallback(
-    async (memoryId: string) => {
-      try {
-        const ok = await memoryClient.remove(agentIdRef.current, memoryId);
-        if (!ok) return notifyActionFailed();
-        await refresh();
-      } catch (e) {
-        notifyActionFailed(e);
-      }
-    },
-    [memoryClient, refresh, notifyActionFailed],
-  );
-
-  const handleClear = useCallback(async () => {
+  };
+  const handleDelete = async (memoryId: string) => {
+    try {
+      const ok = await memoryClient.remove(agentIdRef.current, memoryId);
+      if (!ok) return notifyActionFailed();
+      await refresh();
+    } catch (e) {
+      notifyActionFailed(e);
+    }
+  };
+  const handleClear = async () => {
     try {
       const removed = await memoryClient.clear(agentIdRef.current);
       if (removed === 0) {
-        toast({ title: "Nothing to clear." });
+        toast({
+          title: "Nothing to clear.",
+        });
         return;
       }
       setMemories([]);
       setSearchResults([]);
-      setStatus((prev) => (prev ? { ...prev, total: 0, pendingEmbedding: 0 } : null));
+      setStatus((prev) =>
+        prev
+          ? {
+              ...prev,
+              total: 0,
+              pendingEmbedding: 0,
+            }
+          : null,
+      );
     } catch (e) {
       notifyActionFailed(e);
     }
-  }, [memoryClient, toast, notifyActionFailed]);
-
+  };
   return (
     <div className="w-full">
       {status && status.total > 0 && !hasEmbeddingConfigured && (
@@ -446,9 +436,7 @@ export function MemoryManagerPanel({
             {displayedMemories.map((memory) => (
               <li
                 key={memory.id}
-                className={`flex items-start justify-between gap-3 rounded-lg border border-border px-3 py-2 ${
-                  memory.status === "archived" ? "opacity-60" : ""
-                }`}
+                className={`flex items-start justify-between gap-3 rounded-lg border border-border px-3 py-2 ${memory.status === "archived" ? "opacity-60" : ""}`}
               >
                 <div className="min-w-0 flex-1">
                   <p className="break-words text-sm">{memory.content}</p>

@@ -1,9 +1,8 @@
-import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useEffectEvent, useRef, useState } from "react";
 import type { FloatingWidgetSnapshot } from "@argos/shared/types/floating-widget";
 import FloatingSessionItem from "./components/FloatingSessionItem";
 import logoSrc from "../src/assets/logo.png";
 import "./FloatingButton.css";
-
 interface DragState {
   isDragging: boolean;
   isMouseDown: boolean;
@@ -14,27 +13,27 @@ interface DragState {
   dragTimer: number | null;
   lastMoveTime: number;
 }
-
 interface FloatingButtonProps {
   theme: "dark" | "light";
 }
-
 const DRAG_DELAY = 180;
 const DRAG_THRESHOLD = 4;
 const CLOSE_MOTION_SETTLE_MS = 240;
-
 const INITIAL_SNAPSHOT: FloatingWidgetSnapshot = {
   expanded: false,
   activeCount: 0,
   sessions: [],
 };
-
+function cancelWindowTimer(timer: number | null) {
+  if (timer) {
+    clearTimeout(timer);
+  }
+}
 export default function FloatingButton({ theme }: FloatingButtonProps) {
   const [isDragging, setIsDragging] = useState(false);
-  const [isHovering, setIsHovering] = useState(false);
+  const isHoveringRef = useRef(false);
   const [isClosing, setIsClosing] = useState(false);
   const [snapshot, setSnapshot] = useState<FloatingWidgetSnapshot>(INITIAL_SNAPSHOT);
-
   const dragStateRef = useRef<DragState>({
     isDragging: false,
     isMouseDown: false,
@@ -45,199 +44,150 @@ export default function FloatingButton({ theme }: FloatingButtonProps) {
     dragTimer: null,
     lastMoveTime: 0,
   });
-
   const closingTimerRef = useRef<number | null>(null);
-
   const hasActiveTasks = snapshot.activeCount > 0;
   const activeCountDisplay = snapshot.activeCount > 99 ? "99+" : String(snapshot.activeCount);
   const sessionCountLabel = `${snapshot.sessions.length} sessions`;
-
-  const clearDragTimer = useCallback(() => {
+  const clearDragTimer = () => {
     const ds = dragStateRef.current;
     if (ds.dragTimer) {
       clearTimeout(ds.dragTimer);
       ds.dragTimer = null;
     }
-  }, []);
-
-  const clearClosingTimer = useCallback(() => {
+  };
+  const clearClosingTimer = () => {
     if (closingTimerRef.current) {
       clearTimeout(closingTimerRef.current);
       closingTimerRef.current = null;
     }
-  }, []);
-
-  const syncCloseMotionState = useCallback(
-    (nextExpanded: boolean) => {
-      if (nextExpanded) {
-        clearClosingTimer();
-        setIsClosing(false);
-        return;
-      }
-
-      if (!snapshot.expanded) {
-        return;
-      }
-
+  };
+  const syncCloseMotionState = (nextExpanded: boolean) => {
+    if (nextExpanded) {
       clearClosingTimer();
-      setIsClosing(true);
-      closingTimerRef.current = window.setTimeout(() => {
-        setIsClosing(false);
-        closingTimerRef.current = null;
-      }, CLOSE_MOTION_SETTLE_MS);
-    },
-    [snapshot.expanded, clearClosingTimer],
-  );
-
-  const handleSnapshotUpdate = useCallback(
-    (nextSnapshot: FloatingWidgetSnapshot) => {
-      syncCloseMotionState(nextSnapshot.expanded);
-      setSnapshot(nextSnapshot);
-    },
-    [syncCloseMotionState],
-  );
-
-  const setExpanded = useCallback(
-    (expanded: boolean) => {
-      syncCloseMotionState(expanded);
-      setSnapshot((prev) => ({ ...prev, expanded }));
-      window.floatingButtonAPI.setExpanded(expanded);
-    },
-    [syncCloseMotionState],
-  );
-
-  const toggleExpanded = useCallback(() => {
+      setIsClosing(false);
+      return;
+    }
+    if (!snapshot.expanded) {
+      return;
+    }
+    clearClosingTimer();
+    setIsClosing(true);
+    closingTimerRef.current = window.setTimeout(() => {
+      setIsClosing(false);
+      closingTimerRef.current = null;
+    }, CLOSE_MOTION_SETTLE_MS);
+  };
+  const handleSnapshotUpdate = (nextSnapshot: FloatingWidgetSnapshot) => {
+    syncCloseMotionState(nextSnapshot.expanded);
+    setSnapshot(nextSnapshot);
+  };
+  const setExpanded = (expanded: boolean) => {
+    syncCloseMotionState(expanded);
+    setSnapshot((prev) => ({
+      ...prev,
+      expanded,
+    }));
+    window.floatingButtonAPI.setExpanded(expanded);
+  };
+  const toggleExpanded = () => {
     setExpanded(!snapshot.expanded);
-  }, [setExpanded, snapshot.expanded]);
-
-  const setHovering = useCallback(
-    (hovering: boolean) => {
-      if (isHovering === hovering) return;
-      setIsHovering(hovering);
-      window.floatingButtonAPI.setHovering(hovering);
-    },
-    [isHovering],
-  );
-
-  const startDragging = useCallback(() => {
+  };
+  const setHovering = (hovering: boolean) => {
+    if (isHoveringRef.current === hovering) return;
+    isHoveringRef.current = hovering;
+    window.floatingButtonAPI.setHovering(hovering);
+  };
+  const startDragging = () => {
     const ds = dragStateRef.current;
     ds.isDragging = true;
     setIsDragging(true);
     window.floatingButtonAPI.onDragStart(ds.startScreenX, ds.startScreenY);
-  }, []);
-
-  const handleMouseMove = useCallback(
-    (event: MouseEvent) => {
-      const ds = dragStateRef.current;
-      if (!ds.isMouseDown) return;
-
-      const deltaX = Math.abs(event.clientX - ds.startX);
-      const deltaY = Math.abs(event.clientY - ds.startY);
-
-      if (!ds.isDragging && (deltaX > DRAG_THRESHOLD || deltaY > DRAG_THRESHOLD)) {
-        clearDragTimer();
-        startDragging();
-      }
-
-      if (ds.isDragging) {
-        const now = Date.now();
-        if (now - ds.lastMoveTime >= 16) {
-          ds.lastMoveTime = now;
-          window.floatingButtonAPI.onDragMove(event.screenX, event.screenY);
-        }
-      }
-    },
-    [clearDragTimer, startDragging],
-  );
-
-  const handleMouseUp = useCallback(
-    function handleMouseUp(event: MouseEvent) {
-      if (event.button !== 0) return;
-
-      const ds = dragStateRef.current;
-      const wasDragging = ds.isDragging;
+  };
+  const handleMouseMove = (event: MouseEvent) => {
+    const ds = dragStateRef.current;
+    if (!ds.isMouseDown) return;
+    const deltaX = Math.abs(event.clientX - ds.startX);
+    const deltaY = Math.abs(event.clientY - ds.startY);
+    if (!ds.isDragging && (deltaX > DRAG_THRESHOLD || deltaY > DRAG_THRESHOLD)) {
       clearDragTimer();
-      ds.isMouseDown = false;
-
-      if (wasDragging) {
-        ds.isDragging = false;
-        setIsDragging(false);
-        window.floatingButtonAPI.onDragEnd(event.screenX, event.screenY);
-      } else {
-        if (!snapshot.expanded) {
-          setExpanded(true);
-        }
+      startDragging();
+    }
+    if (ds.isDragging) {
+      const now = Date.now();
+      if (now - ds.lastMoveTime >= 16) {
+        ds.lastMoveTime = now;
+        window.floatingButtonAPI.onDragMove(event.screenX, event.screenY);
       }
-
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
-    },
-    [clearDragTimer, handleMouseMove, setExpanded, snapshot.expanded],
-  );
-
-  const handleMouseDown = useCallback(
-    (event: React.MouseEvent) => {
-      if (event.button !== 0) return;
-
-      const target = event.target as HTMLElement | null;
-      if (target?.closest("[data-no-drag]")) return;
-
-      event.preventDefault();
-
-      const ds = dragStateRef.current;
-      ds.isMouseDown = true;
-      ds.startX = event.clientX;
-      ds.startY = event.clientY;
-      ds.startScreenX = event.screenX;
-      ds.startScreenY = event.screenY;
-      ds.lastMoveTime = Date.now();
-
-      ds.dragTimer = window.setTimeout(() => {
-        if (ds.isMouseDown) {
-          startDragging();
-        }
-      }, DRAG_DELAY);
-
-      document.addEventListener("mousemove", handleMouseMove);
-      document.addEventListener("mouseup", handleMouseUp);
-    },
-    [startDragging, handleMouseMove, handleMouseUp],
-  );
-
-  const handleMouseEnter = useCallback(() => {
-    setHovering(true);
-  }, [setHovering]);
-
-  const handleMouseLeave = useCallback(() => {
-    if (dragStateRef.current.isDragging) return;
-    setHovering(false);
-  }, [setHovering]);
-
-  const handleRightClick = useCallback(
-    (event: React.MouseEvent) => {
-      event.preventDefault();
-      clearDragTimer();
-      const ds = dragStateRef.current;
-      ds.isMouseDown = false;
+    }
+  };
+  const handleMouseUp = function handleMouseUp(event: MouseEvent) {
+    if (event.button !== 0) return;
+    const ds = dragStateRef.current;
+    const wasDragging = ds.isDragging;
+    clearDragTimer();
+    ds.isMouseDown = false;
+    if (wasDragging) {
       ds.isDragging = false;
       setIsDragging(false);
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
-      window.floatingButtonAPI.onRightClick();
-    },
-    [clearDragTimer, handleMouseMove, handleMouseUp],
-  );
-
-  const handleOpenSession = useCallback((sessionId: string) => {
+      window.floatingButtonAPI.onDragEnd(event.screenX, event.screenY);
+    } else {
+      if (!snapshot.expanded) {
+        setExpanded(true);
+      }
+    }
+    document.removeEventListener("mousemove", handleMouseMove);
+    document.removeEventListener("mouseup", handleMouseUp);
+  };
+  const handleMouseDown = (event: React.MouseEvent) => {
+    if (event.button !== 0) return;
+    const target = event.target as HTMLElement | null;
+    if (target?.closest("[data-no-drag]")) return;
+    event.preventDefault();
+    const ds = dragStateRef.current;
+    ds.isMouseDown = true;
+    ds.startX = event.clientX;
+    ds.startY = event.clientY;
+    ds.startScreenX = event.screenX;
+    ds.startScreenY = event.screenY;
+    ds.lastMoveTime = Date.now();
+    ds.dragTimer = window.setTimeout(() => {
+      if (ds.isMouseDown) {
+        startDragging();
+      }
+    }, DRAG_DELAY);
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+  };
+  const handleMouseEnter = () => {
+    setHovering(true);
+  };
+  const handleMouseLeave = () => {
+    if (dragStateRef.current.isDragging) return;
+    setHovering(false);
+  };
+  const handleRightClick = (event: React.MouseEvent) => {
+    event.preventDefault();
+    clearDragTimer();
+    const ds = dragStateRef.current;
+    ds.isMouseDown = false;
+    ds.isDragging = false;
+    setIsDragging(false);
+    document.removeEventListener("mousemove", handleMouseMove);
+    document.removeEventListener("mouseup", handleMouseUp);
+    window.floatingButtonAPI.onRightClick();
+  };
+  const handleOpenSession = (sessionId: string) => {
     window.floatingButtonAPI.openSession(sessionId);
-  }, []);
-
-  const handleWindowBlur = useCallback(() => {
+  };
+  const handleWindowBlur = () => {
     if (snapshot.expanded) {
       setExpanded(false);
     }
-  }, [setExpanded, snapshot.expanded]);
-
+  };
+  // Effect Events keep the listeners subscribed for the window lifetime while
+  // still seeing the latest snapshot and hover state.
+  const onSnapshotUpdateEvent = useEffectEvent(handleSnapshotUpdate);
+  const onWindowBlur = useEffectEvent(handleWindowBlur);
   useEffect(() => {
     window.floatingButtonAPI
       .getSnapshot()
@@ -245,29 +195,20 @@ export default function FloatingButton({ theme }: FloatingButtonProps) {
       .catch((error) => {
         console.warn("Failed to initialize floating widget snapshot:", error);
       });
-
-    window.floatingButtonAPI.onSnapshotUpdate(handleSnapshotUpdate);
-    window.addEventListener("blur", handleWindowBlur);
-
+    window.floatingButtonAPI.onSnapshotUpdate(onSnapshotUpdateEvent);
+    window.addEventListener("blur", onWindowBlur);
     return () => {
-      clearDragTimer();
-      clearClosingTimer();
-      setHovering(false);
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
-      window.removeEventListener("blur", handleWindowBlur);
+      // Ref/setter-only teardown (mirrors clearDragTimer/clearClosingTimer).
+      cancelWindowTimer(dragStateRef.current.dragTimer);
+      dragStateRef.current.dragTimer = null;
+      cancelWindowTimer(closingTimerRef.current);
+      closingTimerRef.current = null;
+      isHoveringRef.current = false;
+      window.floatingButtonAPI.setHovering(false);
+      window.removeEventListener("blur", onWindowBlur);
       window.floatingButtonAPI.removeAllListeners();
     };
-  }, [
-    handleSnapshotUpdate,
-    handleWindowBlur,
-    clearDragTimer,
-    clearClosingTimer,
-    setHovering,
-    handleMouseMove,
-    handleMouseUp,
-  ]);
-
+  }, []);
   const collapsedClass = snapshot.expanded ? "collapsed-layer-hidden pointer-events-none" : "pointer-events-auto";
   const collapsedDragClass = isDragging ? "floating-shell-dragging" : "";
   const expandedClass = snapshot.expanded
@@ -275,7 +216,6 @@ export default function FloatingButton({ theme }: FloatingButtonProps) {
     : "floating-shell-expanded-hidden pointer-events-none";
   const expandedDragClass = isDragging ? "floating-shell-dragging" : "";
   const cursorClass = snapshot.expanded ? (isDragging ? "cursor-grabbing" : "cursor-grab") : "cursor-pointer";
-
   return (
     <div
       className={`widget-stage h-screen w-screen overflow-hidden bg-transparent ${theme === "dark" ? "dark" : ""}`}
@@ -369,7 +309,11 @@ export default function FloatingButton({ theme }: FloatingButtonProps) {
                     <div
                       key={session.id}
                       className="session-row"
-                      style={{ "--session-index": Math.min(index, 6) } as CSSProperties}
+                      style={
+                        {
+                          "--session-index": Math.min(index, 6),
+                        } as CSSProperties
+                      }
                     >
                       <FloatingSessionItem session={session} theme={theme} onSelect={handleOpenSession} />
                     </div>

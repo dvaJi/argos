@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, type FocusEvent } from "react";
+import { useState, useEffect, useRef, type FocusEvent } from "react";
 import { Label } from "#shadcn/components/ui/label";
 import { Input } from "#shadcn/components/ui/input";
 import { Button } from "#shadcn/components/ui/button";
@@ -7,19 +7,15 @@ import { createOAuthClient } from "#api/OAuthClient";
 import { useProviderStore } from "#/stores/providerStore";
 import type { LLM_PROVIDER } from "@argos/shared/presenter";
 import { useModelCheckStore } from "#/stores/modelCheck";
-
 const oauthClient = createOAuthClient();
-
 interface GitHubCopilotOAuthProps {
   provider: LLM_PROVIDER;
   onAuthSuccess?: () => void;
   onAuthError?: (error: string) => void;
 }
-
 export default function GitHubCopilotOAuth({ provider, onAuthSuccess, onAuthError }: GitHubCopilotOAuthProps) {
   const providerStore = useProviderStore();
   const modelCheckStore = useModelCheckStore();
-
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [validationResult, setValidationResult] = useState<{
     success: boolean;
@@ -34,9 +30,7 @@ export default function GitHubCopilotOAuth({ provider, onAuthSuccess, onAuthErro
     setCopilotClientId(provider.copilotClientId || "");
   }
   const clearTimerRef = useRef<number | null>(null);
-
-  const hasToken = useMemo(() => !!(provider.apiKey && provider.apiKey.trim()), [provider.apiKey]);
-
+  const hasToken = !!(provider.apiKey && provider.apiKey.trim());
   useEffect(() => {
     return () => {
       if (clearTimerRef.current) {
@@ -44,7 +38,6 @@ export default function GitHubCopilotOAuth({ provider, onAuthSuccess, onAuthErro
       }
     };
   }, []);
-
   useEffect(() => {
     if (validationResult) {
       if (clearTimerRef.current) {
@@ -55,80 +48,95 @@ export default function GitHubCopilotOAuth({ provider, onAuthSuccess, onAuthErro
       }, 5000);
     }
   }, [validationResult]);
-
   const saveClientId = async (value: string) => {
     const next = value.trim();
     setCopilotClientId(next);
     try {
-      await providerStore.updateProviderConfig(provider.id, { copilotClientId: next });
+      await providerStore.updateProviderConfig(provider.id, {
+        copilotClientId: next,
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Login failed";
-      setValidationResult({ success: false, message });
+      setValidationResult({
+        success: false,
+        message,
+      });
     }
   };
-
   const handleClientIdBlur = (event: FocusEvent<HTMLInputElement>) => {
     const target = event.target as HTMLInputElement | null;
     if (!target) return;
     void saveClientId(target.value);
   };
-
   const startDeviceFlowLogin = async () => {
     setIsLoggingIn(true);
     setValidationResult(null);
-
     try {
       const success = await oauthClient.startGitHubCopilotDeviceFlowLogin(provider.id);
-
       if (success) {
         onAuthSuccess?.();
-        setValidationResult({ success: true, message: "Login successful" });
+        setValidationResult({
+          success: true,
+          message: "Login successful",
+        });
       } else {
         onAuthError?.("Login failed");
-        setValidationResult({ success: false, message: "Login failed" });
+        setValidationResult({
+          success: false,
+          message: "Login failed",
+        });
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Login failed";
       onAuthError?.(message);
-      setValidationResult({ success: false, message });
+      setValidationResult({
+        success: false,
+        message,
+      });
     }
     setIsLoggingIn(false);
   };
-
   const startOAuthLogin = async () => {
     setIsLoggingIn(true);
     setValidationResult(null);
-
     try {
       const success = await oauthClient.startGitHubCopilotLogin(provider.id);
-
       if (success) {
         onAuthSuccess?.();
-        setValidationResult({ success: true, message: "Login successful" });
+        setValidationResult({
+          success: true,
+          message: "Login successful",
+        });
       } else {
         onAuthError?.("Login failed");
-        setValidationResult({ success: false, message: "Login failed" });
+        setValidationResult({
+          success: false,
+          message: "Login failed",
+        });
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Login failed";
       onAuthError?.(message);
-      setValidationResult({ success: false, message });
+      setValidationResult({
+        success: false,
+        message,
+      });
     }
     setIsLoggingIn(false);
   };
-
   const openModelCheckDialog = () => {
     if (!provider.enable) {
       return;
     }
-
     modelCheckStore.openDialog(provider.id);
   };
-
   const disconnect = async () => {
     try {
       await providerStore.updateProviderApi(provider.id, "", undefined);
-      setValidationResult({ success: true, message: "Disconnected" });
+      setValidationResult({
+        success: true,
+        message: "Disconnected",
+      });
     } catch (error) {
       setValidationResult({
         success: false,
@@ -136,7 +144,6 @@ export default function GitHubCopilotOAuth({ provider, onAuthSuccess, onAuthErro
       });
     }
   };
-
   return (
     <div className="flex flex-col items-start gap-2">
       <Label className="flex-1">GitHub Copilot Authentication</Label>
@@ -217,22 +224,14 @@ export default function GitHubCopilotOAuth({ provider, onAuthSuccess, onAuthErro
       {validationResult && (
         <div className="w-full">
           <div
-            className={`flex items-center gap-2 p-2 rounded-lg border ${
-              validationResult.success
-                ? "bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800"
-                : "bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800"
-            }`}
+            className={`flex items-center gap-2 p-2 rounded-lg border ${validationResult.success ? "bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800" : "bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800"}`}
           >
             <Icon
               icon={validationResult.success ? "lucide:check-circle" : "lucide:x-circle"}
-              className={`w-4 h-4 ${
-                validationResult.success ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
-              }`}
+              className={`w-4 h-4 ${validationResult.success ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
             />
             <span
-              className={`text-sm ${
-                validationResult.success ? "text-green-700 dark:text-green-300" : "text-red-700 dark:text-red-300"
-              }`}
+              className={`text-sm ${validationResult.success ? "text-green-700 dark:text-green-300" : "text-red-700 dark:text-red-300"}`}
             >
               {validationResult.message}
             </span>

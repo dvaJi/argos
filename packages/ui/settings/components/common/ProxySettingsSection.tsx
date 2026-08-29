@@ -1,43 +1,43 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { Input } from "#shadcn/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#shadcn/components/ui/select";
 import { createConfigClient } from "#api/ConfigClient";
 import { languageStore } from "#/stores/language";
-
 const configClient = createConfigClient();
-
 const PROXY_MODES = [
-  { value: "system", label: "System proxy" },
-  { value: "none", label: "No proxy" },
-  { value: "custom", label: "Custom proxy" },
+  {
+    value: "system",
+    label: "System proxy",
+  },
+  {
+    value: "none",
+    label: "No proxy",
+  },
+  {
+    value: "custom",
+    label: "Custom proxy",
+  },
 ];
-
 const URL_PATTERN =
   /^(http|https):\/\/(?:([^:#/]+)(?::([^#/]*))?@)?([a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(:[0-9]+)?(\/[^\s]*)?$/;
-
 export default function ProxySettingsSection() {
   const [selectedProxyMode, setSelectedProxyMode] = useState("system");
   const [customProxyUrl, setCustomProxyUrl] = useState("");
   const [showUrlError, setShowUrlError] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const validateProxyUrl = useCallback(
-    (url?: string | null) => {
-      const value = (url ?? customProxyUrl) || "";
-      if (!value.trim()) {
-        setShowUrlError(false);
-        return;
-      }
-      const isValid = URL_PATTERN.test(value);
-      setShowUrlError(!isValid);
-      if (isValid || !value.trim()) {
-        configClient.setCustomProxyUrl(value);
-      }
-    },
-    [customProxyUrl],
-  );
-
+  const validateProxyUrl = (url?: string | null) => {
+    const value = (url ?? customProxyUrl) || "";
+    if (!value.trim()) {
+      setShowUrlError(false);
+      return;
+    }
+    const isValid = URL_PATTERN.test(value);
+    setShowUrlError(!isValid);
+    if (isValid || !value.trim()) {
+      configClient.setCustomProxyUrl(value);
+    }
+  };
   useEffect(() => {
     if (debounceRef.current !== null) {
       clearTimeout(debounceRef.current);
@@ -51,16 +51,13 @@ export default function ProxySettingsSection() {
       }
     };
   }, [validateProxyUrl]);
-
   useEffect(() => {
     configClient.setProxyMode(selectedProxyMode);
   }, [selectedProxyMode]);
-
   const validateProxyUrlRef = useRef(validateProxyUrl);
   useEffect(() => {
     validateProxyUrlRef.current = validateProxyUrl;
   }, [validateProxyUrl]);
-
   useEffect(() => {
     let cancelled = false;
     const init = async () => {
@@ -77,7 +74,6 @@ export default function ProxySettingsSection() {
       cancelled = true;
     };
   }, []);
-
   return (
     <section className="flex flex-col gap-2">
       <div className="flex items-center gap-3 h-10">

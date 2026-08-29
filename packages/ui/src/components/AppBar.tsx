@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createDeviceClient } from "#api/DeviceClient";
 import { createWindowClient } from "#api/WindowClient";
 import { Button } from "#shadcn/components/ui/button";
@@ -9,42 +9,30 @@ import RestoreIcon from "./icons/RestoreIcon";
 import CloseIcon from "./icons/CloseIcon";
 import MinimizeIcon from "./icons/MinimizeIcon";
 import { isBrowserMode } from "#api/runtimeKind";
-
 const windowClient = createWindowClient();
 const deviceClient = createDeviceClient();
-
 export default function AppBar() {
   const langStore = useLanguageStore();
   const upgrade = useUpgradeStore();
-
   const [isMacOS, setIsMacOS] = useState<boolean | null>(null);
   const [isWindows, setIsWindows] = useState<boolean | null>(null);
   const [isMaximized, setIsMaximized] = useState(false);
   const [isFullscreened, setIsFullscreened] = useState(false);
-
   const routeName = window.location.pathname;
   const isBrowser = isBrowserMode();
-
-  const showUpdateButton = useMemo(
-    () => !isBrowser || (routeName !== "/welcome" && upgrade.shouldShowTopbarInstallButton),
-    [isBrowser, routeName, upgrade.shouldShowTopbarInstallButton],
-  );
-
-  const minimizeWindow = useCallback(() => {
+  const showUpdateButton = !isBrowser || (routeName !== "/welcome" && upgrade.shouldShowTopbarInstallButton);
+  const minimizeWindow = () => {
     void windowClient.minimizeCurrent();
-  }, []);
-
-  const toggleMaximize = useCallback(() => {
+  };
+  const toggleMaximize = () => {
     void windowClient.toggleMaximizeCurrent();
-  }, []);
-
-  const closeWindow = useCallback(() => {
+  };
+  const closeWindow = () => {
     void windowClient.closeCurrent();
-  }, []);
-
-  const handleInstallUpdate = useCallback(async () => {
+  };
+  const handleInstallUpdate = async () => {
     await upgrade.handleUpdate("auto");
-  }, [upgrade]);
+  };
 
   // Latest-value ref keeps the mount-only lifecycle effect below honest without
   // re-running it (and re-subscribing window listeners) on every store update.
@@ -52,29 +40,24 @@ export default function AppBar() {
   useEffect(() => {
     upgradeRef.current = upgrade;
   }, [upgrade]);
-
   useEffect(() => {
     void upgradeRef.current.refreshStatus();
     deviceClient.getDeviceInfo().then((deviceInfo) => {
       setIsMacOS(deviceInfo.platform === "darwin");
       setIsWindows(deviceInfo.platform === "win32");
     });
-
     void windowClient.getCurrentState().then((state) => {
       setIsMaximized(state.isMaximized);
       setIsFullscreened(state.isFullScreen);
     });
-
     const stop = windowClient.onCurrentStateChanged((payload) => {
       setIsMaximized(payload.isMaximized);
       setIsFullscreened(payload.isFullScreen);
     });
-
     return () => {
       stop?.();
     };
   }, []);
-
   const roundedClass = !isFullscreened && isMacOS ? "" : " rounded-t-none";
 
   // Windows uses the native window controls overlay (caption buttons drawn by the OS over
@@ -82,7 +65,6 @@ export default function AppBar() {
   // Gate on platform detection completing (null = still loading) so native Windows/macOS
   // renders don't flash custom controls before getDeviceInfo() resolves.
   const showCustomWindowButtons = isMacOS === false && isWindows === false;
-
   return (
     <div className={`flex flex-row h-9 min-h-9 relative overflow-hidden bg-sidebar${roundedClass}`} dir={langStore.dir}>
       <div className="h-full shrink-0 w-0 flex-1 flex select-none text-center text-sm font-medium flex-row items-center justify-start window-drag-region">

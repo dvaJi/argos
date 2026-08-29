@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "#shadcn/components/ui/dialog";
@@ -12,16 +12,12 @@ import type { ArgosEventPayload } from "@argos/shared-contracts/events";
 import type { knowledgeFileUpdatedEvent } from "@argos/shared-contracts/events";
 import KnowledgeFileItem from "./KnowledgeFileItem";
 import type { BuiltinKnowledgeConfig, KnowledgeFileMessage } from "@argos/shared/presenter";
-
 const knowledgeClient = createKnowledgeClient();
-
 const defaultSupported = ["txt", "md", "markdown", "docx", "pptx", "pdf"];
-
 interface KnowledgeFileProps {
   builtinKnowledgeDetail: BuiltinKnowledgeConfig;
   onHideKnowledgeFile: () => void;
 }
-
 export default function KnowledgeFile({ builtinKnowledgeDetail, onHideKnowledgeFile }: KnowledgeFileProps) {
   const [fileList, setFileList] = useState<KnowledgeFileMessage[]>([]);
   const [acceptExts, setAcceptExts] = useState<string[]>([]);
@@ -31,30 +27,32 @@ export default function KnowledgeFile({ builtinKnowledgeDetail, onHideKnowledgeF
   const [searchResult, setSearchResult] = useState<any[]>([]);
   const [copyId, setCopyId] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const ctrlBtn = useMemo(() => {
+  // Liveness flag flipped by the load effect; post-await state writes are skipped
+  // once the effect is torn down so unmounted loads never write state.
+  const loadLiveRef = useRef(false);
+  const ctrlBtn = (() => {
     if (fileList.length > 0) {
       if (fileList.find((f) => f.status === "processing")) return "processing";
       if (fileList.find((f) => f.status === "paused")) return "paused";
     }
     return null;
-  }, [fileList]);
-
-  const loadList = useCallback(async () => {
+  })();
+  const loadList = async () => {
     const list = (await knowledgeClient.listFiles(builtinKnowledgeDetail.id)) || [];
+    if (!loadLiveRef.current) return;
     setFileList(list);
-  }, [builtinKnowledgeDetail.id]);
-
-  const loadSupportedExtensions = useCallback(async () => {
+  };
+  const loadSupportedExtensions = async () => {
     try {
       const extensions = await knowledgeClient.getSupportedFileExtensions();
+      if (!loadLiveRef.current) return;
       const uniqueExts = extensions.filter((ext: string) => !defaultSupported.includes(ext));
       setAcceptExts([...defaultSupported, ...uniqueExts]);
     } catch {
+      if (!loadLiveRef.current) return;
       setAcceptExts([...defaultSupported]);
     }
-  }, []);
-
+  };
   const toggleStatus = async (run: boolean) => {
     if (run) {
       await knowledgeClient.resumeAllPausedTasks(builtinKnowledgeDetail.id);
@@ -63,7 +61,6 @@ export default function KnowledgeFile({ builtinKnowledgeDetail, onHideKnowledgeF
     }
     loadList();
   };
-
   const handleFileUpload = async (files: File[]) => {
     for (const file of files) {
       try {
@@ -105,29 +102,37 @@ export default function KnowledgeFile({ builtinKnowledgeDetail, onHideKnowledgeF
       }
     }
   };
-
   const handleChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (files && files.length > 0) {
       await handleFileUpload(Array.from(files));
     }
   };
-
   const handleDrop = async (e: React.DragEvent) => {
     if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
       await handleFileUpload(Array.from(e.dataTransfer.files));
     }
   };
-
   const deleteFile = async (fileId: string) => {
     await knowledgeClient.deleteFile(builtinKnowledgeDetail.id, fileId);
-    toast({ title: "Deleted successfully", duration: 3000 });
+    toast({
+      title: "Deleted successfully",
+      duration: 3000,
+    });
     loadList();
   };
-
   const reAddFile = async (file: KnowledgeFileMessage) => {
     const result = await knowledgeClient.reAddFile(builtinKnowledgeDetail.id, file.id);
-    setFileList((prev) => prev.map((f) => (f.id === file.id ? { ...f, status: "processing" } : f)));
+    setFileList((prev) =>
+      prev.map((f) =>
+        f.id === file.id
+          ? {
+              ...f,
+              status: "processing",
+            }
+          : f,
+      ),
+    );
     if (result.error) {
       toast({
         title: `${file.name} upload error`,
@@ -137,7 +142,6 @@ export default function KnowledgeFile({ builtinKnowledgeDetail, onHideKnowledgeF
       });
     }
   };
-
   const handleSearch = async () => {
     if (!searchKey) return;
     setCopyId("");
@@ -146,17 +150,19 @@ export default function KnowledgeFile({ builtinKnowledgeDetail, onHideKnowledgeF
       const res = await knowledgeClient.similarityQuery(builtinKnowledgeDetail.id, searchKey);
       setSearchResult(res || []);
     } catch {
-      toast({ title: "Search failed", variant: "destructive", duration: 3000 });
+      toast({
+        title: "Search failed",
+        variant: "destructive",
+        duration: 3000,
+      });
       setSearchResult([]);
     }
     setLoading(false);
   };
-
   const handleCopy = (content: string, id: string) => {
     setCopyId(id);
     copyRuntimeText(content);
   };
-
   const openSearchDialog = () => {
     setIsSearchDialogOpen(true);
     setSearchKey("");
@@ -164,8 +170,8 @@ export default function KnowledgeFile({ builtinKnowledgeDetail, onHideKnowledgeF
     setCopyId("");
     setLoading(false);
   };
-
   useEffect(() => {
+    loadLiveRef.current = true;
     void Promise.resolve().then(() => {
       void loadList();
       void loadSupportedExtensions();
@@ -175,14 +181,23 @@ export default function KnowledgeFile({ builtinKnowledgeDetail, onHideKnowledgeF
       (payload: ArgosEventPayload<typeof knowledgeFileUpdatedEvent.name>) => {
         const data = payload?.file;
         if (!data) return;
-        setFileList((prev) => prev.map((f) => (f.id === data.id ? { ...f, ...data } : f)));
+        setFileList((prev) =>
+          prev.map((f) =>
+            f.id === data.id
+              ? {
+                  ...f,
+                  ...data,
+                }
+              : f,
+          ),
+        );
       },
     );
     return () => {
+      loadLiveRef.current = false;
       unsubscribe?.();
     };
   }, [loadList, loadSupportedExtensions]);
-
   return (
     <div className="w-full h-full flex flex-col gap-1.5 p-2">
       <div className="flex flex-row justify-between items-center gap-2">

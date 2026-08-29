@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useStore } from "@tanstack/react-store";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
@@ -46,7 +46,6 @@ import { cancelChatInputHeroFlight, prepareChatInputHeroFlight } from "#/lib/cha
 import { useRuntimeConnectionState } from "#/composables/useRuntimeConnectionState";
 import { useWorkspaceStore } from "#/stores/ui/workspace";
 import type { ArgosAgentConfig, MessageFile } from "@argos/shared/types/agent-interface";
-
 const configClient = createConfigClient();
 const fileClient = createFileClient();
 const sessionClient = createSessionClient();
@@ -67,7 +66,13 @@ async function createSubmissionWorktree(input: {
 
 /** Best-effort cleanup of a worktree created for a submission that failed. */
 async function abandonSubmissionWorktree(input: { workspacePath: string; worktreePath: string }): Promise<void> {
-  await workspaceClient.gitRemoveWorktree({ ...input, force: true, deleteBranch: true }).catch(() => {});
+  await workspaceClient
+    .gitRemoveWorktree({
+      ...input,
+      force: true,
+      deleteBranch: true,
+    })
+    .catch(() => {});
 }
 
 /** Ensures an ACP draft session bound to the worktree directory (compiler-safe throw). */
@@ -100,7 +105,6 @@ const normalizeProjectPath = (value: string | null | undefined) => {
   const n = value?.trim();
   return n || null;
 };
-
 function NewThreadPage() {
   const { toast } = useToast();
   const projectState = useStore(projectStore);
@@ -111,11 +115,9 @@ function NewThreadPage() {
   const connectionState = useRuntimeConnectionState();
   const activeMachine = useWorkspaceStore().activeWorkspace;
   const isDaemonConnected = connectionState.connected;
-
   const switchAgentGuide = useGuidedOnboardingStep("switch-agent");
   const switchModelGuide = useGuidedOnboardingStep("switch-model");
   const firstChatGuide = useGuidedOnboardingStep("first-chat");
-
   const [message, setMessage] = useState("");
   const [attachedFiles, setAttachedFiles] = useState<MessageFile[]>([]);
   const pendingSkillsRef = useRef<string[]>([]);
@@ -124,7 +126,11 @@ function NewThreadPage() {
     agent: HTMLDivElement | null;
     model: HTMLDivElement | null;
     firstChat: HTMLDivElement | null;
-  }>({ agent: null, model: null, firstChat: null });
+  }>({
+    agent: null,
+    model: null,
+    firstChat: null,
+  });
   const firstChatGuideHostRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<ThreadComposerHandle | null>(null);
   const [acpDraftSessionId, setAcpDraftSessionId] = useState<string | null>(null);
@@ -132,6 +138,10 @@ function NewThreadPage() {
   const lastAcpDraftKeyRef = useRef<string | null>(null);
   const acpDraftRequestSeqRef = useRef(0);
   const [isCompletingSwitchAgentGuide, setIsCompletingSwitchAgentGuide] = useState(false);
+  // Liveness flag flipped by the auto-complete effect; post-await state writes
+  // are skipped once the effect is torn down so unmounted completions never
+  // write state.
+  const switchAgentStepLiveRef = useRef(false);
   const [folderPickerOpen, setFolderPickerOpen] = useState(false);
   const [worktreeDraft, setWorktreeDraft] = useState<WorktreeDraftConfig>(emptyWorktreeDraft);
   const [isCreatingWorktree, setIsCreatingWorktree] = useState(false);
@@ -141,7 +151,6 @@ function NewThreadPage() {
   const [selectedProjectDirectoryStatus, setSelectedProjectDirectoryStatus] = useState<
     "none" | "checking" | "valid" | "invalid"
   >("none");
-
   const prevAgentIdRef = useRef<string | null>(agentState.selectedAgentId);
   useEffect(() => {
     const nextId = agentState.selectedAgentId;
@@ -151,71 +160,52 @@ function NewThreadPage() {
       prevAgentIdRef.current = nextId;
     }
   }, [agentState.selectedAgentId]);
-
-  const availableAgents = useMemo(
-    () => (Array.isArray(agentState.agents) ? agentState.agents : []),
-    [agentState.agents],
-  );
-  const enabledAgents = useMemo(() => availableAgents.filter((a) => a.enabled), [availableAgents]);
+  const availableAgents = Array.isArray(agentState.agents) ? agentState.agents : [];
+  const enabledAgents = availableAgents.filter((a) => a.enabled);
   const noAgentsEnabled = enabledAgents.length === 0;
   const isWelcomeState = agentState.selectedAgentId === null;
-
   const selectedAgentFromStore = getSelectedAgent();
-  const resolveAgentType = useCallback(
-    (agentId: string | null | undefined): "argos" | "acp" => {
-      const sel = selectedAgentFromStore?.id === agentId ? selectedAgentFromStore : null;
-      const explicitType = inferAgentType(agentId, availableAgents) ?? (sel ? (sel.agentType ?? sel.type) : null);
-      if (explicitType === "argos" || explicitType === "acp") return explicitType;
-      return "argos";
-    },
-    [availableAgents, selectedAgentFromStore],
-  );
+  const resolveAgentType = (agentId: string | null | undefined): "argos" | "acp" => {
+    const sel = selectedAgentFromStore?.id === agentId ? selectedAgentFromStore : null;
+    const explicitType = inferAgentType(agentId, availableAgents) ?? (sel ? (sel.agentType ?? sel.type) : null);
+    if (explicitType === "argos" || explicitType === "acp") return explicitType;
+    return "argos";
+  };
 
   // Same priority as `AgentSwitcher`: explicit selection → active session's
   // agent → first enabled Argos agent. Drives the welcome lane and is the
   // submission target when the user sends without picking an agent.
-  const activeSessionAgentId = useMemo(
-    () => sessionState.sessions.find((s) => s.id === sessionState.activeSessionId)?.agentId ?? null,
-    [sessionState.sessions, sessionState.activeSessionId],
-  );
-  const effectiveAgent = useMemo(
-    () =>
-      resolveEffectiveAgent({
-        agents: agentState.agents,
-        selectedAgentId: agentState.selectedAgentId,
-        activeSessionAgentId,
-      }),
-    [agentState.agents, agentState.selectedAgentId, activeSessionAgentId],
-  );
-
-  const selectedAgent = useMemo(() => {
+  const activeSessionAgentId =
+    sessionState.sessions.find((s) => s.id === sessionState.activeSessionId)?.agentId ?? null;
+  const effectiveAgent = resolveEffectiveAgent({
+    agents: agentState.agents,
+    selectedAgentId: agentState.selectedAgentId,
+    activeSessionAgentId,
+  });
+  const selectedAgent = (() => {
     const id = agentState.selectedAgentId ?? effectiveAgent?.agent.id ?? "argos";
     const matched = availableAgents.find((a) => a.id === id);
     if (matched) return matched;
     if (selectedAgentFromStore?.id === id) return selectedAgentFromStore;
-    return { id, type: resolveAgentType(id) };
-  }, [agentState.selectedAgentId, availableAgents, selectedAgentFromStore, effectiveAgent, resolveAgentType]);
-
+    return {
+      id,
+      type: resolveAgentType(id),
+    };
+  })();
   const isAcpSelectedAgent = selectedAgent.type === "acp";
-
   const hasExplicitNoProjectSelection =
     projectState.selectionSource === "manual" && !projectState.selectedProjectPath?.trim();
-
   const selectedProjectPath = normalizeProjectPath(projectState.selectedProjectPath);
-
-  const selectedProjectName = useMemo(() => {
+  const selectedProjectName = (() => {
     const selProj = projectState.projects.find((p) => p.path === projectState.selectedProjectPath);
     if (selProj?.name) return selProj.name;
     return hasExplicitNoProjectSelection ? "No Project" : "Select Project";
-  }, [projectState.projects, projectState.selectedProjectPath, hasExplicitNoProjectSelection]);
-
+  })();
   const canClearProjectSelection = Boolean(projectState.selectedProjectPath?.trim());
-
   const selectedProjectDirectoryInvalid = selectedProjectDirectoryStatus === "invalid";
   const selectedProjectUnavailableTooltip = selectedProjectPath
     ? `Workspace path unavailable: ${selectedProjectPath}`
     : "";
-
   const isSelectedInvalidProjectPath = (projectPath: string | null | undefined): boolean =>
     selectedProjectDirectoryInvalid && normalizeProjectPath(projectPath) === selectedProjectPath;
 
@@ -226,17 +216,21 @@ function NewThreadPage() {
   useEffect(() => {
     if (prevWorktreeProjectRef.current !== selectedProjectPath) {
       prevWorktreeProjectRef.current = selectedProjectPath;
-      setWorktreeDraft((prev) => (prev.enabled || prev.baseBranch ? { ...emptyWorktreeDraft } : prev));
+      setWorktreeDraft((prev) =>
+        prev.enabled || prev.baseBranch
+          ? {
+              ...emptyWorktreeDraft,
+            }
+          : prev,
+      );
     }
   }, [selectedProjectPath]);
-
   const isAcpWorkdirMissing = isAcpSelectedAgent && !selectedProjectPath;
   const isAcpWorkdirInvalid = isAcpSelectedAgent && Boolean(selectedProjectPath) && selectedProjectDirectoryInvalid;
   const isAcpWorkdirChecking =
     isAcpSelectedAgent && Boolean(selectedProjectPath) && selectedProjectDirectoryStatus === "checking";
   const isAcpWorkdirUnavailable = isAcpWorkdirMissing || isAcpWorkdirInvalid || isAcpWorkdirChecking;
-
-  const syncGuideTargets = useCallback((_context?: string) => {
+  const syncGuideTargets = (_context?: string) => {
     if (typeof document === "undefined") return;
     const agent =
       (document.querySelector(
@@ -249,10 +243,13 @@ function NewThreadPage() {
     const firstChat =
       (firstChatGuideHostRef.current?.querySelector('[data-testid="chat-input-box"]') as HTMLDivElement | null) ??
       firstChatGuideHostRef.current;
-    setGuideTargets({ agent, model, firstChat });
-  }, []);
-
-  const ensureEnabledModelsReady = useCallback(async (): Promise<boolean> => {
+    setGuideTargets({
+      agent,
+      model,
+      firstChat,
+    });
+  };
+  const ensureEnabledModelsReady = async (): Promise<boolean> => {
     if (modelState.initialized) return true;
     try {
       await initialize();
@@ -261,9 +258,8 @@ function NewThreadPage() {
       console.warn("[NewThreadPage] Failed to initialize enabled models:", error);
       return false;
     }
-  }, [modelState.initialized]);
-
-  const resolveModel = useCallback(async (): Promise<ChatModelSelectionRef | null> => {
+  };
+  const resolveModel = async (): Promise<ChatModelSelectionRef | null> => {
     const ready = await ensureEnabledModelsReady();
     if (!ready) return null;
     const [preferredModel, defaultModel] = await Promise.all([
@@ -274,196 +270,188 @@ function NewThreadPage() {
       modelGroups: getChatSelectableModelGroups(),
       selections: [
         draftState.providerId && draftState.modelId
-          ? { providerId: draftState.providerId, modelId: draftState.modelId }
+          ? {
+              providerId: draftState.providerId,
+              modelId: draftState.modelId,
+            }
           : null,
         preferredModel,
         defaultModel,
       ],
     });
-    if (resolvedModel) return { providerId: resolvedModel.providerId, modelId: resolvedModel.model.id };
+    if (resolvedModel)
+      return {
+        providerId: resolvedModel.providerId,
+        modelId: resolvedModel.model.id,
+      };
     return null;
-  }, [ensureEnabledModelsReady, draftState]);
-
-  const resolveSubmissionModelSelection = useCallback(async (): Promise<ChatModelSelectionRef | null> => {
+  };
+  const resolveSubmissionModelSelection = async (): Promise<ChatModelSelectionRef | null> => {
     if (isAcpSelectedAgent) {
       if (acpDraftModelSelection) return acpDraftModelSelection;
       const agentId = selectedAgent.id?.trim();
-      return agentId ? { providerId: "acp", modelId: agentId } : null;
+      return agentId
+        ? {
+            providerId: "acp",
+            modelId: agentId,
+          }
+        : null;
     }
     return await resolveModel();
-  }, [isAcpSelectedAgent, acpDraftModelSelection, selectedAgent.id, resolveModel]);
-
+  };
   const { prepareFiles, handleFilesChange } = useModelAwareAttachments(resolveSubmissionModelSelection);
+  const shouldIgnoreManualCompactionDraft = (text: string): boolean => {
+    return !isAcpSelectedAgent && isManualCompactionCommand(text);
+  };
+  const submitText = async (text: string, files: MessageFile[]) => {
+    if (!text.trim()) return;
+    if (isAcpWorkdirUnavailable || !isDaemonConnected) return;
+    const chatInputBoxEl = firstChatGuideHostRef.current?.querySelector(
+      '[data-testid="chat-input-box"]',
+    ) as HTMLElement | null;
+    const preparedHeroFlight = prepareChatInputHeroFlight(chatInputBoxEl);
+    const agentId = agentState.selectedAgentId ?? effectiveAgent?.agent.id ?? "argos";
+    const isAcp = isAcpSelectedAgent;
 
-  const shouldIgnoreManualCompactionDraft = useCallback(
-    (text: string): boolean => {
-      return !isAcpSelectedAgent && isManualCompactionCommand(text);
-    },
-    [isAcpSelectedAgent],
-  );
-
-  const submitText = useCallback(
-    async (text: string, files: MessageFile[]) => {
-      if (!text.trim()) return;
-      if (isAcpWorkdirUnavailable || !isDaemonConnected) return;
-
-      const chatInputBoxEl = firstChatGuideHostRef.current?.querySelector(
-        '[data-testid="chat-input-box"]',
-      ) as HTMLElement | null;
-      const preparedHeroFlight = prepareChatInputHeroFlight(chatInputBoxEl);
-
-      const agentId = agentState.selectedAgentId ?? effectiveAgent?.agent.id ?? "argos";
-      const isAcp = isAcpSelectedAgent;
-
-      // If any step after worktree creation fails (or bails early), remove
-      // the checkout so failed submissions never orphan worktrees/branches.
-      // Declared before the outer try so the catch path can clean it up.
-      let createdWorktree: { repoPath: string; worktreePath: string } | null = null;
-      const abandonCreatedWorktree = async (): Promise<void> => {
-        if (!createdWorktree) return;
-        const orphan = createdWorktree;
-        createdWorktree = null;
-        await abandonSubmissionWorktree({
-          workspacePath: orphan.repoPath,
-          worktreePath: orphan.worktreePath,
-        });
-      };
-      try {
-        // Worktree mode: create the isolated checkout from the selected base
-        // branch FIRST, then bind the session to it. The base repo checkout is
-        // never touched (server-side `git worktree add -b <branch> <path> <ref>`).
-        let sessionProjectDir = projectState.selectedProjectPath ?? undefined;
-        if (worktreeDraft.reuseWorktreePath) {
-          sessionProjectDir = worktreeDraft.reuseWorktreePath;
-        } else if (worktreeDraft.enabled) {
-          if (isCreatingWorktree) return;
-          const repoPath = projectState.selectedProjectPath;
-          if (!repoPath || !worktreeDraft.baseBranch) {
-            toast({
-              title: "Worktree Not Configured",
-              description: "Select a base branch for the worktree, or turn worktree mode off.",
-              variant: "destructive",
-            });
-            if (preparedHeroFlight) cancelChatInputHeroFlight();
-            return;
-          }
-          setIsCreatingWorktree(true);
-          const created = await createSubmissionWorktree({
-            workspacePath: repoPath,
-            baseBranch: worktreeDraft.baseBranch,
-            fromRemote: worktreeDraft.fromRemote,
-            branchName: worktreeDraft.branchName.trim() || undefined,
-          })
-            .then((worktreePath) => ({ repoPath: repoPath as string, worktreePath }))
-            .catch((error: unknown) => {
-              toast({
-                title: "Failed to Create Worktree",
-                description: error instanceof Error ? error.message : String(error),
-                variant: "destructive",
-              });
-              return null;
-            });
-          setIsCreatingWorktree(false);
-          if (!created) {
-            if (preparedHeroFlight) cancelChatInputHeroFlight();
-            return;
-          }
-          createdWorktree = created;
-          sessionProjectDir = created.worktreePath;
-        }
-
-        if (isAcp && acpDraftSessionId && !createdWorktree && !worktreeDraft.reuseWorktreePath) {
-          await selectSession(acpDraftSessionId);
-          await sendMessage(acpDraftSessionId, { text, files });
-          unsettleSession(acpDraftSessionId);
-          void fetchSessions();
-          return;
-        }
-
-        let providerId: string | undefined;
-        let modelId: string | undefined;
-
-        if (isAcp) {
-          providerId = "acp";
-          modelId = agentId;
-        } else {
-          const resolved = await resolveModel();
-          if (!resolved) {
-            console.error("No model available. Please configure a provider and model in settings.");
-            toast({
-              title: "No model available",
-              description: "Configure a provider and model in Settings → Models.",
-              variant: "destructive",
-            });
-            await abandonCreatedWorktree();
-            if (preparedHeroFlight) cancelChatInputHeroFlight();
-            return;
-          }
-          providerId = resolved.providerId;
-          modelId = resolved.modelId;
-        }
-
-        if (isAcp && sessionProjectDir) {
-          // ACP drafts are keyed per agent+projectDir: in worktree mode this
-          // mints a fresh draft bound to the worktree directory, so the agent
-          // spawns with cwd = worktree. Throws propagate to the outer catch,
-          // which removes the orphaned worktree.
-          const draftSessionId = await ensureWorktreeAcpDraft({
-            agentId,
-            projectDir: sessionProjectDir,
-            permissionMode: draftState.permissionMode,
+    // If any step after worktree creation fails (or bails early), remove
+    // the checkout so failed submissions never orphan worktrees/branches.
+    // Declared before the outer try so the catch path can clean it up.
+    let createdWorktree: {
+      repoPath: string;
+      worktreePath: string;
+    } | null = null;
+    const abandonCreatedWorktree = async (): Promise<void> => {
+      if (!createdWorktree) return;
+      const orphan = createdWorktree;
+      createdWorktree = null;
+      await abandonSubmissionWorktree({
+        workspacePath: orphan.repoPath,
+        worktreePath: orphan.worktreePath,
+      });
+    };
+    try {
+      // Worktree mode: create the isolated checkout from the selected base
+      // branch FIRST, then bind the session to it. The base repo checkout is
+      // never touched (server-side `git worktree add -b <branch> <path> <ref>`).
+      let sessionProjectDir = projectState.selectedProjectPath ?? undefined;
+      if (worktreeDraft.reuseWorktreePath) {
+        sessionProjectDir = worktreeDraft.reuseWorktreePath;
+      } else if (worktreeDraft.enabled) {
+        if (isCreatingWorktree) return;
+        const repoPath = projectState.selectedProjectPath;
+        if (!repoPath || !worktreeDraft.baseBranch) {
+          toast({
+            title: "Worktree Not Configured",
+            description: "Select a base branch for the worktree, or turn worktree mode off.",
+            variant: "destructive",
           });
-          await selectSession(draftSessionId);
-          await sendMessage(draftSessionId, { text, files });
-          createdWorktree = null; // submission succeeded; keep the worktree
-          void fetchSessions();
+          if (preparedHeroFlight) cancelChatInputHeroFlight();
           return;
         }
-
-        const pendingSkillsSnapshot = composerRef.current?.getPendingSkillsSnapshot() ?? pendingSkillsRef.current;
-        const dedupedPendingSkills = Array.from(new Set(pendingSkillsSnapshot));
-
-        await createSession({
-          message: text,
+        setIsCreatingWorktree(true);
+        const created = await createSubmissionWorktree({
+          workspacePath: repoPath,
+          baseBranch: worktreeDraft.baseBranch,
+          fromRemote: worktreeDraft.fromRemote,
+          branchName: worktreeDraft.branchName.trim() || undefined,
+        })
+          .then((worktreePath) => ({
+            repoPath: repoPath as string,
+            worktreePath,
+          }))
+          .catch((error: unknown) => {
+            toast({
+              title: "Failed to Create Worktree",
+              description: error instanceof Error ? error.message : String(error),
+              variant: "destructive",
+            });
+            return null;
+          });
+        setIsCreatingWorktree(false);
+        if (!created) {
+          if (preparedHeroFlight) cancelChatInputHeroFlight();
+          return;
+        }
+        createdWorktree = created;
+        sessionProjectDir = created.worktreePath;
+      }
+      if (isAcp && acpDraftSessionId && !createdWorktree && !worktreeDraft.reuseWorktreePath) {
+        await selectSession(acpDraftSessionId);
+        await sendMessage(acpDraftSessionId, {
+          text,
           files,
-          projectDir: sessionProjectDir,
+        });
+        unsettleSession(acpDraftSessionId);
+        void fetchSessions();
+        return;
+      }
+      let providerId: string | undefined;
+      let modelId: string | undefined;
+      if (isAcp) {
+        providerId = "acp";
+        modelId = agentId;
+      } else {
+        const resolved = await resolveModel();
+        if (!resolved) {
+          console.error("No model available. Please configure a provider and model in settings.");
+          toast({
+            title: "No model available",
+            description: "Configure a provider and model in Settings → Models.",
+            variant: "destructive",
+          });
+          await abandonCreatedWorktree();
+          if (preparedHeroFlight) cancelChatInputHeroFlight();
+          return;
+        }
+        providerId = resolved.providerId;
+        modelId = resolved.modelId;
+      }
+      if (isAcp && sessionProjectDir) {
+        // ACP drafts are keyed per agent+projectDir: in worktree mode this
+        // mints a fresh draft bound to the worktree directory, so the agent
+        // spawns with cwd = worktree. Throws propagate to the outer catch,
+        // which removes the orphaned worktree.
+        const draftSessionId = await ensureWorktreeAcpDraft({
           agentId,
-          providerId,
-          modelId,
+          projectDir: sessionProjectDir,
           permissionMode: draftState.permissionMode,
-          disabledAgentTools: isAcp ? undefined : [...draftState.disabledAgentTools],
-          subagentEnabled: isAcp ? false : draftState.subagentEnabled,
-          generationSettings: getToGenerationSettings?.() ?? {},
-          activeSkills: dedupedPendingSkills.length > 0 ? dedupedPendingSkills : undefined,
+        });
+        await selectSession(draftSessionId);
+        await sendMessage(draftSessionId, {
+          text,
+          files,
         });
         createdWorktree = null; // submission succeeded; keep the worktree
-        // Mark the freshly-created thread as Active so it surfaces in the
-        // sidebar's active row instead of dropping straight into Settled.
-        const newId = sessionStore.state.activeSessionId;
-        if (newId) unsettleSession(newId);
-      } catch (error) {
-        await abandonCreatedWorktree();
-        if (preparedHeroFlight) cancelChatInputHeroFlight();
-        throw error;
+        void fetchSessions();
+        return;
       }
-    },
-    [
-      isAcpWorkdirUnavailable,
-      isDaemonConnected,
-      isAcpSelectedAgent,
-      acpDraftSessionId,
-      resolveModel,
-      projectState,
-      draftState,
-      agentState,
-      effectiveAgent,
-      worktreeDraft,
-      isCreatingWorktree,
-      toast,
-    ],
-  );
-
-  const onSubmit = useCallback(async () => {
+      const pendingSkillsSnapshot = composerRef.current?.getPendingSkillsSnapshot() ?? pendingSkillsRef.current;
+      const dedupedPendingSkills = Array.from(new Set(pendingSkillsSnapshot));
+      await createSession({
+        message: text,
+        files,
+        projectDir: sessionProjectDir,
+        agentId,
+        providerId,
+        modelId,
+        permissionMode: draftState.permissionMode,
+        disabledAgentTools: isAcp ? undefined : [...draftState.disabledAgentTools],
+        subagentEnabled: isAcp ? false : draftState.subagentEnabled,
+        generationSettings: getToGenerationSettings?.() ?? {},
+        activeSkills: dedupedPendingSkills.length > 0 ? dedupedPendingSkills : undefined,
+      });
+      createdWorktree = null; // submission succeeded; keep the worktree
+      // Mark the freshly-created thread as Active so it surfaces in the
+      // sidebar's active row instead of dropping straight into Settled.
+      const newId = sessionStore.state.activeSessionId;
+      if (newId) unsettleSession(newId);
+    } catch (error) {
+      await abandonCreatedWorktree();
+      if (preparedHeroFlight) cancelChatInputHeroFlight();
+      throw error;
+    }
+  };
+  const onSubmit = async () => {
     if (isAcpWorkdirUnavailable || !isDaemonConnected) return;
     const text = message.trim();
     if (!text) return;
@@ -476,56 +464,34 @@ function NewThreadPage() {
     } catch (e) {
       console.error("[NewThreadPage] submit failed:", e);
     }
-  }, [
-    isAcpWorkdirUnavailable,
-    isDaemonConnected,
-    message,
-    attachedFiles,
-    prepareFiles,
-    submitText,
-    shouldIgnoreManualCompactionDraft,
-  ]);
-
-  const onCommandSubmit = useCallback(
-    async (command: string) => {
-      if (isAcpWorkdirUnavailable || !isDaemonConnected) return;
-      const text = command.trim();
-      if (!text) return;
-      if (shouldIgnoreManualCompactionDraft(text)) return;
-      const files = await prepareFiles([...attachedFiles]);
-      try {
-        await submitText(text, files);
-        setAttachedFiles([]);
-      } catch (e) {
-        console.error("[NewThreadPage] submit failed:", e);
-      }
-    },
-    [
-      isAcpWorkdirUnavailable,
-      isDaemonConnected,
-      attachedFiles,
-      prepareFiles,
-      submitText,
-      shouldIgnoreManualCompactionDraft,
-    ],
-  );
-
-  const onPendingSkillsChange = useCallback((skills: string[]) => {
+  };
+  const onCommandSubmit = async (command: string) => {
+    if (isAcpWorkdirUnavailable || !isDaemonConnected) return;
+    const text = command.trim();
+    if (!text) return;
+    if (shouldIgnoreManualCompactionDraft(text)) return;
+    const files = await prepareFiles([...attachedFiles]);
+    try {
+      await submitText(text, files);
+      setAttachedFiles([]);
+    } catch (e) {
+      console.error("[NewThreadPage] submit failed:", e);
+    }
+  };
+  const onPendingSkillsChange = (skills: string[]) => {
     pendingSkillsRef.current = [...skills];
-  }, []);
-
-  const clearSelectedProject = useCallback(() => {
+  };
+  const clearSelectedProject = () => {
     selectProject(null, "manual");
-  }, []);
-
-  const handleSessionSelect = useCallback((sessionId: string) => {
+  };
+  const handleSessionSelect = (sessionId: string) => {
     void selectSession(sessionId);
-  }, []);
-
-  const openAgentSettings = useCallback(async () => {
-    await settingsClient.openSettings({ routeName: "settings-argos-agents" });
-  }, []);
-
+  };
+  const openAgentSettings = async () => {
+    await settingsClient.openSettings({
+      routeName: "settings-argos-agents",
+    });
+  };
   useEffect(() => {
     if (!selectedProjectPath) {
       void Promise.resolve().then(() => setSelectedProjectDirectoryStatus("none"));
@@ -551,62 +517,56 @@ function NewThreadPage() {
       cancelled = true;
     };
   }, [selectedProjectPath]);
-
-  const ensureAcpDraftSession = useCallback(
-    async (agentId: string, projectPath: string) => {
-      const projectDir = projectPath.trim();
-      if (!projectDir) return;
-      const draftKey = `${agentId}::${projectDir}`;
-      if (lastAcpDraftKeyRef.current === draftKey && acpDraftSessionId) return;
-
-      const requestSeq = ++acpDraftRequestSeqRef.current;
-      try {
-        const session = await sessionClient.ensureAcpDraftSession({
-          agentId,
-          projectDir,
-          permissionMode: draftState.permissionMode,
-        });
-        if (requestSeq !== acpDraftRequestSeqRef.current) return;
-        // Compare against the *submission* agent (selected or effective fallback),
-        // not `selectedAgentId` — in the welcome state there is no explicit
-        // selection yet but the draft still targets the effective agent.
-        const currentAgentId = agentState.selectedAgentId ?? effectiveAgent?.agent.id ?? "argos";
-        const currentProjectDir = projectState.selectedProjectPath?.trim();
-        if (currentAgentId !== agentId || currentProjectDir !== projectDir) return;
-        const sessionId = typeof session?.id === "string" ? session.id.trim() : "";
-        if (!sessionId) {
-          setAcpDraftSessionId(null);
-          setAcpDraftModelSelection(null);
-          lastAcpDraftKeyRef.current = null;
-          return;
-        }
-        setAcpDraftSessionId(sessionId);
-        setAcpDraftModelSelection(
-          typeof session.providerId === "string" &&
-            session.providerId.trim() &&
-            typeof session.modelId === "string" &&
-            session.modelId.trim()
-            ? { providerId: session.providerId.trim(), modelId: session.modelId.trim() }
-            : { providerId: "acp", modelId: agentId },
-        );
-        lastAcpDraftKeyRef.current = draftKey;
-      } catch (error) {
-        if (requestSeq !== acpDraftRequestSeqRef.current) return;
-        console.warn("[NewThreadPage] Failed to ensure ACP draft session:", error);
+  const ensureAcpDraftSession = async (agentId: string, projectPath: string) => {
+    const projectDir = projectPath.trim();
+    if (!projectDir) return;
+    const draftKey = `${agentId}::${projectDir}`;
+    if (lastAcpDraftKeyRef.current === draftKey && acpDraftSessionId) return;
+    const requestSeq = ++acpDraftRequestSeqRef.current;
+    try {
+      const session = await sessionClient.ensureAcpDraftSession({
+        agentId,
+        projectDir,
+        permissionMode: draftState.permissionMode,
+      });
+      if (requestSeq !== acpDraftRequestSeqRef.current) return;
+      // Compare against the *submission* agent (selected or effective fallback),
+      // not `selectedAgentId` — in the welcome state there is no explicit
+      // selection yet but the draft still targets the effective agent.
+      const currentAgentId = agentState.selectedAgentId ?? effectiveAgent?.agent.id ?? "argos";
+      const currentProjectDir = projectState.selectedProjectPath?.trim();
+      if (currentAgentId !== agentId || currentProjectDir !== projectDir) return;
+      const sessionId = typeof session?.id === "string" ? session.id.trim() : "";
+      if (!sessionId) {
         setAcpDraftSessionId(null);
         setAcpDraftModelSelection(null);
         lastAcpDraftKeyRef.current = null;
+        return;
       }
-    },
-    [
-      acpDraftSessionId,
-      draftState.permissionMode,
-      agentState.selectedAgentId,
-      effectiveAgent,
-      projectState.selectedProjectPath,
-    ],
-  );
-
+      setAcpDraftSessionId(sessionId);
+      setAcpDraftModelSelection(
+        typeof session.providerId === "string" &&
+          session.providerId.trim() &&
+          typeof session.modelId === "string" &&
+          session.modelId.trim()
+          ? {
+              providerId: session.providerId.trim(),
+              modelId: session.modelId.trim(),
+            }
+          : {
+              providerId: "acp",
+              modelId: agentId,
+            },
+      );
+      lastAcpDraftKeyRef.current = draftKey;
+    } catch (error) {
+      if (requestSeq !== acpDraftRequestSeqRef.current) return;
+      console.warn("[NewThreadPage] Failed to ensure ACP draft session:", error);
+      setAcpDraftSessionId(null);
+      setAcpDraftModelSelection(null);
+      lastAcpDraftKeyRef.current = null;
+    }
+  };
   useEffect(() => {
     void Promise.resolve().then(() => {
       if (!isAcpSelectedAgent || !selectedProjectPath || selectedProjectDirectoryStatus !== "valid") {
@@ -615,23 +575,18 @@ function NewThreadPage() {
         lastAcpDraftKeyRef.current = null;
         return;
       }
-
       const agentId = selectedAgent.id;
       const projectPath = selectedProjectPath;
       const draftKey = `${agentId}::${projectPath}`;
-
       if (lastAcpDraftKeyRef.current === draftKey && acpDraftSessionId) return;
-
       acpDraftRequestSeqRef.current += 1;
       cancelEnsureDraftTaskRef.current?.();
       cancelEnsureDraftTaskRef.current = null;
-
       if (lastAcpDraftKeyRef.current !== draftKey) {
         setAcpDraftSessionId(null);
         setAcpDraftModelSelection(null);
         lastAcpDraftKeyRef.current = null;
       }
-
       cancelEnsureDraftTaskRef.current = scheduleStartupDeferredTask(async () => {
         await ensureAcpDraftSession(agentId, projectPath);
       });
@@ -652,7 +607,6 @@ function NewThreadPage() {
   useEffect(() => {
     projectStateRef.current = projectState;
   }, [projectState]);
-
   useEffect(() => {
     const applyDefaults = async () => {
       const agentId = selectedAgent.id;
@@ -681,7 +635,6 @@ function NewThreadPage() {
         imageGeneration: undefined,
         videoGeneration: undefined,
       }));
-
       if (selectedAgent.type === "acp") {
         const resolvedPath = currentProject ?? globalDefault;
         if (!currentProject && globalDefault) selectProject(globalDefault, "default");
@@ -696,7 +649,6 @@ function NewThreadPage() {
         }));
         return;
       }
-
       let config: ArgosAgentConfig | null = null;
       try {
         config = await resolveArgosAgentConfig(agentId);
@@ -733,7 +685,6 @@ function NewThreadPage() {
         systemPrompt: config.systemPrompt ?? "",
       }));
     };
-
     const task = applyDefaults().finally(() => {
       if (currentDraftDefaultsTaskRef.current === task) {
         currentDraftDefaultsTaskRef.current = null;
@@ -742,9 +693,11 @@ function NewThreadPage() {
     currentDraftDefaultsTaskRef.current = task;
   }, [selectedAgent.id, selectedAgent.type]);
   useEffect(() => {
-    draftStore.setState((s) => ({ ...s, projectDir: projectState.selectedProjectPath ?? undefined }));
+    draftStore.setState((s) => ({
+      ...s,
+      projectDir: projectState.selectedProjectPath ?? undefined,
+    }));
   }, [projectState.selectedProjectPath]);
-
   useEffect(() => {
     const sync = () => {
       void nextTick(syncGuideTargets);
@@ -752,7 +705,6 @@ function NewThreadPage() {
     window.addEventListener("resize", sync);
     return () => window.removeEventListener("resize", sync);
   }, [syncGuideTargets]);
-
   useEffect(() => {
     return () => {
       cancelEnsureDraftTaskRef.current?.();
@@ -767,36 +719,44 @@ function NewThreadPage() {
   useEffect(() => {
     void nextTick(() => syncGuideTargets(guideSyncContext));
   }, [guideSyncContext, syncGuideTargets]);
-
-  const continueChatGuide = useCallback(async (state: any) => {
+  const continueChatGuide = async (state: any) => {
     const stepId = state?.status === "completed" ? "first-chat" : state?.currentStepId;
     const target = resolveGuidedOnboardingStepTarget(stepId);
     if (target?.surface !== "settings" || !target.routeName) return;
-    persistGuidedOnboardingResumeIntent({ stepId: target.stepId, trigger: "window-focus" });
-    await configClient.openSettings({ routeName: target.routeName });
-  }, []);
-
-  const completeSwitchAgentStep = useCallback(async () => {
+    persistGuidedOnboardingResumeIntent({
+      stepId: target.stepId,
+      trigger: "window-focus",
+    });
+    await configClient.openSettings({
+      routeName: target.routeName,
+    });
+  };
+  const completeSwitchAgentStep = async () => {
     if (isCompletingSwitchAgentGuide || switchAgentGuide.currentStepId !== "switch-agent") return;
     const stepStatus = switchAgentGuide.stepState?.status;
     if (stepStatus === "completed" || stepStatus === "skipped") return;
     setIsCompletingSwitchAgentGuide(true);
     try {
       const state = await switchAgentGuide.completeStep();
+      if (!switchAgentStepLiveRef.current) return;
       await continueChatGuide(state);
+      if (!switchAgentStepLiveRef.current) return;
       setIsCompletingSwitchAgentGuide(false);
     } catch (error) {
+      if (!switchAgentStepLiveRef.current) return;
       setIsCompletingSwitchAgentGuide(false);
       throw error;
     }
-  }, [isCompletingSwitchAgentGuide, switchAgentGuide, continueChatGuide]);
-
+  };
   useEffect(() => {
+    switchAgentStepLiveRef.current = true;
     if (!(switchAgentGuide.currentStepId === "switch-agent" && !isAcpSelectedAgent && !isWelcomeState)) return;
     void Promise.resolve().then(() => completeSwitchAgentStep());
+    return () => {
+      switchAgentStepLiveRef.current = false;
+    };
   }, [switchAgentGuide.currentStepId, isAcpSelectedAgent, isWelcomeState, completeSwitchAgentStep]);
-
-  const activeChatGuide = useMemo(() => {
+  const activeChatGuide = (() => {
     if (switchAgentGuide.showGuide && !isAcpSelectedAgent && guideTargets.agent) {
       return {
         key: "switch-agent" as const,
@@ -835,33 +795,15 @@ function NewThreadPage() {
       };
     }
     return null;
-  }, [
-    switchAgentGuide.showGuide,
-    switchAgentGuide.stepIndex,
-    switchAgentGuide.totalSteps,
-    switchAgentGuide.dismissGuide,
-    switchModelGuide.showGuide,
-    switchModelGuide.stepIndex,
-    switchModelGuide.totalSteps,
-    switchModelGuide.dismissGuide,
-    firstChatGuide.showGuide,
-    firstChatGuide.stepIndex,
-    firstChatGuide.totalSteps,
-    firstChatGuide.dismissGuide,
-    isAcpSelectedAgent,
-    guideTargets,
-  ]);
-
+  })();
   const activeChatGuidePrimaryLabel =
     activeChatGuide?.key === "switch-agent" || activeChatGuide?.key === "switch-model" ? "Next" : undefined;
-
   const activeChatGuidePrimaryDisabled =
     activeChatGuide?.key === "switch-agent"
       ? isAcpSelectedAgent || isWelcomeState
       : activeChatGuide?.key === "switch-model"
         ? !guideTargets.model
         : false;
-
   const handleActiveChatGuideBack = async () => {
     switch (activeChatGuide?.key) {
       case "switch-agent": {
@@ -881,7 +823,6 @@ function NewThreadPage() {
       }
     }
   };
-
   const handleActiveChatGuideExpert = async () => {
     switch (activeChatGuide?.key) {
       case "switch-agent": {
@@ -901,7 +842,6 @@ function NewThreadPage() {
       }
     }
   };
-
   const handleActiveChatGuidePrimary = async () => {
     switch (activeChatGuide?.key) {
       case "switch-agent":
@@ -914,11 +854,9 @@ function NewThreadPage() {
       }
     }
   };
-
   const composerPlaceholder = isAcpWorkdirMissing
     ? "Pick a project to enable this agent"
     : "Ask anything. / for commands, @ for context";
-
   const submitBlocked = isAcpWorkdirUnavailable || !isDaemonConnected;
 
   // The one composer + context row shared by the welcome and centered states.
@@ -1032,7 +970,6 @@ function NewThreadPage() {
       />
     </div>
   );
-
   return (
     <div
       ref={setGuideRootEl}
@@ -1118,11 +1055,9 @@ function NewThreadPage() {
     </div>
   );
 }
-
 function nextTick(fn: () => void) {
   Promise.resolve().then(fn);
 }
-
 async function resolveArgosAgentConfig(agentId: string): Promise<ArgosAgentConfig> {
   const config = await configClient.resolveArgosAgentConfig(agentId);
   if (config) return config;
@@ -1134,5 +1069,4 @@ async function resolveArgosAgentConfig(agentId: string): Promise<ArgosAgentConfi
     disabledAgentTools: [],
   });
 }
-
 export default NewThreadPage;

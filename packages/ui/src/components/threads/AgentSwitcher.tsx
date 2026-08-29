@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { useStore } from "@tanstack/react-store";
 import { Icon } from "@iconify/react";
 import {
@@ -15,7 +14,6 @@ import { useThreadSidebarStore } from "#/stores/ui/threadSidebar";
 import AgentAvatar from "../icons/AgentAvatar";
 import { resolveEffectiveAgent } from "#/lib/effectiveAgent";
 import { cn } from "#/lib/utils";
-
 interface AgentSwitcherProps {
   /**
    * Visual variant.
@@ -43,17 +41,15 @@ export default function AgentSwitcher({ variant = "topbar", className }: AgentSw
   const { agents, selectedAgentId } = useStore(agentStore);
   const { activeSessionId, sessions } = useStore(sessionStore);
   const { settledAtById } = useThreadSidebarStore();
-  const enabledAgents = useMemo(() => agents.filter((a) => a.enabled), [agents]);
-
-  const currentAgent = useMemo(() => {
+  const enabledAgents = agents.filter((a) => a.enabled);
+  const currentAgent = (() => {
     const activeSession = activeSessionId ? (sessions.find((s) => s.id === activeSessionId) ?? null) : null;
     return resolveEffectiveAgent({
       agents,
       selectedAgentId,
       activeSessionAgentId: activeSession?.agentId ?? null,
     })?.agent;
-  }, [agents, selectedAgentId, activeSessionId, sessions]);
-
+  })();
   const canSwitchTo = (targetAgentId: string): boolean => {
     if (!activeSessionId) return true;
     const active = sessions.find((s) => s.id === activeSessionId);
@@ -61,16 +57,13 @@ export default function AgentSwitcher({ variant = "topbar", className }: AgentSw
     if (active.agentId === targetAgentId) return true;
     return active.id in settledAtById;
   };
-
   const handleSelect = (targetAgentId: string) => {
     if (!canSwitchTo(targetAgentId)) return;
     if (currentAgent?.id === targetAgentId) return;
     setSelectedAgent(targetAgentId);
   };
-
   const isWelcome = variant === "welcome";
   const label = currentAgent?.name ?? "All agents";
-
   const triggerClass = cn(
     "group flex items-center gap-1.5 transition-colors duration-150 active:scale-[0.97] motion-reduce:active:scale-100",
     isWelcome
@@ -78,7 +71,6 @@ export default function AgentSwitcher({ variant = "topbar", className }: AgentSw
       : "h-7 rounded-md px-2 text-xs font-medium text-foreground/80 hover:bg-accent/50",
     className,
   );
-
   return (
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger

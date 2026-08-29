@@ -1,10 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createConfigClient } from "#api/ConfigClient";
-
 const ACP_REGISTRY_ICON_PREFIX = "https://cdn.agentclientprotocol.com/registry/";
-
 const iconMarkupCache = new Map<string, string | Promise<string>>();
-
 interface AcpAgentIconProps {
   agentId?: string;
   icon?: string;
@@ -13,7 +10,6 @@ interface AcpAgentIconProps {
   tone?: "default" | "muted";
   fallbackText?: string;
 }
-
 function normalizeSvgMarkup(markup: string): string {
   const trimmed = markup.trim();
   if (!trimmed.startsWith("<svg")) {
@@ -21,7 +17,6 @@ function normalizeSvgMarkup(markup: string): string {
   }
   return trimmed;
 }
-
 async function resolveIconMarkup(agentId: string, iconUrl: string): Promise<string> {
   const floatingButtonApi = (
     window as Window & {
@@ -30,14 +25,11 @@ async function resolveIconMarkup(agentId: string, iconUrl: string): Promise<stri
       };
     }
   ).floatingButtonAPI;
-
   if (typeof floatingButtonApi?.getAcpRegistryIconMarkup === "function") {
     return await floatingButtonApi.getAcpRegistryIconMarkup(agentId, iconUrl);
   }
-
   return await createConfigClient().getAcpRegistryIconMarkup(agentId, iconUrl);
 }
-
 export default function AcpAgentIcon({
   agentId = "",
   icon = "",
@@ -49,20 +41,13 @@ export default function AcpAgentIcon({
   const [svgMarkup, setSvgMarkup] = useState("");
   const [imageLoadFailed, setImageLoadFailed] = useState(false);
   const requestSeq = useRef(0);
-
   const trimmedIcon = icon.trim();
   const trimmedAgentId = agentId.trim();
-
-  const isThemeableRegistryIcon = useMemo(
-    () => trimmedIcon.startsWith(ACP_REGISTRY_ICON_PREFIX) && trimmedIcon.endsWith(".svg"),
-    [trimmedIcon],
-  );
-
-  const fallbackLabel = useMemo(() => {
+  const isThemeableRegistryIcon = trimmedIcon.startsWith(ACP_REGISTRY_ICON_PREFIX) && trimmedIcon.endsWith(".svg");
+  const fallbackLabel = (() => {
     const value = fallbackText.trim();
     return value ? value.slice(0, 1).toUpperCase() : "?";
-  }, [fallbackText]);
-
+  })();
   const toneClass = tone === "muted" ? "text-muted-foreground" : "text-foreground";
 
   // Reset the loaded markup whenever the icon identity changes (prev-compare
@@ -74,17 +59,12 @@ export default function AcpAgentIcon({
     setSvgMarkup("");
     setImageLoadFailed(false);
   }
-
   const shouldRenderInlineSvg = Boolean(svgMarkup) && isThemeableRegistryIcon;
   const shouldRenderImage = Boolean(trimmedIcon) && !shouldRenderInlineSvg && !isThemeableRegistryIcon;
-
   useEffect(() => {
     const seq = ++requestSeq.current;
-
     if (!trimmedIcon || !trimmedAgentId || !isThemeableRegistryIcon) return;
-
     let cancelled = false;
-
     const load = async () => {
       try {
         const cacheKey = `${trimmedAgentId}:${trimmedIcon}`;
@@ -93,7 +73,6 @@ export default function AcpAgentIcon({
           if (!cancelled) setSvgMarkup(cached);
           return;
         }
-
         let pending = cached;
         if (!pending) {
           pending = resolveIconMarkup(trimmedAgentId, trimmedIcon)
@@ -110,10 +89,8 @@ export default function AcpAgentIcon({
               iconMarkupCache.delete(cacheKey);
               throw error;
             });
-
           iconMarkupCache.set(cacheKey, pending);
         }
-
         const markup = await pending;
         if (!cancelled && seq === requestSeq.current) {
           setSvgMarkup(markup);
@@ -125,14 +102,11 @@ export default function AcpAgentIcon({
         }
       }
     };
-
     void load();
-
     return () => {
       cancelled = true;
     };
   }, [trimmedAgentId, trimmedIcon, isThemeableRegistryIcon]);
-
   return (
     <span
       className={`inline-flex shrink-0 items-center justify-center overflow-hidden rounded-md ${customClass} ${toneClass}`}
@@ -140,8 +114,13 @@ export default function AcpAgentIcon({
       {shouldRenderInlineSvg && (
         <span
           className="acp-registry-icon h-full w-full"
-          style={{ display: "block", color: "inherit" }}
-          dangerouslySetInnerHTML={{ __html: svgMarkup }}
+          style={{
+            display: "block",
+            color: "inherit",
+          }}
+          dangerouslySetInnerHTML={{
+            __html: svgMarkup,
+          }}
         />
       )}
       {shouldRenderImage && !imageLoadFailed && (

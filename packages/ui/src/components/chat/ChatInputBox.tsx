@@ -6,7 +6,6 @@ import {
   useEffect,
   useRef,
   useState,
-  useMemo,
   useCallback,
   useImperativeHandle,
   forwardRef,
@@ -33,9 +32,9 @@ import { useChatInputFiles } from "./composables/useChatInputFiles";
 import { useSkillsData } from "#/components/chat-input/composables/useSkillsData";
 import CommandInputDialog from "./mentions/CommandInputDialog";
 import ChatAttachmentItem from "./ChatAttachmentItem";
-
-const SlashMention = Mention.extend({ name: "slashMention" });
-
+const SlashMention = Mention.extend({
+  name: "slashMention",
+});
 const HardBreakWithShiftEnter = HardBreak.extend({
   addKeyboardShortcuts() {
     return {
@@ -43,27 +42,32 @@ const HardBreakWithShiftEnter = HardBreak.extend({
     };
   },
 });
-
 const toEditorDoc = (text: string) => {
   const lines = text.replace(/\r/g, "").split("\n");
   return {
     type: "doc" as const,
     content: lines.map((line) => ({
       type: "paragraph" as const,
-      content: line ? [{ type: "text" as const, text: line }] : [],
+      content: line
+        ? [
+            {
+              type: "text" as const,
+              text: line,
+            },
+          ]
+        : [],
     })),
   };
 };
-
 const getEditorText = (ed: Editor): string => {
-  return ed.getText({ blockSeparator: "\n" });
+  return ed.getText({
+    blockSeparator: "\n",
+  });
 };
-
 const setCaretToEnd = (ed: Editor) => {
   const end = TextSelection.atEnd(ed.state.doc);
   ed.view.dispatch(ed.state.tr.setSelection(end));
 };
-
 const sameFiles = (a: MessageFile[], b: MessageFile[]) => {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i += 1) {
@@ -73,7 +77,6 @@ const sameFiles = (a: MessageFile[], b: MessageFile[]) => {
   }
   return true;
 };
-
 interface ChatInputBoxProps {
   modelValue?: string;
   placeholder?: string;
@@ -95,7 +98,6 @@ interface ChatInputBoxProps {
   toolbar?: ReactNode;
   footerLeft?: ReactNode;
 }
-
 const ChatInputBox = forwardRef<
   {
     triggerAttach: () => void;
@@ -133,19 +135,15 @@ const ChatInputBox = forwardRef<
     const [isComposing, setIsComposing] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const resolvedPlaceholder = placeholder?.trim() || "Type a message...";
-
-    const conversationId = useMemo(() => sessionId, [sessionId]);
+    const conversationId = sessionId;
     const skillsData = useSkillsData(conversationId);
     const { pendingSkills, applyPendingSkillsToConversation } = skillsData;
-    const activeSkillNames = useMemo(() => skillsData.activeSkills, [skillsData.activeSkills]);
-
+    const activeSkillNames = skillsData.activeSkills;
     const editorRef = useRef<Editor | null>(null);
-
     const onPendingSkillsChangeRef = useRef(onPendingSkillsChange);
     useEffect(() => {
       onPendingSkillsChangeRef.current = onPendingSkillsChange;
     }, [onPendingSkillsChange]);
-
     const mentions = useChatInputMentions({
       getEditor: () => editorRef.current,
       workspacePath,
@@ -158,14 +156,11 @@ const ChatInputBox = forwardRef<
         await skillsData.activateSkill(skillName);
       },
     });
-
     const dialogState = mentions.dialogState;
-
     const fileInputProxy = useRef<HTMLInputElement | null>(null);
     useEffect(() => {
       fileInputProxy.current = fileInputRef.current;
     });
-
     const filesHelper = useChatInputFiles(fileInputProxy as any, (_event: any, nextFiles: MessageFile[]) => {
       onUpdateFiles?.([...nextFiles]);
     });
@@ -173,7 +168,6 @@ const ChatInputBox = forwardRef<
     useEffect(() => {
       filesHelperRef.current = filesHelper;
     }, [filesHelper]);
-
     const editor = useEditor({
       extensions: [
         Document,
@@ -201,22 +195,21 @@ const ChatInputBox = forwardRef<
         }
       },
     });
-
     useEffect(() => {
       if (editor) {
         editorRef.current = editor;
       }
     }, [editor]);
-
     useEffect(() => {
       if (!editor) return;
       const next = modelValue || "";
       const current = getEditorText(editor);
       if (next === current) return;
-      editor.commands.setContent(toEditorDoc(next), { emitUpdate: false });
+      editor.commands.setContent(toEditorDoc(next), {
+        emitUpdate: false,
+      });
       setCaretToEnd(editor);
     }, [modelValue, editor]);
-
     useEffect(() => {
       if (!editor) return;
       // Re-apply the editor state so the placeholder extension picks up the new text.
@@ -224,19 +217,16 @@ const ChatInputBox = forwardRef<
         editor.view.updateState(editor.state);
       }
     }, [resolvedPlaceholder, editor]);
-
     useEffect(() => {
       const helper = filesHelperRef.current;
       if (sameFiles(externalFiles, helper.selectedFiles)) return;
       helper.syncExternalFiles(externalFiles);
     }, [externalFiles]);
-
     useEffect(() => {
       if (!sessionId) {
         onPendingSkillsChangeRef.current?.([...pendingSkills]);
       }
     }, [pendingSkills, sessionId]);
-
     useEffect(() => {
       if (sessionId) {
         if (pendingSkills.length > 0) {
@@ -247,11 +237,9 @@ const ChatInputBox = forwardRef<
       }
       onPendingSkillsChangeRef.current?.([...pendingSkills]);
     }, [sessionId, pendingSkills, applyPendingSkillsToConversation]);
-
     function removeSkill(skillName: string) {
       void skillsData.deactivateSkill(skillName);
     }
-
     function handleKeydown(e: KeyboardEvent) {
       const isPlainTab = e.key === "Tab" && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey;
       if (isPlainTab && queueSubmitEnabled && !queueSubmitDisabled) {
@@ -260,46 +248,36 @@ const ChatInputBox = forwardRef<
         onQueueSubmit?.();
         return;
       }
-
       if (e.key !== "Enter" || e.shiftKey) return;
       if (mentions.isSuggestionMenuOpen || mentions.shouldSuppressSubmit()) return;
       if (submitDisabled) {
         e.preventDefault();
         return;
       }
-
       const isImeComposing = isComposing || e.nativeEvent.isComposing || e.nativeEvent.keyCode === 229;
       if (isImeComposing) return;
-
       e.preventDefault();
       onSubmit?.();
     }
-
     function onDialogOpenChange(open: boolean) {
       if (!open) mentions.closeDialog();
     }
-
     function onPaste(event: ClipboardEvent) {
       void filesHelper.handlePaste(event.nativeEvent as any, true);
-
       const clipboardData = event.nativeEvent.clipboardData;
       if (clipboardData?.files && clipboardData.files.length > 0) return;
-
       const pastedUrl = extractPlainUrlFromClipboard(clipboardData);
       if (!pastedUrl) return;
-
       event.preventDefault();
       event.stopPropagation();
       editor?.chain().focus().insertContent(pastedUrl).run();
     }
-
     function onDragOver(event: DragEvent) {
       event.preventDefault();
       if (event.dataTransfer) {
         event.dataTransfer.dropEffect = "copy";
       }
     }
-
     function insertWorkspaceReference(targetPath: string): boolean {
       if (!editor) return false;
       const referenceText = buildChatInputWorkspaceReferenceText(
@@ -308,18 +286,15 @@ const ChatInputBox = forwardRef<
         targetPath.split(/[/\\]/).pop(),
       );
       if (!referenceText) return false;
-
       const { from, to } = editor.state.selection;
       const docSize = editor.state.doc.content.size;
       const before = from > 0 ? editor.state.doc.textBetween(Math.max(0, from - 1), from, "\n", "\n") : "";
       const after = to < docSize ? editor.state.doc.textBetween(to, Math.min(docSize, to + 1), "\n", "\n") : "";
       const prefix = before && !/\s/.test(before) ? " " : "";
       const suffix = after && /\s/.test(after) ? "" : " ";
-
       editor.chain().focus().insertContent(`${prefix}${referenceText}${suffix}`).run();
       return true;
     }
-
     function onDrop(event: DragEvent) {
       event.preventDefault();
       const workspaceItem = getChatInputWorkspaceItemDragData(event.dataTransfer);
@@ -327,26 +302,23 @@ const ChatInputBox = forwardRef<
       if (!event.dataTransfer?.files || event.dataTransfer.files.length === 0) return;
       void filesHelper.handleDrop(event.dataTransfer.files);
     }
-
     function triggerAttach() {
       filesHelper.openFilePicker();
     }
-
     function getPendingSkillsSnapshot(): string[] {
       return Array.from(new Set(skillsData.pendingSkills));
     }
-
     function focusInput() {
       editor?.chain().focus().scrollIntoView().run();
       if (editor) setCaretToEnd(editor);
     }
-
     function clearInput() {
       const ed = editorRef.current;
       if (!ed) return;
-      ed.commands.setContent(toEditorDoc(""), { emitUpdate: false });
+      ed.commands.setContent(toEditorDoc(""), {
+        emitUpdate: false,
+      });
     }
-
     useImperativeHandle(
       ref,
       () => ({
@@ -358,7 +330,6 @@ const ChatInputBox = forwardRef<
       }),
       [editor],
     );
-
     return (
       <div
         data-testid="chat-input-box"
@@ -446,7 +417,5 @@ const ChatInputBox = forwardRef<
     );
   },
 );
-
 ChatInputBox.displayName = "ChatInputBox";
-
 export default ChatInputBox;

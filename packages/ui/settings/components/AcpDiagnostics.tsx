@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Badge } from "#shadcn/components/ui/badge";
@@ -11,7 +11,6 @@ import { cn } from "#shadcn/lib/utils";
 import type { AcpAgentDiagnostics, AcpRemoteSessionSummary, AcpDebugRunResult } from "@argos/shared/presenter";
 import { toast } from "#/components/use-toast";
 import { createProviderClient } from "#api/ProviderClient";
-
 interface AcpDiagnosticsProps {
   agentId: string;
   agentName: string;
@@ -21,21 +20,45 @@ interface AcpDiagnosticsProps {
   autoCheckRequest?: number;
   onAutoCheckHandled?: (request: number) => void;
 }
-
 type ConnectionState = "off" | "unchecked" | "checking" | "ready" | "auth" | "error";
 type AuthMethod = AcpAgentDiagnostics["authMethods"][number];
-
-const CAPABILITY_LABELS: Array<{ key: keyof AcpAgentDiagnostics["capabilities"]; label: string }> = [
-  { key: "loadSession", label: "Load Session" },
-  { key: "sessionList", label: "Session List" },
-  { key: "sessionResume", label: "Resume" },
-  { key: "sessionClose", label: "Close" },
-  { key: "sessionFork", label: "Fork" },
-  { key: "authLogout", label: "Logout" },
-  { key: "fs", label: "File System" },
-  { key: "terminal", label: "Terminal" },
+const CAPABILITY_LABELS: Array<{
+  key: keyof AcpAgentDiagnostics["capabilities"];
+  label: string;
+}> = [
+  {
+    key: "loadSession",
+    label: "Load Session",
+  },
+  {
+    key: "sessionList",
+    label: "Session List",
+  },
+  {
+    key: "sessionResume",
+    label: "Resume",
+  },
+  {
+    key: "sessionClose",
+    label: "Close",
+  },
+  {
+    key: "sessionFork",
+    label: "Fork",
+  },
+  {
+    key: "authLogout",
+    label: "Logout",
+  },
+  {
+    key: "fs",
+    label: "File System",
+  },
+  {
+    key: "terminal",
+    label: "Terminal",
+  },
 ];
-
 const DIAGNOSTICS_TIMEOUT_MS = 20000;
 
 /**
@@ -44,13 +67,29 @@ const DIAGNOSTICS_TIMEOUT_MS = 20000;
  * as a generic "stream was destroyed" or "connection closed" error. This map
  * lets us show an actionable, agent-specific message instead.
  */
-const ACP_ADAPTER_PREREQUISITES: Record<string, { cli: string; installHint?: string }> = {
-  "pi-acp": { cli: "pi", installHint: "npm install -g @anthropic-ai/pi" },
-  "claude-acp": { cli: "claude", installHint: "npm install -g @anthropic-ai/claude-code" },
-  "codex-acp": { cli: "codex", installHint: "npm install -g @openai/codex" },
-  "amp-acp": { cli: "amp" },
+const ACP_ADAPTER_PREREQUISITES: Record<
+  string,
+  {
+    cli: string;
+    installHint?: string;
+  }
+> = {
+  "pi-acp": {
+    cli: "pi",
+    installHint: "npm install -g @anthropic-ai/pi",
+  },
+  "claude-acp": {
+    cli: "claude",
+    installHint: "npm install -g @anthropic-ai/claude-code",
+  },
+  "codex-acp": {
+    cli: "codex",
+    installHint: "npm install -g @openai/codex",
+  },
+  "amp-acp": {
+    cli: "amp",
+  },
 };
-
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error("Diagnostics timed out")), ms);
@@ -66,11 +105,14 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
     );
   });
 }
-
 function extractRemoteSessions(result: AcpDebugRunResult): AcpRemoteSessionSummary[] {
   const sessions: AcpRemoteSessionSummary[] = [];
   for (const event of result.events ?? []) {
-    const payload = event.payload as { sessions?: Array<Record<string, unknown>> } | undefined;
+    const payload = event.payload as
+      | {
+          sessions?: Array<Record<string, unknown>>;
+        }
+      | undefined;
     if (Array.isArray(payload?.sessions)) {
       for (const session of payload.sessions) {
         const sessionId = typeof session.sessionId === "string" ? session.sessionId : undefined;
@@ -86,23 +128,19 @@ function extractRemoteSessions(result: AcpDebugRunResult): AcpRemoteSessionSumma
   }
   return sessions;
 }
-
 function getProbeErrorMessage(error: unknown, agentId?: string): string {
   const message = error instanceof Error ? error.message : String(error);
   if (message.includes("Agent not found")) {
     return "This agent is not available to ACP. Enable it in Installed Agents, then try again.";
   }
-
   const prerequisite = agentId ? ACP_ADAPTER_PREREQUISITES[agentId] : undefined;
   const wrappedAgentDied = message.includes("stream was destroyed") || message.includes("ACP connection closed");
-
   if (prerequisite && wrappedAgentDied) {
     const install = prerequisite.installHint
       ? ` Install it with \`${prerequisite.installHint}\` and`
       : " Install it and";
     return `This agent requires the \`${prerequisite.cli}\` CLI to be installed and available on your PATH.${install} try again.`;
   }
-
   if (message.includes("stream was destroyed")) {
     return "The ACP adapter started, but its wrapped agent stopped while creating a session. Verify that the required CLI is installed and available on PATH, then retry.";
   }
@@ -111,7 +149,6 @@ function getProbeErrorMessage(error: unknown, agentId?: string): string {
   }
   return message;
 }
-
 function getConnectionState(
   canRun: boolean,
   probing: boolean,
@@ -125,8 +162,13 @@ function getConnectionState(
   if (diagnostics?.ready) return "ready";
   return "unchecked";
 }
-
-const CONNECTION_COPY: Record<ConnectionState, { label: string; description: string }> = {
+const CONNECTION_COPY: Record<
+  ConnectionState,
+  {
+    label: string;
+    description: string;
+  }
+> = {
   off: {
     label: "Installed, off",
     description: "Enable this agent to make it available in Argos.",
@@ -152,7 +194,6 @@ const CONNECTION_COPY: Record<ConnectionState, { label: string; description: str
     description: "The latest connection check failed. Review the message below and try again.",
   },
 };
-
 function humanizeAuthMethodId(id: string): string {
   const words = id.trim().replace(/[_-]+/g, " ").replace(/\s+/g, " ");
   if (!words) return "Authentication";
@@ -163,13 +204,14 @@ function humanizeAuthMethodId(id: string): string {
     .replace(/\bSso\b/g, "SSO")
     .replace(/\bGithub\b/g, "GitHub");
 }
-
-function getAuthMethodOptions(methods: AuthMethod[]): Array<{ method: AuthMethod; label: string }> {
+function getAuthMethodOptions(methods: AuthMethod[]): Array<{
+  method: AuthMethod;
+  label: string;
+}> {
   const uniqueMethods = [...new Map(methods.map((method) => [method.id, method])).values()];
   const baseLabels = uniqueMethods.map((method) => method.name?.trim() || humanizeAuthMethodId(method.id));
   const labelCounts = new Map<string, number>();
   baseLabels.forEach((label) => labelCounts.set(label, (labelCounts.get(label) ?? 0) + 1));
-
   return uniqueMethods.map((method, index) => {
     const baseLabel = baseLabels[index];
     return {
@@ -178,7 +220,6 @@ function getAuthMethodOptions(methods: AuthMethod[]): Array<{ method: AuthMethod
     };
   });
 }
-
 export default function AcpDiagnostics({
   agentId,
   agentName,
@@ -188,7 +229,7 @@ export default function AcpDiagnostics({
   autoCheckRequest = 0,
   onAutoCheckHandled,
 }: AcpDiagnosticsProps) {
-  const providerClient = useMemo(() => createProviderClient(), []);
+  const providerClient = createProviderClient();
   const [diagnostics, setDiagnostics] = useState<AcpAgentDiagnostics | null>(null);
   const [remoteSessions, setRemoteSessions] = useState<AcpRemoteSessionSummary[]>([]);
   const [loading, setLoading] = useState(false);
@@ -202,19 +243,23 @@ export default function AcpDiagnostics({
   // Request sequence so a stale diagnostics response can never overwrite the
   // state owned by a newer refresh (agent/workdir changed mid-flight).
   const diagnosticsRequestSeqRef = useRef(0);
-  const refreshDiagnostics = useCallback(async () => {
+  // Liveness flag flipped by the auto-check effects; post-await state writes are
+  // skipped once the effects are torn down so unmounted probes never write state.
+  const probeLiveRef = useRef(false);
+  const refreshDiagnostics = async () => {
     const requestSeq = ++diagnosticsRequestSeqRef.current;
     try {
       const next = await providerClient.getAcpAgentDiagnostics(agentId, selectedWorkdir ?? null);
       if (requestSeq !== diagnosticsRequestSeqRef.current) return next;
+      if (!probeLiveRef.current) return next;
       setDiagnostics(next);
       return next;
     } catch {
+      if (!probeLiveRef.current) return null;
       if (requestSeq === diagnosticsRequestSeqRef.current) setDiagnostics(null);
       return null;
     }
-  }, [agentId, providerClient, selectedWorkdir]);
-
+  };
   useEffect(() => {
     let cancelled = false;
     void providerClient
@@ -229,37 +274,38 @@ export default function AcpDiagnostics({
       cancelled = true;
     };
   }, [agentId, providerClient, workdir]);
-
-  const runAction = useCallback(
-    async (action: string, payload: Record<string, unknown> = {}) => {
-      setLoading(true);
-      try {
-        const result = await providerClient.runAcpDebugAction({
-          agentId,
-          action: action as never,
-          payload,
-          workdir: selectedWorkdir,
+  const runAction = async (action: string, payload: Record<string, unknown> = {}) => {
+    setLoading(true);
+    try {
+      const result = await providerClient.runAcpDebugAction({
+        agentId,
+        action: action as never,
+        payload,
+        workdir: selectedWorkdir,
+      });
+      if (result?.status === "error" && result.error) {
+        toast({
+          title: result.error,
+          variant: "destructive",
         });
-        if (result?.status === "error" && result.error) {
-          toast({ title: result.error, variant: "destructive" });
-        } else if (action === "sessionList") {
-          setRemoteSessions(extractRemoteSessions(result));
-        }
-        void refreshDiagnostics();
-        setLoading(false);
-        return result;
-      } catch (error) {
-        toast({ title: "Request failed", description: String(error), variant: "destructive" });
-        setLoading(false);
-        return null;
+      } else if (action === "sessionList") {
+        setRemoteSessions(extractRemoteSessions(result));
       }
-    },
-    [agentId, providerClient, refreshDiagnostics, selectedWorkdir],
-  );
-
-  const runDiagnostics = useCallback(async () => {
+      void refreshDiagnostics();
+      setLoading(false);
+      return result;
+    } catch (error) {
+      toast({
+        title: "Request failed",
+        description: String(error),
+        variant: "destructive",
+      });
+      setLoading(false);
+      return null;
+    }
+  };
+  const runDiagnostics = async () => {
     if (!canRun) return;
-
     setProbing(true);
     setProbeError(null);
     try {
@@ -271,6 +317,7 @@ export default function AcpDiagnostics({
         }),
         DIAGNOSTICS_TIMEOUT_MS,
       );
+      if (!probeLiveRef.current) return;
       if (result.status === "error") {
         setProbeError(
           getProbeErrorMessage(new Error(result.error || "The ACP agent could not be initialized"), agentId),
@@ -279,27 +326,35 @@ export default function AcpDiagnostics({
         await refreshDiagnostics();
       }
     } catch (error) {
+      if (!probeLiveRef.current) return;
       setProbeError(getProbeErrorMessage(error, agentId));
     }
+    if (!probeLiveRef.current) return;
     setProbing(false);
-  }, [agentId, canRun, providerClient, refreshDiagnostics, selectedWorkdir]);
-
+  };
   useEffect(() => {
+    probeLiveRef.current = true;
     if (!canRun || autoCheckRequest <= handledAutoCheckRequest.current) return;
     handledAutoCheckRequest.current = autoCheckRequest;
     onAutoCheckHandled?.(autoCheckRequest);
     void runDiagnostics();
-  }, [autoCheckRequest, canRun, onAutoCheckHandled, runDiagnostics]);
+    return () => {
+      probeLiveRef.current = false;
+    };
+  }, [autoCheckRequest, canRun, onAutoCheckHandled, runDiagnostics, handledAutoCheckRequest]);
 
   // Auto-run one health check on mount for enabled agents so they don't sit at
   // "Not verified yet" until the user manually checks.
   const ranMountCheckRef = useRef(false);
   useEffect(() => {
+    probeLiveRef.current = true;
     if (!canRun || ranMountCheckRef.current) return;
     ranMountCheckRef.current = true;
     void runDiagnostics();
+    return () => {
+      probeLiveRef.current = false;
+    };
   }, [canRun, runDiagnostics]);
-
   const caps = diagnostics?.capabilities;
   const connectionState = getConnectionState(canRun, probing, diagnostics, probeError);
   const connectionCopy = CONNECTION_COPY[connectionState];
@@ -307,7 +362,6 @@ export default function AcpDiagnostics({
     connectionState === "error" ? "destructive" : connectionState === "ready" ? "default" : "secondary";
   const authMethodOptions = getAuthMethodOptions(diagnostics?.authMethods ?? []);
   const detailsOpen = manualDetailsOpen || Boolean(probeError || diagnostics?.authRequired || diagnostics?.lastError);
-
   const detailsLabel = detailsOpen ? `Hide ${agentName} connection details` : `Show ${agentName} connection details`;
   const checkLabel = !canRun
     ? `Check ${agentName} connection`
@@ -316,7 +370,6 @@ export default function AcpDiagnostics({
       : diagnostics?.ready
         ? `Check ${agentName} connection again`
         : `Check ${agentName} connection`;
-
   return (
     <Collapsible open={detailsOpen} onOpenChange={setManualDetailsOpen}>
       <section aria-label={`${agentName} connection`} className="border-t bg-muted/20 text-xs">
@@ -443,7 +496,11 @@ export default function AcpDiagnostics({
                               size="xs"
                               variant="outline"
                               disabled={loading}
-                              onClick={() => void runAction("authenticate", { methodId: method.id })}
+                              onClick={() =>
+                                void runAction("authenticate", {
+                                  methodId: method.id,
+                                })
+                              }
                             >
                               {label}
                             </Button>
@@ -503,7 +560,11 @@ export default function AcpDiagnostics({
                         size="xs"
                         variant="outline"
                         disabled={loading}
-                        onClick={() => void runAction("sessionList", { sync: true })}
+                        onClick={() =>
+                          void runAction("sessionList", {
+                            sync: true,
+                          })
+                        }
                       >
                         Sync Sessions
                       </Button>
@@ -527,7 +588,11 @@ export default function AcpDiagnostics({
                                   size="xs"
                                   variant="outline"
                                   disabled={loading}
-                                  onClick={() => void runAction("sessionImport", { sessionId: session.sessionId })}
+                                  onClick={() =>
+                                    void runAction("sessionImport", {
+                                      sessionId: session.sessionId,
+                                    })
+                                  }
                                 >
                                   Import
                                 </Button>
@@ -544,7 +609,9 @@ export default function AcpDiagnostics({
                                         "Close remote session? This permanently closes the remote ACP session and the agent will no longer be able to resume it.",
                                       )
                                     ) {
-                                      void runAction("sessionCloseRemote", { sessionId: session.sessionId });
+                                      void runAction("sessionCloseRemote", {
+                                        sessionId: session.sessionId,
+                                      });
                                     }
                                   }}
                                 >
@@ -580,7 +647,6 @@ export default function AcpDiagnostics({
     </Collapsible>
   );
 }
-
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-1.5">

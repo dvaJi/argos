@@ -1,7 +1,6 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import type { ArgosEventPayload } from "@argos/shared-contracts/events";
 import { createStartupClient } from "#api/StartupClient";
-
 type StartupWorkloadTarget = "main" | "settings";
 type StartupWorkloadTask = ArgosEventPayload<"startup.workload.changed">["tasks"][number];
 type StartupSectionId =
@@ -14,7 +13,6 @@ type StartupSectionId =
   | "settings.skills"
   | "settings.mcp"
   | "settings.remote";
-
 const SECTION_TASK_IDS: Record<StartupSectionId, StartupWorkloadTask["id"][]> = {
   "main.bootstrap": ["main.bootstrap"],
   "main.sessions": ["main.session.firstPage"],
@@ -26,7 +24,6 @@ const SECTION_TASK_IDS: Record<StartupSectionId, StartupWorkloadTask["id"][]> = 
   "settings.mcp": ["settings.mcp.runtime"],
   "settings.remote": ["settings.remote.runtime"],
 };
-
 export function useStartupWorkloadStore() {
   const startupClient = createStartupClient();
   const [runIds, setRunIds] = useState<Record<StartupWorkloadTarget, string | null>>({
@@ -39,10 +36,8 @@ export function useStartupWorkloadStore() {
   });
   const [connected, setConnected] = useState(false);
   const unsubscribeRef = useRef<(() => void) | null>(null);
-
-  const connect = useCallback(() => {
+  const connect = () => {
     if (connected) return;
-
     unsubscribeRef.current = startupClient.onWorkloadChanged((payload) => {
       setRunIds((prev) => ({
         ...prev,
@@ -54,38 +49,23 @@ export function useStartupWorkloadStore() {
       }));
     });
     setConnected(true);
-  }, [connected, startupClient]);
-
-  const disconnect = useCallback(() => {
+  };
+  const disconnect = () => {
     unsubscribeRef.current?.();
     unsubscribeRef.current = null;
     setConnected(false);
-  }, []);
-
-  const mainTasks = useMemo(() => Object.values(taskMaps.main), [taskMaps.main]);
-  const settingsTasks = useMemo(() => Object.values(taskMaps.settings), [taskMaps.settings]);
-
-  const getTask = useCallback(
-    (taskId: StartupWorkloadTask["id"]): StartupWorkloadTask | null => {
-      return taskMaps.main[taskId] ?? taskMaps.settings[taskId] ?? null;
-    },
-    [taskMaps],
-  );
-
-  const isTaskRunning = useCallback(
-    (taskId: StartupWorkloadTask["id"]): boolean => {
-      return getTask(taskId)?.state === "running";
-    },
-    [getTask],
-  );
-
-  const isSectionReady = useCallback(
-    (sectionId: StartupSectionId): boolean => {
-      return SECTION_TASK_IDS[sectionId].every((taskId) => getTask(taskId)?.state === "completed");
-    },
-    [getTask],
-  );
-
+  };
+  const mainTasks = Object.values(taskMaps.main);
+  const settingsTasks = Object.values(taskMaps.settings);
+  const getTask = (taskId: StartupWorkloadTask["id"]): StartupWorkloadTask | null => {
+    return taskMaps.main[taskId] ?? taskMaps.settings[taskId] ?? null;
+  };
+  const isTaskRunning = (taskId: StartupWorkloadTask["id"]): boolean => {
+    return getTask(taskId)?.state === "running";
+  };
+  const isSectionReady = (sectionId: StartupSectionId): boolean => {
+    return SECTION_TASK_IDS[sectionId].every((taskId) => getTask(taskId)?.state === "completed");
+  };
   return {
     runIds,
     mainTasks,

@@ -1,4 +1,4 @@
-import { useState, useReducer, useMemo, useEffect, useRef, useCallback, Fragment } from "react";
+import { useState, useReducer, useEffect, useRef, Fragment } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "#shadcn/components/ui/dialog";
 import { Button } from "#shadcn/components/ui/button";
 import { Spinner } from "#shadcn/components/ui/spinner";
@@ -9,10 +9,8 @@ import { DiffsCodePane } from "#/components/sidepanel/viewer/DiffsCodePane";
 import type { MessageTraceRecord } from "@argos/shared/types/agent-interface";
 import type { ArgosTapeViewManifestRecord } from "@argos/shared/types/tape-view-manifest";
 import ManifestPanel from "./ManifestPanel";
-
 const deviceClient = createDeviceClient();
 const sessionClient = createSessionClient();
-
 type LoadState = {
   loading: boolean;
   error: boolean;
@@ -20,13 +18,22 @@ type LoadState = {
   selectedTraceId: string | null;
   manifests: ArgosTapeViewManifestRecord[];
 };
-
 type LoadAction =
-  | { type: "reset" }
-  | { type: "loaded"; traces: MessageTraceRecord[]; manifests: ArgosTapeViewManifestRecord[] }
-  | { type: "error" }
-  | { type: "selectTrace"; traceId: string };
-
+  | {
+      type: "reset";
+    }
+  | {
+      type: "loaded";
+      traces: MessageTraceRecord[];
+      manifests: ArgosTapeViewManifestRecord[];
+    }
+  | {
+      type: "error";
+    }
+  | {
+      type: "selectTrace";
+      traceId: string;
+    };
 const initialLoadState: LoadState = {
   loading: false,
   error: false,
@@ -34,11 +41,13 @@ const initialLoadState: LoadState = {
   selectedTraceId: null,
   manifests: [],
 };
-
 function loadReducer(state: LoadState, action: LoadAction): LoadState {
   switch (action.type) {
     case "reset":
-      return { ...initialLoadState, loading: true };
+      return {
+        ...initialLoadState,
+        loading: true,
+      };
     case "loaded":
       return {
         loading: false,
@@ -48,46 +57,44 @@ function loadReducer(state: LoadState, action: LoadAction): LoadState {
         manifests: action.manifests,
       };
     case "error":
-      return { ...state, loading: false, error: true };
+      return {
+        ...state,
+        loading: false,
+        error: true,
+      };
     case "selectTrace":
-      return { ...state, selectedTraceId: action.traceId };
+      return {
+        ...state,
+        selectedTraceId: action.traceId,
+      };
     default:
       return state;
   }
 }
-
 interface TraceDialogProps {
   messageId: string | null;
   sessionId?: string | null;
   agentId?: string | null;
   onClose: () => void;
 }
-
 export default function TraceDialog({ messageId, sessionId, onClose }: TraceDialogProps) {
   const [copySuccess, setCopySuccess] = useState(false);
   const requestIdRef = useRef(0);
   const [loadState, dispatch] = useReducer(loadReducer, initialLoadState);
   const { loading, error, traces: traceList, selectedTraceId, manifests } = loadState;
   const [selectedManifestId, setSelectedManifestId] = useState<string | null>(null);
-
-  const selectedTrace = useMemo(() => {
+  const selectedTrace = (() => {
     if (!traceList.length) return null;
     if (selectedTraceId) {
       const matched = traceList.find((item) => item.id === selectedTraceId);
       if (matched) return matched;
     }
     return traceList[0] ?? null;
-  }, [traceList, selectedTraceId]);
-
-  const lineage = useMemo(
-    () =>
-      manifests
-        .slice()
-        .sort((a, b) => (a.manifest.assembledAt ?? a.createdAt) - (b.manifest.assembledAt ?? b.createdAt)),
-    [manifests],
-  );
-
-  const selectedManifest = useMemo(() => {
+  })();
+  const lineage = manifests
+    .slice()
+    .sort((a, b) => (a.manifest.assembledAt ?? a.createdAt) - (b.manifest.assembledAt ?? b.createdAt));
+  const selectedManifest = (() => {
     if (!manifests.length) return null;
     if (selectedManifestId) {
       const matched = manifests.find((m) => m.manifest.viewId === selectedManifestId);
@@ -95,27 +102,24 @@ export default function TraceDialog({ messageId, sessionId, onClose }: TraceDial
     }
     if (!selectedTrace) return null;
     return manifests.find((m) => m.messageId === selectedTrace.messageId) ?? null;
-  }, [selectedManifestId, selectedTrace, manifests]);
-
-  const parsedHeaders = useMemo(() => {
+  })();
+  const parsedHeaders = (() => {
     if (!selectedTrace) return {};
     try {
       return JSON.parse(selectedTrace.headersJson);
     } catch {
       return selectedTrace.headersJson;
     }
-  }, [selectedTrace]);
-
-  const parsedBody = useMemo(() => {
+  })();
+  const parsedBody = (() => {
     if (!selectedTrace) return {};
     try {
       return JSON.parse(selectedTrace.bodyJson);
     } catch {
       return selectedTrace.bodyJson;
     }
-  }, [selectedTrace]);
-
-  const formattedJson = useMemo(() => {
+  })();
+  const formattedJson = (() => {
     if (!selectedTrace) return "";
     const fullData = {
       endpoint: selectedTrace.endpoint,
@@ -125,13 +129,13 @@ export default function TraceDialog({ messageId, sessionId, onClose }: TraceDial
       requestSeq: selectedTrace.requestSeq,
     };
     return JSON.stringify(fullData, null, 2);
-  }, [selectedTrace, parsedHeaders, parsedBody]);
-
-  const resetState = useCallback(() => {
-    dispatch({ type: "reset" });
+  })();
+  const resetState = () => {
+    dispatch({
+      type: "reset",
+    });
     setCopySuccess(false);
-  }, []);
-
+  };
   const resetStateRef = useRef(resetState);
   const onCloseRef = useRef(onClose);
   useEffect(() => {
@@ -149,7 +153,6 @@ export default function TraceDialog({ messageId, sessionId, onClose }: TraceDial
     setUserClosed(false);
   }
   const isOpen = messageId != null && !userClosed;
-
   useEffect(() => {
     if (!messageId) return;
     let cancelled = false;
@@ -157,7 +160,9 @@ export default function TraceDialog({ messageId, sessionId, onClose }: TraceDial
     const currentRequestId = requestIdRef.current;
     void Promise.resolve()
       .then(() => {
-        dispatch({ type: "reset" });
+        dispatch({
+          type: "reset",
+        });
         setSelectedManifestId(null);
         const tracePromise = sessionClient.listMessageTraces(messageId);
         const manifestPromise = sessionId
@@ -168,28 +173,34 @@ export default function TraceDialog({ messageId, sessionId, onClose }: TraceDial
       .then(([result, manifestResult]) => {
         if (cancelled || currentRequestId !== requestIdRef.current) return;
         if (!Array.isArray(result) || result.length === 0) {
-          dispatch({ type: "error" });
+          dispatch({
+            type: "error",
+          });
           return;
         }
-        dispatch({ type: "loaded", traces: result, manifests: manifestResult });
+        dispatch({
+          type: "loaded",
+          traces: result,
+          manifests: manifestResult,
+        });
       })
       .catch(() => {
         if (!cancelled && currentRequestId === requestIdRef.current) {
-          dispatch({ type: "error" });
+          dispatch({
+            type: "error",
+          });
         }
       });
     return () => {
       cancelled = true;
     };
   }, [messageId, sessionId]);
-
   useEffect(() => {
     if (isOpen) return;
     resetStateRef.current();
     onCloseRef.current();
   }, [isOpen]);
-
-  const copyJson = useCallback(async () => {
+  const copyJson = async () => {
     if (!formattedJson) return;
     try {
       deviceClient.copyText(formattedJson);
@@ -198,25 +209,19 @@ export default function TraceDialog({ messageId, sessionId, onClose }: TraceDial
     } catch (err) {
       console.error("Failed to copy JSON:", err);
     }
-  }, [formattedJson]);
-
-  const close = useCallback(() => {
+  };
+  const close = () => {
     setUserClosed(true);
     resetState();
     onClose();
-  }, [resetState, onClose]);
-
-  const handleOpenChange = useCallback(
-    (next: boolean) => {
-      if (next) {
-        setUserClosed(false);
-        return;
-      }
-      close();
-    },
-    [close],
-  );
-
+  };
+  const handleOpenChange = (next: boolean) => {
+    if (next) {
+      setUserClosed(false);
+      return;
+    }
+    close();
+  };
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col">
@@ -276,7 +281,12 @@ export default function TraceDialog({ messageId, sessionId, onClose }: TraceDial
                     key={trace.id}
                     size="sm"
                     variant={trace.id === selectedTrace.id ? "default" : "outline"}
-                    onClick={() => dispatch({ type: "selectTrace", traceId: trace.id })}
+                    onClick={() =>
+                      dispatch({
+                        type: "selectTrace",
+                        traceId: trace.id,
+                      })
+                    }
                   >
                     #{trace.requestSeq}
                   </Button>
@@ -314,7 +324,13 @@ export default function TraceDialog({ messageId, sessionId, onClose }: TraceDial
                 </Button>
               </div>
               <div className="flex-1 min-h-0 bg-muted/30">
-                <DiffsCodePane source={{ id: "trace-body", content: formattedJson, name: "trace.json" }} />
+                <DiffsCodePane
+                  source={{
+                    id: "trace-body",
+                    content: formattedJson,
+                    name: "trace.json",
+                  }}
+                />
               </div>
             </div>
           </div>

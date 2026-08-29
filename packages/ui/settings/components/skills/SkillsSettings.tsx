@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Icon } from "@iconify/react";
 import { Separator } from "#shadcn/components/ui/separator";
 import { Switch } from "#shadcn/components/ui/switch";
@@ -27,46 +27,40 @@ import SyncStatusSection from "./SyncStatusSection";
 import SyncPromptDialog from "./SyncPromptDialog";
 import { SkillSyncDialog } from "./SkillSyncDialog";
 import SettingsPageShell from "../control-center/SettingsPageShell";
-
 const configClient = createConfigClient();
-
 export default function SkillsSettings() {
   const { toast } = useToast();
   const skillsStore = useSkillsStore();
-
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<string>("all");
   const [draftSuggestionsEnabled, setDraftSuggestionsEnabled] = useState(false);
   const [installDialogOpen, setInstallDialogOpen] = useState(false);
   const [syncDialogOpen, setSyncDialogOpen] = useState(false);
   const [syncMode, setSyncMode] = useState<"import" | "export">("import");
-  const [importSelection, setImportSelection] = useState<{ toolId: string; skills: string[] } | null>(null);
+  const [importSelection, setImportSelection] = useState<{
+    toolId: string;
+    skills: string[];
+  } | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingSkill, setEditingSkill] = useState<SkillMetadata | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingSkill, setDeletingSkill] = useState<SkillMetadata | null>(null);
-
   const skills = skillsStore.skills;
   const loading = skillsStore.loading;
-
-  const filteredSkills = useMemo(() => {
+  const filteredSkills = (() => {
     let result = skills;
-
     if (activeTab !== "all") {
       result = result.filter((s) => {
         const sourceId = s.sourceId ?? s.source ?? "unknown";
         return sourceId === activeTab;
       });
     }
-
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       result = result.filter((s) => s.name.toLowerCase().includes(q) || s.description.toLowerCase().includes(q));
     }
-
     return result;
-  }, [skills, activeTab, searchQuery]);
-
+  })();
   useEffect(() => {
     let cancelled = false;
     const init = async () => {
@@ -76,7 +70,6 @@ export default function SkillsSettings() {
       await loadSkills();
     };
     init();
-
     const handleSkillEvent = () => loadSkills();
     const unsubscribers = [
       onIpcChannel("skill:installed", handleSkillEvent),
@@ -88,7 +81,6 @@ export default function SkillsSettings() {
       unsubscribers.forEach((unsubscribe) => unsubscribe());
     };
   }, []);
-
   const openEditor = (skill: SkillMetadata) => {
     setEditingSkill(skill);
     setEditorOpen(true);
@@ -97,25 +89,29 @@ export default function SkillsSettings() {
     setDeletingSkill(skill);
     setDeleteDialogOpen(true);
   };
-
   const handleDelete = async () => {
     if (!deletingSkill) return;
     const result = await uninstallSkill(deletingSkill.name);
     if (result.success) {
-      toast({ title: "Skill deleted", description: `"${deletingSkill.name}" removed` });
+      toast({
+        title: "Skill deleted",
+        description: `"${deletingSkill.name}" removed`,
+      });
     } else {
-      toast({ title: "Delete failed", description: result.error, variant: "destructive" });
+      toast({
+        title: "Delete failed",
+        description: result.error,
+        variant: "destructive",
+      });
     }
     setDeleteDialogOpen(false);
     setDeletingSkill(null);
   };
-
   const handleDraftSuggestionsToggle = async (value: boolean | string) => {
     const normalized = typeof value === "string" ? value === "true" : Boolean(value);
     setDraftSuggestionsEnabled(normalized);
     await configClient.setSkillDraftSuggestionsEnabled(normalized);
   };
-
   return (
     <>
       <SettingsPageShell
@@ -171,7 +167,10 @@ export default function SkillsSettings() {
           <div className="mb-4">
             <SyncStatusSection
               onImport={(toolId, selectedSkills) => {
-                setImportSelection({ toolId, skills: selectedSkills });
+                setImportSelection({
+                  toolId,
+                  skills: selectedSkills,
+                });
                 setSyncMode("import");
                 setSyncDialogOpen(true);
               }}

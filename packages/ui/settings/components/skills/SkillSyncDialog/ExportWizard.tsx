@@ -1,4 +1,4 @@
-import { type FC, useState, useEffect, useMemo, useCallback } from "react";
+import { type FC, useState, useEffect, useCallback } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Checkbox } from "#shadcn/components/ui/checkbox";
@@ -12,22 +12,18 @@ import { useSkillsStore, loadSkills } from "#/stores/skillsStore";
 import type { ExternalToolConfig, ExportPreview, KiroInclusionMode } from "@argos/shared/types/skillSync";
 import { ConflictStrategy } from "@argos/shared/types/skillSync";
 import ConflictResolver, { type ConflictItem } from "./ConflictResolver";
-
 const skillSyncClient = createSkillSyncClient();
-
 interface ExportWizardProps {
   currentStep: number;
   onStepChange: (value: number) => void;
   onComplete: () => void;
   onCancel: () => void;
 }
-
 const ExportWizard: FC<ExportWizardProps> = ({ currentStep, onStepChange, onComplete, onCancel }) => {
   const { toast } = useToast();
   const skillsStore = useSkillsStore();
   const localSkills = skillsStore.skills;
   const loadingSkills = skillsStore.loading;
-
   const [scanningTools, setScanningTools] = useState(false);
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -37,7 +33,11 @@ const ExportWizard: FC<ExportWizardProps> = ({ currentStep, onStepChange, onComp
   const [selectedToolId, setSelectedToolId] = useState<string | null>(null);
   const [exportPreviews, setExportPreviews] = useState<ExportPreview[]>([]);
   const [conflictStrategies, setConflictStrategies] = useState<Record<string, ConflictStrategy>>({});
-  const [exportProgress, setExportProgress] = useState({ current: 0, total: 0, currentSkill: "" });
+  const [exportProgress, setExportProgress] = useState({
+    current: 0,
+    total: 0,
+    currentSkill: "",
+  });
   const [kiroInclusion, setKiroInclusion] = useState<KiroInclusionMode>("on-demand");
   const [kiroFilePatterns, setKiroFilePatterns] = useState("");
 
@@ -66,21 +66,21 @@ const ExportWizard: FC<ExportWizardProps> = ({ currentStep, onStepChange, onComp
       setKiroFilePatterns("");
     }
   }
-
-  const allSkillsSelected = useMemo(
-    () => localSkills.length > 0 && selectedSkills.length === localSkills.length,
-    [localSkills, selectedSkills],
-  );
-
-  const isKiroSelected = useMemo(() => selectedToolId === "kiro", [selectedToolId]);
-
-  const conflictItems = useMemo((): ConflictItem[] => {
+  const allSkillsSelected = localSkills.length > 0 && selectedSkills.length === localSkills.length;
+  const isKiroSelected = selectedToolId === "kiro";
+  const conflictItems = ((): ConflictItem[] => {
     return exportPreviews.flatMap((p) =>
-      p.conflict ? [{ skillName: p.skillName, existingName: p.conflict!.existingPath }] : [],
+      p.conflict
+        ? [
+            {
+              skillName: p.skillName,
+              existingName: p.conflict!.existingPath,
+            },
+          ]
+        : [],
     );
-  }, [exportPreviews]);
-
-  const allWarnings = useMemo(() => {
+  })();
+  const allWarnings = (() => {
     const warnings: string[] = [];
     for (const preview of exportPreviews) {
       if (preview.warnings.length > 0) {
@@ -88,19 +88,18 @@ const ExportWizard: FC<ExportWizardProps> = ({ currentStep, onStepChange, onComp
       }
     }
     return warnings;
-  }, [exportPreviews]);
-
-  const canProceed = useMemo(() => {
+  })();
+  const canProceed = (() => {
     if (currentStep === 1) return selectedSkills.length > 0;
     if (currentStep === 2) return selectedToolId !== null;
     return true;
-  }, [currentStep, selectedSkills, selectedToolId]);
-
+  })();
   const nextButtonText = currentStep === 3 ? "Export" : "Next";
-
-  const exportOptions = useMemo(() => {
+  const exportOptions = (() => {
     if (selectedToolId === "kiro") {
-      const options: Record<string, unknown> = { inclusion: kiroInclusion };
+      const options: Record<string, unknown> = {
+        inclusion: kiroInclusion,
+      };
       if (kiroInclusion === "conditional" && kiroFilePatterns.trim()) {
         options.filePatterns = kiroFilePatterns
           .split(",")
@@ -110,14 +109,12 @@ const ExportWizard: FC<ExportWizardProps> = ({ currentStep, onStepChange, onComp
       return options;
     }
     return undefined;
-  }, [selectedToolId, kiroInclusion, kiroFilePatterns]);
-
+  })();
   const getStepClass = (step: number) => {
     if (currentStep > step) return "bg-primary text-primary-foreground";
     if (currentStep === step) return "bg-primary text-primary-foreground";
     return "bg-muted text-muted-foreground";
   };
-
   const getToolIcon = (toolId: string): string => {
     const icons: Record<string, string> = {
       "claude-code": "simple-icons:anthropic",
@@ -129,7 +126,6 @@ const ExportWizard: FC<ExportWizardProps> = ({ currentStep, onStepChange, onComp
     };
     return icons[toolId] || "lucide:box";
   };
-
   const getToolIconBg = (toolId: string): string => {
     const bgs: Record<string, string> = {
       "claude-code": "bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400",
@@ -141,9 +137,11 @@ const ExportWizard: FC<ExportWizardProps> = ({ currentStep, onStepChange, onComp
     };
     return bgs[toolId] || "bg-gray-100 text-gray-600 dark:bg-gray-900/30 dark:text-gray-400";
   };
-
   const updateSkillChecked = (skillName: string, checked: boolean) => {
-    setSkillCheckedState((prev) => ({ ...prev, [skillName]: checked }));
+    setSkillCheckedState((prev) => ({
+      ...prev,
+      [skillName]: checked,
+    }));
     if (checked) {
       if (!selectedSkills.includes(skillName)) {
         setSelectedSkills((prev) => [...prev, skillName]);
@@ -152,7 +150,6 @@ const ExportWizard: FC<ExportWizardProps> = ({ currentStep, onStepChange, onComp
       setSelectedSkills((prev) => prev.filter((n) => n !== skillName));
     }
   };
-
   const toggleAllSkills = () => {
     if (allSkillsSelected) {
       setSelectedSkills([]);
@@ -166,23 +163,24 @@ const ExportWizard: FC<ExportWizardProps> = ({ currentStep, onStepChange, onComp
       setSkillCheckedState(newState);
     }
   };
-
   const handleBack = () => {
     if (currentStep === 1) onCancel();
     else onStepChange(currentStep - 1);
   };
-
   const loadTools = async () => {
     setScanningTools(true);
     try {
       setAvailableTools(await skillSyncClient.getRegisteredTools());
     } catch (error) {
       console.error("Load tools error:", error);
-      toast({ title: "Load Tools Error", description: String(error), variant: "destructive" });
+      toast({
+        title: "Load Tools Error",
+        description: String(error),
+        variant: "destructive",
+      });
     }
     setScanningTools(false);
   };
-
   const previewExport = async () => {
     if (!selectedToolId) return;
     setLoading(true);
@@ -196,14 +194,21 @@ const ExportWizard: FC<ExportWizardProps> = ({ currentStep, onStepChange, onComp
       setConflictStrategies(strategies);
     } catch (error) {
       console.error("Preview export error:", error);
-      toast({ title: "Preview Error", description: String(error), variant: "destructive" });
+      toast({
+        title: "Preview Error",
+        description: String(error),
+        variant: "destructive",
+      });
     }
     setLoading(false);
   };
-
   const executeExport = async () => {
     setExporting(true);
-    setExportProgress({ current: 0, total: exportPreviews.length, currentSkill: "" });
+    setExportProgress({
+      current: 0,
+      total: exportPreviews.length,
+      currentSkill: "",
+    });
     try {
       const result = await skillSyncClient.executeExport(exportPreviews, conflictStrategies);
       if (result.success) {
@@ -225,11 +230,14 @@ const ExportWizard: FC<ExportWizardProps> = ({ currentStep, onStepChange, onComp
       }
     } catch (error) {
       console.error("Export error:", error);
-      toast({ title: "Export Error", description: String(error), variant: "destructive" });
+      toast({
+        title: "Export Error",
+        description: String(error),
+        variant: "destructive",
+      });
     }
     setExporting(false);
   };
-
   const handleNext = async () => {
     if (currentStep === 1) {
       await loadTools();
@@ -241,11 +249,9 @@ const ExportWizard: FC<ExportWizardProps> = ({ currentStep, onStepChange, onComp
       await executeExport();
     }
   };
-
   useEffect(() => {
     void loadSkills();
   }, []);
-
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-center gap-2 mb-6">
@@ -494,5 +500,4 @@ const ExportWizard: FC<ExportWizardProps> = ({ currentStep, onStepChange, onComp
     </div>
   );
 };
-
 export default ExportWizard;

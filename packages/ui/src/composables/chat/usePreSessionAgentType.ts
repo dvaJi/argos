@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { useStore } from "@tanstack/react-store";
 import { agentStore } from "#/stores/ui/agent";
 import { sessionStore } from "#/stores/ui/session";
@@ -16,8 +15,7 @@ import { resolveEffectiveAgent } from "#/lib/effectiveAgent";
 export function usePreSessionAgentType(): "argos" | "acp" | null {
   const agentState = useStore(agentStore);
   const sessionState = useStore(sessionStore);
-
-  return useMemo(() => {
+  return (() => {
     const activeSession = sessionState.sessions.find((s) => s.id === sessionState.activeSessionId) ?? null;
     return (
       resolveEffectiveAgent({
@@ -26,5 +24,5 @@ export function usePreSessionAgentType(): "argos" | "acp" | null {
         activeSessionAgentId: activeSession?.agentId ?? null,
       })?.type ?? null
     );
-  }, [agentState.agents, agentState.selectedAgentId, sessionState.sessions, sessionState.activeSessionId]);
+  })();
 }

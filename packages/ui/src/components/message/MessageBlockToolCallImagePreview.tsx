@@ -1,4 +1,4 @@
-import { type FC, useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { type FC, useState, useEffect, useCallback, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "#shadcn/components/ui/dialog";
@@ -6,11 +6,9 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "#shadcn/components/ui/t
 import type { ToolCallImagePreview } from "@argos/shared/types/core/mcp";
 import { ImageActionContextMenu } from "./ImageActionContextMenu";
 import { useImageActions } from "#/composables/useImageActions";
-
 interface MessageBlockToolCallImagePreviewProps {
   previews: ToolCallImagePreview[];
 }
-
 const resolveImageSrc = (preview: ToolCallImagePreview): string => {
   const data = preview.data?.trim() ?? "";
   const hasSafeScheme =
@@ -18,51 +16,38 @@ const resolveImageSrc = (preview: ToolCallImagePreview): string => {
     data.startsWith("imgcache://") ||
     data.startsWith("http://") ||
     data.startsWith("https://");
-
   if (hasSafeScheme) return data;
   if (preview.mimeType === "argos/image-url") return "";
   return `data:${preview.mimeType || "image/png"};base64,${data}`;
 };
-
 export const MessageBlockToolCallImagePreview: FC<MessageBlockToolCallImagePreviewProps> = ({ previews }) => {
   const { saveImage } = useImageActions();
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const failedImagesRef = useRef<Set<string>>(new Set());
-
-  const selectedPreview = useMemo(
-    () => (selectedIndex === null ? null : (previews[selectedIndex] ?? null)),
-    [selectedIndex, previews],
-  );
-
-  const selectedPreviewSrc = useMemo(
-    () => (selectedPreview ? resolveImageSrc(selectedPreview) : ""),
-    [selectedPreview],
-  );
-
-  const selectedPreviewMimeType = useMemo(() => {
+  const selectedPreview = selectedIndex === null ? null : (previews[selectedIndex] ?? null);
+  const selectedPreviewSrc = selectedPreview ? resolveImageSrc(selectedPreview) : "";
+  const selectedPreviewMimeType = (() => {
     const mimeType = selectedPreview?.mimeType;
     return mimeType === "argos/image-url" ? undefined : mimeType;
-  }, [selectedPreview]);
-
+  })();
   const openPreview = (index: number) => {
     const preview = previews[index];
     if (!preview || failedImagesRef.current.has(preview.id || String(index))) return;
     setSelectedIndex(index);
   };
-
   const handleDialogOpenChange = (open: boolean) => {
     if (!open) setSelectedIndex(null);
   };
-
   const handleImageError = (id: string) => {
     failedImagesRef.current.add(id);
   };
-
   const handleSaveSelectedPreview = () => {
     if (!selectedPreview || !selectedPreviewSrc) return;
-    void saveImage({ source: selectedPreviewSrc, mimeType: selectedPreviewMimeType });
+    void saveImage({
+      source: selectedPreviewSrc,
+      mimeType: selectedPreviewMimeType,
+    });
   };
-
   return (
     <div data-testid="tool-call-image-preview" className="space-y-2 flex-1 min-w-0">
       <div className="flex items-center justify-between gap-2">

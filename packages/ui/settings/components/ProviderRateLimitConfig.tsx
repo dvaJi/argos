@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useEffectEvent } from "react";
 import { createIpcSubscriptionScope } from "#api/runtime";
 import { Switch } from "#shadcn/components/ui/switch";
 import { Input } from "#shadcn/components/ui/input";
@@ -17,25 +17,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "#shadcn/components/ui/alert-dialog";
-
 const providerClient = createProviderClient();
-
 interface ProviderRateLimitConfigProps {
   provider: LLM_PROVIDER;
   onConfigChanged?: () => void;
 }
-
 function convertQpsToInterval(qps: number): number {
   return 1 / qps;
 }
-
 function convertIntervalToQps(interval: number): number {
   return 1 / interval;
 }
-
 export default function ProviderRateLimitConfig({ provider, onConfigChanged }: ProviderRateLimitConfigProps) {
   const { toast } = useToast();
-
   const [rateLimitEnabled, setRateLimitEnabled] = useState(provider.rateLimit?.enabled ?? false);
   const [intervalValue, setIntervalValue] = useState(() => convertQpsToInterval(provider.rateLimit?.qpsLimit ?? 0.1));
   const [previousValidValue, setPreviousValidValue] = useState(() =>
@@ -48,10 +42,8 @@ export default function ProviderRateLimitConfig({ provider, onConfigChanged }: P
     lastRequestTime?: number;
   } | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
-
   const statusIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const loadStatus = useCallback(async () => {
+  const loadStatus = async () => {
     try {
       const rateLimitStatus = await providerClient.getProviderRateLimitStatus(provider.id);
       setStatus({
@@ -63,32 +55,27 @@ export default function ProviderRateLimitConfig({ provider, onConfigChanged }: P
     } catch (error) {
       console.error("Failed to load rate limit status:", error);
     }
-  }, [provider.id]);
-
-  const startStatusPolling = useCallback(() => {
+  };
+  const startStatusPolling = () => {
     if (statusIntervalRef.current) {
       clearInterval(statusIntervalRef.current);
     }
     if (rateLimitEnabled) {
       statusIntervalRef.current = setInterval(loadStatus, 1000);
     }
-  }, [rateLimitEnabled, loadStatus]);
-
-  const stopStatusPolling = useCallback(() => {
+  };
+  const stopStatusPolling = () => {
     if (statusIntervalRef.current) {
       clearInterval(statusIntervalRef.current);
       statusIntervalRef.current = null;
     }
-  }, []);
-
-  const handleRateLimitEvent = useCallback(
-    (data: any) => {
-      if (data.providerId === provider.id) {
-        void loadStatus();
-      }
-    },
-    [provider.id, loadStatus],
-  );
+  };
+  const handleRateLimitEvent = (data: any) => {
+    if (data.providerId === provider.id) {
+      void loadStatus();
+    }
+  };
+  const onRateLimitEvent = useEffectEvent(handleRateLimitEvent);
 
   // Re-sync the form whenever the provider prop changes (prev-compare during render).
   const [lastSyncedProvider, setLastSyncedProvider] = useState(provider);
@@ -99,7 +86,6 @@ export default function ProviderRateLimitConfig({ provider, onConfigChanged }: P
     setIntervalValue(newInterval);
     setPreviousValidValue(newInterval);
   }
-
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -116,25 +102,20 @@ export default function ProviderRateLimitConfig({ provider, onConfigChanged }: P
         console.error("Failed to load rate limit status:", error);
       }
     })();
-
     const rateLimitScope = createIpcSubscriptionScope();
-    rateLimitScope.on(RATE_LIMIT_EVENTS.CONFIG_UPDATED, handleRateLimitEvent);
-    rateLimitScope.on(RATE_LIMIT_EVENTS.REQUEST_EXECUTED, handleRateLimitEvent);
-    rateLimitScope.on(RATE_LIMIT_EVENTS.REQUEST_QUEUED, handleRateLimitEvent);
-
+    rateLimitScope.on(RATE_LIMIT_EVENTS.CONFIG_UPDATED, onRateLimitEvent);
+    rateLimitScope.on(RATE_LIMIT_EVENTS.REQUEST_EXECUTED, onRateLimitEvent);
+    rateLimitScope.on(RATE_LIMIT_EVENTS.REQUEST_QUEUED, onRateLimitEvent);
     startStatusPolling();
-
     return () => {
       cancelled = true;
       stopStatusPolling();
       rateLimitScope.cleanup();
     };
-  }, [provider.id, handleRateLimitEvent, startStatusPolling, stopStatusPolling]);
-
+  }, [provider.id, startStatusPolling, stopStatusPolling]);
   useEffect(() => {
     startStatusPolling();
   }, [startStatusPolling]);
-
   const updateRateLimitConfig = async (enabled: boolean, interval: number) => {
     try {
       const qpsValue = convertIntervalToQps(interval);
@@ -145,26 +126,22 @@ export default function ProviderRateLimitConfig({ provider, onConfigChanged }: P
       console.error("Failed to update rate limit config:", error);
     }
   };
-
   const handleEnabledChange = async (enabled: boolean) => {
     setRateLimitEnabled(enabled);
     await updateRateLimitConfig(enabled, intervalValue);
     startStatusPolling();
   };
-
   const handleIntervalChange = async () => {
     if (intervalValue <= 0) {
       setShowConfirmDialog(true);
       return;
     }
-
     if (intervalValue > 3600) {
       setIntervalValue(3600);
     }
     setPreviousValidValue(intervalValue);
     await updateRateLimitConfig(rateLimitEnabled, intervalValue);
   };
-
   const confirmDisableRateLimit = async () => {
     setRateLimitEnabled(false);
     setShowConfirmDialog(false);
@@ -174,12 +151,10 @@ export default function ProviderRateLimitConfig({ provider, onConfigChanged }: P
       description: "Rate limiting has been disabled for this provider.",
     });
   };
-
   const cancelDisableRateLimit = () => {
     setIntervalValue(previousValidValue);
     setShowConfirmDialog(false);
   };
-
   const formatLastRequestTime = () => {
     if (!status?.lastRequestTime || status.lastRequestTime === 0) {
       return "Never";
@@ -189,23 +164,18 @@ export default function ProviderRateLimitConfig({ provider, onConfigChanged }: P
     if (diff < 60000) return `${Math.floor(diff / 1000)} seconds ago`;
     return `${Math.floor(diff / 60000)} minutes ago`;
   };
-
   const formatNextAllowedTime = () => {
     if (!rateLimitEnabled || !status?.lastRequestTime || status.lastRequestTime === 0) {
       return "Immediately";
     }
-
     const nextAllowedTime = status.lastRequestTime + intervalValue * 1000;
     const now = nowMs;
-
     if (nextAllowedTime <= now) {
       return "Immediately";
     }
-
     const waitTime = Math.ceil((nextAllowedTime - now) / 1000);
     return `${waitTime} seconds`;
   };
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">

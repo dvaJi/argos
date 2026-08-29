@@ -1,18 +1,16 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { ScrollArea } from "#shadcn/components/ui/scroll-area";
 import { Button } from "#shadcn/components/ui/button";
 import { createUsageClient } from "#api/UsageClient";
 import type { UsageStatsOutput } from "@argos/shared-contracts/routes";
 import UsageNostalgiaCard from "./control-center/UsageNostalgiaCard";
-
 export interface DashboardSettingsProps {
   hideNostalgia?: boolean;
   onDashboardLoaded?: (dashboard: UsageStatsOutput) => void;
 }
-
 export default function DashboardSettings({ hideNostalgia = false, onDashboardLoaded }: DashboardSettingsProps) {
-  const usageClient = useMemo(() => createUsageClient(), []);
+  const usageClient = createUsageClient();
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [dashboard, setDashboard] = useState<UsageStatsOutput | null>(null);
@@ -20,34 +18,27 @@ export default function DashboardSettings({ hideNostalgia = false, onDashboardLo
   const refreshTimerRef = useRef<number | null>(null);
   const emptyRetryCountRef = useRef(0);
   const loadDashboardRef = useRef<() => Promise<void>>(async () => {});
-
-  const clearRefreshTimer = useCallback(() => {
+  const clearRefreshTimer = () => {
     if (refreshTimerRef.current !== null) {
       window.clearTimeout(refreshTimerRef.current);
       refreshTimerRef.current = null;
     }
-  }, []);
-
-  const scheduleDashboardRefresh = useCallback(
-    (delayMs = 1500) => {
-      clearRefreshTimer();
-      refreshTimerRef.current = window.setTimeout(() => {
-        refreshTimerRef.current = null;
-        if (!isDashboardMountedRef.current) return;
-        void loadDashboardRef.current();
-      }, delayMs);
-    },
-    [clearRefreshTimer],
-  );
-
-  const loadDashboard = useCallback(async () => {
+  };
+  const scheduleDashboardRefresh = (delayMs = 1500) => {
+    clearRefreshTimer();
+    refreshTimerRef.current = window.setTimeout(() => {
+      refreshTimerRef.current = null;
+      if (!isDashboardMountedRef.current) return;
+      void loadDashboardRef.current();
+    }, delayMs);
+  };
+  const loadDashboard = async () => {
     if (!isDashboardMountedRef.current) return;
     let shouldFinalize = false;
     try {
       clearRefreshTimer();
       setIsLoading(true);
       setErrorMessage("");
-
       const nextDashboard = await usageClient.getStats("30d");
       if (!isDashboardMountedRef.current) return;
       setDashboard(nextDashboard);
@@ -63,7 +54,6 @@ export default function DashboardSettings({ hideNostalgia = false, onDashboardLo
       } else {
         emptyRetryCountRef.current = 0;
       }
-
       shouldFinalize = true;
     } catch (error) {
       if (!isDashboardMountedRef.current) return;
@@ -74,12 +64,10 @@ export default function DashboardSettings({ hideNostalgia = false, onDashboardLo
     if (shouldFinalize && isDashboardMountedRef.current) {
       setIsLoading(false);
     }
-  }, [usageClient, clearRefreshTimer, onDashboardLoaded, scheduleDashboardRefresh]);
-
+  };
   useEffect(() => {
     loadDashboardRef.current = loadDashboard;
   }, [loadDashboard]);
-
   useEffect(() => {
     isDashboardMountedRef.current = true;
     void loadDashboardRef.current();
@@ -88,9 +76,7 @@ export default function DashboardSettings({ hideNostalgia = false, onDashboardLo
       clearRefreshTimer();
     };
   }, [clearRefreshTimer]);
-
   const hasData = (dashboard?.summary.messageCount ?? 0) > 0;
-
   return (
     <ScrollArea className="h-full w-full">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-4">
@@ -126,9 +112,7 @@ export default function DashboardSettings({ hideNostalgia = false, onDashboardLo
         {isLoading && !dashboard && (
           <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <div
-              className={`h-68 animate-pulse rounded-2xl border border-border bg-muted/40 md:col-span-2 ${
-                hideNostalgia ? "xl:col-span-4" : "xl:col-span-3"
-              }`}
+              className={`h-68 animate-pulse rounded-2xl border border-border bg-muted/40 md:col-span-2 ${hideNostalgia ? "xl:col-span-4" : "xl:col-span-3"}`}
             />
             {!hideNostalgia && (
               <div className="h-68 animate-pulse rounded-2xl border border-border bg-muted/40 md:col-span-2 xl:col-span-1" />

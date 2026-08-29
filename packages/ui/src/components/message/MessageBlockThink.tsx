@@ -1,8 +1,7 @@
-import { type FC, useState, useEffect, useMemo, useRef, useCallback, memo } from "react";
+import { type FC, useState, useEffect, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { createConfigClient } from "#api/ConfigClient";
 import type { DisplayAssistantMessageBlock } from "#/components/chat/messageListItems";
-
 function formatDuration(input: number) {
   if (input < 1000) {
     return `${input}ms`;
@@ -24,7 +23,6 @@ function formatDuration(input: number) {
   const hours = Math.floor((input % 86400000) / 3600000);
   return `${days}d ${hours}h`;
 }
-
 interface MessageBlockThinkProps {
   block: DisplayAssistantMessageBlock;
   usage: {
@@ -33,19 +31,19 @@ interface MessageBlockThinkProps {
   };
   onToggleCollapse?: (isCollapsed: boolean) => void;
 }
-
 type ReasoningTimeRange = {
   start: number;
   end: number;
 };
-
 const toReasoningTimeRange = (value: DisplayAssistantMessageBlock["reasoning_time"]): ReasoningTimeRange | null => {
   if (!value || typeof value !== "object") return null;
   return typeof value.start === "number" && typeof value.end === "number"
-    ? { start: value.start, end: value.end }
+    ? {
+        start: value.start,
+        end: value.end,
+      }
     : null;
 };
-
 const UPDATE_INTERVAL = 1000;
 const UPDATE_OFFSET = 80;
 
@@ -54,13 +52,10 @@ const UPDATE_OFFSET = 80;
 // the setting only ever changes through this component's toggle, so a
 // module-level write-through cache is safe.
 type ConfigClient = ReturnType<typeof createConfigClient>;
-
 let sharedConfigClient: ConfigClient | null = null;
 const getConfigClient = () => (sharedConfigClient ??= createConfigClient());
-
 let thinkCollapseCache: boolean | null = null;
 let thinkCollapseRequest: Promise<boolean> | null = null;
-
 function getThinkCollapseSetting(): Promise<boolean> {
   if (thinkCollapseCache !== null) return Promise.resolve(thinkCollapseCache);
   thinkCollapseRequest ??= getConfigClient()
@@ -79,7 +74,6 @@ function getThinkCollapseSetting(): Promise<boolean> {
     });
   return thinkCollapseRequest;
 }
-
 function setThinkCollapseSetting(value: boolean): Promise<unknown> {
   thinkCollapseCache = value; // write-through: later mounts see the new value immediately
   return getConfigClient().setSetting("think_collapse", value);
@@ -94,7 +88,6 @@ interface MessageBlockThinkHeaderLabelProps {
   reasoningTimeRange: ReasoningTimeRange | null;
   reasoningDuration: number;
 }
-
 const MessageBlockThinkHeaderLabelBase: FC<MessageBlockThinkHeaderLabelProps> = ({
   isModeChange,
   modeChangeId,
@@ -104,8 +97,7 @@ const MessageBlockThinkHeaderLabelBase: FC<MessageBlockThinkHeaderLabelProps> = 
 }) => {
   const [displayedDurationMs, setDisplayedDurationMs] = useState(0);
   const updateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const updateDisplayedDuration = useCallback(() => {
+  const updateDisplayedDuration = () => {
     if (isLoading) {
       const fallbackDuration = Number.isFinite(reasoningDuration) ? reasoningDuration * 1000 : 0;
       const startTimestamp = reasoningTimeRange?.start ?? Date.now() - fallbackDuration;
@@ -114,35 +106,27 @@ const MessageBlockThinkHeaderLabelBase: FC<MessageBlockThinkHeaderLabelProps> = 
       const normalized = Number.isFinite(reasoningDuration) ? reasoningDuration : 0;
       setDisplayedDurationMs(Math.max(0, Math.round(normalized * 1000)));
     }
-  }, [isLoading, reasoningDuration, reasoningTimeRange]);
-
-  const stopTimer = useCallback(() => {
+  };
+  const stopTimer = () => {
     if (updateTimer.current !== null) {
       clearTimeout(updateTimer.current);
       updateTimer.current = null;
     }
-  }, []);
-
-  const scheduleNextUpdate = useCallback(
-    function scheduleNextUpdate() {
-      stopTimer();
-      if (!isLoading) return;
-
-      const fallbackDuration = Number.isFinite(reasoningDuration) ? reasoningDuration * 1000 : 0;
-      const startTimestamp = reasoningTimeRange?.start ?? Date.now() - fallbackDuration;
-      const now = Date.now();
-      const elapsed = Math.max(0, now - startTimestamp);
-      const remainder = elapsed % UPDATE_INTERVAL;
-      const delay = Math.max(UPDATE_INTERVAL - remainder, 0) + UPDATE_OFFSET;
-
-      updateTimer.current = setTimeout(() => {
-        updateDisplayedDuration();
-        scheduleNextUpdate();
-      }, delay);
-    },
-    [isLoading, reasoningDuration, reasoningTimeRange, stopTimer, updateDisplayedDuration],
-  );
-
+  };
+  const scheduleNextUpdate = function scheduleNextUpdate() {
+    stopTimer();
+    if (!isLoading) return;
+    const fallbackDuration = Number.isFinite(reasoningDuration) ? reasoningDuration * 1000 : 0;
+    const startTimestamp = reasoningTimeRange?.start ?? Date.now() - fallbackDuration;
+    const now = Date.now();
+    const elapsed = Math.max(0, now - startTimestamp);
+    const remainder = elapsed % UPDATE_INTERVAL;
+    const delay = Math.max(UPDATE_INTERVAL - remainder, 0) + UPDATE_OFFSET;
+    updateTimer.current = setTimeout(() => {
+      updateDisplayedDuration();
+      scheduleNextUpdate();
+    }, delay);
+  };
   useEffect(() => {
     // Defer the immediate refresh to a microtask so the state update does not
     // run synchronously inside the effect.
@@ -153,34 +137,26 @@ const MessageBlockThinkHeaderLabelBase: FC<MessageBlockThinkHeaderLabelProps> = 
       stopTimer();
     }
   }, [isLoading, updateDisplayedDuration, scheduleNextUpdate, stopTimer]);
-
   useEffect(() => {
     queueMicrotask(() => updateDisplayedDuration());
   }, [updateDisplayedDuration]);
-
   useEffect(() => {
     return () => {
       stopTimer();
     };
   }, [stopTimer]);
-
-  const text = useMemo(() => {
+  const text = (() => {
     if (isModeChange) return `Mode changed to ${modeChangeId}`;
     const formatted = formatDuration(displayedDurationMs);
     return isLoading ? `Thinking for ${formatted}...` : `Thought for ${formatted}`;
-  }, [isModeChange, modeChangeId, displayedDurationMs, isLoading]);
-
+  })();
   return <>{text}</>;
 };
-
-const MessageBlockThinkHeaderLabel = memo(MessageBlockThinkHeaderLabelBase);
-
+const MessageBlockThinkHeaderLabel = MessageBlockThinkHeaderLabelBase;
 const MessageBlockThinkBase: FC<MessageBlockThinkProps> = ({ block, usage, onToggleCollapse }) => {
   const [collapse, setCollapse] = useState(false);
-
-  const reasoningTimeRange = useMemo(() => toReasoningTimeRange(block.reasoning_time), [block.reasoning_time]);
-
-  const reasoningDuration = useMemo(() => {
+  const reasoningTimeRange = toReasoningTimeRange(block.reasoning_time);
+  const reasoningDuration = (() => {
     let duration = 0;
     if (reasoningTimeRange) {
       duration = (reasoningTimeRange.end - reasoningTimeRange.start) / 1000;
@@ -188,13 +164,10 @@ const MessageBlockThinkBase: FC<MessageBlockThinkProps> = ({ block, usage, onTog
       duration = (usage.reasoning_end_time - usage.reasoning_start_time) / 1000;
     }
     return parseFloat(duration.toFixed(2));
-  }, [reasoningTimeRange, usage.reasoning_end_time, usage.reasoning_start_time]);
-
-  const isModeChange = useMemo(() => block.extra?.mode_change !== undefined, [block.extra]);
-  const modeChangeId = useMemo(() => block.extra?.mode_change as string, [block.extra]);
-
-  const trimmedContent = useMemo(() => block.content?.trim() ?? "", [block.content]);
-
+  })();
+  const isModeChange = block.extra?.mode_change !== undefined;
+  const modeChangeId = block.extra?.mode_change as string;
+  const trimmedContent = block.content?.trim() ?? "";
   useEffect(() => {
     let cancelled = false;
     void getThinkCollapseSetting()
@@ -206,13 +179,11 @@ const MessageBlockThinkBase: FC<MessageBlockThinkProps> = ({ block, usage, onTog
       cancelled = true;
     };
   }, []);
-
   const handleToggleCollapse = (newValue: boolean) => {
     setCollapse(newValue);
     void setThinkCollapseSetting(newValue);
     onToggleCollapse?.(!newValue);
   };
-
   return (
     <div className="overflow-hidden rounded-lg border bg-card text-card-foreground shadow-sm transition-all duration-(--dc-motion-default) ease-(--dc-ease-out-express) motion-reduce:transition-none">
       <button
@@ -241,9 +212,7 @@ const MessageBlockThinkBase: FC<MessageBlockThinkProps> = ({ block, usage, onTog
       </button>
 
       <div
-        className={`grid w-full overflow-hidden transition-[grid-template-rows,opacity] duration-(--dc-motion-default) ease-(--dc-ease-out-express) motion-reduce:transition-none ${
-          collapse ? "grid-rows-[0fr] pointer-events-none opacity-0" : "grid-rows-[1fr] opacity-100"
-        }`}
+        className={`grid w-full overflow-hidden transition-[grid-template-rows,opacity] duration-(--dc-motion-default) ease-(--dc-ease-out-express) motion-reduce:transition-none ${collapse ? "grid-rows-[0fr] pointer-events-none opacity-0" : "grid-rows-[1fr] opacity-100"}`}
         aria-hidden={collapse}
         inert={collapse ? true : undefined}
       >
@@ -256,5 +225,4 @@ const MessageBlockThinkBase: FC<MessageBlockThinkProps> = ({ block, usage, onTog
     </div>
   );
 };
-
-export const MessageBlockThink = memo(MessageBlockThinkBase);
+export const MessageBlockThink = MessageBlockThinkBase;

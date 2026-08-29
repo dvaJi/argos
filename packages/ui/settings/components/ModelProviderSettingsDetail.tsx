@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useProviderStore } from "#/stores/providerStore";
 import { useModelStore } from "#/stores/modelStore";
 import { useUiSettingsStore } from "#/stores/uiSettingsStore";
@@ -18,7 +18,6 @@ import type { SafetyCategoryKey, SafetySettingValue } from "#/lib/gemini";
 import VoiceAIProviderConfig from "./VoiceAIProviderConfig";
 import { Badge } from "#shadcn/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "#shadcn/components/ui/tabs";
-
 interface ProviderWebsites {
   official: string;
   apiKey: string;
@@ -26,7 +25,6 @@ interface ProviderWebsites {
   models: string;
   defaultBaseUrl: string;
 }
-
 const valueToLevelMap: Record<SafetySettingValue, number> = {
   BLOCK_NONE: 0,
   BLOCK_LOW_AND_ABOVE: 1,
@@ -34,16 +32,13 @@ const valueToLevelMap: Record<SafetySettingValue, number> = {
   BLOCK_ONLY_HIGH: 3,
   HARM_BLOCK_THRESHOLD_UNSPECIFIED: 2,
 };
-
 interface ModelProviderSettingsDetailProps {
   provider: LLM_PROVIDER;
   activeOnboardingStepId?: string | null;
   onProviderConfigured?: () => void;
   onProviderModelEnabled?: () => void;
 }
-
 const emptyModels: RENDERER_MODEL_META[] = [];
-
 export default function ModelProviderSettingsDetail({
   provider,
   activeOnboardingStepId,
@@ -67,8 +62,7 @@ export default function ModelProviderSettingsDetail({
   const [checkResult, setCheckResult] = useState(false);
   const [showCheckModelDialog, setShowCheckModelDialog] = useState(false);
   const [activeTab, setActiveTab] = useState<"connection" | "models" | "advanced">("connection");
-
-  const enabledModels = useMemo(() => {
+  const enabledModels = (() => {
     const enabledModelsList = [...customModels.filter((m) => m.enabled), ...providerModels.filter((m) => m.enabled)];
     const uniqueModels = new Map<string, RENDERER_MODEL_META>();
     enabledModelsList.forEach((model) => {
@@ -77,37 +71,25 @@ export default function ModelProviderSettingsDetail({
       }
     });
     return Array.from(uniqueModels.values());
-  }, [customModels, providerModels]);
-
-  const providerWebsites = useMemo<ProviderWebsites | undefined>(
-    () => providerStore.defaultProviders.find((p) => p.id === provider.id)?.websites as ProviderWebsites | undefined,
-    [providerStore.defaultProviders, provider.id],
-  );
-
-  const providerModelsSource = useMemo(
-    () => modelStore.allProviderModels.find((p) => p.providerId === provider.id)?.models ?? emptyModels,
-    [modelStore.allProviderModels, provider.id],
-  );
-
-  const customModelsSource = useMemo(
-    () => modelStore.customModels.find((p) => p.providerId === provider.id)?.models ?? emptyModels,
-    [modelStore.customModels, provider.id],
-  );
-
+  })();
+  const providerWebsites = providerStore.defaultProviders.find((p) => p.id === provider.id)?.websites as
+    | ProviderWebsites
+    | undefined;
+  const providerModelsSource =
+    modelStore.allProviderModels.find((p) => p.providerId === provider.id)?.models ?? emptyModels;
+  const customModelsSource = modelStore.customModels.find((p) => p.providerId === provider.id)?.models ?? emptyModels;
   const isProviderReadyForOnboarding = (p: Pick<LLM_PROVIDER, "apiKey" | "baseUrl" | "custom" | "enable">) => {
     if (!p.enable) return false;
     if (!(p.apiKey?.trim().length > 0)) return false;
     if (p.custom) return Boolean(p.baseUrl?.trim());
     return true;
   };
-
   const maybeEmitProviderConfigured = (prov: LLM_PROVIDER) => {
     if (isProviderReadyForOnboarding(prov)) {
       onProviderConfigured?.();
     }
   };
-
-  const syncModels = useCallback(() => {
+  const syncModels = () => {
     if (!hasInitializedModelList) {
       setIsModelListLoading(true);
     }
@@ -117,82 +99,67 @@ export default function ModelProviderSettingsDetail({
       setHasInitializedModelList(true);
     }
     setIsModelListLoading(false);
-  }, [providerModelsSource, customModelsSource, hasInitializedModelList]);
-
+  };
   useEffect(() => {
     void Promise.resolve().then(() => syncModels());
   }, [syncModels]);
-
-  const initProviderSettings = useCallback(
-    async (providerId: string) => {
-      await providerStore.ensureDefaultProvidersReady();
-
-      if (providerId === "azure-openai") {
+  const initProviderSettings = async (providerId: string) => {
+    await providerStore.ensureDefaultProvidersReady();
+    if (providerId === "azure-openai") {
+      try {
+        const version = await providerStore.getAzureApiVersion();
+        setAzureApiVersion(version);
+      } catch (error) {
+        console.error("Failed to fetch Azure API Version:", error);
+        setAzureApiVersion("2024-02-01");
+      }
+    }
+    if (providerId === "gemini") {
+      const newLevels: Record<string, number> = {};
+      for (const key in safetyCategories) {
+        const categoryKey = key as string;
         try {
-          const version = await providerStore.getAzureApiVersion();
-          setAzureApiVersion(version);
+          const savedValue = (await providerStore.getGeminiSafety(categoryKey)) as string;
+          newLevels[categoryKey] =
+            valueToLevelMap[savedValue as SafetySettingValue] ??
+            safetyCategories[categoryKey as SafetyCategoryKey].defaultLevel;
         } catch (error) {
-          console.error("Failed to fetch Azure API Version:", error);
-          setAzureApiVersion("2024-02-01");
+          console.error(`Failed to fetch Gemini safety setting for ${categoryKey}:`, error);
+          newLevels[categoryKey] = safetyCategories[categoryKey as SafetyCategoryKey].defaultLevel;
         }
       }
-
-      if (providerId === "gemini") {
-        const newLevels: Record<string, number> = {};
-        for (const key in safetyCategories) {
-          const categoryKey = key as string;
-          try {
-            const savedValue = (await providerStore.getGeminiSafety(categoryKey)) as string;
-            newLevels[categoryKey] =
-              valueToLevelMap[savedValue as SafetySettingValue] ??
-              safetyCategories[categoryKey as SafetyCategoryKey].defaultLevel;
-          } catch (error) {
-            console.error(`Failed to fetch Gemini safety setting for ${categoryKey}:`, error);
-            newLevels[categoryKey] = safetyCategories[categoryKey as SafetyCategoryKey].defaultLevel;
-          }
-        }
-        setGeminiSafetyLevels(newLevels);
-      }
-    },
-    [providerStore],
-  );
-
+      setGeminiSafetyLevels(newLevels);
+    }
+  };
   const initProviderSettingsRef = useRef(initProviderSettings);
   useEffect(() => {
     initProviderSettingsRef.current = initProviderSettings;
   }, [initProviderSettings]);
-
   useEffect(() => {
     void Promise.resolve().then(() => {
       setActiveTab(activeOnboardingStepId === "provider-model" ? "models" : "connection");
     });
     void initProviderSettingsRef.current(provider.id);
   }, [activeOnboardingStepId, provider.id]);
-
   const handleApiKeyChange = async (value: string) => {
     const result = await providerStore.updateProviderApi(provider.id, value, undefined);
     maybeEmitProviderConfigured(result.updated as LLM_PROVIDER);
   };
-
   const handleApiHostChange = async (value: string) => {
     const result = await providerStore.updateProviderApi(provider.id, undefined, value);
     maybeEmitProviderConfigured(result.updated as LLM_PROVIDER);
   };
-
   const handleModelEnabledChange = async (model: RENDERER_MODEL_META, enabled: boolean, confirm: boolean = false) => {
     if (!enabled && confirm) {
       setModelToDisable(model);
       setShowConfirmDialog(true);
       return;
     }
-
     await modelStore.updateModelStatus(provider.id, model.id, enabled);
-
     if (enabled) {
       onProviderModelEnabled?.();
     }
   };
-
   const confirmDisable = async () => {
     if (!modelToDisable) return;
     try {
@@ -203,7 +170,6 @@ export default function ModelProviderSettingsDetail({
     setShowConfirmDialog(false);
     setModelToDisable(null);
   };
-
   const confirmDisableAll = async () => {
     try {
       await modelStore.disableAllModels(provider.id);
@@ -212,7 +178,6 @@ export default function ModelProviderSettingsDetail({
       console.error("Failed to disable all models:", error);
     }
   };
-
   const confirmDeleteProvider = async () => {
     try {
       await providerStore.removeProvider(provider.id);
@@ -221,7 +186,6 @@ export default function ModelProviderSettingsDetail({
       console.error("Failed to delete provider:", error);
     }
   };
-
   const handleAzureApiVersionChange = async (value: string) => {
     const trimmedValue = value.trim();
     if (trimmedValue) {
@@ -229,15 +193,16 @@ export default function ModelProviderSettingsDetail({
       await providerStore.setAzureApiVersion(trimmedValue);
     }
   };
-
   const handleSafetySettingChange = async (key: SafetyCategoryKey, level: number) => {
     const value = levelToValueMap[level];
     if (value) {
-      setGeminiSafetyLevels((prev) => ({ ...prev, [key]: level }));
+      setGeminiSafetyLevels((prev) => ({
+        ...prev,
+        [key]: level,
+      }));
       await providerStore.setGeminiSafety(key, value);
     }
   };
-
   const handleOAuthSuccess = async () => {
     await initProviderSettings(provider.id);
     syncModels();
@@ -246,24 +211,20 @@ export default function ModelProviderSettingsDetail({
       onProviderConfigured?.();
     }
   };
-
   const handleOAuthError = (error: string) => {
     console.error("OAuth authentication failed:", error);
   };
-
   const handleConfigChanged = () => {
     return modelStore.refreshProviderModels(provider.id);
   };
-
   const openModelCheckDialog = () => {
     if (!provider.enable) return;
     modelCheckStore.openDialog(provider.id);
   };
-
   const handleAddModelSaved = () => modelStore.refreshProviderModels(provider.id);
-
-  const geminiSafetyLevelsForChild = useMemo(() => ({ ...geminiSafetyLevels }), [geminiSafetyLevels]);
-
+  const geminiSafetyLevelsForChild = {
+    ...geminiSafetyLevels,
+  };
   return (
     <section className="w-full h-full">
       <ScrollArea className="w-full h-full">

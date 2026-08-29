@@ -1,18 +1,20 @@
-import { useMemo } from "react";
 import { Icon } from "@iconify/react";
 import { useArtifactStore } from "#/stores/artifact";
 import { useSidepanelStore } from "#/stores/ui/sidepanel";
-
 interface ArtifactPreviewProps {
   block: {
-    artifact: { identifier: string; type: string; title: string; language?: string };
+    artifact: {
+      identifier: string;
+      type: string;
+      title: string;
+      language?: string;
+    };
     content: string;
   };
   messageId: string;
   threadId: string;
   loading?: boolean;
 }
-
 const getArtifactIcon = (type: string | undefined) => {
   if (!type) return "lucide:file";
   switch (type) {
@@ -32,21 +34,17 @@ const getArtifactIcon = (type: string | undefined) => {
       return "lucide:file";
   }
 };
-
 export function ArtifactPreview({ block, messageId, threadId, loading }: ArtifactPreviewProps) {
   const artifactStore = useArtifactStore();
   const sidepanelStore = useSidepanelStore();
-
-  const displayTitle = useMemo(() => {
+  const displayTitle = (() => {
     const { type, title } = block.artifact;
     const content = block.content;
-
     if (type === "application/vnd.ant.mermaid") {
       const lines = content.trim().split("\n");
       const firstLine = lines[0].toLowerCase();
       let chartType = "";
       let chartTitle = "";
-
       if (firstLine.includes("flowchart") || firstLine.includes("graph")) chartType = "flowchart";
       else if (firstLine.includes("sequencediagram")) chartType = "sequence";
       else if (firstLine.includes("classdiagram")) chartType = "class";
@@ -54,7 +52,6 @@ export function ArtifactPreview({ block, messageId, threadId, loading }: Artifac
       else if (firstLine.includes("erdiagram")) chartType = "er";
       else if (firstLine.includes("gantt")) chartType = "gantt";
       else if (firstLine.includes("pie")) chartType = "pie";
-
       for (const line of lines) {
         const trimmedLine = line.trim();
         if (
@@ -83,7 +80,6 @@ export function ArtifactPreview({ block, messageId, threadId, loading }: Artifac
           if (chartTitle) break;
         }
       }
-
       const typeNames: Record<string, string> = {
         flowchart: "Flowchart",
         sequence: "Sequence Diagram",
@@ -93,11 +89,9 @@ export function ArtifactPreview({ block, messageId, threadId, loading }: Artifac
         gantt: "Gantt Chart",
         pie: "Pie Chart",
       };
-
       if (chartTitle) return chartTitle;
       return typeNames[chartType] || "Mermaid Diagram";
     }
-
     switch (type) {
       case "application/vnd.ant.code": {
         let codeTitle = title || "Code Snippet";
@@ -156,9 +150,8 @@ export function ArtifactPreview({ block, messageId, threadId, loading }: Artifac
       default:
         return title || "Unknown Document";
     }
-  }, [block]);
-
-  const artifactDesc = useMemo(() => {
+  })();
+  const artifactDesc = (() => {
     switch (block.artifact.type) {
       case "application/vnd.ant.code":
         return "code";
@@ -175,8 +168,7 @@ export function ArtifactPreview({ block, messageId, threadId, loading }: Artifac
       default:
         return "unknown";
     }
-  }, [block]);
-
+  })();
   const handleClick = () => {
     if (
       artifactStore.isOpen() &&
@@ -198,11 +190,12 @@ export function ArtifactPreview({ block, messageId, threadId, loading }: Artifac
         },
         messageId,
         threadId,
-        { force: true },
+        {
+          force: true,
+        },
       );
     }
   };
-
   return (
     <div>
       <div

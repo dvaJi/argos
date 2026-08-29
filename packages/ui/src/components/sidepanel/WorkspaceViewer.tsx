@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { createWorkspaceClient } from "#api/WorkspaceClient";
@@ -11,7 +11,6 @@ import { DiffsEditorPane } from "./viewer/DiffsEditorPane";
 import { DiffsPatchPane } from "./viewer/DiffsPatchPane";
 import { WorkspacePreviewPane } from "./viewer/WorkspacePreviewPane";
 import { WorkspaceInfoPane } from "./viewer/WorkspaceInfoPane";
-
 interface WorkspaceViewerProps {
   sessionId: string;
   artifact: ArtifactState | null;
@@ -22,13 +21,11 @@ interface WorkspaceViewerProps {
   isFullscreen?: boolean;
   onToggleFullscreen: () => void;
 }
-
 const getPathBasename = (value: string | null | undefined) => {
   if (!value) return "";
   const segments = value.split(/[\\/]+/).filter(Boolean);
   return segments[segments.length - 1] || value;
 };
-
 export function WorkspaceViewer({
   sessionId,
   artifact,
@@ -45,30 +42,25 @@ export function WorkspaceViewer({
   // Read reactively from the store (NOT memoized by sessionId) so selection and
   // view-mode updates propagate to `activeSource`/`paneKind` immediately.
   const sessionState = getSessionState(sessionId);
-
   const { activeSource, effectiveViewMode, paneKind, previewKind, shouldShowTabs } = useWorkspaceViewerModel({
-    artifact: useMemo(() => artifact, [artifact]),
-    filePreview: useMemo(() => filePreview, [filePreview]),
-    sessionState: useMemo(() => sessionState, [sessionState]),
+    artifact: artifact,
+    filePreview: filePreview,
+    sessionState: sessionState,
   });
-
-  const viewerTitle = useMemo(() => {
+  const viewerTitle = (() => {
     if (activeSource === "artifact") return artifact?.title || "Workspace";
     if (activeSource === "file") return filePreview?.name || getPathBasename(sessionState.selectedFilePath);
     if (activeSource === "git-diff") return gitDiff?.relativePath || "Git";
     return "Workspace";
-  }, [activeSource, artifact, filePreview, sessionState, gitDiff]);
-
-  const viewerSubtitle = useMemo(() => {
+  })();
+  const viewerSubtitle = (() => {
     if (activeSource === "file") return filePreview?.relativePath || sessionState.selectedFilePath || "";
     if (activeSource === "git-diff") return "Git";
     return "";
-  }, [activeSource, filePreview, sessionState]);
-
-  const previewArtifact = useMemo(() => (activeSource === "artifact" ? artifact : null), [activeSource, artifact]);
-  const previewFilePreview = useMemo(() => (activeSource === "file" ? filePreview : null), [activeSource, filePreview]);
-
-  const codeSource = useMemo(() => {
+  })();
+  const previewArtifact = activeSource === "artifact" ? artifact : null;
+  const previewFilePreview = activeSource === "file" ? filePreview : null;
+  const codeSource = (() => {
     if (activeSource === "artifact" && artifact) {
       return {
         id: artifact.id,
@@ -92,13 +84,11 @@ export function WorkspaceViewer({
       language: filePreview.language ?? null,
       type,
     };
-  }, [activeSource, artifact, filePreview]);
-
-  const openFilePath = useMemo(() => {
+  })();
+  const openFilePath = (() => {
     if (activeSource !== "file") return null;
     return filePreview?.path ?? sessionState.selectedFilePath;
-  }, [activeSource, filePreview, sessionState]);
-
+  })();
   const canEdit = activeSource === "file" && filePreview?.kind === "text" && Boolean(openFilePath);
 
   // Edit mode (inline file editing via Monaco). Reset when the file changes
@@ -106,15 +96,13 @@ export function WorkspaceViewer({
   const [editMode, setEditMode] = useState(false);
   const [editContent, setEditContent] = useState<string>("");
   const [loadingEdit, setLoadingEdit] = useState(false);
-
   const [syncedOpenFilePath, setSyncedOpenFilePath] = useState(openFilePath);
   if (syncedOpenFilePath !== openFilePath) {
     setSyncedOpenFilePath(openFilePath);
     setEditMode(false);
     setEditContent("");
   }
-
-  const enterEditMode = useCallback(async () => {
+  const enterEditMode = async () => {
     if (!openFilePath) return;
     setLoadingEdit(true);
     try {
@@ -129,24 +117,19 @@ export function WorkspaceViewer({
       console.error("[WorkspaceViewer] failed to load file for editing", error);
     }
     setLoadingEdit(false);
-  }, [openFilePath, workspaceClient]);
-
-  const exitEditMode = useCallback(() => {
+  };
+  const exitEditMode = () => {
     setEditMode(false);
-  }, []);
-
-  const emptyMessage = useMemo(() => {
+  };
+  const emptyMessage = (() => {
     if (activeSource === "file" && !loadingFilePreview) return "No file selected";
     return "Workspace";
-  }, [activeSource, loadingFilePreview]);
-
+  })();
   const fullscreenToggleLabel = isFullscreen ? "Restore" : "Maximize";
-
   const handleOpenFile = async () => {
     if (!openFilePath) return;
     await workspaceClient.openFile(openFilePath);
   };
-
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col bg-background">
       <div className="flex h-11 shrink-0 items-center justify-between border-b px-3">

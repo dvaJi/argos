@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
@@ -18,7 +18,6 @@ import { useMcpStore } from "#/stores/mcp";
 import { useToast } from "#/components/use-toast";
 import type { MCPServerConfig } from "@argos/shared/presenter";
 import fastgptPng from "#/assets/images/fastgpt.png";
-
 interface FastGptConfig {
   description: string;
   apiKey: string;
@@ -26,7 +25,6 @@ interface FastGptConfig {
   endpoint: string;
   enabled?: boolean;
 }
-
 function loadFastGptConfigsFromMcp(
   mcpServers: Record<string, MCPServerConfig>,
   setConfigs: (configs: FastGptConfig[]) => void,
@@ -35,15 +33,17 @@ function loadFastGptConfigsFromMcp(
     const serverConfig = mcpServers["fastGptKnowledge"];
     if (!serverConfig?.env) return;
     const envObj = typeof serverConfig.env === "string" ? JSON.parse(serverConfig.env) : serverConfig.env;
-    const configs = (envObj as { configs?: FastGptConfig[] } | null)?.configs;
+    const configs = (
+      envObj as {
+        configs?: FastGptConfig[];
+      } | null
+    )?.configs;
     if (configs) setConfigs(configs);
   } catch {}
 }
-
 const FastGptKnowledgeSettings = () => {
   const mcpStore = useMcpStore();
   const { toast } = useToast();
-
   const [isConfigPanelOpen, setIsConfigPanelOpen] = useState(false);
   const [isConfigDialogOpen, setIsConfigDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -56,17 +56,11 @@ const FastGptKnowledgeSettings = () => {
     enabled: true,
   });
   const editingIndexRef = useRef(-1);
-
-  const isValid = useMemo(
-    () =>
-      editingConfig.apiKey.trim() !== "" &&
-      editingConfig.datasetId.trim() !== "" &&
-      editingConfig.description.trim() !== "",
-    [editingConfig],
-  );
-
-  const isMcpEnabled = useMemo(() => mcpStore.serverStatuses["fastGptKnowledge"] || false, [mcpStore.serverStatuses]);
-
+  const isValid =
+    editingConfig.apiKey.trim() !== "" &&
+    editingConfig.datasetId.trim() !== "" &&
+    editingConfig.description.trim() !== "";
+  const isMcpEnabled = mcpStore.serverStatuses["fastGptKnowledge"] || false;
   const openAddConfig = () => {
     setIsEditing(false);
     editingIndexRef.current = -1;
@@ -79,64 +73,79 @@ const FastGptKnowledgeSettings = () => {
     });
     setIsConfigDialogOpen(true);
   };
-
   const editConfig = (index: number) => {
     setIsEditing(true);
     editingIndexRef.current = index;
-    setEditingConfig({ ...configs[index] });
+    setEditingConfig({
+      ...configs[index],
+    });
     setIsConfigDialogOpen(true);
   };
-
   const closeDialog = () => {
     setIsConfigDialogOpen(false);
     editingIndexRef.current = -1;
   };
-
   const saveConfig = async () => {
     if (!isValid) return;
     if (isEditing && editingIndexRef.current !== -1) {
       setConfigs((prev) =>
-        prev.map((config, index) => (index === editingIndexRef.current ? { ...editingConfig } : config)),
+        prev.map((config, index) =>
+          index === editingIndexRef.current
+            ? {
+                ...editingConfig,
+              }
+            : config,
+        ),
       );
     } else {
-      setConfigs((prev) => [...prev, { ...editingConfig }]);
+      setConfigs((prev) => [
+        ...prev,
+        {
+          ...editingConfig,
+        },
+      ]);
     }
     await updateToMcp();
     closeDialog();
   };
-
   const removeConfig = async (index: number) => {
     setConfigs((prev) => prev.filter((_, i) => i !== index));
     await updateToMcp();
   };
-
   const toggleConfigEnabled = async (index: number, enabled: boolean) => {
-    setConfigs((prev) => prev.map((config, i) => (i === index ? { ...config, enabled } : config)));
+    setConfigs((prev) =>
+      prev.map((config, i) =>
+        i === index
+          ? {
+              ...config,
+              enabled,
+            }
+          : config,
+      ),
+    );
     await updateToMcp();
   };
-
   const updateToMcp = async () => {
     try {
-      await mcpStore.updateServer("fastGptKnowledge", { env: { configs } });
+      await mcpStore.updateServer("fastGptKnowledge", {
+        env: {
+          configs,
+        },
+      });
     } catch {}
   };
-
   const toggleMcpServer = async () => {
     if (!mcpStore.mcpEnabled) return;
     await mcpStore.toggleServer("fastGptKnowledge");
   };
-
   const { ready: configReady, mcpServers } = mcpStore.config;
-
   useEffect(() => {
     if (!configReady) return;
     loadFastGptConfigsFromMcp(mcpServers, setConfigs);
   }, [configReady, mcpServers]);
-
   useEffect(() => {
     if (!mcpStore.mcpEnabled && isMcpEnabled) mcpStore.toggleServer("fastGptKnowledge");
   }, [mcpStore, isMcpEnabled]);
-
   return (
     <div className="border rounded-lg overflow-hidden">
       <div
@@ -225,14 +234,24 @@ const FastGptKnowledgeSettings = () => {
               <Label className="text-xs text-muted-foreground">Description</Label>
               <Input
                 value={editingConfig.description}
-                onChange={(e) => setEditingConfig((p) => ({ ...p, description: e.target.value }))}
+                onChange={(e) =>
+                  setEditingConfig((p) => ({
+                    ...p,
+                    description: e.target.value,
+                  }))
+                }
               />
             </div>
             <div className="space-y-2">
               <Label className="text-xs text-muted-foreground">API Key</Label>
               <Input
                 value={editingConfig.apiKey}
-                onChange={(e) => setEditingConfig((p) => ({ ...p, apiKey: e.target.value }))}
+                onChange={(e) =>
+                  setEditingConfig((p) => ({
+                    ...p,
+                    apiKey: e.target.value,
+                  }))
+                }
                 type="password"
               />
             </div>
@@ -240,14 +259,24 @@ const FastGptKnowledgeSettings = () => {
               <Label className="text-xs text-muted-foreground">Dataset ID</Label>
               <Input
                 value={editingConfig.datasetId}
-                onChange={(e) => setEditingConfig((p) => ({ ...p, datasetId: e.target.value }))}
+                onChange={(e) =>
+                  setEditingConfig((p) => ({
+                    ...p,
+                    datasetId: e.target.value,
+                  }))
+                }
               />
             </div>
             <div className="space-y-2">
               <Label className="text-xs text-muted-foreground">Endpoint</Label>
               <Input
                 value={editingConfig.endpoint}
-                onChange={(e) => setEditingConfig((p) => ({ ...p, endpoint: e.target.value }))}
+                onChange={(e) =>
+                  setEditingConfig((p) => ({
+                    ...p,
+                    endpoint: e.target.value,
+                  }))
+                }
               />
             </div>
           </div>
@@ -264,5 +293,4 @@ const FastGptKnowledgeSettings = () => {
     </div>
   );
 };
-
 export default FastGptKnowledgeSettings;

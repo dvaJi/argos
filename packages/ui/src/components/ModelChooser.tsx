@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { Badge } from "#shadcn/components/ui/badge";
 import { Button } from "#shadcn/components/ui/button";
@@ -13,7 +13,6 @@ import ModelIcon from "#/components/icons/ModelIcon";
 import { ModelType } from "@argos/shared/model";
 import type { RENDERER_MODEL_META } from "@argos/shared/presenter";
 import { useChatMode } from "#/components/chat-input/composables/useChatMode";
-
 interface ModelChooserProps {
   type?: ModelType[];
   requiresVision?: boolean;
@@ -21,7 +20,6 @@ interface ModelChooserProps {
   selectedModelId?: string;
   onUpdateModel: (model: RENDERER_MODEL_META, providerId: string) => void;
 }
-
 export default function ModelChooser({
   type,
   requiresVision = false,
@@ -35,54 +33,58 @@ export default function ModelChooser({
   const themeStore = useThemeStore();
   const langStore = useLanguageStore();
   const chatMode = useChatMode();
-
   const sortedProviders = getSortedProviders();
-  const providers = useMemo(() => {
+  const providers = (() => {
     const enabledModels = modelStore.enabledModels;
     const currentMode = chatMode.currentMode;
     const typeSet = type && type.length > 0 ? new Set<ModelType>(type) : undefined;
-
     return sortedProviders
       .map((provider) => {
         if (!provider.enable) return null;
         if (currentMode === "acp agent" && provider.id !== "acp") return null;
         if (currentMode !== "acp agent" && provider.id === "acp") return null;
-
         const enabledProvider = enabledModels.find((entry) => entry.providerId === provider.id);
         if (!enabledProvider || enabledProvider.models.length === 0) return null;
-
         const models = !typeSet
           ? enabledProvider.models
           : enabledProvider.models.filter((model) => model.type !== undefined && typeSet.has(model.type as ModelType));
-
         const eligibleModels = requiresVision ? models.filter((model) => model.vision) : models;
         if (!eligibleModels || eligibleModels.length === 0) return null;
-
-        return { id: provider.id, name: provider.name, models: eligibleModels };
+        return {
+          id: provider.id,
+          name: provider.name,
+          models: eligibleModels,
+        };
       })
-      .filter((provider): provider is { id: string; name: string; models: RENDERER_MODEL_META[] } => provider !== null);
-  }, [sortedProviders, modelStore.enabledModels, chatMode.currentMode, type, requiresVision]);
-
-  const filteredProviders = useMemo(() => {
+      .filter(
+        (
+          provider,
+        ): provider is {
+          id: string;
+          name: string;
+          models: RENDERER_MODEL_META[];
+        } => provider !== null,
+      );
+  })();
+  const filteredProviders = (() => {
     if (!keyword) return providers;
     return providers.flatMap((provider) => {
       const models = provider.models.filter((model) => model.name.toLowerCase().includes(keyword.toLowerCase()));
-      return models.length > 0 ? [{ ...provider, models }] : [];
+      return models.length > 0
+        ? [
+            {
+              ...provider,
+              models,
+            },
+          ]
+        : [];
     });
-  }, [providers, keyword]);
-
-  const isSelected = useCallback(
-    (providerId: string, modelId: string) => selectedProviderId === providerId && selectedModelId === modelId,
-    [selectedProviderId, selectedModelId],
-  );
-
-  const handleModelSelect = useCallback(
-    (providerId: string, model: RENDERER_MODEL_META) => {
-      onUpdateModel(model, providerId);
-    },
-    [onUpdateModel],
-  );
-
+  })();
+  const isSelected = (providerId: string, modelId: string) =>
+    selectedProviderId === providerId && selectedModelId === modelId;
+  const handleModelSelect = (providerId: string, model: RENDERER_MODEL_META) => {
+    onUpdateModel(model, providerId);
+  };
   return (
     <Card className="w-full border-border bg-card shadow-sm" dir={langStore.dir}>
       <CardContent className="flex flex-col gap-4 p-4">
@@ -108,11 +110,7 @@ export default function ModelChooser({
                       key={`${provider.id}-${model.id}`}
                       type="button"
                       variant="outline"
-                      className={`group w-full justify-start gap-3 rounded-lg px-3 py-2 text-left text-sm font-medium transition${
-                        isSelected(provider.id, model.id)
-                          ? " border-primary bg-primary/10 text-foreground/90 dark:bg-primary/15"
-                          : ""
-                      }`}
+                      className={`group w-full justify-start gap-3 rounded-lg px-3 py-2 text-left text-sm font-medium transition${isSelected(provider.id, model.id) ? " border-primary bg-primary/10 text-foreground/90 dark:bg-primary/15" : ""}`}
                       role="option"
                       aria-selected={isSelected(provider.id, model.id)}
                       data-selected={isSelected(provider.id, model.id)}

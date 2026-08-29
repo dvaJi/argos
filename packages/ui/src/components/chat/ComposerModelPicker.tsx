@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
@@ -13,7 +13,6 @@ import { usePreSessionAgentType } from "#/composables/chat/usePreSessionAgentTyp
 import ModelIcon from "#/components/icons/ModelIcon";
 import AgentAvatar from "#/components/icons/AgentAvatar";
 import { useThemeStore } from "#/stores/theme";
-
 const ComposerModelPicker = () => {
   const modelStore = useModelStore();
   const agentState = useAgentStore();
@@ -22,29 +21,21 @@ const ComposerModelPicker = () => {
   const draftState = useDraftStore();
   void draftState;
   const themeStore = useThemeStore();
-  const sessionClient = useMemo(() => createSessionClient(), []);
+  const sessionClient = createSessionClient();
   const preSessionAgentType = usePreSessionAgentType();
-
   const [open, setOpen] = useState(false);
   const [keyword, setKeyword] = useState("");
-
   const hasActiveSession = getHasActiveSession();
   const activeSession = getActiveSession();
-
-  const isAcpAgent = useMemo(() => {
+  const isAcpAgent = (() => {
     if (hasActiveSession) return activeSession?.providerId === "acp";
     // No explicit pick yet: follow the effective agent (first enabled Argos
     // agent by default) so an Argos composer shows provider models, not the
     // ACP agent list.
     return preSessionAgentType === "acp";
-  }, [hasActiveSession, activeSession?.providerId, preSessionAgentType]);
-
-  const acpAgents = useMemo(
-    () => agentState.agents.filter((a) => a.type === "acp" || a.agentType === "acp"),
-    [agentState.agents],
-  );
-
-  const displayText = useMemo(() => {
+  })();
+  const acpAgents = agentState.agents.filter((a) => a.type === "acp" || a.agentType === "acp");
+  const displayText = (() => {
     if (isAcpAgent) {
       const agentId = hasActiveSession ? activeSession?.modelId : agentState.selectedAgentId;
       const agent = agentState.agents.find((a) => a.id === agentId);
@@ -53,64 +44,47 @@ const ComposerModelPicker = () => {
     if (hasActiveSession && activeSession?.modelId) return activeSession.modelId;
     if (draftState.modelId) return draftState.modelId;
     return "Select model";
-  }, [
-    isAcpAgent,
-    hasActiveSession,
-    activeSession?.modelId,
-    agentState.agents,
-    agentState.selectedAgentId,
-    draftState.modelId,
-  ]);
-
-  const displayIconId = useMemo(() => {
+  })();
+  const displayIconId = (() => {
     if (isAcpAgent) {
       const agentId = hasActiveSession ? activeSession?.modelId : agentState.selectedAgentId;
       return agentId ?? "acp";
     }
     const providerId = hasActiveSession ? activeSession?.providerId : draftState.providerId;
     return providerId ?? "anthropic";
-  }, [
-    isAcpAgent,
-    hasActiveSession,
-    activeSession?.providerId,
-    activeSession?.modelId,
-    agentState.selectedAgentId,
-    draftState.providerId,
-  ]);
-
+  })();
   const { enabledModels } = modelStore;
   const providerStore = useProviderStore();
   const { providers, providerOrder, providerTimestamps } = providerStore;
-
-  const modelGroups = useMemo(() => {
+  const modelGroups = (() => {
     if (!modelStore.initialized) return [];
     const sorted = getSortedProvidersFrom(providers, providerOrder, providerTimestamps);
     const orderedProviders = sorted.length > 0 ? sorted : providers;
     return getChatSelectableModelGroupsFrom(orderedProviders, enabledModels);
     // enabledModels drives the group list; recompute when it changes (models
     // can become available after init without `initialized` flipping again).
-  }, [modelStore.initialized, enabledModels, providers, providerOrder, providerTimestamps]);
-
-  const filteredGroups = useMemo(() => {
+  })();
+  const filteredGroups = (() => {
     const kw = keyword.trim().toLowerCase();
     if (!kw) return modelGroups;
     return modelGroups.flatMap((g) => {
       const models = g.models.filter((m) => `${m.name} ${m.id} ${g.providerName}`.toLowerCase().includes(kw));
-      return models.length > 0 ? [{ ...g, models }] : [];
+      return models.length > 0
+        ? [
+            {
+              ...g,
+              models,
+            },
+          ]
+        : [];
     });
-  }, [modelGroups, keyword]);
-
-  const filteredAcpAgents = useMemo(() => {
+  })();
+  const filteredAcpAgents = (() => {
     const kw = keyword.trim().toLowerCase();
     if (!kw) return acpAgents;
     return acpAgents.filter((a) => `${a.name} ${a.id}`.toLowerCase().includes(kw));
-  }, [acpAgents, keyword]);
-
-  const isLocked = useMemo(
-    () => isAcpAgent && Boolean(hasActiveSession && activeSession?.modelId),
-    [isAcpAgent, hasActiveSession, activeSession?.modelId],
-  );
-
+  })();
+  const isLocked = isAcpAgent && Boolean(hasActiveSession && activeSession?.modelId);
   const handleSelectProviderModel = async (providerId: string, modelId: string) => {
     setOpen(false);
     if (hasActiveSession && activeSession?.id) {
@@ -118,10 +92,13 @@ const ComposerModelPicker = () => {
         await sessionClient.setSessionModel(activeSession.id, providerId, modelId);
       } catch {}
     } else {
-      draftStore.setState((prev) => ({ ...prev, providerId, modelId }));
+      draftStore.setState((prev) => ({
+        ...prev,
+        providerId,
+        modelId,
+      }));
     }
   };
-
   const handleSelectAcp = async (agentId: string) => {
     setOpen(false);
     if (hasActiveSession && activeSession?.id) {
@@ -129,15 +106,18 @@ const ComposerModelPicker = () => {
         await sessionClient.setSessionModel(activeSession.id, "acp", agentId);
       } catch {}
     } else {
-      draftStore.setState((prev) => ({ ...prev, agentId, providerId: "acp", modelId: agentId }));
+      draftStore.setState((prev) => ({
+        ...prev,
+        agentId,
+        providerId: "acp",
+        modelId: agentId,
+      }));
     }
   };
-
   const isSelected = (providerId: string, modelId: string) => {
     if (hasActiveSession) return activeSession?.providerId === providerId && activeSession?.modelId === modelId;
     return draftState.providerId === providerId && draftState.modelId === modelId;
   };
-
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
@@ -263,5 +243,4 @@ const ComposerModelPicker = () => {
     </Popover>
   );
 };
-
 export default ComposerModelPicker;

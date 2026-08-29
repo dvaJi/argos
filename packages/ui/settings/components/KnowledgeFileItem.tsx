@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { getMimeTypeIcon } from "#/lib/utils";
 import { Icon } from "@iconify/react";
 import dayjs from "dayjs";
@@ -19,25 +19,20 @@ import {
   AlertDialogTrigger,
 } from "#shadcn/components/ui/alert-dialog";
 import { Button } from "#shadcn/components/ui/button";
-
 dayjs.extend(utc);
 dayjs.extend(timezone);
-
 interface KnowledgeFileItemProps {
   file: KnowledgeFileMessage;
   onDelete: () => void;
   onReAdd: () => void;
 }
-
 const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-
 const formatFileSize = (bytes: number): string => {
   if (bytes < 1024) return bytes + " B";
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + " KB";
   if (bytes < 1024 * 1024 * 1024) return (bytes / 1024 / 1024).toFixed(2) + " MB";
   return (bytes / 1024 / 1024 / 1024).toFixed(2) + " GB";
 };
-
 const getStatusTitle = (status: string): string => {
   switch (status) {
     case "completed":
@@ -52,26 +47,28 @@ const getStatusTitle = (status: string): string => {
       return "Unknown";
   }
 };
-
 export default function KnowledgeFileItem({ file, onDelete, onReAdd }: KnowledgeFileItemProps) {
-  const uploadTime = useMemo(
-    () => dayjs(file.uploadedAt).tz(userTimeZone).format("YYYY-MM-DD HH:mm:ss"),
-    [file.uploadedAt],
-  );
+  const uploadTime = dayjs(file.uploadedAt).tz(userTimeZone).format("YYYY-MM-DD HH:mm:ss");
   const fileIcon = getMimeTypeIcon(file.mimeType);
-
-  const [progress, setProgress] = useState({ completed: 0, error: 0, total: 0 });
-  const progressPercent = useMemo(() => {
+  const [progress, setProgress] = useState({
+    completed: 0,
+    error: 0,
+    total: 0,
+  });
+  const progressPercent = (() => {
     if (!progress.total) return 0;
     return ((progress.completed + progress.error) / progress.total) * 100;
-  }, [progress]);
-
+  })();
   useEffect(() => {
     const unsubscribe = window.argos?.on?.(
       "knowledge.fileProgress",
       (payload: ArgosEventPayload<typeof knowledgeFileProgressEvent.name>) => {
         if (file.id === payload?.fileId) {
-          setProgress({ completed: payload.completed, error: payload.error, total: payload.total });
+          setProgress({
+            completed: payload.completed,
+            error: payload.error,
+            total: payload.total,
+          });
         }
       },
     );
@@ -79,7 +76,6 @@ export default function KnowledgeFileItem({ file, onDelete, onReAdd }: Knowledge
       unsubscribe?.();
     };
   }, [file.id]);
-
   return (
     <div className="flex px-3 py-2 gap-2 flex-row bg-card border items-center justify-start rounded-md text-base select-none hover:bg-accent">
       <Icon icon={fileIcon} className="w-10 h-10 text-muted-foreground p-1 bg-accent rounded-md border" />

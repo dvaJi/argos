@@ -1,25 +1,21 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Badge } from "#shadcn/components/ui/badge";
 import type { SkillMetadata } from "@argos/shared/types/skill";
-
 interface SkillCardProps {
   skill: SkillMetadata;
   onEdit: () => void;
   onDelete: () => void;
   onClick: () => void;
 }
-
 export default function SkillCard({ skill, onEdit, onDelete, onClick }: SkillCardProps) {
   const [hovering, setHovering] = useState(false);
-
-  const categoryBadge = useMemo(() => {
+  const categoryBadge = (() => {
     if (!skill.category) return null;
     const parts = skill.category.split("/");
     return parts[parts.length - 1] ?? skill.category;
-  }, [skill.category]);
-
+  })();
   return (
     <div
       className="border rounded-lg px-4 py-3 bg-card hover:bg-accent/30 transition-colors cursor-pointer group"
@@ -42,9 +38,7 @@ export default function SkillCard({ skill, onEdit, onDelete, onClick }: SkillCar
         </div>
 
         <div
-          className={`flex items-center gap-1 transition-opacity ${
-            !hovering ? "opacity-0 group-hover:opacity-100" : ""
-          }`}
+          className={`flex items-center gap-1 transition-opacity ${!hovering ? "opacity-0 group-hover:opacity-100" : ""}`}
         >
           <Button
             variant="ghost"

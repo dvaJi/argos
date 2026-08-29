@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
@@ -6,13 +6,11 @@ import { Popover, PopoverContent, PopoverTrigger } from "#shadcn/components/ui/p
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "#shadcn/components/ui/dialog";
 import { ScrollArea } from "#shadcn/components/ui/scroll-area";
 import { createWorkspaceClient } from "#api/WorkspaceClient";
-
 interface FolderPickerEntry {
   name: string;
   path: string;
   isDirectory: boolean;
 }
-
 interface BrowseResult {
   path: string;
   parent: string | null;
@@ -20,7 +18,6 @@ interface BrowseResult {
   separator: "/" | "\\";
   entries: FolderPickerEntry[];
 }
-
 const workspaceClient = createWorkspaceClient();
 
 /** Shared browse state + navigation logic for the folder picker. */
@@ -29,8 +26,7 @@ function useFolderBrowse(initialPath: string | undefined) {
   const [result, setResult] = useState<BrowseResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const browse = useCallback(async (path: string | undefined) => {
+  const browse = async (path: string | undefined) => {
     setLoading(true);
     setError(null);
     try {
@@ -43,11 +39,16 @@ function useFolderBrowse(initialPath: string | undefined) {
       setResult(null);
       setLoading(false);
     }
-  }, []);
-
-  return { draft, setDraft, result, loading, error, browse };
+  };
+  return {
+    draft,
+    setDraft,
+    result,
+    loading,
+    error,
+    browse,
+  };
 }
-
 interface FolderPickerBodyProps {
   initialPath?: string;
   confirmLabel?: string;
@@ -69,37 +70,30 @@ function FolderPickerBody({
 }: FolderPickerBodyProps) {
   const { draft, setDraft, result, loading, error, browse } = useFolderBrowse(initialPath);
   const inputRef = useRef<HTMLInputElement>(null);
-
   useEffect(() => {
     void browse(initialPath);
   }, [browse, initialPath]);
-
   useEffect(() => {
     if (!autoFocus) return;
     const t = setTimeout(() => inputRef.current?.focus(), 30);
     return () => clearTimeout(t);
   }, [autoFocus]);
-
-  const navigateInto = useCallback(
-    (entry: FolderPickerEntry) => {
-      if (entry.isDirectory) void browse(entry.path);
-    },
-    [browse],
-  );
-  const goParent = useCallback(() => {
+  const navigateInto = (entry: FolderPickerEntry) => {
+    if (entry.isDirectory) void browse(entry.path);
+  };
+  const goParent = () => {
     if (result?.parent) void browse(result.parent);
-  }, [result, browse]);
-  const goHome = useCallback(() => {
+  };
+  const goHome = () => {
     void browse(result?.home || undefined);
-  }, [result, browse]);
-  const submitDraft = useCallback(() => {
+  };
+  const submitDraft = () => {
     const trimmed = draft.trim();
     if (trimmed) void browse(trimmed);
-  }, [draft, browse]);
-  const confirm = useCallback(() => {
+  };
+  const confirm = () => {
     onConfirm((draft || result?.path || "").trim());
-  }, [draft, result, onConfirm]);
-
+  };
   return (
     <div className="flex flex-col gap-2">
       <form
@@ -153,7 +147,12 @@ function FolderPickerBody({
         )}
       </div>
 
-      <ScrollArea className="rounded-md border" style={{ height: maxHeight }}>
+      <ScrollArea
+        className="rounded-md border"
+        style={{
+          height: maxHeight,
+        }}
+      >
         {error ? (
           <div className="p-3 text-xs text-destructive">{error}</div>
         ) : loading ? (
@@ -193,7 +192,6 @@ function FolderPickerBody({
     </div>
   );
 }
-
 interface FolderPickerProps {
   /** Current path value (controlled). */
   value: string;
@@ -226,9 +224,8 @@ export default function FolderPicker({
   disabled,
 }: FolderPickerProps) {
   const [open, setOpen] = useState(false);
-  const displayValue = useMemo(() => value || placeholder, [value, placeholder]);
+  const displayValue = value || placeholder;
   const initialPath = value?.trim() || (startAtHome ? undefined : undefined) || undefined;
-
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
@@ -261,7 +258,6 @@ export default function FolderPicker({
     </Popover>
   );
 }
-
 interface FolderPickerDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;

@@ -1,10 +1,9 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Switch } from "#shadcn/components/ui/switch";
 import { hasNativeToolCapability, ModelType, type NewApiEndpointType } from "@argos/shared/model";
 import ModelConfigDialog from "./ModelConfigDialog";
-
 interface ModelConfigItemProps {
   modelName: string;
   modelId: string;
@@ -26,7 +25,6 @@ interface ModelConfigItemProps {
   onDeleteModel: () => void;
   onConfigChanged: () => void;
 }
-
 export default function ModelConfigItem({
   modelName,
   modelId,
@@ -49,20 +47,15 @@ export default function ModelConfigItem({
   onConfigChanged,
 }: ModelConfigItemProps) {
   const [showConfigDialog, setShowConfigDialog] = useState(false);
-
-  const showWeakAgentWarning = useMemo(
-    () =>
-      type === ModelType.Chat &&
-      !hasNativeToolCapability(
-        {
-          endpointType,
-          supportedEndpointTypes,
-        },
-        explicitFunctionCall,
-      ),
-    [type, endpointType, supportedEndpointTypes, explicitFunctionCall],
-  );
-
+  const showWeakAgentWarning =
+    type === ModelType.Chat &&
+    !hasNativeToolCapability(
+      {
+        endpointType,
+        supportedEndpointTypes,
+      },
+      explicitFunctionCall,
+    );
   return (
     <>
       <div className="flex h-12 min-h-12 flex-row items-center gap-2 overflow-hidden bg-muted/50 px-2.5 py-1.5 transition-colors hover:bg-accent border-b last:border-none">

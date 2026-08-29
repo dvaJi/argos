@@ -1,6 +1,5 @@
 import React from "react";
 import { cn } from "#shadcn/lib/utils";
-
 export type TextShimmerProps = {
   children: React.ReactNode;
   as?: React.ElementType;
@@ -9,8 +8,7 @@ export type TextShimmerProps = {
   spread?: number;
   delay?: number;
 };
-
-function TextShimmerComponent({
+export function TextShimmer({
   children,
   as: Component = "p",
   className,
@@ -26,12 +24,9 @@ function TextShimmerComponent({
     animationIterationCount: "infinite",
     animationTimingFunction: "linear",
   } as React.CSSProperties;
-
   return (
     <Component className={cn("an-text-shimmer", "an-text-shimmer--active", className)} style={style}>
       {children}
     </Component>
   );
 }
-
-export const TextShimmer = React.memo(TextShimmerComponent);

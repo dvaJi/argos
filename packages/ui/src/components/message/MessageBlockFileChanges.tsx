@@ -1,22 +1,19 @@
-import { memo, useCallback, useMemo, useState } from "react";
+import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { cn } from "#shadcn/lib/utils";
 import { Button } from "#shadcn/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "#shadcn/components/ui/tooltip";
 import type { DisplayAssistantMessageBlock } from "#/components/chat/messageListItems";
 import { setDiffsSelection, openDiffs } from "#/stores/ui/sidepanel";
-
 export interface TurnFileChange {
   path: string;
   additions: number | null;
   deletions: number | null;
 }
-
 interface TurnDiffStat {
   additions: number;
   deletions: number;
 }
-
 interface TurnDiffTreeDirectoryNode {
   kind: "directory";
   name: string;
@@ -24,16 +21,13 @@ interface TurnDiffTreeDirectoryNode {
   stat: TurnDiffStat;
   children: TurnDiffTreeNode[];
 }
-
 interface TurnDiffTreeFileNode {
   kind: "file";
   name: string;
   path: string;
   stat: TurnDiffStat | null;
 }
-
 type TurnDiffTreeNode = TurnDiffTreeDirectoryNode | TurnDiffTreeFileNode;
-
 interface MutableDirectoryNode {
   name: string;
   path: string;
@@ -41,45 +35,55 @@ interface MutableDirectoryNode {
   directories: Map<string, MutableDirectoryNode>;
   files: TurnDiffTreeFileNode[];
 }
-
-const SORT_LOCALE_OPTIONS: Intl.CollatorOptions = { numeric: true, sensitivity: "base" };
-
+const SORT_LOCALE_OPTIONS: Intl.CollatorOptions = {
+  numeric: true,
+  sensitivity: "base",
+};
 const normalizePathSegments = (pathValue: string): string[] =>
   pathValue
     .replaceAll("\\", "/")
     .split("/")
     .filter((segment) => segment.length > 0);
-
-const compareByName = (a: { name: string }, b: { name: string }): number =>
-  a.name.localeCompare(b.name, undefined, SORT_LOCALE_OPTIONS);
-
+const compareByName = (
+  a: {
+    name: string;
+  },
+  b: {
+    name: string;
+  },
+): number => a.name.localeCompare(b.name, undefined, SORT_LOCALE_OPTIONS);
 const readStat = (file: TurnFileChange): TurnDiffStat | null => {
   if (typeof file.additions !== "number" || typeof file.deletions !== "number") {
     return null;
   }
-  return { additions: file.additions, deletions: file.deletions };
+  return {
+    additions: file.additions,
+    deletions: file.deletions,
+  };
 };
-
 const summarizeTurnDiffStats = (files: TurnFileChange[]): TurnDiffStat =>
   files.reduce(
     (acc, file) => {
       const stat = readStat(file);
       if (!stat) return acc;
-      return { additions: acc.additions + stat.additions, deletions: acc.deletions + stat.deletions };
+      return {
+        additions: acc.additions + stat.additions,
+        deletions: acc.deletions + stat.deletions,
+      };
     },
-    { additions: 0, deletions: 0 },
+    {
+      additions: 0,
+      deletions: 0,
+    },
   );
-
 const compactDirectoryNode = (node: TurnDiffTreeDirectoryNode): TurnDiffTreeDirectoryNode => {
   const compactedChildren = node.children.map((child) =>
     child.kind === "directory" ? compactDirectoryNode(child) : child,
   );
-
   let compactedNode: TurnDiffTreeDirectoryNode = {
     ...node,
     children: compactedChildren,
   };
-
   while (compactedNode.children.length === 1 && compactedNode.children[0]?.kind === "directory") {
     const onlyChild = compactedNode.children[0];
     compactedNode = {
@@ -90,10 +94,8 @@ const compactDirectoryNode = (node: TurnDiffTreeDirectoryNode): TurnDiffTreeDire
       children: onlyChild.children,
     };
   }
-
   return compactedNode;
 };
-
 const toTreeNodes = (directory: MutableDirectoryNode): TurnDiffTreeNode[] => {
   const subdirectories: TurnDiffTreeDirectoryNode[] = Array.from(directory.directories.values())
     .toSorted(compareByName)
@@ -109,26 +111,25 @@ const toTreeNodes = (directory: MutableDirectoryNode): TurnDiffTreeNode[] => {
         children: toTreeNodes(subdirectory),
       }),
     );
-
   const files = directory.files.toSorted(compareByName);
   return [...subdirectories, ...files];
 };
-
 const buildTurnDiffTree = (files: TurnFileChange[]): TurnDiffTreeNode[] => {
   const root: MutableDirectoryNode = {
     name: "",
     path: "",
-    stat: { additions: 0, deletions: 0 },
+    stat: {
+      additions: 0,
+      deletions: 0,
+    },
     directories: new Map(),
     files: [],
   };
-
   for (const file of files) {
     const segments = normalizePathSegments(file.path);
     if (segments.length === 0) {
       continue;
     }
-
     const filePath = segments.join("/");
     const fileName = segments.at(-1);
     if (!fileName) {
@@ -137,7 +138,6 @@ const buildTurnDiffTree = (files: TurnFileChange[]): TurnDiffTreeNode[] => {
     const stat = readStat(file);
     const ancestors: MutableDirectoryNode[] = [root];
     let currentDirectory = root;
-
     for (const segment of segments.slice(0, -1)) {
       const nextPath = currentDirectory.path ? `${currentDirectory.path}/${segment}` : segment;
       const existing = currentDirectory.directories.get(segment);
@@ -147,7 +147,10 @@ const buildTurnDiffTree = (files: TurnFileChange[]): TurnDiffTreeNode[] => {
         const created: MutableDirectoryNode = {
           name: segment,
           path: nextPath,
-          stat: { additions: 0, deletions: 0 },
+          stat: {
+            additions: 0,
+            deletions: 0,
+          },
           directories: new Map(),
           files: [],
         };
@@ -156,14 +159,12 @@ const buildTurnDiffTree = (files: TurnFileChange[]): TurnDiffTreeNode[] => {
       }
       ancestors.push(currentDirectory);
     }
-
     currentDirectory.files.push({
       kind: "file",
       name: fileName,
       path: filePath,
       stat,
     });
-
     if (stat) {
       for (const ancestor of ancestors) {
         ancestor.stat.additions += stat.additions;
@@ -171,12 +172,9 @@ const buildTurnDiffTree = (files: TurnFileChange[]): TurnDiffTreeNode[] => {
       }
     }
   }
-
   return toTreeNodes(root);
 };
-
 const hasNonZeroStat = (stat: TurnDiffStat): boolean => stat.additions > 0 || stat.deletions > 0;
-
 const formatCompactDiffCount = (value: number): string => {
   if (value < 1000) return String(value);
   if (value < 1_000_000) {
@@ -190,7 +188,6 @@ const formatCompactDiffCount = (value: number): string => {
   const b = value / 1_000_000_000;
   return `${b < 10 ? b.toFixed(1).replace(/\.0$/, "") : Math.round(b)}b`;
 };
-
 const DiffStatLabel = ({
   additions,
   deletions,
@@ -218,7 +215,6 @@ const DiffStatLabel = ({
     </span>
   </>
 );
-
 const fileIcon = (path: string): string => {
   const extension = path.split(".").pop()?.toLowerCase() ?? "";
   const codeExtensions = new Set([
@@ -267,45 +263,33 @@ const shouldAutoExpand = (files: TurnFileChange[]): boolean => {
   const stat = summarizeTurnDiffStats(files);
   return stat.additions + stat.deletions <= AUTO_EXPAND_LINE_LIMIT;
 };
-
 const EMPTY_DIRECTORY_OVERRIDES: Record<string, boolean> = {};
-
 interface MessageBlockFileChangesProps {
   block: DisplayAssistantMessageBlock;
   messageId: string;
   threadId: string;
 }
-
-export const MessageBlockFileChanges = memo(function MessageBlockFileChanges({
+export const MessageBlockFileChanges = function MessageBlockFileChanges({
   block,
   messageId,
   // `threadId` is accepted for future per-project workspace routing.
 }: MessageBlockFileChangesProps) {
-  const files = useMemo(() => block.file_changes?.files ?? [], [block]);
-  const summaryStat = useMemo(() => summarizeTurnDiffStats(files), [files]);
+  const files = block.file_changes?.files ?? [];
+  const summaryStat = summarizeTurnDiffStats(files);
   const [expanded, setExpanded] = useState(() => shouldAutoExpand(files));
   const [allDirectoriesExpanded, setAllDirectoriesExpanded] = useState(true);
-
-  const handleOpenDiff = useCallback(
-    (path?: string) => {
-      // The Diffs tab reads a workspace-relative path from the store; a full
-      // null selection means "All changes".
-      setDiffsSelection(path ?? null);
-      openDiffs();
-    },
-    // messageId/threadId are carried for future per-project workspace routing
-    // and are intentionally not referenced here yet.
-    [],
-  );
-
-  const handleToggleAllDirectories = useCallback(() => {
+  const handleOpenDiff = (path?: string) => {
+    // The Diffs tab reads a workspace-relative path from the store; a full
+    // null selection means "All changes".
+    setDiffsSelection(path ?? null);
+    openDiffs();
+  };
+  const handleToggleAllDirectories = () => {
     setAllDirectoriesExpanded((prev) => !prev);
-  }, []);
-
+  };
   if (files.length === 0) {
     return null;
   }
-
   return (
     <div
       className="mt-4 rounded-2xl border border-border/70 bg-secondary p-2 dark:border-transparent dark:bg-input/30"
@@ -393,9 +377,8 @@ export const MessageBlockFileChanges = memo(function MessageBlockFileChanges({
       ) : null}
     </div>
   );
-});
-
-const ChangedFilesTree = memo(function ChangedFilesTree({
+};
+const ChangedFilesTree = function ChangedFilesTree({
   files,
   allDirectoriesExpanded,
   onOpenFileDiff,
@@ -404,33 +387,31 @@ const ChangedFilesTree = memo(function ChangedFilesTree({
   allDirectoriesExpanded: boolean;
   onOpenFileDiff: (path?: string) => void;
 }) {
-  const treeNodes = useMemo(() => buildTurnDiffTree(files), [files]);
-  const directoryPathsKey = useMemo(() => collectDirectoryPaths(treeNodes).join("\u0000"), [treeNodes]);
+  const treeNodes = buildTurnDiffTree(files);
+  const directoryPathsKey = collectDirectoryPaths(treeNodes).join("\u0000");
   const hasDirectoryNodes = directoryPathsKey.length > 0;
   const expansionStateKey = `${allDirectoriesExpanded ? "expanded" : "collapsed"}\u0000${directoryPathsKey}`;
   const [directoryExpansionState, setDirectoryExpansionState] = useState<{
     key: string;
     overrides: Record<string, boolean>;
-  }>(() => ({ key: expansionStateKey, overrides: {} }));
+  }>(() => ({
+    key: expansionStateKey,
+    overrides: {},
+  }));
   const expandedDirectories =
     directoryExpansionState.key === expansionStateKey ? directoryExpansionState.overrides : EMPTY_DIRECTORY_OVERRIDES;
-
-  const toggleDirectory = useCallback(
-    (pathValue: string) => {
-      setDirectoryExpansionState((current) => {
-        const nextOverrides = current.key === expansionStateKey ? current.overrides : {};
-        return {
-          key: expansionStateKey,
-          overrides: {
-            ...nextOverrides,
-            [pathValue]: !(nextOverrides[pathValue] ?? allDirectoriesExpanded),
-          },
-        };
-      });
-    },
-    [allDirectoriesExpanded, expansionStateKey],
-  );
-
+  const toggleDirectory = (pathValue: string) => {
+    setDirectoryExpansionState((current) => {
+      const nextOverrides = current.key === expansionStateKey ? current.overrides : {};
+      return {
+        key: expansionStateKey,
+        overrides: {
+          ...nextOverrides,
+          [pathValue]: !(nextOverrides[pathValue] ?? allDirectoriesExpanded),
+        },
+      };
+    });
+  };
   const renderTreeNode = (node: TurnDiffTreeNode, depth: number) => {
     const leftPadding = 8 + depth * 14;
     if (node.kind === "directory") {
@@ -440,7 +421,9 @@ const ChangedFilesTree = memo(function ChangedFilesTree({
           <button
             type="button"
             className="group flex w-full items-center gap-1.5 rounded-xl py-1 pr-3 text-left transition-colors hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
-            style={{ paddingLeft: `${leftPadding}px` }}
+            style={{
+              paddingLeft: `${leftPadding}px`,
+            }}
             onClick={() => toggleDirectory(node.path)}
           >
             <Icon
@@ -470,13 +453,14 @@ const ChangedFilesTree = memo(function ChangedFilesTree({
         </div>
       );
     }
-
     return (
       <button
         key={`file:${node.path}`}
         type="button"
         className="group flex w-full items-center gap-1.5 rounded-xl py-1 pr-3 text-left transition-colors hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
-        style={{ paddingLeft: `${leftPadding}px` }}
+        style={{
+          paddingLeft: `${leftPadding}px`,
+        }}
         onClick={() => onOpenFileDiff(node.path)}
       >
         {hasDirectoryNodes || depth > 0 ? <span aria-hidden="true" className="size-3.5 shrink-0" /> : null}
@@ -492,10 +476,8 @@ const ChangedFilesTree = memo(function ChangedFilesTree({
       </button>
     );
   };
-
   return <div className="space-y-0.5">{treeNodes.map((node) => renderTreeNode(node, 0))}</div>;
-});
-
+};
 const collectDirectoryPaths = (nodes: TurnDiffTreeNode[]): string[] => {
   const paths: string[] = [];
   for (const node of nodes) {

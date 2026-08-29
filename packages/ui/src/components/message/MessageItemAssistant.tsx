@@ -1,13 +1,4 @@
-import {
-  type MouseEvent,
-  useState,
-  useMemo,
-  useEffect,
-  useRef,
-  useImperativeHandle,
-  forwardRef,
-  useCallback,
-} from "react";
+import { type MouseEvent, useState, useEffect, useRef, useImperativeHandle, forwardRef } from "react";
 import type { DisplayAssistantMessage, DisplayAssistantMessageBlock } from "#/components/chat/messageListItems";
 import { MessageBlockContent } from "./MessageBlockContent";
 import { MessageBlockThink } from "./MessageBlockThink";
@@ -47,10 +38,8 @@ import {
 } from "#shadcn/components/ui/context-menu";
 import { createDeviceClient } from "#api/DeviceClient";
 import { useThemeStore } from "#/stores/theme";
-
 const AUDIO_EXTENSIONS = [".mp3", ".wav", ".m4a", ".aac", ".flac", ".ogg", ".opus"];
 const VIDEO_EXTENSIONS = [".mp4", ".mov", ".m4v", ".webm", ".avi", ".mkv"];
-
 const isAudioBlock = (block: DisplayAssistantMessageBlock): boolean => {
   if (block.type === "audio") return true;
   if (block.type !== "image") return false;
@@ -64,10 +53,8 @@ const isAudioBlock = (block: DisplayAssistantMessageBlock): boolean => {
   }
   return false;
 };
-
 const isInternalToolCall = (block: DisplayAssistantMessageBlock): boolean =>
   block.tool_call?.name === "update_plan" && block.extra?.internalTool === true;
-
 const isVideoUrl = (value: string): boolean => {
   if (!value) return false;
   try {
@@ -83,14 +70,18 @@ const isVideoUrl = (value: string): boolean => {
     );
   }
 };
-
 const getLegacyBlockData = (block: DisplayAssistantMessageBlock): string => {
   const content = block.content;
   if (content && typeof content === "object" && "data" in content)
-    return String((content as { data?: unknown }).data ?? "");
+    return String(
+      (
+        content as {
+          data?: unknown;
+        }
+      ).data ?? "",
+    );
   return typeof content === "string" ? content : "";
 };
-
 const isVideoBlock = (block: DisplayAssistantMessageBlock): boolean => {
   if (block.type === "video") return true;
   if (block.type !== "image") return false;
@@ -102,7 +93,6 @@ const isVideoBlock = (block: DisplayAssistantMessageBlock): boolean => {
     return isVideoUrl(data);
   return false;
 };
-
 type HandleActionType =
   | "retry"
   | "delete"
@@ -113,11 +103,9 @@ type HandleActionType =
   | "copyImageFromTop"
   | "fork"
   | "trace";
-
 interface MessageItemAssistantRef {
   handleAction: (action: HandleActionType) => void;
 }
-
 interface MessageItemAssistantProps {
   message: DisplayAssistantMessage;
   isCapturingImage: boolean;
@@ -129,7 +117,10 @@ interface MessageItemAssistantProps {
     messageId: string,
     parentId: string | undefined,
     fromTop: boolean,
-    modelInfo: { model_name: string; model_provider: string },
+    modelInfo: {
+      model_name: string;
+      model_provider: string;
+    },
   ) => void;
   onVariantChanged?: (messageId: string) => void;
   onTrace?: (messageId: string) => void;
@@ -139,7 +130,6 @@ interface MessageItemAssistantProps {
   onContinue?: (conversationId: string, messageId: string) => void;
   onSwitchProvider?: () => void;
 }
-
 const MessageItemAssistant = forwardRef<MessageItemAssistantRef, MessageItemAssistantProps>((props, ref) => {
   const {
     message,
@@ -151,80 +141,62 @@ const MessageItemAssistant = forwardRef<MessageItemAssistantRef, MessageItemAssi
     onContinue,
     onVariantChanged,
   } = props;
-
   const themeStore = useThemeStore();
   const deviceClient = createDeviceClient();
   const uiSettingsStore = useUiSettingsStore();
-
   const useLegacyActions = useLegacyActionsProp !== false;
   const resolvedIsInGeneratingThread = isInGeneratingThreadProp ?? false;
   const showTrace = showTraceProp ?? false;
   const isReadOnly = isReadOnlyProp === true;
-
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [showSelectionMenu, setShowSelectionMenu] = useState(false);
   const [lastSelectionText, setLastSelectionText] = useState("");
-  const [contextMenuPosition, setContextMenuPosition] = useState<{ x?: number; y?: number }>({});
+  const [contextMenuPosition, setContextMenuPosition] = useState<{
+    x?: number;
+    y?: number;
+  }>({});
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [isForkDialogOpen, setIsForkDialogOpen] = useState(false);
-
-  const currentThreadId = useMemo(() => message.conversationId || "", [message.conversationId]);
-
-  const allVariants = useMemo(() => {
+  const currentThreadId = message.conversationId || "";
+  const allVariants = (() => {
     const messageVariants = message.variants || [];
     const variantsById = new Map<string, DisplayAssistantMessage>();
     messageVariants.forEach((variant) => {
       if (variant.role === "assistant" && variant.is_variant !== 0) variantsById.set(variant.id, variant);
     });
     return Array.from(variantsById.values());
-  }, [message.variants]);
-
-  const totalVariants = useMemo(() => allVariants.length + 1, [allVariants]);
+  })();
+  const totalVariants = allVariants.length + 1;
 
   // Drop a selected variant id that no longer exists (derived instead of effect-pruned).
   const effectiveSelectedVariantId =
     selectedVariantId && allVariants.some((variant) => variant.id === selectedVariantId) ? selectedVariantId : null;
-
-  const currentVariantIndex = useMemo(() => {
+  const currentVariantIndex = (() => {
     if (!useLegacyActions) return 0;
     if (!effectiveSelectedVariantId) return 0;
     const variantIndex = allVariants.findIndex((v) => v.id === effectiveSelectedVariantId);
     return variantIndex !== -1 ? variantIndex + 1 : 0;
-  }, [useLegacyActions, effectiveSelectedVariantId, allVariants]);
-
-  const currentMessage = useMemo(() => {
+  })();
+  const currentMessage = (() => {
     if (currentVariantIndex === 0) return message;
     return allVariants[currentVariantIndex - 1] || message;
-  }, [currentVariantIndex, message, allVariants]);
-
-  const currentContent = useMemo(() => {
+  })();
+  const currentContent = (() => {
     if (currentVariantIndex === 0) return message.content as DisplayAssistantMessageBlock[];
     const variant = allVariants[currentVariantIndex - 1];
     return (variant?.content || message.content) as DisplayAssistantMessageBlock[];
-  }, [currentVariantIndex, message, allVariants]);
-
-  const shouldGroupActivity = useMemo(
-    () => !resolvedIsInGeneratingThread && currentMessage.status !== "pending",
-    [resolvedIsInGeneratingThread, currentMessage.status],
+  })();
+  const shouldGroupActivity = !resolvedIsInGeneratingThread && currentMessage.status !== "pending";
+  const currentRenderItems = buildAssistantRenderItems({
+    blocks: currentContent,
+    messageId: currentMessage.id,
+    messageUpdatedAt: currentMessage.updatedAt,
+    shouldGroup: shouldGroupActivity,
+    isInternalToolCall,
+  });
+  const isSearchResult = Boolean(
+    currentContent?.some((block) => block.type === "search" && block.status === "success"),
   );
-
-  const currentRenderItems = useMemo(
-    () =>
-      buildAssistantRenderItems({
-        blocks: currentContent,
-        messageId: currentMessage.id,
-        messageUpdatedAt: currentMessage.updatedAt,
-        shouldGroup: shouldGroupActivity,
-        isInternalToolCall,
-      }),
-    [currentContent, currentMessage.id, currentMessage.updatedAt, shouldGroupActivity],
-  );
-
-  const isSearchResult = useMemo(
-    () => Boolean(currentContent?.some((block) => block.type === "search" && block.status === "success")),
-    [currentContent],
-  );
-
   const getSelectionInCurrentMessage = () => {
     const selection = window.getSelection();
     const root = rootRef.current;
@@ -235,60 +207,58 @@ const MessageItemAssistant = forwardRef<MessageItemAssistantRef, MessageItemAssi
     if (!root.contains(range.startContainer) || !root.contains(range.endContainer)) return "";
     return text;
   };
-
   const resolveSelectionText = () => getSelectionInCurrentMessage() || lastSelectionText;
-
   const handleContextMenuOpen = (event: MouseEvent) => {
     if (useLegacyActions) return;
-    setContextMenuPosition({ x: event.clientX, y: event.clientY });
+    setContextMenuPosition({
+      x: event.clientX,
+      y: event.clientY,
+    });
     const text = getSelectionInCurrentMessage();
     setShowSelectionMenu(!!text);
     setLastSelectionText(text);
   };
-
   const handleSelectionCopy = () => {
     const text = resolveSelectionText();
     if (!text) return;
     deviceClient.copyText(text);
   };
-
   const handleSelectionTranslate = () => {
     const text = resolveSelectionText();
     if (!text) return;
     window.dispatchEvent(
       new CustomEvent("context-menu-translate-text", {
-        detail: { text, x: contextMenuPosition.x, y: contextMenuPosition.y },
+        detail: {
+          text,
+          x: contextMenuPosition.x,
+          y: contextMenuPosition.y,
+        },
       }),
     );
   };
-
   const handleSelectionAskAI = () => {
     if (isReadOnly) return;
     const text = resolveSelectionText();
     if (!text) return;
-    window.dispatchEvent(new CustomEvent("context-menu-ask-ai", { detail: text }));
+    window.dispatchEvent(
+      new CustomEvent("context-menu-ask-ai", {
+        detail: text,
+      }),
+    );
   };
-
-  const handleBlockContinue = useCallback(
-    (conversationId: string, messageId: string) => {
-      if (isReadOnly) return;
-      onContinue?.(conversationId, messageId);
-    },
-    [isReadOnly, onContinue],
-  );
-
+  const handleBlockContinue = (conversationId: string, messageId: string) => {
+    if (isReadOnly) return;
+    onContinue?.(conversationId, messageId);
+  };
   const handleBlockSwitchProvider = () => {
     if (isReadOnly) return;
     props.onSwitchProvider?.();
   };
-
-  const handleCollapseToggle = useCallback(() => {
+  const handleCollapseToggle = () => {
     onVariantChanged?.(message.id);
-  }, [onVariantChanged, message.id]);
-
+  };
   const handleAction = (action: HandleActionType) => {
     if (isReadOnly && (action === "retry" || action === "delete" || action === "fork")) return;
-
     if (action === "retry") {
       props.onRetry?.(currentMessage.id);
     } else if (action === "delete") {
@@ -338,29 +308,24 @@ const MessageItemAssistant = forwardRef<MessageItemAssistantRef, MessageItemAssi
       props.onTrace?.(currentMessage.id);
     }
   };
-
   const handleActionRef = useRef(handleAction);
   useEffect(() => {
     handleActionRef.current = handleAction;
   });
-
-  const toolbarHandlers = useMemo(
-    () => ({
-      retry: () => handleActionRef.current("retry"),
-      delete: () => handleActionRef.current("delete"),
-      copy: () => handleActionRef.current("copy"),
-      copyImage: () => handleActionRef.current("copyImage"),
-      copyImageFromTop: () => handleActionRef.current("copyImageFromTop"),
-      prev: () => handleActionRef.current("prev"),
-      next: () => handleActionRef.current("next"),
-      fork: () => handleActionRef.current("fork"),
-      trace: () => handleActionRef.current("trace"),
-    }),
-    [],
-  );
-
-  useImperativeHandle(ref, () => ({ handleAction }));
-
+  const toolbarHandlers = {
+    retry: () => handleActionRef.current("retry"),
+    delete: () => handleActionRef.current("delete"),
+    copy: () => handleActionRef.current("copy"),
+    copyImage: () => handleActionRef.current("copyImage"),
+    copyImageFromTop: () => handleActionRef.current("copyImageFromTop"),
+    prev: () => handleActionRef.current("prev"),
+    next: () => handleActionRef.current("next"),
+    fork: () => handleActionRef.current("fork"),
+    trace: () => handleActionRef.current("trace"),
+  };
+  useImperativeHandle(ref, () => ({
+    handleAction,
+  }));
   const content = (
     <div
       ref={rootRef}
@@ -518,7 +483,6 @@ const MessageItemAssistant = forwardRef<MessageItemAssistantRef, MessageItemAssi
       </div>
     </div>
   );
-
   if (useLegacyActions) {
     return (
       <>
@@ -548,7 +512,6 @@ const MessageItemAssistant = forwardRef<MessageItemAssistantRef, MessageItemAssi
       </>
     );
   }
-
   return (
     <ContextMenu>
       <ContextMenuTrigger render={<div />}>{content}</ContextMenuTrigger>
@@ -579,7 +542,5 @@ const MessageItemAssistant = forwardRef<MessageItemAssistantRef, MessageItemAssi
     </ContextMenu>
   );
 });
-
 MessageItemAssistant.displayName = "MessageItemAssistant";
-
 export default MessageItemAssistant;

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { AWS_BEDROCK_PROVIDER, RENDERER_MODEL_META } from "@argos/shared/presenter";
 import { useProviderStore } from "#/stores/providerStore";
 import { useModelStore } from "#/stores/modelStore";
@@ -10,13 +10,11 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "#shadcn/components/ui/t
 import { Icon } from "@iconify/react";
 import ProviderModelManager from "./ProviderModelManager";
 import ProviderDialogContainer from "./ProviderDialogContainer";
-
 interface BedrockProviderSettingsDetailProps {
   provider: AWS_BEDROCK_PROVIDER;
   onProviderConfigured?: () => void;
   onProviderModelEnabled?: () => void;
 }
-
 export default function BedrockProviderSettingsDetail({
   provider,
   onProviderConfigured,
@@ -24,7 +22,6 @@ export default function BedrockProviderSettingsDetail({
 }: BedrockProviderSettingsDetailProps) {
   const providerStore = useProviderStore();
   const modelStore = useModelStore();
-
   const [accessKeyId, setAccessKeyId] = useState(provider.credential?.accessKeyId || "");
   const [secretAccessKey, setSecretAccessKey] = useState(provider.credential?.secretAccessKey || "");
   const [region, setRegion] = useState(provider.credential?.region || "");
@@ -36,13 +33,11 @@ export default function BedrockProviderSettingsDetail({
   const [showCheckModelDialog, setShowCheckModelDialog] = useState(false);
   const [showDisableAllConfirmDialog, setShowDisableAllConfirmDialog] = useState(false);
   const [showDeleteProviderDialog, setShowDeleteProviderDialog] = useState(false);
-
-  const customModels = useMemo(() => {
+  const customModels = (() => {
     const providerCustomModels = modelStore.customModels.find((entry) => entry.providerId === provider.id);
     return providerCustomModels?.models || [];
-  }, [modelStore.customModels, provider.id]);
-
-  const providerModels = useMemo(() => {
+  })();
+  const providerModels = (() => {
     const providerData = modelStore.allProviderModels.find((p) => p.providerId === provider.id);
     if (!providerData) {
       return [];
@@ -50,7 +45,7 @@ export default function BedrockProviderSettingsDetail({
     return providerData.models.toSorted(
       (a, b) => a.group.localeCompare(b.group) || a.providerId.localeCompare(b.providerId),
     );
-  }, [modelStore.allProviderModels, provider.id]);
+  })();
 
   // Reset the credential drafts whenever the provider identity changes.
   const [syncedCredentialProvider, setSyncedCredentialProvider] = useState(provider);
@@ -60,7 +55,6 @@ export default function BedrockProviderSettingsDetail({
     setSecretAccessKey(provider.credential?.secretAccessKey || "");
     setRegion(provider.credential?.region || "");
   }
-
   const isProviderReadyForOnboarding = (p: Pick<AWS_BEDROCK_PROVIDER, "credential" | "enable">) => {
     if (!p.enable) return false;
     const credential = p.credential;
@@ -68,14 +62,12 @@ export default function BedrockProviderSettingsDetail({
       credential?.accessKeyId?.trim() && credential?.secretAccessKey?.trim() && credential?.region?.trim(),
     );
   };
-
   const maybeEmitProviderConfigured = (p: AWS_BEDROCK_PROVIDER) => {
     if (isProviderReadyForOnboarding(p)) {
       onProviderConfigured?.();
     }
   };
-
-  const enabledModels = useMemo(() => {
+  const enabledModels = (() => {
     const enabledCustom = customModels.filter((m) => m.enabled);
     const enabledBuiltIn = providerModels.filter((m) => m.enabled);
     const uniqueModels = new Map<string, RENDERER_MODEL_META>();
@@ -86,8 +78,7 @@ export default function BedrockProviderSettingsDetail({
       }
     });
     return Array.from(uniqueModels.values());
-  }, [customModels, providerModels]);
-
+  })();
   const handleAccessKeyIdChange = async (value: string) => {
     const result = await providerStore.updateAwsBedrockProviderConfig(provider.id, {
       credential: {
@@ -98,7 +89,6 @@ export default function BedrockProviderSettingsDetail({
     });
     maybeEmitProviderConfigured(result.updated as AWS_BEDROCK_PROVIDER);
   };
-
   const handleSecretAccessKeyChange = async (value: string) => {
     const result = await providerStore.updateAwsBedrockProviderConfig(provider.id, {
       credential: {
@@ -109,7 +99,6 @@ export default function BedrockProviderSettingsDetail({
     });
     maybeEmitProviderConfigured(result.updated as AWS_BEDROCK_PROVIDER);
   };
-
   const handleRegionChange = async (value: string) => {
     const result = await providerStore.updateAwsBedrockProviderConfig(provider.id, {
       credential: {
@@ -120,7 +109,6 @@ export default function BedrockProviderSettingsDetail({
     });
     maybeEmitProviderConfigured(result.updated as AWS_BEDROCK_PROVIDER);
   };
-
   const validateCredential = async () => {
     if (!provider.enable) return;
     try {
@@ -138,13 +126,11 @@ export default function BedrockProviderSettingsDetail({
       setShowCheckModelDialog(true);
     }
   };
-
   const handleVerifyCredential = async (updates: Partial<AWS_BEDROCK_PROVIDER>) => {
     const result = await providerStore.updateAwsBedrockProviderConfig(provider.id, updates);
     maybeEmitProviderConfigured(result.updated as AWS_BEDROCK_PROVIDER);
     await validateCredential();
   };
-
   const confirmDisable = async () => {
     if (modelToDisable) {
       try {
@@ -156,7 +142,6 @@ export default function BedrockProviderSettingsDetail({
       setModelToDisable(null);
     }
   };
-
   const handleModelEnabledChange = async (model: RENDERER_MODEL_META, enabled: boolean, confirm: boolean = false) => {
     if (!enabled && confirm) {
       setModelToDisable(model);
@@ -168,7 +153,6 @@ export default function BedrockProviderSettingsDetail({
       }
     }
   };
-
   const confirmDisableAll = async () => {
     try {
       await modelStore.disableAllModels(provider.id);
@@ -181,11 +165,9 @@ export default function BedrockProviderSettingsDetail({
   // providerModels derive live from the model store, so a config change only
   // needs the store itself to update; there is nothing local to re-read.
   const handleConfigChanged = async () => {};
-
   const handleAddModelSaved = async () => {
     await modelStore.refreshProviderModels(provider.id);
   };
-
   return (
     <section className="w-full h-full">
       <ScrollArea className="w-full h-full p-2 flex flex-col gap-2">
@@ -206,7 +188,9 @@ export default function BedrockProviderSettingsDetail({
                 }}
                 type={showAccessKeyId ? "text" : "password"}
                 placeholder="Enter Access Key ID"
-                style={{ paddingRight: "2.5rem" }}
+                style={{
+                  paddingRight: "2.5rem",
+                }}
               />
               <Button
                 variant="ghost"
@@ -236,7 +220,9 @@ export default function BedrockProviderSettingsDetail({
                 }}
                 type={showSecretAccessKey ? "text" : "password"}
                 placeholder="Enter Secret Access Key"
-                style={{ paddingRight: "2.5rem" }}
+                style={{
+                  paddingRight: "2.5rem",
+                }}
               />
               <Button
                 variant="ghost"
@@ -274,7 +260,11 @@ export default function BedrockProviderSettingsDetail({
               disabled={!provider.enable}
               onClick={() =>
                 void handleVerifyCredential({
-                  credential: { accessKeyId, secretAccessKey, region },
+                  credential: {
+                    accessKeyId,
+                    secretAccessKey,
+                    region,
+                  },
                 })
               }
             >

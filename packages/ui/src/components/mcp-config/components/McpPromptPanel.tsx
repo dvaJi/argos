@@ -1,4 +1,4 @@
-import { type FC, useState, useEffect, useMemo, useCallback } from "react";
+import { type FC, useState, useEffect, useCallback } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Badge } from "#shadcn/components/ui/badge";
@@ -8,34 +8,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#
 import { useMcpStore } from "#/stores/mcp";
 import McpJsonViewer from "./McpJsonViewer";
 import type { PromptListEntry } from "@argos/shared/presenter";
-
 interface McpPromptPanelProps {
   serverName?: string;
   open: boolean;
   onOpenChange: (value: boolean) => void;
 }
-
 const McpPromptPanel: FC<McpPromptPanelProps> = ({ serverName, open, onOpenChange }) => {
   const mcpStore = useMcpStore();
-
   const [selectedPrompt, setSelectedPrompt] = useState("");
   const [promptResult, setPromptResult] = useState("");
   const [promptParams, setPromptParams] = useState("{}");
   const [promptLoading, setPromptLoading] = useState(false);
   const [jsonPromptError, setJsonPromptError] = useState(false);
   const [isParametersExpanded, setIsParametersExpanded] = useState(false);
-
-  const serverPrompts = useMemo(
-    () => (serverName ? mcpStore.prompts.filter((prompt) => prompt.client.name === serverName) : mcpStore.prompts),
-    [mcpStore.prompts, serverName],
-  );
-
-  const selectedPromptObj = useMemo(
-    () => serverPrompts.find((p) => p.name === selectedPrompt),
-    [serverPrompts, selectedPrompt],
-  );
-
-  const defaultPromptParams = useMemo(() => {
+  const serverPrompts = serverName
+    ? mcpStore.prompts.filter((prompt) => prompt.client.name === serverName)
+    : mcpStore.prompts;
+  const selectedPromptObj = serverPrompts.find((p) => p.name === selectedPrompt);
+  const defaultPromptParams = (() => {
     if (!selectedPromptObj) return "{}";
     const promptArgs = selectedPromptObj.arguments || {};
     if (Array.isArray(promptArgs)) {
@@ -46,7 +36,7 @@ const McpPromptPanel: FC<McpPromptPanelProps> = ({ serverName, open, onOpenChang
       return JSON.stringify(argsObject, null, 2);
     }
     return JSON.stringify(promptArgs, null, 2);
-  }, [selectedPromptObj]);
+  })();
 
   // Reset the prompt form whenever the dialog opens (adjusted during render so the
   // React Compiler can track it).
@@ -70,7 +60,6 @@ const McpPromptPanel: FC<McpPromptPanelProps> = ({ serverName, open, onOpenChang
     setPromptResult("");
     setIsParametersExpanded(false);
   }
-
   const validatePromptJson = (input: string): boolean => {
     try {
       JSON.parse(input);
@@ -81,11 +70,9 @@ const McpPromptPanel: FC<McpPromptPanelProps> = ({ serverName, open, onOpenChang
       return false;
     }
   };
-
   const selectPrompt = (prompt: PromptListEntry) => {
     setSelectedPrompt(prompt.name);
   };
-
   const callPrompt = async (prompt: PromptListEntry) => {
     if (!prompt) return;
     if (!validatePromptJson(promptParams)) return;
@@ -109,7 +96,6 @@ const McpPromptPanel: FC<McpPromptPanelProps> = ({ serverName, open, onOpenChang
     }
     setPromptLoading(false);
   };
-
   const formatJson = (input: string): string => {
     try {
       return JSON.stringify(JSON.parse(input), null, 2);
@@ -117,12 +103,10 @@ const McpPromptPanel: FC<McpPromptPanelProps> = ({ serverName, open, onOpenChang
       return input;
     }
   };
-
   const formatPromptParams = () => {
     setPromptParams(formatJson(promptParams));
   };
-
-  const promptArgsDescription = useMemo(() => {
+  const promptArgsDescription = (() => {
     if (!selectedPromptObj) return [];
     const promptArgs = selectedPromptObj.arguments || {};
     if (Array.isArray(promptArgs)) {
@@ -133,8 +117,7 @@ const McpPromptPanel: FC<McpPromptPanelProps> = ({ serverName, open, onOpenChang
       }));
     }
     return [];
-  }, [selectedPromptObj]);
-
+  })();
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -332,5 +315,4 @@ const McpPromptPanel: FC<McpPromptPanelProps> = ({ serverName, open, onOpenChang
     </Sheet>
   );
 };
-
 export default McpPromptPanel;

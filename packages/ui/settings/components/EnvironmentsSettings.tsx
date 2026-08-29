@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Switch } from "#shadcn/components/ui/switch";
@@ -13,34 +13,28 @@ import {
 } from "#/stores/ui/project";
 import type { EnvironmentSummary } from "@argos/shared/types/agent-interface";
 import SettingsPageShell from "./control-center/SettingsPageShell";
-
 const projectClient = createProjectClient();
-
+const DATE_TIME_FORMAT = new Intl.DateTimeFormat(undefined, {
+  dateStyle: "medium",
+  timeStyle: "short",
+});
 type EnvironmentListItem = EnvironmentSummary & {
   isSyntheticDefault?: boolean;
 };
-
 export default function EnvironmentsSettings() {
   const { toast } = useToast();
   const projectStore = useProjectStore();
-
   const [isLoading, setIsLoading] = useState(false);
   const [showMissing, setShowMissing] = useState(false);
   const [syntheticDefaultExists, setSyntheticDefaultExists] = useState(true);
-
   const defaultProjectPath = projectStore.defaultProjectPath;
-
-  const sortEnvironments = useCallback(
-    (list: EnvironmentListItem[]) =>
-      list.toSorted((left, right) => {
-        const leftDefault = left.path === defaultProjectPath;
-        const rightDefault = right.path === defaultProjectPath;
-        if (leftDefault !== rightDefault) return leftDefault ? -1 : 1;
-        return right.lastUsedAt - left.lastUsedAt;
-      }),
-    [defaultProjectPath],
-  );
-
+  const sortEnvironments = (list: EnvironmentListItem[]) =>
+    list.toSorted((left, right) => {
+      const leftDefault = left.path === defaultProjectPath;
+      const rightDefault = right.path === defaultProjectPath;
+      if (leftDefault !== rightDefault) return leftDefault ? -1 : 1;
+      return right.lastUsedAt - left.lastUsedAt;
+    });
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -65,8 +59,7 @@ export default function EnvironmentsSettings() {
       cancelled = true;
     };
   }, [defaultProjectPath, projectStore.environments]);
-
-  const syntheticDefaultEnvironment = useMemo<EnvironmentListItem | null>(() => {
+  const syntheticDefaultEnvironment = (() => {
     if (!defaultProjectPath) return null;
     const matched = projectStore.environments.some((e) => e.path === defaultProjectPath);
     if (matched) return null;
@@ -79,9 +72,8 @@ export default function EnvironmentsSettings() {
       exists: syntheticDefaultExists,
       isSyntheticDefault: true,
     };
-  }, [defaultProjectPath, projectStore.environments, syntheticDefaultExists]);
-
-  const visibleEnvironments = useMemo(() => {
+  })();
+  const visibleEnvironments = (() => {
     const shouldShow = (e: EnvironmentListItem) =>
       (!e.isTemp || e.path === defaultProjectPath) && (showMissing || e.exists);
     return sortEnvironments(
@@ -89,14 +81,12 @@ export default function EnvironmentsSettings() {
         shouldShow,
       ),
     );
-  }, [projectStore.environments, syntheticDefaultEnvironment, showMissing, defaultProjectPath, sortEnvironments]);
-
-  const formatDate = useCallback((timestamp: number) => {
+  })();
+  const formatDate = (timestamp: number) => {
     if (!timestamp) return "Never";
-    return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(timestamp));
-  }, []);
-
-  const refreshData = useCallback(async () => {
+    return DATE_TIME_FORMAT.format(new Date(timestamp));
+  };
+  const refreshData = async () => {
     setIsLoading(true);
     try {
       await refreshEnvironmentData();
@@ -105,32 +95,25 @@ export default function EnvironmentsSettings() {
       return;
     }
     setIsLoading(false);
-  }, []);
-
-  const handleOpen = useCallback(
-    async (path: string) => {
-      try {
-        await openDirectory(path);
-      } catch (error) {
-        toast({
-          title: "Failed to open",
-          description: error instanceof Error ? error.message : String(error),
-          variant: "destructive",
-        });
-      }
-    },
-    [toast],
-  );
-
-  const handleSetDefault = useCallback(async (environment: EnvironmentListItem) => {
+  };
+  const handleOpen = async (path: string) => {
+    try {
+      await openDirectory(path);
+    } catch (error) {
+      toast({
+        title: "Failed to open",
+        description: error instanceof Error ? error.message : String(error),
+        variant: "destructive",
+      });
+    }
+  };
+  const handleSetDefault = async (environment: EnvironmentListItem) => {
     if (!environment.exists) return;
     await setDefaultProject(environment.path);
-  }, []);
-
-  const handleClearDefault = useCallback(async () => {
+  };
+  const handleClearDefault = async () => {
     await clearDefaultProject();
-  }, []);
-
+  };
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -147,7 +130,6 @@ export default function EnvironmentsSettings() {
       cancelled = true;
     };
   }, []);
-
   return (
     <SettingsPageShell
       title="Environments"

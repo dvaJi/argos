@@ -1,64 +1,56 @@
-import { type FC, useMemo } from "react";
+import { type FC } from "react";
 import { Icon } from "@iconify/react";
 import type { AgentPlanStepStatus } from "@argos/shared/types/agent-plan";
 import type { DisplayAssistantMessageBlock } from "#/components/chat/messageListItems";
-
 type NormalizedPlanEntry = {
   label: string;
   status: AgentPlanStepStatus;
 };
-
 interface MessageBlockPlanProps {
   block: DisplayAssistantMessageBlock;
 }
-
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === "object" && !Array.isArray(value);
-
 const normalizeStatus = (value: unknown): AgentPlanStepStatus => {
   if (value === "completed" || value === "done") return "completed";
   if (value === "in_progress") return "in_progress";
   return "pending";
 };
-
 const getStatusIcon = (status: AgentPlanStepStatus): string => {
   if (status === "completed") return "lucide:circle-check";
   if (status === "in_progress") return "lucide:loader-circle";
   return "lucide:circle";
 };
-
 const getStatusIconClass = (status: AgentPlanStepStatus): string => {
   if (status === "completed") return "text-muted-foreground";
   if (status === "in_progress") return "animate-spin text-primary";
   return "text-muted-foreground/80";
 };
-
 export const MessageBlockPlan: FC<MessageBlockPlanProps> = ({ block }) => {
-  const entries = useMemo<NormalizedPlanEntry[]>(() => {
+  const entries = (() => {
     const rawEntries = block.extra?.plan_entries;
     if (!Array.isArray(rawEntries)) return [];
-
     return rawEntries
       .map((entry) => {
         if (!isRecord(entry)) return null;
         const rawLabel = typeof entry.step === "string" ? entry.step : entry.content;
         const label = typeof rawLabel === "string" ? rawLabel.trim() : "";
         if (!label) return null;
-        return { label, status: normalizeStatus(entry.status) };
+        return {
+          label,
+          status: normalizeStatus(entry.status),
+        };
       })
       .filter((entry): entry is NormalizedPlanEntry => entry !== null);
-  }, [block.extra?.plan_entries]);
-
-  const explanation = useMemo(() => {
+  })();
+  const explanation = (() => {
     const value = block.extra?.plan_explanation;
     if (typeof value === "string" && value.trim()) return value.trim();
     return block.content?.trim() ?? "";
-  }, [block.extra?.plan_explanation, block.content]);
-
+  })();
   const totalCount = entries.length;
   const completedCount = entries.filter((e) => e.status === "completed").length;
   const progressPercent = totalCount === 0 ? 0 : Math.round((completedCount / totalCount) * 100);
-
   return (
     <div className="w-full max-w-2xl rounded-lg border bg-card p-3 text-card-foreground">
       <div className="flex items-center gap-2">
@@ -73,7 +65,9 @@ export const MessageBlockPlan: FC<MessageBlockPlanProps> = ({ block }) => {
         <div className="mt-2 h-1.5 w-full rounded-full bg-muted">
           <div
             className="h-1.5 rounded-full bg-primary transition-[width] duration-300"
-            style={{ width: `${progressPercent}%` }}
+            style={{
+              width: `${progressPercent}%`,
+            }}
           />
         </div>
       )}

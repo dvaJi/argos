@@ -1,6 +1,4 @@
-import { useMemo } from "react";
 import type { DisplayAssistantMessageBlock } from "#/components/chat/messageListItems";
-
 export interface ProcessedPart {
   type: "text" | "thinking" | "artifact" | "tool_call";
   content: string;
@@ -23,7 +21,6 @@ export interface ProcessedPart {
     error?: string;
   };
 }
-
 export interface ParsedArtifactPart {
   identifier: string;
   title: string;
@@ -38,7 +35,6 @@ export interface ParsedArtifactPart {
   content: string;
   loading: boolean;
 }
-
 type ArtifactType =
   | "application/vnd.ant.code"
   | "text/markdown"
@@ -47,18 +43,22 @@ type ArtifactType =
   | "application/vnd.ant.mermaid"
   | "application/vnd.ant.react";
 type ArtifactSourceBlock = Pick<DisplayAssistantMessageBlock, "content" | "status">;
-
 export const useBlockContent = (props: { block: ArtifactSourceBlock }) => {
-  const processedContent = useMemo<ProcessedPart[]>(() => {
+  const processedContent: ProcessedPart[] = (() => {
     const bc = typeof props.block.content === "string" ? props.block.content : "";
-    return bc ? generatePart(bc, props.block.status) : [{ type: "text", content: "" }];
-  }, [props.block.content, props.block.status]);
-
+    return bc
+      ? generatePart(bc, props.block.status)
+      : [
+          {
+            type: "text",
+            content: "",
+          },
+        ];
+  })();
   return {
     processedContent,
   };
 };
-
 export function extractArtifactsFromContent(
   content: string,
   status: DisplayAssistantMessageBlock["status"],
@@ -83,11 +83,9 @@ export function extractArtifactsFromContent(
       loading: Boolean(part.loading),
     }));
 }
-
 function parseAttributes(attributesStr?: string): Record<string, string> {
   const attributes: Record<string, string> = {};
   if (!attributesStr) return attributes;
-
   const attributeRegex = /(\w+)="([^"]*)"/g;
   let attrMatch: RegExpExecArray | null;
   while ((attrMatch = attributeRegex.exec(attributesStr)) !== null) {
@@ -96,10 +94,8 @@ function parseAttributes(attributesStr?: string): Record<string, string> {
   }
   return attributes;
 }
-
 function generatePart(content: string, status: DisplayAssistantMessageBlock["status"]): ProcessedPart[] {
   const parts: ProcessedPart[] = [];
-
   const tagPatterns = [
     {
       name: "thinking",
@@ -126,7 +122,6 @@ function generatePart(content: string, status: DisplayAssistantMessageBlock["sta
         const attributesStr = match[1];
         const content = match[2].trim();
         const attributes = parseAttributes(attributesStr);
-
         return {
           type: "artifact" as const,
           content,
@@ -150,9 +145,7 @@ function generatePart(content: string, status: DisplayAssistantMessageBlock["sta
         const identifierMatch = openingTag.match(/identifier="([^"]+)"/);
         const titleMatch = openingTag.match(/title="([^"]+)"/);
         const languageMatch = openingTag.match(/language="([^"]+)"/);
-
         const content = match[5] ? match[5].trim() : "";
-
         return {
           type: "artifact" as const,
           content,
@@ -211,17 +204,14 @@ function generatePart(content: string, status: DisplayAssistantMessageBlock["sta
     "tool_call",
     "maximum_tool_calls_reached",
   ];
-
   let currentPosition = 0;
   let currentToolCallIndex = -1;
-
   while (currentPosition < content.length) {
     let earliestMatch: {
       index: number;
       pattern: (typeof tagPatterns)[0];
       match: RegExpExecArray;
     } | null = null;
-
     for (const pattern of tagPatterns) {
       if (
         status === "loading" &&
@@ -231,19 +221,19 @@ function generatePart(content: string, status: DisplayAssistantMessageBlock["sta
       ) {
         continue;
       }
-
       const regex = new RegExp(pattern.regex);
       const match = regex.exec(content.substring(currentPosition));
-
       if (match) {
         const index = match.index + currentPosition;
-
         if (!earliestMatch || index < earliestMatch.index) {
-          earliestMatch = { index, pattern, match };
+          earliestMatch = {
+            index,
+            pattern,
+            match,
+          };
         }
       }
     }
-
     if (earliestMatch) {
       if (earliestMatch.index > currentPosition) {
         const text = content.substring(currentPosition, earliestMatch.index).trim();
@@ -254,18 +244,13 @@ function generatePart(content: string, status: DisplayAssistantMessageBlock["sta
           });
         }
       }
-
       const { pattern, match } = earliestMatch;
-
       if (pattern.name === "tool_call") {
         const tagEndIndex = content.indexOf(">", earliestMatch.index) + 1;
-
         let nextToolTagIndex = content.length;
-
         for (const tagName of toolRelatedPatterns) {
           const nextTagRegex = new RegExp(`<${tagName}(?:\\s+([^>]*))?>`);
           const nextMatch = nextTagRegex.exec(content.substring(tagEndIndex));
-
           if (nextMatch) {
             const index = nextMatch.index + tagEndIndex;
             if (index < nextToolTagIndex) {
@@ -273,9 +258,7 @@ function generatePart(content: string, status: DisplayAssistantMessageBlock["sta
             }
           }
         }
-
         const toolCallContent = content.substring(tagEndIndex, nextToolTagIndex).trim();
-
         const attributes = parseAttributes(match[1]);
         parts.push({
           type: "tool_call",
@@ -287,19 +270,15 @@ function generatePart(content: string, status: DisplayAssistantMessageBlock["sta
             error: attributes?.error,
           },
         });
-
         currentToolCallIndex = parts.length - 1;
         currentPosition = nextToolTagIndex;
       } else if (pattern.name === "tool_response") {
         if (currentToolCallIndex !== -1 && parts[currentToolCallIndex].type === "tool_call") {
           const tagEndIndex = content.indexOf(">", earliestMatch.index) + 1;
-
           let nextToolTagIndex = content.length;
-
           for (const tagName of toolRelatedPatterns) {
             const nextTagRegex = new RegExp(`<${tagName}(?:\\s+([^>]*))?>`);
             const nextMatch = nextTagRegex.exec(content.substring(tagEndIndex));
-
             if (nextMatch) {
               const index = nextMatch.index + tagEndIndex;
               if (index < nextToolTagIndex) {
@@ -307,12 +286,9 @@ function generatePart(content: string, status: DisplayAssistantMessageBlock["sta
               }
             }
           }
-
           const responseContent = content.substring(tagEndIndex, nextToolTagIndex).trim();
-
           parts[currentToolCallIndex].content += "\n" + responseContent;
           parts[currentToolCallIndex].tool_call!.status = "response";
-
           const attributes = parseAttributes(match[1]);
           if (attributes) {
             if (attributes.name) {
@@ -322,7 +298,6 @@ function generatePart(content: string, status: DisplayAssistantMessageBlock["sta
               parts[currentToolCallIndex].tool_call!.error = attributes.error;
             }
           }
-
           currentPosition = nextToolTagIndex;
         } else {
           currentPosition = content.indexOf(">", earliestMatch.index) + 1;
@@ -335,7 +310,6 @@ function generatePart(content: string, status: DisplayAssistantMessageBlock["sta
         ) {
           parts[currentToolCallIndex].loading = false;
           parts[currentToolCallIndex].tool_call!.status = "end";
-
           const attributes = parseAttributes(match[1]);
           if (attributes) {
             if (attributes.name) {
@@ -359,7 +333,6 @@ function generatePart(content: string, status: DisplayAssistantMessageBlock["sta
           });
           currentToolCallIndex = parts.length - 1;
         }
-
         currentPosition = content.indexOf(">", earliestMatch.index) + 1;
       } else if (pattern.name === "tool_call_error") {
         if (
@@ -369,7 +342,6 @@ function generatePart(content: string, status: DisplayAssistantMessageBlock["sta
         ) {
           parts[currentToolCallIndex].loading = false;
           parts[currentToolCallIndex].tool_call!.status = "error";
-
           const attributes = parseAttributes(match[1]);
           if (attributes) {
             if (attributes.name) {
@@ -393,7 +365,6 @@ function generatePart(content: string, status: DisplayAssistantMessageBlock["sta
           });
           currentToolCallIndex = parts.length - 1;
         }
-
         currentPosition = content.indexOf(">", earliestMatch.index) + 1;
       } else if (pattern.name === "maximum_tool_calls_reached") {
         parts.push({
@@ -403,7 +374,6 @@ function generatePart(content: string, status: DisplayAssistantMessageBlock["sta
         currentPosition = content.indexOf(">", earliestMatch.index) + 1;
       } else if (pattern.process) {
         parts.push(pattern.process(match));
-
         if (pattern.name.includes("unclosed")) {
           if (pattern.name === "artifact-unclosed") {
             currentPosition = content.length;
@@ -418,7 +388,6 @@ function generatePart(content: string, status: DisplayAssistantMessageBlock["sta
                   .substring(earliestMatch.index)
                   .indexOf("</ant" + pattern.name.charAt(0).toUpperCase() + pattern.name.slice(1) + ">") +
                 ("</ant" + pattern.name.charAt(0).toUpperCase() + pattern.name.slice(1) + ">").length;
-
           currentPosition = earliestMatch.index + fullTagLength;
         }
       } else {
@@ -435,7 +404,6 @@ function generatePart(content: string, status: DisplayAssistantMessageBlock["sta
       break;
     }
   }
-
   if (parts.length === 0) {
     return [
       {
@@ -444,6 +412,5 @@ function generatePart(content: string, status: DisplayAssistantMessageBlock["sta
       },
     ];
   }
-
   return parts;
 }

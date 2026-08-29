@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, memo } from "react";
+import { useState, useEffect, useRef } from "react";
 import { nanoid } from "nanoid";
 import * as yaml from "yaml";
 import { Icon } from "@iconify/react";
@@ -22,25 +22,26 @@ import type {
   SkillScriptDescriptor,
 } from "@argos/shared/types/skill";
 import SkillFolderTree from "./SkillFolderTree";
-
 const skillClient = createSkillClient();
-
-type EnvRow = { id: string; key: string; value: string };
-type EditableScript = SkillScriptDescriptor & { description: string };
-
+type EnvRow = {
+  id: string;
+  key: string;
+  value: string;
+};
+type EditableScript = SkillScriptDescriptor & {
+  description: string;
+};
 interface SkillEditorSheetProps {
   skill: SkillMetadata | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
 }
-
 interface SkillEditorFormProps {
   skill: SkillMetadata;
   onSaved: () => void;
   onClose: () => void;
 }
-
 function parseSkillContent(content: string | null): string {
   if (!content) return "";
   const lines = content.split("\n");
@@ -57,32 +58,33 @@ function parseSkillContent(content: string | null): string {
   }
   return lines.slice(frontmatterEnd).join("\n").trim();
 }
-
-const SkillEditorForm = memo(function SkillEditorForm({ skill, onSaved, onClose }: SkillEditorFormProps) {
+const SkillEditorForm = function SkillEditorForm({ skill, onSaved, onClose }: SkillEditorFormProps) {
   const { toast } = useToast();
   const skillsStore = useSkillsStore();
-
   const [editName] = useState(skill.name);
   const [editDescription, setEditDescription] = useState(skill.description);
   const [editAllowedTools, setEditAllowedTools] = useState(() => skill.allowedTools?.join(", ") || "");
   const [editContent, setEditContent] = useState("");
   const [pythonRuntime, setPythonRuntime] = useState<SkillRuntimePreference>("auto");
   const [nodeRuntime, setNodeRuntime] = useState<SkillRuntimePreference>("auto");
-  const [envRows, setEnvRows] = useState<EnvRow[]>([{ id: nanoid(6), key: "", value: "" }]);
+  const [envRows, setEnvRows] = useState<EnvRow[]>([
+    {
+      id: nanoid(6),
+      key: "",
+      value: "",
+    },
+  ]);
   const [scriptRows, setScriptRows] = useState<EditableScript[]>([]);
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const loadRequestId = useRef(0);
-
   const skillsStoreRef = useRef(skillsStore);
   useEffect(() => {
     skillsStoreRef.current = skillsStore;
   }, [skillsStore]);
-
   useEffect(() => {
     const rid = ++loadRequestId.current;
     const name = skill.name;
-
     skillClient
       .readSkillFile(name)
       .then((content: string) => {
@@ -90,19 +92,35 @@ const SkillEditorForm = memo(function SkillEditorForm({ skill, onSaved, onClose 
         setEditContent(parseSkillContent(content));
       })
       .catch(() => {});
-
     loadSkillRuntime(name).then(() => {
       if (loadRequestId.current !== rid) return;
       const ext = skillsStoreRef.current.skillExtensions[name] ?? {
         version: 1,
         env: {},
-        runtimePolicy: { python: "auto", node: "auto" },
+        runtimePolicy: {
+          python: "auto",
+          node: "auto",
+        },
         scriptOverrides: {},
       };
       setPythonRuntime(ext.runtimePolicy.python);
       setNodeRuntime(ext.runtimePolicy.node);
-      const rows = Object.entries(ext.env).map(([k, v]) => ({ id: nanoid(6), key: k, value: v }));
-      setEnvRows(rows.length ? rows : [{ id: nanoid(6), key: "", value: "" }]);
+      const rows = Object.entries(ext.env).map(([k, v]) => ({
+        id: nanoid(6),
+        key: k,
+        value: v,
+      }));
+      setEnvRows(
+        rows.length
+          ? rows
+          : [
+              {
+                id: nanoid(6),
+                key: "",
+                value: "",
+              },
+            ],
+      );
       setScriptRows(
         (skillsStoreRef.current.skillScripts[name] ?? []).map((s) => ({
           ...s,
@@ -111,23 +129,38 @@ const SkillEditorForm = memo(function SkillEditorForm({ skill, onSaved, onClose 
       );
       setLoaded(true);
     });
-
     return () => {
       loadRequestId.current++;
     };
   }, [skill.name]);
-
-  const addEnvRow = useCallback(() => setEnvRows((prev) => [...prev, { id: nanoid(6), key: "", value: "" }]), []);
-
-  const removeEnvRow = useCallback((id: string) => {
+  const addEnvRow = () =>
+    setEnvRows((prev) => [
+      ...prev,
+      {
+        id: nanoid(6),
+        key: "",
+        value: "",
+      },
+    ]);
+  const removeEnvRow = (id: string) => {
     setEnvRows((prev) => {
       const next = prev.filter((r) => r.id !== id);
-      return next.length ? next : [{ id: nanoid(6), key: "", value: "" }];
+      return next.length
+        ? next
+        : [
+            {
+              id: nanoid(6),
+              key: "",
+              value: "",
+            },
+          ];
     });
-  }, []);
-
-  const buildSkillContent = useCallback((): string => {
-    const frontmatter: Record<string, unknown> = { name: editName, description: editDescription };
+  };
+  const buildSkillContent = (): string => {
+    const frontmatter: Record<string, unknown> = {
+      name: editName,
+      description: editDescription,
+    };
     if (editAllowedTools.trim()) {
       const tools = editAllowedTools
         .split(",")
@@ -135,10 +168,11 @@ const SkillEditorForm = memo(function SkillEditorForm({ skill, onSaved, onClose 
         .filter(Boolean);
       if (tools.length) frontmatter.allowedTools = tools;
     }
-    return `---\n${yaml.stringify(frontmatter, { lineWidth: 0 })}---\n\n${editContent}`;
-  }, [editName, editDescription, editAllowedTools, editContent]);
-
-  const handleSave = useCallback(async () => {
+    return `---\n${yaml.stringify(frontmatter, {
+      lineWidth: 0,
+    })}---\n\n${editContent}`;
+  };
+  const handleSave = async () => {
     setSaving(true);
     try {
       const skillContent = buildSkillContent();
@@ -148,28 +182,43 @@ const SkillEditorForm = memo(function SkillEditorForm({ skill, onSaved, onClose 
       const extension: SkillExtensionConfig = {
         version: 1,
         env,
-        runtimePolicy: { python: pythonRuntime, node: nodeRuntime },
+        runtimePolicy: {
+          python: pythonRuntime,
+          node: nodeRuntime,
+        },
         scriptOverrides: Object.fromEntries(
           scriptRows.map((s) => [
             s.relativePath,
-            { enabled: s.enabled, description: s.description.trim() || undefined },
+            {
+              enabled: s.enabled,
+              description: s.description.trim() || undefined,
+            },
           ]),
         ),
       };
       const result = await saveSkillWithExtension(skill.name, skillContent, extension);
       if (!result.success) {
-        toast({ title: "Save failed", description: result.error, variant: "destructive" });
+        toast({
+          title: "Save failed",
+          description: result.error,
+          variant: "destructive",
+        });
         return;
       }
-      toast({ title: "Saved successfully" });
+      toast({
+        title: "Saved successfully",
+      });
       onSaved();
       onClose();
     } catch (error) {
-      toast({ title: "Save failed", description: String(error), variant: "destructive" });
+      toast({
+        title: "Save failed",
+        description: String(error),
+        variant: "destructive",
+      });
     }
     setSaving(false);
-  }, [skill.name, buildSkillContent, envRows, pythonRuntime, nodeRuntime, scriptRows, onSaved, onClose, toast]);
-
+  };
   return (
     <div className="space-y-4 px-1">
       <div className="space-y-1.5">
@@ -243,14 +292,36 @@ const SkillEditorForm = memo(function SkillEditorForm({ skill, onSaved, onClose 
           <div key={row.id} className="grid grid-cols-12 gap-2 items-center">
             <Input
               value={row.key}
-              onChange={(e) => setEnvRows((p) => p.map((r) => (r.id === row.id ? { ...r, key: e.target.value } : r)))}
+              onChange={(e) =>
+                setEnvRows((p) =>
+                  p.map((r) =>
+                    r.id === row.id
+                      ? {
+                          ...r,
+                          key: e.target.value,
+                        }
+                      : r,
+                  ),
+                )
+              }
               className="col-span-5"
               placeholder="Key"
             />
             <Input
               value={row.value}
               type="password"
-              onChange={(e) => setEnvRows((p) => p.map((r) => (r.id === row.id ? { ...r, value: e.target.value } : r)))}
+              onChange={(e) =>
+                setEnvRows((p) =>
+                  p.map((r) =>
+                    r.id === row.id
+                      ? {
+                          ...r,
+                          value: e.target.value,
+                        }
+                      : r,
+                  ),
+                )
+              }
               className="col-span-6"
               placeholder="Value"
             />
@@ -281,7 +352,14 @@ const SkillEditorForm = memo(function SkillEditorForm({ skill, onSaved, onClose 
                     checked={script.enabled}
                     onCheckedChange={(v) =>
                       setScriptRows((p) =>
-                        p.map((s) => (s.relativePath === script.relativePath ? { ...s, enabled: v } : s)),
+                        p.map((s) =>
+                          s.relativePath === script.relativePath
+                            ? {
+                                ...s,
+                                enabled: v,
+                              }
+                            : s,
+                        ),
                       )
                     }
                   />
@@ -309,8 +387,7 @@ const SkillEditorForm = memo(function SkillEditorForm({ skill, onSaved, onClose 
       </div>
     </div>
   );
-});
-
+};
 export default function SkillEditorSheet({ skill, open, onOpenChange, onSaved }: SkillEditorSheetProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>

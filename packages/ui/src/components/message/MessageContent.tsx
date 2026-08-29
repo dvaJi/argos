@@ -1,4 +1,4 @@
-import { type FC, useMemo } from "react";
+import { type FC } from "react";
 import { Icon } from "@iconify/react";
 import type {
   DisplayUserMessageCodeBlock,
@@ -6,7 +6,6 @@ import type {
   DisplayUserMessageTextBlock,
 } from "#/components/chat/messageListItems";
 import { useLanguageStore } from "#/stores/language";
-
 const MENTION_ICON_MAP: Record<string, string> = {
   context: "lucide:quote",
   prompts: "lucide:message-square-quote",
@@ -20,41 +19,32 @@ const MENTION_ICON_MAP: Record<string, string> = {
   resources: "lucide:database",
   default: "lucide:at-sign",
 };
-
 type ContentBlock = DisplayUserMessageTextBlock | DisplayUserMessageMentionBlock | DisplayUserMessageCodeBlock;
-
 interface MessageContentProps {
   content: ContentBlock[];
   onMentionClick?: (block: DisplayUserMessageMentionBlock) => void;
 }
-
 const getMentionIcon = (category: string) => {
   return MENTION_ICON_MAP[category] || MENTION_ICON_MAP.default;
 };
-
 const getMentionLabel = (block: DisplayUserMessageMentionBlock) => {
   if (block.category === "prompts") return block.id || block.content;
   if (block.category === "context") return block.id || block.category;
   return block.content;
 };
-
 const getMentionTitle = (block: DisplayUserMessageMentionBlock) => {
   if (block.category === "context") return block.id || "";
   return block.content;
 };
-
 export const MessageContent: FC<MessageContentProps> = ({ content, onMentionClick }) => {
   const langState = useLanguageStore();
-
-  const contentBlocks = useMemo(() => content || [], [content]);
-
+  const contentBlocks = content || [];
   return (
     <div className="text-sm whitespace-pre-wrap break-all" dir={langState.dir}>
       {contentBlocks.map((block, index) => {
         if (block.type === "text") {
           return <span key={index}>{block.content}</span>;
         }
-
         if (block.type === "mention") {
           return (
             <button
@@ -69,7 +59,6 @@ export const MessageContent: FC<MessageContentProps> = ({ content, onMentionClic
             </button>
           );
         }
-
         if (block.type === "code") {
           return (
             <code key={index} className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono">
@@ -77,7 +66,6 @@ export const MessageContent: FC<MessageContentProps> = ({ content, onMentionClic
             </code>
           );
         }
-
         return null;
       })}
     </div>

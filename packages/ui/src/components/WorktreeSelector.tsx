@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { Badge } from "#shadcn/components/ui/badge";
 import { Button } from "#shadcn/components/ui/button";
@@ -10,7 +10,6 @@ import { Spinner } from "#shadcn/components/ui/spinner";
 import { createWorkspaceClient } from "#api/WorkspaceClient";
 import { useToast } from "#/components/use-toast";
 import type { WorktreeDraftConfig } from "./worktreeConfig";
-
 type BranchInfo = {
   name: string;
   kind: "local" | "remote";
@@ -18,7 +17,6 @@ type BranchInfo = {
   isHead: boolean;
   worktreePath: string | null;
 };
-
 type WorktreeInfo = {
   path: string;
   branch: string | null;
@@ -26,7 +24,6 @@ type WorktreeInfo = {
   isMain: boolean;
   isManaged: boolean;
 };
-
 interface WorktreeSelectorProps {
   /** Selected project directory; must be a git repository for worktrees. */
   workspacePath: string | null;
@@ -34,9 +31,7 @@ interface WorktreeSelectorProps {
   onChange: (next: WorktreeDraftConfig) => void;
   disabled?: boolean;
 }
-
 const workspaceClient = createWorkspaceClient();
-
 function abbreviatePath(targetPath: string): string {
   const parts = targetPath.split(/[/\\]/);
   if (parts.length <= 3) return targetPath;
@@ -44,9 +39,11 @@ function abbreviatePath(targetPath: string): string {
 }
 
 /** Loads branch + worktree data for a repo (module-level: safe for the React Compiler). */
-async function fetchGitSummary(
-  workspacePath: string,
-): Promise<{ isRepo: boolean; branches: BranchInfo[]; worktrees: WorktreeInfo[] }> {
+async function fetchGitSummary(workspacePath: string): Promise<{
+  isRepo: boolean;
+  branches: BranchInfo[];
+  worktrees: WorktreeInfo[];
+}> {
   await workspaceClient.registerWorkspace(workspacePath);
   const [branchResult, worktreeList] = await Promise.all([
     workspaceClient.gitListBranches(workspacePath),
@@ -65,7 +62,10 @@ async function removeWorktreeViaDaemon(input: {
   worktreePath: string;
   deleteBranch: boolean;
 }): Promise<void> {
-  await workspaceClient.gitRemoveWorktree({ ...input, force: false });
+  await workspaceClient.gitRemoveWorktree({
+    ...input,
+    force: false,
+  });
 }
 
 /**
@@ -82,8 +82,7 @@ export default function WorktreeSelector({ workspacePath, value, onChange, disab
   const [removingPath, setRemovingPath] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const loadSeqRef = useRef(0);
-
-  const refresh = useCallback(async () => {
+  const refresh = async () => {
     if (!workspacePath) return;
     const seq = ++loadSeqRef.current;
     setLoading(true);
@@ -100,8 +99,7 @@ export default function WorktreeSelector({ workspacePath, value, onChange, disab
       setWorktrees([]);
     }
     setLoading(false);
-  }, [workspacePath]);
-
+  };
   useEffect(() => {
     if (!open || !workspacePath) return;
     let cancelled = false;
@@ -126,36 +124,46 @@ export default function WorktreeSelector({ workspacePath, value, onChange, disab
       cancelled = true;
     };
   }, [open, workspacePath]);
-
-  const defaultBaseBranch = useMemo(() => {
+  const defaultBaseBranch = (() => {
     if (branches.length === 0) return null;
     const defaultRemote = branches.find((b) => b.kind === "remote" && b.isDefault && b.name.startsWith("origin/"));
-    if (defaultRemote) return { name: defaultRemote.name.slice("origin/".length), fromRemote: true };
+    if (defaultRemote)
+      return {
+        name: defaultRemote.name.slice("origin/".length),
+        fromRemote: true,
+      };
     const anyOrigin = branches.find((b) => b.kind === "remote" && b.name.startsWith("origin/"));
-    if (anyOrigin) return { name: anyOrigin.name.slice("origin/".length), fromRemote: true };
+    if (anyOrigin)
+      return {
+        name: anyOrigin.name.slice("origin/".length),
+        fromRemote: true,
+      };
     const localDefault = branches.find((b) => b.kind === "local" && b.isDefault);
-    if (localDefault) return { name: localDefault.name, fromRemote: false };
+    if (localDefault)
+      return {
+        name: localDefault.name,
+        fromRemote: false,
+      };
     return null;
-  }, [branches]);
-
+  })();
   useEffect(() => {
     if (!open || !defaultBaseBranch || value.baseBranch) return;
     // Only auto-apply default when in New worktree mode (enabled) and no previous reuse
     if (!value.enabled || value.reuseWorktreePath) return;
-    onChange({ ...value, baseBranch: defaultBaseBranch.name, fromRemote: defaultBaseBranch.fromRemote });
+    onChange({
+      ...value,
+      baseBranch: defaultBaseBranch.name,
+      fromRemote: defaultBaseBranch.fromRemote,
+    });
   }, [open, defaultBaseBranch, value, onChange]);
-
-  const managedWorktrees = useMemo(() => worktrees.filter((w) => w.isManaged), [worktrees]);
-
-  const mode = useMemo<"current" | "new" | "previous">(() => {
+  const managedWorktrees = worktrees.filter((w) => w.isManaged);
+  const mode = ((): "current" | "new" | "previous" => {
     if (value.reuseWorktreePath) return "previous";
     if (value.enabled) return "new";
     return "current";
-  }, [value.enabled, value.reuseWorktreePath]);
-
+  })();
   const baseRefLabel = value.baseBranch ? (value.fromRemote ? `origin/${value.baseBranch}` : value.baseBranch) : "";
-
-  const triggerLabel = useMemo(() => {
+  const triggerLabel = (() => {
     if (mode === "previous" && value.reuseWorktreePath) {
       const wt = managedWorktrees.find((w) => w.path === value.reuseWorktreePath);
       return wt?.branch ? `Previous · ${wt.branch}` : "Previous worktree";
@@ -163,47 +171,63 @@ export default function WorktreeSelector({ workspacePath, value, onChange, disab
     if (mode === "new" && baseRefLabel) return `Worktree · ${baseRefLabel}`;
     if (mode === "new") return "New worktree";
     return "Worktree";
-  }, [mode, baseRefLabel, value.reuseWorktreePath, managedWorktrees]);
-
+  })();
   const handleModeChange = (nextMode: "current" | "new" | "previous" | null) => {
     if (nextMode === "current") {
-      onChange({ ...value, enabled: false, reuseWorktreePath: null });
+      onChange({
+        ...value,
+        enabled: false,
+        reuseWorktreePath: null,
+      });
     } else if (nextMode === "new") {
-      onChange({ ...value, enabled: true, reuseWorktreePath: null });
+      onChange({
+        ...value,
+        enabled: true,
+        reuseWorktreePath: null,
+      });
     } else if (nextMode === "previous") {
       // Pick the most recent managed worktree by default, user can change below
       const first = managedWorktrees[0]?.path ?? null;
-      onChange({ ...value, enabled: true, reuseWorktreePath: first });
+      onChange({
+        ...value,
+        enabled: true,
+        reuseWorktreePath: first,
+      });
     }
   };
-
-  const allBranchesForSearch = useMemo(() => {
+  const allBranchesForSearch = (() => {
     // Merge remote and local for searchable list, remote first
     const remote = branches.filter((b) => b.kind === "remote");
     const local = branches.filter((b) => b.kind === "local");
     return [...remote, ...local];
-  }, [branches]);
-
-  const filteredBranches = useMemo(() => {
+  })();
+  const filteredBranches = (() => {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return allBranchesForSearch;
     return allBranchesForSearch.filter((b) => b.name.toLowerCase().includes(q));
-  }, [allBranchesForSearch, searchQuery]);
-
+  })();
   const handleSelectBranch = (selected: string) => {
     if (selected.startsWith("origin/")) {
-      onChange({ ...value, baseBranch: selected.slice("origin/".length), fromRemote: true, reuseWorktreePath: null });
+      onChange({
+        ...value,
+        baseBranch: selected.slice("origin/".length),
+        fromRemote: true,
+        reuseWorktreePath: null,
+      });
     } else {
-      onChange({ ...value, baseBranch: selected, fromRemote: false, reuseWorktreePath: null });
+      onChange({
+        ...value,
+        baseBranch: selected,
+        fromRemote: false,
+        reuseWorktreePath: null,
+      });
     }
   };
-
   const selectedValue = value.baseBranch
     ? value.fromRemote && branches.some((b) => b.name === `origin/${value.baseBranch}`)
       ? `origin/${value.baseBranch}`
       : value.baseBranch
     : "";
-
   const handleRemoveWorktree = async (worktree: WorktreeInfo) => {
     if (!workspacePath || !worktree.branch) return;
     setRemovingPath(worktree.path);
@@ -226,12 +250,15 @@ export default function WorktreeSelector({ workspacePath, value, onChange, disab
       // If the removed worktree was the selected "Previous worktree",
       // drop the selection so the draft falls back to current checkout.
       if (value.reuseWorktreePath === worktree.path) {
-        onChange({ ...value, enabled: false, reuseWorktreePath: null });
+        onChange({
+          ...value,
+          enabled: false,
+          reuseWorktreePath: null,
+        });
       }
     }
     setRemovingPath(null);
   };
-
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
@@ -314,11 +341,21 @@ export default function WorktreeSelector({ workspacePath, value, onChange, disab
                         type="button"
                         aria-pressed={isSelected}
                         className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        onClick={() => onChange({ ...value, enabled: true, reuseWorktreePath: worktree.path })}
+                        onClick={() =>
+                          onChange({
+                            ...value,
+                            enabled: true,
+                            reuseWorktreePath: worktree.path,
+                          })
+                        }
                         onKeyDown={(e) => {
                           if (e.key === "Enter" || e.key === " ") {
                             e.preventDefault();
-                            onChange({ ...value, enabled: true, reuseWorktreePath: worktree.path });
+                            onChange({
+                              ...value,
+                              enabled: true,
+                              reuseWorktreePath: worktree.path,
+                            });
                           }
                         }}
                       >
@@ -408,7 +445,12 @@ export default function WorktreeSelector({ workspacePath, value, onChange, disab
                 value={value.branchName}
                 placeholder="argos/<auto>"
                 className="h-8 text-xs"
-                onChange={(event) => onChange({ ...value, branchName: event.target.value })}
+                onChange={(event) =>
+                  onChange({
+                    ...value,
+                    branchName: event.target.value,
+                  })
+                }
               />
             </div>
           </>

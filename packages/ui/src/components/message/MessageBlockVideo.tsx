@@ -1,53 +1,51 @@
 import React from "react";
 import { Icon } from "@iconify/react";
 import type { DisplayAssistantMessageBlock } from "#/components/chat/messageListItems";
-
 interface MessageBlockVideoProps {
   block: DisplayAssistantMessageBlock;
   messageId?: string;
   threadId?: string;
 }
-
 type LegacyVideoBlockContent = {
   data?: string;
   mimeType?: string;
 };
-
-const parseVideoDataUri = (value: string): { data: string; mimeType: string } | null => {
+const parseVideoDataUri = (
+  value: string,
+): {
+  data: string;
+  mimeType: string;
+} | null => {
   const match = value.match(/^data:([^;]+);base64,(.*)$/);
   if (!match?.[1] || !match?.[2]) return null;
   if (!match[1].startsWith("video/")) return null;
-  return { data: match[2], mimeType: match[1] };
+  return {
+    data: match[2],
+    mimeType: match[1],
+  };
 };
-
 const normalizeVideoData = (rawData: string, mimeType?: string) => {
   const trimmed = rawData.trim();
   if (!trimmed) return null;
-
   if (trimmed.startsWith("imgcache://") || trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
     return {
       data: trimmed,
       mimeType: mimeType?.trim() || "video/mp4",
     };
   }
-
   const parsed = parseVideoDataUri(trimmed);
   if (parsed) return parsed;
-
   return {
     data: trimmed,
     mimeType: mimeType?.trim() || "video/mp4",
   };
 };
-
 export const MessageBlockVideo: React.FC<MessageBlockVideoProps> = ({ block }) => {
   const [videoError, setVideoError] = React.useState(false);
-
-  const resolvedVideoData = React.useMemo(() => {
+  const resolvedVideoData = (() => {
     if (block.image_data?.data) {
       return normalizeVideoData(block.image_data.data, block.image_data.mimeType);
     }
-
     const content = block.content;
     if (content && typeof content === "object" && "data" in (content as LegacyVideoBlockContent)) {
       const legacyContent = content as LegacyVideoBlockContent;
@@ -55,23 +53,19 @@ export const MessageBlockVideo: React.FC<MessageBlockVideoProps> = ({ block }) =
         return normalizeVideoData(legacyContent.data, legacyContent.mimeType);
       }
     }
-
     if (typeof content === "string" && content.length > 0) {
       return normalizeVideoData(content);
     }
-
     return null;
-  }, [block.image_data, block.content]);
-
-  const videoSrc = React.useMemo(() => {
+  })();
+  const videoSrc = (() => {
     if (!resolvedVideoData) return "";
     const raw = resolvedVideoData.data;
     if (raw.startsWith("imgcache://") || raw.startsWith("http://") || raw.startsWith("https://")) {
       return raw;
     }
     return `data:${resolvedVideoData.mimeType};base64,${raw}`;
-  }, [resolvedVideoData]);
-
+  })();
   return (
     <div className="my-1">
       <div className="rounded-lg border bg-card text-card-foreground p-4 w-fit max-w-full">

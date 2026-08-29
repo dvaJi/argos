@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { EditProvider, File, type CreateEditor } from "@pierre/diffs/react";
 import { Editor } from "@pierre/diffs/edit";
 import { Icon } from "@iconify/react";
@@ -6,7 +6,6 @@ import { toast } from "sonner";
 import { Button } from "#shadcn/components/ui/button";
 import { createWorkspaceClient } from "#api/WorkspaceClient";
 import { useDiffsBaseOptions } from "./diffsOptions";
-
 interface DiffsEditorPaneProps {
   filePath: string;
   initialContent: string;
@@ -25,28 +24,28 @@ interface DiffsEditorPaneProps {
 export function DiffsEditorPane({ filePath, initialContent, language, onSaved }: DiffsEditorPaneProps) {
   const base = useDiffsBaseOptions();
   const workspaceClient = createWorkspaceClient();
-
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const originalRef = useRef<string>(initialContent);
   const editorRef = useRef<Editor<undefined> | null>(null);
-
-  const fileBasename = useMemo(() => {
+  const fileBasename = (() => {
     const segments = filePath.split(/[\\/]+/).filter(Boolean);
     return segments[segments.length - 1] ?? filePath;
-  }, [filePath]);
+  })();
 
   // `language` is a hint; Shiki infers from the filename, so we don't force it.
   void language;
-
-  const file = useMemo(() => ({ name: fileBasename, contents: initialContent }), [fileBasename, initialContent]);
-
-  const options = useMemo(
-    () => ({ ...base, disableLineNumbers: false, overflow: "scroll" as const, stickyHeader: false }),
-    [base],
-  );
-
-  const createEditor = useCallback<CreateEditor<undefined>>((editorOptions) => {
+  const file = {
+    name: fileBasename,
+    contents: initialContent,
+  };
+  const options = {
+    ...base,
+    disableLineNumbers: false,
+    overflow: "scroll" as const,
+    stickyHeader: false,
+  };
+  const createEditor = (editorOptions) => {
     const editor = new Editor<undefined>({
       ...editorOptions,
       onChange: (changedFile, lineAnnotations, event) => {
@@ -56,9 +55,8 @@ export function DiffsEditorPane({ filePath, initialContent, language, onSaved }:
     });
     editorRef.current = editor;
     return editor;
-  }, []);
-
-  const handleSave = useCallback(async () => {
+  };
+  const handleSave = async () => {
     const editor = editorRef.current;
     if (!editor || !dirty || saving) return;
     setSaving(true);
@@ -73,8 +71,7 @@ export function DiffsEditorPane({ filePath, initialContent, language, onSaved }:
       toast.error(`Failed to save ${fileBasename}`);
     }
     setSaving(false);
-  }, [dirty, saving, editorRef, workspaceClient, filePath, onSaved, fileBasename]);
-
+  };
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const isSave = (event.metaKey || event.ctrlKey) && (event.key === "s" || event.key === "S");
@@ -86,7 +83,6 @@ export function DiffsEditorPane({ filePath, initialContent, language, onSaved }:
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [handleSave]);
-
   return (
     <div className="flex h-full min-h-0 flex-col bg-background" data-testid="diffs-editor-pane">
       <div className="flex h-8 shrink-0 items-center justify-between border-b px-3">
@@ -107,7 +103,15 @@ export function DiffsEditorPane({ filePath, initialContent, language, onSaved }:
       </div>
       <div className="min-h-0 flex-1">
         <EditProvider createEditor={createEditor}>
-          <File file={file} options={options} edit disableWorkerPool style={{ height: "100%" }} />
+          <File
+            file={file}
+            options={options}
+            edit
+            disableWorkerPool
+            style={{
+              height: "100%",
+            }}
+          />
         </EditProvider>
       </div>
     </div>

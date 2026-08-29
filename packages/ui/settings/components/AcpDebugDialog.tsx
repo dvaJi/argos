@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
 import { Badge } from "#shadcn/components/ui/badge";
@@ -8,41 +8,84 @@ import { createProviderClient } from "#api/ProviderClient";
 import { createConfigClient } from "#api/ConfigClient";
 import { useToast } from "#/components/use-toast";
 import { nanoid } from "nanoid";
-
 interface AcpDebugDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   agentId: string;
   agentName: string;
 }
-
 function createDebugSessionId() {
   return `debug-${nanoid(6)}`;
 }
-
-const methodOptions: { value: AcpDebugRequest["action"]; label: string }[] = [
-  { value: "initialize", label: "Initialize" },
-  { value: "authenticate", label: "Authenticate" },
-  { value: "logout", label: "Logout" },
-  { value: "newSession", label: "New Session" },
-  { value: "loadSession", label: "Load Session" },
-  { value: "sessionList", label: "Session List" },
-  { value: "sessionResume", label: "Session Resume" },
-  { value: "sessionClose", label: "Session Close" },
-  { value: "sessionFork", label: "Session Fork" },
-  { value: "prompt", label: "Prompt" },
-  { value: "cancel", label: "Cancel" },
-  { value: "setSessionMode", label: "Set Session Mode" },
-  { value: "setSessionModel", label: "Set Session Model" },
-  { value: "extMethod", label: "Extension Method" },
-  { value: "extNotification", label: "Extension Notification" },
+const methodOptions: {
+  value: AcpDebugRequest["action"];
+  label: string;
+}[] = [
+  {
+    value: "initialize",
+    label: "Initialize",
+  },
+  {
+    value: "authenticate",
+    label: "Authenticate",
+  },
+  {
+    value: "logout",
+    label: "Logout",
+  },
+  {
+    value: "newSession",
+    label: "New Session",
+  },
+  {
+    value: "loadSession",
+    label: "Load Session",
+  },
+  {
+    value: "sessionList",
+    label: "Session List",
+  },
+  {
+    value: "sessionResume",
+    label: "Session Resume",
+  },
+  {
+    value: "sessionClose",
+    label: "Session Close",
+  },
+  {
+    value: "sessionFork",
+    label: "Session Fork",
+  },
+  {
+    value: "prompt",
+    label: "Prompt",
+  },
+  {
+    value: "cancel",
+    label: "Cancel",
+  },
+  {
+    value: "setSessionMode",
+    label: "Set Session Mode",
+  },
+  {
+    value: "setSessionModel",
+    label: "Set Session Model",
+  },
+  {
+    value: "extMethod",
+    label: "Extension Method",
+  },
+  {
+    value: "extNotification",
+    label: "Extension Notification",
+  },
 ];
-
 export default function AcpDebugDialog({ open, onOpenChange, agentId, agentName }: AcpDebugDialogProps) {
   const { toast } = useToast();
-  const providerClient = useMemo(() => createProviderClient(), []);
-  const configClient = useMemo(() => createConfigClient(), []);
-
+  const providerClient = createProviderClient();
+  const configClient = createConfigClient();
   const [selectedMethod, setSelectedMethod] = useState<AcpDebugRequest["action"]>("newSession");
   const [loading, setLoading] = useState(false);
   const [events, setEvents] = useState<AcpDebugEventEntry[]>([]);
@@ -50,19 +93,13 @@ export default function AcpDebugDialog({ open, onOpenChange, agentId, agentName 
   const [customMethod, setCustomMethod] = useState("");
   const [debugSessionId, setDebugSessionId] = useState(() => createDebugSessionId());
   const seenIds = useRef(new Set<string>());
-
-  const requiresCustomMethod = useMemo(
-    () => ["extMethod", "extNotification"].includes(selectedMethod),
-    [selectedMethod],
-  );
-  const sortedEvents = useMemo(() => events.toSorted((a, b) => b.timestamp - a.timestamp), [events]);
-
+  const requiresCustomMethod = ["extMethod", "extNotification"].includes(selectedMethod);
+  const sortedEvents = events.toSorted((a, b) => b.timestamp - a.timestamp);
   const appendEvents = (items: AcpDebugEventEntry[]) => {
     const newItems = items.filter((e) => !seenIds.current.has(e.id));
     newItems.forEach((e) => seenIds.current.add(e.id));
     if (newItems.length) setEvents((prev) => [...prev, ...newItems]);
   };
-
   const stringify = (payload: unknown) => {
     try {
       return JSON.stringify(payload, null, 2);
@@ -70,7 +107,6 @@ export default function AcpDebugDialog({ open, onOpenChange, agentId, agentName 
       return String(payload);
     }
   };
-
   const eventTone = (kind: AcpDebugEventEntry["kind"]) => {
     if (kind === "request") return "bg-primary/5 border-primary/30";
     if (kind === "lifecycle") return "bg-sky-50 dark:bg-sky-950/30 border-sky-200/60";
@@ -79,9 +115,7 @@ export default function AcpDebugDialog({ open, onOpenChange, agentId, agentName 
     if (kind === "error") return "bg-destructive/10 border-destructive/30";
     return "bg-muted/40 border-border";
   };
-
   const eventLabel = (kind: AcpDebugEventEntry["kind"]) => kind;
-
   const formatTime = (timestamp: number) => new Date(timestamp).toLocaleTimeString();
 
   // Reset the debug session whenever the dialog opens — adjusted during render.
@@ -96,13 +130,11 @@ export default function AcpDebugDialog({ open, onOpenChange, agentId, agentName 
       setDebugSessionId(createDebugSessionId());
     }
   }
-
   useEffect(() => {
     if (open) {
       seenIds.current.clear();
     }
   }, [open]);
-
   const handleSend = () => {
     setLoading(true);
     void providerClient
@@ -116,12 +148,21 @@ export default function AcpDebugDialog({ open, onOpenChange, agentId, agentName 
         if (result?.events?.length) appendEvents(result.events);
         if (result?.sessionId) setDebugSessionId(result.sessionId);
         if (result?.status === "ok") setProcessReady(true);
-        if (result?.status === "error" && result.error) toast({ title: result.error, variant: "destructive" });
+        if (result?.status === "error" && result.error)
+          toast({
+            title: result.error,
+            variant: "destructive",
+          });
       })
-      .catch((error) => toast({ title: "Request failed", description: String(error), variant: "destructive" }))
+      .catch((error) =>
+        toast({
+          title: "Request failed",
+          description: String(error),
+          variant: "destructive",
+        }),
+      )
       .finally(() => setLoading(false));
   };
-
   const runHealthCheck = () => {
     setEvents([]);
     seenIds.current.clear();
@@ -143,13 +184,15 @@ export default function AcpDebugDialog({ open, onOpenChange, agentId, agentName 
       })
       .catch((error) => {
         setProcessReady(false);
-        toast({ title: "Health check failed", description: String(error), variant: "destructive" });
+        toast({
+          title: "Health check failed",
+          description: String(error),
+          variant: "destructive",
+        });
       })
       .finally(() => setLoading(false));
   };
-
   if (!open) return null;
-
   return (
     <div className="fixed inset-0 z-[200] bg-background text-foreground flex flex-col pt-8 min-h-0">
       <header className="flex items-center justify-between px-6 py-4 border-b gap-3">

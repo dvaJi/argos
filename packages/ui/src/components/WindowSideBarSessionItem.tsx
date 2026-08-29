@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { Icon } from "@iconify/react";
 import type { UISession } from "#/stores/ui/session";
 import {
@@ -14,14 +13,12 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "#shadcn/components/ui/context-menu";
-
 type PinFeedbackMode = "pinning" | "unpinning";
 type SessionItemRegion = "pinned" | "grouped";
 type SessionStatusIcon = {
   className: string;
   icon: string;
 } | null;
-
 interface WindowSideBarSessionItemProps {
   session: UISession;
   active: boolean;
@@ -37,7 +34,6 @@ interface WindowSideBarSessionItemProps {
   onTogglePin: (session: UISession) => void;
   onDelete: (session: UISession) => void;
 }
-
 export default function WindowSideBarSessionItem({
   session,
   active,
@@ -56,62 +52,94 @@ export default function WindowSideBarSessionItem({
   const pinActionLabel = session.isPinned ? "Unpin" : "Pin";
   const deleteActionLabel = "Delete";
   const isWorking = session.status === "working";
-
-  const pinState: "docked" | "overlay" = useMemo(() => {
+  const pinState: "docked" | "overlay" = (() => {
     if (forcePinDocked) return "docked";
     if (session.isPinned || pinFeedbackMode === "unpinning") return "docked";
     return "overlay";
-  }, [forcePinDocked, session.isPinned, pinFeedbackMode]);
-
-  const statusIcon: SessionStatusIcon = useMemo(() => {
+  })();
+  const statusIcon: SessionStatusIcon = (() => {
     if (session.status === "working")
-      return { icon: "lucide:loader-2", className: "text-primary motion-safe:animate-spin" };
-    if (session.status === "completed") return { icon: "lucide:check", className: "text-green-500" };
-    if (session.status === "error") return { icon: "lucide:alert-circle", className: "text-destructive" };
+      return {
+        icon: "lucide:loader-2",
+        className: "text-primary motion-safe:animate-spin",
+      };
+    if (session.status === "completed")
+      return {
+        icon: "lucide:check",
+        className: "text-green-500",
+      };
+    if (session.status === "error")
+      return {
+        icon: "lucide:alert-circle",
+        className: "text-destructive",
+      };
     if (session.status === "blocked")
-      return { icon: "lucide:clock", className: "text-yellow-500 motion-safe:animate-pulse" };
-    if (session.status === "new_results") return { icon: "lucide:circle-dot", className: "text-blue-500" };
+      return {
+        icon: "lucide:clock",
+        className: "text-yellow-500 motion-safe:animate-pulse",
+      };
+    if (session.status === "new_results")
+      return {
+        icon: "lucide:circle-dot",
+        className: "text-blue-500",
+      };
     return null;
-  }, [session.status]);
-
-  const titleSegments = useMemo(() => {
+  })();
+  const titleSegments = (() => {
     const title = session.title;
     const query = searchQuery?.trim();
-    if (!query) return [{ text: title, match: false }];
-
+    if (!query)
+      return [
+        {
+          text: title,
+          match: false,
+        },
+      ];
     const lowerTitle = title.toLowerCase();
     const lowerQuery = query.toLowerCase();
-    const segments: Array<{ text: string; match: boolean }> = [];
+    const segments: Array<{
+      text: string;
+      match: boolean;
+    }> = [];
     let searchIndex = 0;
     let matchIndex = lowerTitle.indexOf(lowerQuery);
-
     while (matchIndex !== -1) {
       if (matchIndex > searchIndex) {
-        segments.push({ text: title.slice(searchIndex, matchIndex), match: false });
+        segments.push({
+          text: title.slice(searchIndex, matchIndex),
+          match: false,
+        });
       }
-      segments.push({ text: title.slice(matchIndex, matchIndex + query.length), match: true });
+      segments.push({
+        text: title.slice(matchIndex, matchIndex + query.length),
+        match: true,
+      });
       searchIndex = matchIndex + query.length;
       matchIndex = lowerTitle.indexOf(lowerQuery, searchIndex);
     }
-
     if (searchIndex < title.length) {
-      segments.push({ text: title.slice(searchIndex), match: false });
+      segments.push({
+        text: title.slice(searchIndex),
+        match: false,
+      });
     }
-
-    return segments.length > 0 ? segments : [{ text: title, match: false }];
-  }, [session.title, searchQuery]);
-
+    return segments.length > 0
+      ? segments
+      : [
+          {
+            text: title,
+            match: false,
+          },
+        ];
+  })();
   const shortcutBadgeTitle = shortcutBadgeLabel ? `Switch with ${shortcutBadgeLabel}` : "";
-
   return (
     <ContextMenu>
       <ContextMenuTrigger
         render={
           <div
             data-testid="sidebar-session-item"
-            className={`session-item group no-drag flex w-full select-none items-center rounded-lg px-2.5 text-left transition-colors duration-150${
-              active ? " bg-accent text-accent-foreground" : " text-foreground/80 hover:bg-accent/50"
-            }${heroHidden ? " is-hero-hidden" : ""}`}
+            className={`session-item group no-drag flex w-full select-none items-center rounded-lg px-2.5 text-left transition-colors duration-150${active ? " bg-accent text-accent-foreground" : " text-foreground/80 hover:bg-accent/50"}${heroHidden ? " is-hero-hidden" : ""}`}
             data-pin-fx={pinFeedbackMode ?? undefined}
             data-pin-placeholder={heroPlaceholder ? "true" : undefined}
             data-pin-state={pinState}

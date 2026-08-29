@@ -1,4 +1,4 @@
-import { type FC, useState, useEffect, useCallback } from "react";
+import { type FC, useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -10,7 +10,6 @@ import {
 import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
 import { Label } from "#shadcn/components/ui/label";
-
 interface CommandInputField {
   name: string;
   label: string;
@@ -18,7 +17,6 @@ interface CommandInputField {
   placeholder?: string;
   required?: boolean;
 }
-
 interface CommandInputDialogProps {
   open: boolean;
   title: string;
@@ -28,7 +26,6 @@ interface CommandInputDialogProps {
   onUpdateOpen: (open: boolean) => void;
   onSubmit: (values: Record<string, string>) => void;
 }
-
 const CommandInputDialog: FC<CommandInputDialogProps> = ({
   open,
   title,
@@ -55,8 +52,7 @@ const CommandInputDialog: FC<CommandInputDialogProps> = ({
       setErrors({});
     }
   }
-
-  const validate = useCallback(() => {
+  const validate = () => {
     const newErrors: Record<string, string> = {};
     for (const field of fields) {
       if (!field.required) continue;
@@ -66,23 +62,19 @@ const CommandInputDialog: FC<CommandInputDialogProps> = ({
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  }, [fields, values]);
-
-  const submit = useCallback(() => {
+  };
+  const submit = () => {
     if (!validate()) return;
-    onSubmit({ ...values });
-  }, [validate, onSubmit, values]);
-
-  const onEnter = useCallback(
-    (fieldName: string) => {
-      const index = fields.findIndex((field) => field.name === fieldName);
-      if (index === fields.length - 1) {
-        submit();
-      }
-    },
-    [fields, submit],
-  );
-
+    onSubmit({
+      ...values,
+    });
+  };
+  const onEnter = (fieldName: string) => {
+    const index = fields.findIndex((field) => field.name === fieldName);
+    if (index === fields.length - 1) {
+      submit();
+    }
+  };
   return (
     <Dialog open={open} onOpenChange={onUpdateOpen}>
       <DialogContent className="sm:max-w-[460px]">
@@ -104,7 +96,12 @@ const CommandInputDialog: FC<CommandInputDialogProps> = ({
                   value={values[field.name] ?? ""}
                   placeholder={field.placeholder || field.description || ""}
                   className={errors[field.name] ? "border-destructive" : ""}
-                  onChange={(e) => setValues((prev) => ({ ...prev, [field.name]: e.target.value }))}
+                  onChange={(e) =>
+                    setValues((prev) => ({
+                      ...prev,
+                      [field.name]: e.target.value,
+                    }))
+                  }
                   onKeyDown={(e) => {
                     if (e.key === "Enter") onEnter(field.name);
                   }}
@@ -126,5 +123,4 @@ const CommandInputDialog: FC<CommandInputDialogProps> = ({
     </Dialog>
   );
 };
-
 export default CommandInputDialog;

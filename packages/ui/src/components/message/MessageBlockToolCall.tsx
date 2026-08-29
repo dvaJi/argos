@@ -1,4 +1,4 @@
-import { type FC, useState, useMemo, useEffect, useRef, useCallback, memo } from "react";
+import { type FC, useState, useEffect, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { summarizeToolCallPreview } from "@argos/shared/lib/toolCallSummary";
 import { useThemeStore } from "#/stores/theme";
@@ -8,18 +8,14 @@ import type { DisplayAssistantMessageBlock } from "#/components/chat/messageList
 import { createDeviceClient } from "#api/DeviceClient";
 import { MessageBlockToolCallImagePreview } from "./MessageBlockToolCallImagePreview";
 import "./MessageBlockToolCall.css";
-
 interface MessageBlockToolCallProps {
   block: DisplayAssistantMessageBlock;
   messageId?: string;
   threadId?: string;
 }
-
 type ExpansionSource = "auto" | "manual" | null;
-
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === "object" && !Array.isArray(value);
-
 const coerceNumericParam = (value: unknown): number | null => {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string" && value.trim()) {
@@ -28,7 +24,6 @@ const coerceNumericParam = (value: unknown): number | null => {
   }
   return null;
 };
-
 type SubagentProgressTask = {
   normalizedId: string;
   taskId: string;
@@ -43,15 +38,14 @@ type SubagentProgressTask = {
   updatedAt?: number;
   resultSummary?: string;
 };
-
-type RawSubagentProgressTask = Partial<SubagentProgressTask> & { displayName?: string };
-
+type RawSubagentProgressTask = Partial<SubagentProgressTask> & {
+  displayName?: string;
+};
 type SubagentProgressPayload = {
   runId: string;
   mode: "parallel" | "chain";
   tasks: RawSubagentProgressTask[];
 };
-
 const parseSubagentProgress = (value: unknown): SubagentProgressPayload | null => {
   if (typeof value !== "string" || !value.trim()) return null;
   try {
@@ -61,14 +55,13 @@ const parseSubagentProgress = (value: unknown): SubagentProgressPayload | null =
     return null;
   }
 };
-
 const matchesToolContractName = (toolName: string, expectedName: string): boolean =>
   toolName === expectedName || toolName.endsWith(`_${expectedName}`);
-
 const normalizeOptionalText = (value: unknown): string => (typeof value === "string" ? value.trim() : "");
-
 const CodeBlockNode: FC<{
-  node: { code: string };
+  node: {
+    code: string;
+  };
   isDark?: boolean;
   showHeader?: boolean;
 }> = ({ node, isDark = false }) => {
@@ -78,17 +71,18 @@ const CodeBlockNode: FC<{
         "text-xs p-2 overflow-auto rounded-md",
         isDark ? "bg-zinc-900 text-zinc-100" : "bg-zinc-50 text-zinc-900",
       ].join(" ")}
-      style={{ fontFamily: "var(--dc-code-font-family)", fontSize: "0.85em" }}
+      style={{
+        fontFamily: "var(--dc-code-font-family)",
+        fontSize: "0.85em",
+      }}
     >
       {node.code}
     </pre>
   );
 };
-
 const MessageBlockToolCallBase: FC<MessageBlockToolCallProps> = ({ block }) => {
   const themeStore = useThemeStore();
   const deviceClient = createDeviceClient();
-
   const [isExpanded, setIsExpanded] = useState(false);
   const [expansionSource, setExpansionSource] = useState<ExpansionSource>(null);
   const [autoExpandDismissed, setAutoExpandDismissed] = useState(false);
@@ -96,68 +90,63 @@ const MessageBlockToolCallBase: FC<MessageBlockToolCallProps> = ({ block }) => {
   const [responseCopyText, setResponseCopyText] = useState("Copy");
   const paramsCopyResetTimerRef = useRef<number | null>(null);
   const responseCopyResetTimerRef = useRef<number | null>(null);
-
-  const statusVariant = useMemo(() => {
+  const statusVariant = (() => {
     if (block.status === "error") return "error";
     if (block.status === "success") return "success";
     if (block.status === "loading") return "running";
     return "neutral";
-  }, [block.status]);
-
-  const functionLabel = useMemo(() => block.tool_call?.name ?? "", [block.tool_call?.name]);
-  const displayFunctionName = useMemo(() => functionLabel || "Tool Call", [functionLabel]);
-
-  const expandedToolTitle = useMemo(() => {
+  })();
+  const functionLabel = block.tool_call?.name ?? "";
+  const displayFunctionName = functionLabel || "Tool Call";
+  const expandedToolTitle = (() => {
     if (!isExpanded || !block.tool_call) return "";
     const toolName = functionLabel || "Tool Call";
     let serverName = block.tool_call.server_name?.trim() ?? "";
     if (serverName.includes("/")) serverName = serverName.split("/").pop() ?? "";
     if (!serverName || serverName === toolName) return toolName;
     return `${serverName}.${toolName}`;
-  }, [isExpanded, block.tool_call, functionLabel]);
-
-  const paramsText = useMemo(() => block.tool_call?.params ?? "", [block.tool_call?.params]);
-  const responseText = useMemo(() => block.tool_call?.response ?? "", [block.tool_call?.response]);
-  const hasParams = useMemo(() => paramsText.trim().length > 0, [paramsText]);
-  const hasResponse = useMemo(() => responseText.trim().length > 0, [responseText]);
-
-  const imagePreviews = useMemo(
-    () =>
-      (block.tool_call?.imagePreviews ?? []).filter(
-        (preview) =>
-          typeof preview.data === "string" &&
-          preview.data.trim().length > 0 &&
-          typeof preview.mimeType === "string" &&
-          preview.mimeType.trim().length > 0,
-      ),
-    [block.tool_call?.imagePreviews],
+  })();
+  const paramsText = block.tool_call?.params ?? "";
+  const responseText = block.tool_call?.response ?? "";
+  const hasParams = paramsText.trim().length > 0;
+  const hasResponse = responseText.trim().length > 0;
+  const imagePreviews = (block.tool_call?.imagePreviews ?? []).filter(
+    (preview) =>
+      typeof preview.data === "string" &&
+      preview.data.trim().length > 0 &&
+      typeof preview.mimeType === "string" &&
+      preview.mimeType.trim().length > 0,
   );
-  const hasImagePreviews = useMemo(() => imagePreviews.length > 0, [imagePreviews]);
-
-  const parsedParams = useMemo(() => {
+  const hasImagePreviews = imagePreviews.length > 0;
+  const parsedParams = (() => {
     const raw = paramsText.trim();
-    if (!raw) return { isJson: false, value: "" };
+    if (!raw)
+      return {
+        isJson: false,
+        value: "",
+      };
     try {
-      return { isJson: true, value: JSON.parse(raw) as unknown };
+      return {
+        isJson: true,
+        value: JSON.parse(raw) as unknown,
+      };
     } catch {
-      return { isJson: false, value: raw };
+      return {
+        isJson: false,
+        value: raw,
+      };
     }
-  }, [paramsText]);
-
-  const parsedParamsRecord = useMemo(() => (isRecord(parsedParams.value) ? parsedParams.value : null), [parsedParams]);
-
-  const rawToolName = useMemo(() => block.tool_call?.name?.trim().toLowerCase() ?? "", [block.tool_call?.name]);
-  const isSubagentOrchestrator = useMemo(() => rawToolName === "subagent_orchestrator", [rawToolName]);
-
-  const isExecTool = useMemo(() => {
+  })();
+  const parsedParamsRecord = isRecord(parsedParams.value) ? parsedParams.value : null;
+  const rawToolName = block.tool_call?.name?.trim().toLowerCase() ?? "";
+  const isSubagentOrchestrator = rawToolName === "subagent_orchestrator";
+  const isExecTool = (() => {
     const toolName = rawToolName;
     return matchesToolContractName(toolName, "exec") || matchesToolContractName(toolName, "skill_run");
-  }, [rawToolName]);
-
-  const isProcessTool = useMemo(() => matchesToolContractName(rawToolName, "process"), [rawToolName]);
+  })();
+  const isProcessTool = matchesToolContractName(rawToolName, "process");
   const isTerminalTool = isExecTool || isProcessTool;
-
-  const shouldAutoExpand = useMemo(() => {
+  const shouldAutoExpand = (() => {
     if (isSubagentOrchestrator) return block.status === "loading";
     if (block.status !== "loading") return false;
     if (isProcessTool) return true;
@@ -165,14 +154,9 @@ const MessageBlockToolCallBase: FC<MessageBlockToolCallProps> = ({ block }) => {
     if (parsedParamsRecord.background === true) return true;
     const timeoutMs = coerceNumericParam(parsedParamsRecord.timeoutMs);
     return timeoutMs !== null && timeoutMs >= 10000;
-  }, [isSubagentOrchestrator, block.status, isProcessTool, isExecTool, parsedParamsRecord]);
-
-  const toolCallIdentity = useMemo(
-    () => block.tool_call?.id ?? `${block.tool_call?.name ?? "tool"}:${block.timestamp}`,
-    [block.tool_call?.id, block.tool_call?.name, block.timestamp],
-  );
-
-  const summaryText = useMemo(() => {
+  })();
+  const toolCallIdentity = block.tool_call?.id ?? `${block.tool_call?.name ?? "tool"}:${block.timestamp}`;
+  const summaryText = (() => {
     if (isSubagentOrchestrator) {
       const progress =
         parseSubagentProgress(block.extra?.subagentProgress) ?? parseSubagentProgress(block.extra?.subagentFinal);
@@ -180,10 +164,11 @@ const MessageBlockToolCallBase: FC<MessageBlockToolCallProps> = ({ block }) => {
     }
     const raw = paramsText.trim();
     if (!raw) return "";
-    return summarizeToolCallPreview(raw, { toolName: functionLabel });
-  }, [isSubagentOrchestrator, block.extra, paramsText, functionLabel]);
-
-  const subagentTasks = useMemo<SubagentProgressTask[]>(() => {
+    return summarizeToolCallPreview(raw, {
+      toolName: functionLabel,
+    });
+  })();
+  const subagentTasks = (() => {
     const progress =
       parseSubagentProgress(block.extra?.subagentProgress) ?? parseSubagentProgress(block.extra?.subagentFinal);
     return (progress?.tasks ?? []).map((task, index) => {
@@ -205,9 +190,8 @@ const MessageBlockToolCallBase: FC<MessageBlockToolCallProps> = ({ block }) => {
         status: normalizeOptionalText(task.status) || "running",
       };
     });
-  }, [block.extra?.subagentProgress, block.extra?.subagentFinal]);
-
-  const statusIconName = useMemo(() => {
+  })();
+  const statusIconName = (() => {
     if (!block.tool_call) return "lucide:circle-small";
     switch (statusVariant) {
       case "error":
@@ -217,9 +201,8 @@ const MessageBlockToolCallBase: FC<MessageBlockToolCallProps> = ({ block }) => {
       default:
         return "lucide:circle-small";
     }
-  }, [block.tool_call, statusVariant]);
-
-  const statusIconClass = useMemo(() => {
+  })();
+  const statusIconClass = (() => {
     switch (statusVariant) {
       case "error":
         return "text-destructive";
@@ -228,16 +211,14 @@ const MessageBlockToolCallBase: FC<MessageBlockToolCallProps> = ({ block }) => {
       default:
         return "text-muted-foreground";
     }
-  }, [statusVariant]);
-
-  const isDiffTool = useMemo(() => {
+  })();
+  const isDiffTool = (() => {
     const name = block.tool_call?.name ?? "";
     const normalized = name.replace(/[_-]/g, "").toLowerCase();
     if (block.status !== "success") return false;
     return normalized === "edittext" || normalized === "textreplace";
-  }, [block.tool_call?.name, block.status]);
-
-  const diffData = useMemo(() => {
+  })();
+  const diffData = (() => {
     if (!isDiffTool || !hasResponse) return null;
     try {
       const parsed = JSON.parse(responseText) as {
@@ -261,55 +242,48 @@ const MessageBlockToolCallBase: FC<MessageBlockToolCallProps> = ({ block }) => {
       }
     } catch {}
     return null;
-  }, [isDiffTool, hasResponse, responseText]);
-
-  const paramsPath = useMemo(() => {
+  })();
+  const paramsPath = (() => {
     if (!paramsText) return "";
     try {
-      const parsed = JSON.parse(paramsText) as { path?: unknown };
+      const parsed = JSON.parse(paramsText) as {
+        path?: unknown;
+      };
       if (parsed && typeof parsed.path === "string") return parsed.path;
     } catch {}
     return "";
-  }, [paramsText]);
-
-  const diffLanguage = useMemo(() => diffData?.language || getLanguageFromFilename(paramsPath), [diffData, paramsPath]);
-  const hasDiff = useMemo(() => Boolean(diffData), [diffData]);
-
-  const responseLayoutClass = useMemo(() => {
+  })();
+  const diffLanguage = diffData?.language || getLanguageFromFilename(paramsPath);
+  const hasDiff = Boolean(diffData);
+  const responseLayoutClass = (() => {
     if (hasDiff) return "flex-1 min-w-0 grid grid-rows-[auto_minmax(0,1fr)_auto] gap-2 min-h-72 max-h-72";
     return "space-y-2 flex-1 min-w-0";
-  }, [hasDiff]);
-
+  })();
   const resetExpansionState = () => {
     setIsExpanded(false);
     setExpansionSource(null);
     setAutoExpandDismissed(false);
   };
-
-  const syncAutoExpansionState = useCallback(
-    (
-      status: DisplayAssistantMessageBlock["status"],
-      autoExpandable: boolean,
-      previousStatus?: DisplayAssistantMessageBlock["status"],
-    ) => {
-      if (status === "loading" && autoExpandable && !autoExpandDismissed && !isExpanded) {
-        setIsExpanded(true);
-        setExpansionSource("auto");
-        return;
-      }
-      if (previousStatus === "loading" && status !== "loading" && expansionSource === "auto") {
-        setIsExpanded(false);
-        setExpansionSource(null);
-        setAutoExpandDismissed(false);
-        return;
-      }
-      if (status !== "loading" && expansionSource !== "manual") {
-        setAutoExpandDismissed(false);
-      }
-    },
-    [autoExpandDismissed, isExpanded, expansionSource],
-  );
-
+  const syncAutoExpansionState = (
+    status: DisplayAssistantMessageBlock["status"],
+    autoExpandable: boolean,
+    previousStatus?: DisplayAssistantMessageBlock["status"],
+  ) => {
+    if (status === "loading" && autoExpandable && !autoExpandDismissed && !isExpanded) {
+      setIsExpanded(true);
+      setExpansionSource("auto");
+      return;
+    }
+    if (previousStatus === "loading" && status !== "loading" && expansionSource === "auto") {
+      setIsExpanded(false);
+      setExpansionSource(null);
+      setAutoExpandDismissed(false);
+      return;
+    }
+    if (status !== "loading" && expansionSource !== "manual") {
+      setAutoExpandDismissed(false);
+    }
+  };
   const prevIdentityRef = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (prevIdentityRef.current !== undefined && toolCallIdentity !== prevIdentityRef.current) {
@@ -342,7 +316,6 @@ const MessageBlockToolCallBase: FC<MessageBlockToolCallProps> = ({ block }) => {
       setAutoExpandDismissed(false);
     }
   }
-
   const toggleExpanded = () => {
     if (isExpanded) {
       if (block.status === "loading" && shouldAutoExpand) setAutoExpandDismissed(true);
@@ -353,7 +326,6 @@ const MessageBlockToolCallBase: FC<MessageBlockToolCallProps> = ({ block }) => {
     setIsExpanded(true);
     setExpansionSource("manual");
   };
-
   const copyParams = async () => {
     if (!hasParams) return;
     try {
@@ -366,7 +338,6 @@ const MessageBlockToolCallBase: FC<MessageBlockToolCallProps> = ({ block }) => {
       }, 2000);
     } catch {}
   };
-
   const copyResponse = async () => {
     if (!hasResponse) return;
     try {
@@ -379,14 +350,12 @@ const MessageBlockToolCallBase: FC<MessageBlockToolCallProps> = ({ block }) => {
       }, 2000);
     } catch {}
   };
-
   const getSubagentStatusClass = (status: string): string => {
     if (status === "completed") return "bg-emerald-500/10 text-emerald-600";
     if (status === "error" || status === "cancelled") return "bg-destructive/10 text-destructive";
     if (status.startsWith("waiting")) return "bg-amber-500/10 text-amber-600";
     return "bg-muted text-muted-foreground";
   };
-
   const getSubagentStatusLabel = (status: string): string => {
     switch (status) {
       case "completed":
@@ -407,12 +376,10 @@ const MessageBlockToolCallBase: FC<MessageBlockToolCallProps> = ({ block }) => {
         return status;
     }
   };
-
   const handleSubagentSessionOpen = (task: SubagentProgressTask) => {
     if (!task.sessionId) return;
     void selectSession(task.sessionId);
   };
-
   useEffect(() => {
     return () => {
       if (paramsCopyResetTimerRef.current !== null) {
@@ -425,7 +392,6 @@ const MessageBlockToolCallBase: FC<MessageBlockToolCallProps> = ({ block }) => {
       }
     };
   }, []);
-
   return (
     <div className="flex flex-col w-full">
       <div
@@ -578,7 +544,13 @@ const MessageBlockToolCallBase: FC<MessageBlockToolCallProps> = ({ block }) => {
                       <div className="min-h-0 overflow-auto">
                         <CodeBlockNode
                           node={
-                            { code: diffData.updatedCode, language: diffLanguage } as { code: string; language: string }
+                            {
+                              code: diffData.updatedCode,
+                              language: diffLanguage,
+                            } as {
+                              code: string;
+                              language: string;
+                            }
                           }
                           isDark={themeStore.isDark}
                           showHeader={false}
@@ -591,7 +563,10 @@ const MessageBlockToolCallBase: FC<MessageBlockToolCallProps> = ({ block }) => {
                   ) : (
                     <pre
                       className="rounded-md border bg-background text-xs p-2 whitespace-pre-wrap break-words max-h-64 overflow-auto"
-                      style={{ fontFamily: "var(--dc-code-font-family)", fontSize: "0.85em" }}
+                      style={{
+                        fontFamily: "var(--dc-code-font-family)",
+                        fontSize: "0.85em",
+                      }}
                     >
                       {responseText}
                     </pre>
@@ -607,7 +582,5 @@ const MessageBlockToolCallBase: FC<MessageBlockToolCallProps> = ({ block }) => {
     </div>
   );
 };
-
-const MessageBlockToolCall = memo(MessageBlockToolCallBase);
-
+const MessageBlockToolCall = MessageBlockToolCallBase;
 export default MessageBlockToolCall;

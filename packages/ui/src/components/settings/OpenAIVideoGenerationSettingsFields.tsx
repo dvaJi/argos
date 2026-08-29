@@ -1,66 +1,58 @@
-import { useMemo, useCallback } from "react";
 import { Input } from "#shadcn/components/ui/input";
 import { Label } from "#shadcn/components/ui/label";
 import { Switch } from "#shadcn/components/ui/switch";
 import { normalizeVideoGenerationOptions, type VideoGenerationOptions } from "@argos/shared/videoGenerationSettings";
-
 interface OpenAIVideoGenerationSettingsFieldsProps {
   modelValue?: VideoGenerationOptions;
   density?: "default" | "compact";
   onValueChange: (value: VideoGenerationOptions | undefined) => void;
 }
-
 export default function OpenAIVideoGenerationSettingsFields({
   modelValue,
   density = "default",
   onValueChange,
 }: OpenAIVideoGenerationSettingsFieldsProps) {
-  const videoGeneration = useMemo<VideoGenerationOptions>(
-    () => normalizeVideoGenerationOptions(modelValue) ?? {},
-    [modelValue],
-  );
-
+  const videoGeneration = normalizeVideoGenerationOptions(modelValue) ?? {};
   const containerClass = density === "compact" ? "space-y-3" : "space-y-4";
   const fieldClass = density === "compact" ? "space-y-1.5" : "space-y-2";
   const labelClass = density === "compact" ? "text-xs font-medium" : "";
   const hintClass = density === "compact" ? "text-[11px] text-muted-foreground" : "text-xs text-muted-foreground";
   const inputClass = density === "compact" ? "h-8 text-xs" : "";
   const durationDraft = typeof videoGeneration.duration === "number" ? String(videoGeneration.duration) : "";
-
-  const emitOptions = useCallback(
-    (patch: VideoGenerationOptions) => {
-      const next = normalizeVideoGenerationOptions({
-        ...videoGeneration,
-        ...patch,
-      });
-      onValueChange(next);
-    },
-    [videoGeneration, onValueChange],
-  );
-
+  const emitOptions = (patch: VideoGenerationOptions) => {
+    const next = normalizeVideoGenerationOptions({
+      ...videoGeneration,
+      ...patch,
+    });
+    onValueChange(next);
+  };
   const normalizeTextInput = (value: string): string | undefined => {
     const trimmed = value.trim();
     return trimmed || undefined;
   };
-
   const onTextFieldUpdate = (field: "size" | "seconds" | "ratio" | "resolution", value: string) => {
-    emitOptions({ [field]: normalizeTextInput(value) });
+    emitOptions({
+      [field]: normalizeTextInput(value),
+    });
   };
-
   const onDurationInput = (value: string) => {
     const trimmed = value.trim();
     if (!trimmed) {
-      emitOptions({ duration: undefined });
+      emitOptions({
+        duration: undefined,
+      });
       return;
     }
     const parsed = Number.parseInt(trimmed, 10);
-    emitOptions({ duration: Number.isFinite(parsed) ? parsed : undefined });
+    emitOptions({
+      duration: Number.isFinite(parsed) ? parsed : undefined,
+    });
   };
-
   const onBooleanFieldUpdate = (field: "watermark" | "generateAudio", value: boolean) => {
-    emitOptions({ [field]: value });
+    emitOptions({
+      [field]: value,
+    });
   };
-
   return (
     <div className={containerClass}>
       <div className={fieldClass}>

@@ -1,54 +1,53 @@
-import { type FC, useState, useEffect, useMemo, useCallback } from "react";
+import { type FC, useState, useEffect, useRef } from "react";
 import { createConfigClient } from "#api/ConfigClient";
 import { Checkbox } from "#shadcn/components/ui/checkbox";
 import { useToast } from "#/components/use-toast";
-
 type AgentMcpServerConfig = {
   type?: string;
   source?: string;
   ownerPluginId?: string;
 };
-
 interface AgentMcpSelectorProps {
   onUpdateSelections?: (selections: string[]) => void;
 }
-
 const configClient = createConfigClient();
-
 const AgentMcpSelector: FC<AgentMcpSelectorProps> = ({ onUpdateSelections }) => {
   const { toast } = useToast();
-
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [availableServers, setAvailableServers] = useState<Array<{ name: string; config: AgentMcpServerConfig }>>([]);
+  const [availableServers, setAvailableServers] = useState<
+    Array<{
+      name: string;
+      config: AgentMcpServerConfig;
+    }>
+  >([]);
   const [selections, setSelections] = useState<string[]>([]);
-
-  const isPluginOwnedServerConfig = useCallback(
-    (config: AgentMcpServerConfig): boolean => Boolean(config.ownerPluginId || config.source === "plugin"),
-    [],
-  );
-
-  const selectableServers = useMemo(
-    () => availableServers.filter((server) => server.config.type !== "inmemory"),
-    [availableServers],
-  );
-
-  const selectionSet = useMemo(() => new Set(selections), [selections]);
-
-  const load = useCallback(async () => {
+  // Liveness flag flipped by the load effect; post-await state writes are skipped
+  // once the effect is torn down so unmounted loads never write state.
+  const loadLiveRef = useRef(false);
+  const isPluginOwnedServerConfig = (config: AgentMcpServerConfig): boolean =>
+    Boolean(config.ownerPluginId || config.source === "plugin");
+  const selectableServers = availableServers.filter((server) => server.config.type !== "inmemory");
+  const selectionSet = new Set(selections);
+  const load = async () => {
     setLoading(true);
     try {
       const [servers, currentSelections] = await Promise.all([
         configClient.getMcpServers(),
         configClient.getAcpSharedMcpSelections(),
       ]);
-
+      if (!loadLiveRef.current) return;
       const filtered = Object.entries(servers ?? {}).flatMap(([name, config]) =>
-        isPluginOwnedServerConfig(config) ? [] : [{ name, config }],
+        isPluginOwnedServerConfig(config)
+          ? []
+          : [
+              {
+                name,
+                config,
+              },
+            ],
       );
-
       setAvailableServers(filtered);
-
       const visibleServerNames = new Set(filtered.map((server) => server.name));
       const next = Array.isArray(currentSelections)
         ? currentSelections.filter((name) => visibleServerNames.has(name))
@@ -58,54 +57,49 @@ const AgentMcpSelector: FC<AgentMcpSelectorProps> = ({ onUpdateSelections }) => 
       onUpdateSelections?.(next);
       setLoading(false);
     } catch (error) {
+      if (!loadLiveRef.current) return;
       setLoading(false);
       throw error;
     }
-  }, [isPluginOwnedServerConfig, onUpdateSelections]);
-
-  const persist = useCallback(
-    async (nextSelections: string[], previousSelections: string[] = selections) => {
-      setSaving(true);
-      try {
-        await configClient.setAcpSharedMcpSelections(nextSelections);
-        onUpdateSelections?.(nextSelections);
-      } catch (error) {
-        setSelections(previousSelections);
-        onUpdateSelections?.(previousSelections);
-        toast({
-          title: "Operation failed",
-          description: "Request failed",
-          variant: "destructive",
-        });
-        setSaving(false);
-        throw error;
-      }
+  };
+  const persist = async (nextSelections: string[], previousSelections: string[] = selections) => {
+    setSaving(true);
+    try {
+      await configClient.setAcpSharedMcpSelections(nextSelections);
+      onUpdateSelections?.(nextSelections);
+    } catch (error) {
+      setSelections(previousSelections);
+      onUpdateSelections?.(previousSelections);
+      toast({
+        title: "Operation failed",
+        description: "Request failed",
+        variant: "destructive",
+      });
       setSaving(false);
-    },
-    [selections, onUpdateSelections, toast],
-  );
-
-  const toggleServer = useCallback(
-    async (serverName: string, checked: boolean) => {
-      const prev = [...selections];
-      const next = checked
-        ? Array.from(new Set([...selections, serverName]))
-        : selections.filter((name) => name !== serverName);
-      setSelections(next);
-      try {
-        await persist(next, prev);
-      } catch (error) {
-        setSelections(prev);
-        throw error;
-      }
-    },
-    [selections, persist],
-  );
-
+      throw error;
+    }
+    setSaving(false);
+  };
+  const toggleServer = async (serverName: string, checked: boolean) => {
+    const prev = [...selections];
+    const next = checked
+      ? Array.from(new Set([...selections, serverName]))
+      : selections.filter((name) => name !== serverName);
+    setSelections(next);
+    try {
+      await persist(next, prev);
+    } catch (error) {
+      setSelections(prev);
+      throw error;
+    }
+  };
   useEffect(() => {
+    loadLiveRef.current = true;
     void Promise.resolve().then(() => load());
+    return () => {
+      loadLiveRef.current = false;
+    };
   }, [load]);
-
   return (
     <div className="space-y-2">
       <div className="text-xs font-semibold text-muted-foreground">MCP Server Access</div>
@@ -137,5 +131,4 @@ const AgentMcpSelector: FC<AgentMcpSelectorProps> = ({ onUpdateSelections }) => 
     </div>
   );
 };
-
 export default AgentMcpSelector;

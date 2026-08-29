@@ -1,4 +1,4 @@
-import { type FC, useState, useEffect, useMemo, useCallback } from "react";
+import { type FC, useState, useEffect, useCallback } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Badge } from "#shadcn/components/ui/badge";
@@ -8,13 +8,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#
 import { useMcpStore } from "#/stores/mcp";
 import McpJsonViewer from "./McpJsonViewer";
 import type { ResourceListEntry } from "@argos/shared/presenter";
-
 interface McpResourceViewerProps {
   serverName?: string;
   open: boolean;
   onOpenChange: (value: boolean) => void;
 }
-
 const getResourceIcon = (uri: string) => {
   if (uri.endsWith(".json")) return "lucide:file-json";
   if (uri.endsWith(".txt")) return "lucide:file-text";
@@ -24,7 +22,6 @@ const getResourceIcon = (uri: string) => {
   if (uri.startsWith("http")) return "lucide:globe";
   return "lucide:file";
 };
-
 const getResourceType = (uri: string) => {
   if (uri.endsWith(".json")) return "JSON";
   if (uri.endsWith(".txt")) return "Text";
@@ -34,19 +31,14 @@ const getResourceType = (uri: string) => {
   if (uri.startsWith("http")) return "URL";
   return "File";
 };
-
 const McpResourceViewer: FC<McpResourceViewerProps> = ({ serverName, open, onOpenChange }) => {
   const mcpStore = useMcpStore();
-
   const [selectedResource, setSelectedResource] = useState("");
   const [resourceContent, setResourceContent] = useState("");
   const [resourceLoading, setResourceLoading] = useState(false);
-
-  const serverResources = useMemo(
-    () =>
-      serverName ? mcpStore.resources.filter((resource) => resource.client.name === serverName) : mcpStore.resources,
-    [mcpStore.resources, serverName],
-  );
+  const serverResources = serverName
+    ? mcpStore.resources.filter((resource) => resource.client.name === serverName)
+    : mcpStore.resources;
 
   // Reset the resource form when the dialog opens or the selection changes
   // (adjusted during render so the React Compiler can track it).
@@ -63,11 +55,9 @@ const McpResourceViewer: FC<McpResourceViewerProps> = ({ serverName, open, onOpe
     setSyncedResource(selectedResource);
     setResourceContent("");
   }
-
   const selectResource = (resource: ResourceListEntry) => {
     setSelectedResource(resource.uri);
   };
-
   const loadResourceContent = async (resource: ResourceListEntry) => {
     if (!resource) return;
     try {
@@ -77,7 +67,9 @@ const McpResourceViewer: FC<McpResourceViewerProps> = ({ serverName, open, onOpe
         if ("text" in result && result.text) {
           setResourceContent(result.text);
         } else if ("content" in result) {
-          const typedResult = result as { content: unknown };
+          const typedResult = result as {
+            content: unknown;
+          };
           setResourceContent(
             typeof typedResult.content === "string"
               ? typedResult.content
@@ -95,12 +87,7 @@ const McpResourceViewer: FC<McpResourceViewerProps> = ({ serverName, open, onOpe
     }
     setResourceLoading(false);
   };
-
-  const selectedResourceObj = useMemo(
-    () => serverResources.find((r) => r.uri === selectedResource),
-    [serverResources, selectedResource],
-  );
-
+  const selectedResourceObj = serverResources.find((r) => r.uri === selectedResource);
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -261,5 +248,4 @@ const McpResourceViewer: FC<McpResourceViewerProps> = ({ serverName, open, onOpe
     </Sheet>
   );
 };
-
 export default McpResourceViewer;

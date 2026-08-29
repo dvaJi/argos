@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import {
@@ -10,14 +10,12 @@ import {
   DialogTitle,
 } from "#shadcn/components/ui/dialog";
 import type { AgentTransferImpact, AgentTransferImpactSample } from "@argos/shared/types/agent-interface";
-
 export type TransferDialogAgent = {
   id: string;
   name: string;
   type: "argos" | "acp";
   enabled?: boolean;
 };
-
 interface AgentTransferDialogProps {
   open: boolean;
   mode: "delete-agent" | "move-session";
@@ -33,7 +31,6 @@ interface AgentTransferDialogProps {
   onConfirmMove: (payload: { targetAgentId: string }) => void;
   onConfirmDelete: () => void;
 }
-
 export default function AgentTransferDialog({
   open,
   mode,
@@ -51,64 +48,51 @@ export default function AgentTransferDialog({
 }: AgentTransferDialogProps) {
   const [action, setAction] = useState<"move" | "delete">("move");
   const [selectedTargetAgentId, setSelectedTargetAgentId] = useState("");
-
-  const availableTargets = useMemo(
-    () => agents.filter((agent) => agent.enabled !== false && agent.id !== sourceAgentId && agent.type === "argos"),
-    [agents, sourceAgentId],
+  const availableTargets = agents.filter(
+    (agent) => agent.enabled !== false && agent.id !== sourceAgentId && agent.type === "argos",
   );
-
-  const showTargetPicker = useMemo(() => mode === "move-session" || action === "move", [mode, action]);
-
-  const title = useMemo(
-    () => (mode === "delete-agent" ? `Delete ${sourceAgentName}` : "Move Conversation"),
-    [mode, sourceAgentName],
-  );
-
-  const description = useMemo(
-    () =>
-      mode === "delete-agent"
-        ? "Choose how to handle existing conversations"
-        : "Select a target agent for this conversation",
-    [mode],
-  );
-
-  const confirmVariant = useMemo(() => (action === "delete" ? "destructive" : "default"), [action]);
-
-  const confirmLabel = useMemo(() => {
+  const showTargetPicker = mode === "move-session" || action === "move";
+  const title = mode === "delete-agent" ? `Delete ${sourceAgentName}` : "Move Conversation";
+  const description =
+    mode === "delete-agent"
+      ? "Choose how to handle existing conversations"
+      : "Select a target agent for this conversation";
+  const confirmVariant = action === "delete" ? "destructive" : "default";
+  const confirmLabel = (() => {
     if (busy) return "Processing...";
     if (mode === "delete-agent" && action === "delete") return "Delete Agent & Sessions";
     if (mode === "delete-agent") return "Move & Delete Agent";
     return "Move Conversation";
-  }, [busy, mode, action]);
-
-  const canConfirm = useMemo(() => {
+  })();
+  const canConfirm = (() => {
     if (busy || loading || error) return false;
     if (impact?.blockedSessions) return false;
     if (!showTargetPicker) return true;
     return Boolean(selectedTargetAgentId);
-  }, [busy, loading, error, impact, showTargetPicker, selectedTargetAgentId]);
-
-  const handleConfirm = useCallback(() => {
+  })();
+  const handleConfirm = () => {
     if (!canConfirm) return;
     if (mode === "delete-agent" && action === "delete") {
       onConfirmDelete();
       return;
     }
-    onConfirmMove({ targetAgentId: selectedTargetAgentId });
-  }, [canConfirm, mode, action, onConfirmDelete, onConfirmMove, selectedTargetAgentId]);
-
-  const getSampleStateLabel = useCallback((sample: AgentTransferImpactSample): string => {
+    onConfirmMove({
+      targetAgentId: selectedTargetAgentId,
+    });
+  };
+  const getSampleStateLabel = (sample: AgentTransferImpactSample): string => {
     if (sample.blockReason) return `Blocked: ${sample.blockReason}`;
     if (sample.isDraft) return "Draft";
     if (sample.sessionKind === "subagent") return "Sub-agent";
     return "Ready";
-  }, []);
-
+  };
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className="flex w-[calc(100vw-2rem)] max-w-2xl flex-col overflow-hidden p-0"
-        style={{ maxHeight: "min(720px, calc(100vh - 2rem))" }}
+        style={{
+          maxHeight: "min(720px, calc(100vh - 2rem))",
+        }}
       >
         <DialogHeader className="border-b px-5 pb-4 pt-5">
           <DialogTitle>{title}</DialogTitle>
@@ -229,9 +213,7 @@ export default function AgentTransferDialog({
                             </div>
                           </div>
                           <span
-                            className={`shrink-0 rounded border px-2 py-0.5 text-xs${
-                              sample.blockReason ? " border-destructive/30 text-destructive" : " text-muted-foreground"
-                            }`}
+                            className={`shrink-0 rounded border px-2 py-0.5 text-xs${sample.blockReason ? " border-destructive/30 text-destructive" : " text-muted-foreground"}`}
                           >
                             {getSampleStateLabel(sample)}
                           </span>

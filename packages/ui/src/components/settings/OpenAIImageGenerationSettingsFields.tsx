@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Input } from "#shadcn/components/ui/input";
 import { Label } from "#shadcn/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#shadcn/components/ui/select";
@@ -12,63 +12,45 @@ import {
   validateOpenAIImageGenerationSize,
   type ImageGenerationOptions,
 } from "@argos/shared/imageGenerationSettings";
-
 const DEFAULT_SELECT_VALUE = "__default";
 const CUSTOM_SIZE_VALUE = "__custom";
-
 interface OpenAIImageGenerationSettingsFieldsProps {
   modelValue?: ImageGenerationOptions;
   density?: "default" | "compact";
   onValueChange: (value: ImageGenerationOptions | undefined) => void;
 }
-
 const isPresetSize = (size: string | undefined): size is string =>
   typeof size === "string" && (OPENAI_IMAGE_GENERATION_SIZE_PRESETS as readonly string[]).includes(size);
-
 export default function OpenAIImageGenerationSettingsFields({
   modelValue,
   density = "default",
   onValueChange,
 }: OpenAIImageGenerationSettingsFieldsProps) {
-  const imageGeneration = useMemo<ImageGenerationOptions>(
-    () => normalizeImageGenerationOptions(modelValue) ?? {},
-    [modelValue],
-  );
+  const imageGeneration = normalizeImageGenerationOptions(modelValue) ?? {};
   const [sizeSelectDraft, setSizeSelectDraft] = useState<string>(DEFAULT_SELECT_VALUE);
   const [customSizeDraft, setCustomSizeDraft] = useState("");
   const [compressionDraft, setCompressionDraft] = useState("");
-
   const containerClass = density === "compact" ? "space-y-3" : "space-y-4";
   const fieldClass = density === "compact" ? "space-y-1.5" : "space-y-2";
   const labelClass = density === "compact" ? "text-xs font-medium" : "";
   const triggerClass = density === "compact" ? "h-8 text-xs" : "";
   const hintClass = density === "compact" ? "text-[11px] text-muted-foreground" : "text-xs text-muted-foreground";
   const errorClass = density === "compact" ? "text-[11px] text-destructive" : "text-xs text-destructive";
-
-  const sizeSelectValue = useMemo(() => {
+  const sizeSelectValue = (() => {
     if (!imageGeneration.size) return sizeSelectDraft;
     return isPresetSize(imageGeneration.size) ? imageGeneration.size : CUSTOM_SIZE_VALUE;
-  }, [imageGeneration.size, sizeSelectDraft]);
-
+  })();
   const isCustomSizeMode = sizeSelectValue === CUSTOM_SIZE_VALUE;
-
-  const selectedSizeValidation = useMemo(
-    () => (imageGeneration.size ? validateOpenAIImageGenerationSize(imageGeneration.size) : null),
-    [imageGeneration.size],
-  );
-
+  const selectedSizeValidation = imageGeneration.size ? validateOpenAIImageGenerationSize(imageGeneration.size) : null;
   const showExperimentalHint = selectedSizeValidation?.experimental === true;
-
-  const customSizeValidationMessage = useMemo(() => {
+  const customSizeValidationMessage = (() => {
     const size = customSizeDraft.trim();
     if (!isCustomSizeMode || !size) return "";
     const code = validateOpenAIImageGenerationSize(size).code;
     return code ? `Invalid size: ${code}` : "";
-  }, [isCustomSizeMode, customSizeDraft]);
-
+  })();
   const showCompressionField = imageGeneration.outputFormat === "jpeg" || imageGeneration.outputFormat === "webp";
-
-  const compressionValidationMessage = useMemo(() => {
+  const compressionValidationMessage = (() => {
     const value = compressionDraft.trim();
     if (!showCompressionField || !value) return "";
     const compression = Number(value);
@@ -76,7 +58,7 @@ export default function OpenAIImageGenerationSettingsFields({
       return "Must be an integer between 0 and 100";
     }
     return "";
-  }, [showCompressionField, compressionDraft]);
+  })();
 
   // Draft mirrors of the configured size/compression, re-synced whenever the
   // underlying configuration changes (adjusted during render so the React
@@ -103,26 +85,22 @@ export default function OpenAIImageGenerationSettingsFields({
       imageGeneration.outputCompression === undefined ? "" : String(imageGeneration.outputCompression),
     );
   }
-
-  const emitOptions = useCallback(
-    (patch: ImageGenerationOptions) => {
-      const next = normalizeImageGenerationOptions({
-        ...imageGeneration,
-        ...patch,
-      });
-      onValueChange(next);
-    },
-    [imageGeneration, onValueChange],
-  );
-
+  const emitOptions = (patch: ImageGenerationOptions) => {
+    const next = normalizeImageGenerationOptions({
+      ...imageGeneration,
+      ...patch,
+    });
+    onValueChange(next);
+  };
   const optionSelectValue = (value: string | undefined) => value ?? DEFAULT_SELECT_VALUE;
   const optionFromSelect = (value: string): string | undefined => (value === DEFAULT_SELECT_VALUE ? undefined : value);
-
   const onSizeSelect = (value: string) => {
     setSizeSelectDraft(value);
     if (value === DEFAULT_SELECT_VALUE) {
       setCustomSizeDraft("");
-      emitOptions({ size: undefined });
+      emitOptions({
+        size: undefined,
+      });
       return;
     }
     if (value === CUSTOM_SIZE_VALUE) {
@@ -130,19 +108,22 @@ export default function OpenAIImageGenerationSettingsFields({
       return;
     }
     setCustomSizeDraft("");
-    emitOptions({ size: value });
+    emitOptions({
+      size: value,
+    });
   };
-
   const commitCustomSize = () => {
     const size = customSizeDraft.trim();
     if (!size || validateOpenAIImageGenerationSize(size).code) return;
-    emitOptions({ size });
+    emitOptions({
+      size,
+    });
   };
-
   const onQualitySelect = (value: string) => {
-    emitOptions({ quality: optionFromSelect(value) as ImageGenerationOptions["quality"] });
+    emitOptions({
+      quality: optionFromSelect(value) as ImageGenerationOptions["quality"],
+    });
   };
-
   const onOutputFormatSelect = (value: string) => {
     const outputFormat = optionFromSelect(value) as ImageGenerationOptions["outputFormat"];
     emitOptions({
@@ -151,25 +132,29 @@ export default function OpenAIImageGenerationSettingsFields({
         outputFormat === "jpeg" || outputFormat === "webp" ? imageGeneration.outputCompression : undefined,
     });
   };
-
   const commitCompression = () => {
     const value = compressionDraft.trim();
     if (!value) {
-      emitOptions({ outputCompression: undefined });
+      emitOptions({
+        outputCompression: undefined,
+      });
       return;
     }
     if (compressionValidationMessage) return;
-    emitOptions({ outputCompression: Number(value) });
+    emitOptions({
+      outputCompression: Number(value),
+    });
   };
-
   const onBackgroundSelect = (value: string) => {
-    emitOptions({ background: optionFromSelect(value) as ImageGenerationOptions["background"] });
+    emitOptions({
+      background: optionFromSelect(value) as ImageGenerationOptions["background"],
+    });
   };
-
   const onModerationSelect = (value: string) => {
-    emitOptions({ moderation: optionFromSelect(value) as ImageGenerationOptions["moderation"] });
+    emitOptions({
+      moderation: optionFromSelect(value) as ImageGenerationOptions["moderation"],
+    });
   };
-
   return (
     <div className={containerClass}>
       <div className={fieldClass}>

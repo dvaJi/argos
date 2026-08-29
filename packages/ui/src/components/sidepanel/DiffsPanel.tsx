@@ -1,27 +1,54 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { createWorkspaceClient } from "#api/WorkspaceClient";
 import { useThemeStore } from "#/stores/theme";
 import { useSidepanelStore, setDiffsSelection, resetDiffsSelection } from "#/stores/ui/sidepanel";
 import { DiffsPatchPane } from "./viewer/DiffsPatchPane";
 import type { WorkspaceGitFileChange, WorkspaceGitState } from "@argos/shared/presenter";
-
 interface DiffsPanelProps {
   sessionId: string;
   workspacePath: string | null;
 }
-
-const STATUS_ICON: Record<string, { icon: string; className: string }> = {
-  added: { icon: "lucide:plus", className: "text-emerald-500" },
-  modified: { icon: "lucide:pencil", className: "text-amber-500" },
-  deleted: { icon: "lucide:minus", className: "text-red-500" },
-  renamed: { icon: "lucide:arrow-right", className: "text-sky-500" },
-  copied: { icon: "lucide:copy", className: "text-sky-500" },
-  untracked: { icon: "lucide:question", className: "text-violet-500" },
-  ignored: { icon: "lucide:eye-off", className: "text-muted-foreground" },
-  unmerged: { icon: "lucide:alert-triangle", className: "text-red-500" },
+const STATUS_ICON: Record<
+  string,
+  {
+    icon: string;
+    className: string;
+  }
+> = {
+  added: {
+    icon: "lucide:plus",
+    className: "text-emerald-500",
+  },
+  modified: {
+    icon: "lucide:pencil",
+    className: "text-amber-500",
+  },
+  deleted: {
+    icon: "lucide:minus",
+    className: "text-red-500",
+  },
+  renamed: {
+    icon: "lucide:arrow-right",
+    className: "text-sky-500",
+  },
+  copied: {
+    icon: "lucide:copy",
+    className: "text-sky-500",
+  },
+  untracked: {
+    icon: "lucide:question",
+    className: "text-violet-500",
+  },
+  ignored: {
+    icon: "lucide:eye-off",
+    className: "text-muted-foreground",
+  },
+  unmerged: {
+    icon: "lucide:alert-triangle",
+    className: "text-red-500",
+  },
 };
-
 const getStatusMeta = (change: WorkspaceGitFileChange) => STATUS_ICON[change.type] ?? STATUS_ICON.modified;
 const getBasename = (value: string) =>
   value
@@ -56,7 +83,7 @@ const fetchWorkspacePatch = async (
  * the default view shows the full staged + unstaged patch for the workspace.
  */
 export function DiffsPanel({ workspacePath }: DiffsPanelProps) {
-  const workspaceClient = useMemo(() => createWorkspaceClient(), []);
+  const workspaceClient = createWorkspaceClient();
   const themeStore = useThemeStore();
   const sidepanelStore = useSidepanelStore();
   // Selection lives in the sidepanel store so chat links can open a file's diff.
@@ -64,28 +91,32 @@ export function DiffsPanel({ workspacePath }: DiffsPanelProps) {
   // workspace diff until a real selection exists (auto first-file or user click).
   const selectedPath = sidepanelStore.diffsSelectedPath;
   const selectionReady = sidepanelStore.diffsSelectionReady;
-
   const [state, setState] = useState<WorkspaceGitState | null>(null);
   const [patch, setPatch] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [loadingPatch, setLoadingPatch] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const loadStatus = useCallback(async () => {
+  // Liveness flag flipped by the status effect; post-await state writes are
+  // skipped once the effect is torn down so unmounted refreshes never write state.
+  const statusLiveRef = useRef(false);
+  const loadStatus = async () => {
     if (!workspacePath) return;
     setLoading(true);
     setError(null);
     try {
       const next = await workspaceClient.getGitStatus(workspacePath);
+      if (!statusLiveRef.current) return;
       setState(next);
     } catch (err) {
       console.error("[DiffsPanel] status failed", err);
+      if (!statusLiveRef.current) return;
       setError("Failed to load git status");
     }
+    if (!statusLiveRef.current) return;
     setLoading(false);
-  }, [workspaceClient, workspacePath]);
-
+  };
   useEffect(() => {
+    statusLiveRef.current = true;
     if (!workspacePath) return;
     // Reset the diff selection whenever the workspace changes (different
     // session/project); the stale patch is cleared via the render-phase sync below.
@@ -111,6 +142,7 @@ export function DiffsPanel({ workspacePath }: DiffsPanelProps) {
     })();
     return () => {
       cancelled = true;
+      statusLiveRef.current = false;
       off?.();
       void workspaceClient.unwatchWorkspace(workspacePath);
     };
@@ -130,8 +162,7 @@ export function DiffsPanel({ workspacePath }: DiffsPanelProps) {
     if (!workspacePath) return;
     void fetchWorkspacePatch(workspaceClient, workspacePath, selectedPath, setPatch, setLoadingPatch);
   }, [selectedPath, selectionReady, workspacePath, workspaceClient]);
-
-  const changes = useMemo(() => state?.changes ?? [], [state]);
+  const changes = state?.changes ?? [];
 
   // Auto-select the first changed file once status loads (no prior selection),
   // so the default view is a single-file diff instead of every file at once.
@@ -140,15 +171,12 @@ export function DiffsPanel({ workspacePath }: DiffsPanelProps) {
     if (!state) return;
     setDiffsSelection(changes[0]?.path ?? null);
   }, [state, changes, selectionReady]);
-
-  const handleSelect = useCallback((filePath: string) => {
+  const handleSelect = (filePath: string) => {
     setDiffsSelection(filePath);
-  }, []);
-
-  const handleShowAll = useCallback(() => {
+  };
+  const handleShowAll = () => {
     setDiffsSelection(null);
-  }, []);
-
+  };
   if (!workspacePath) {
     return (
       <div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
@@ -156,23 +184,19 @@ export function DiffsPanel({ workspacePath }: DiffsPanelProps) {
       </div>
     );
   }
-
   if (loading && !state) {
     return (
       <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Loading diffs...</div>
     );
   }
-
   if (error) {
     return <div className="flex h-full items-center justify-center text-sm text-muted-foreground">{error}</div>;
   }
-
   if (!state) {
     return (
       <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Not a git repository</div>
     );
   }
-
   return (
     <div className="flex h-full min-h-0 flex-col bg-background" data-testid="diffs-panel">
       <div className="flex h-9 shrink-0 items-center justify-between border-b px-3">
@@ -197,9 +221,7 @@ export function DiffsPanel({ workspacePath }: DiffsPanelProps) {
           <aside className="w-48 shrink-0 overflow-auto border-r">
             <button
               type="button"
-              className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors hover:bg-accent ${
-                selectedPath === null ? "bg-accent font-medium text-foreground" : "text-muted-foreground"
-              }`}
+              className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors hover:bg-accent ${selectedPath === null ? "bg-accent font-medium text-foreground" : "text-muted-foreground"}`}
               onClick={handleShowAll}
             >
               <Icon icon="lucide:layers" className="h-3.5 w-3.5" />
@@ -212,9 +234,7 @@ export function DiffsPanel({ workspacePath }: DiffsPanelProps) {
                 <button
                   key={change.path}
                   type="button"
-                  className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors hover:bg-accent ${
-                    active ? "bg-accent font-medium text-foreground" : "text-muted-foreground"
-                  }`}
+                  className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors hover:bg-accent ${active ? "bg-accent font-medium text-foreground" : "text-muted-foreground"}`}
                   title={change.relativePath}
                   onClick={() => handleSelect(change.path)}
                 >

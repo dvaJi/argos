@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { useStore } from "@tanstack/react-store";
 import ChatTopBar from "#/components/chat/ChatTopBar";
 import ChatSearchBar from "#/components/chat/ChatSearchBar";
@@ -21,7 +21,6 @@ import { useUiSettingsStore } from "#/stores/uiSettingsStore";
 import { sessionStore, fetchSessions, selectSession, applyRestoredSession } from "#/stores/ui/session";
 import { unsettleSession } from "#/stores/ui/threadSidebar";
 import { useMessageStore, addOptimisticUserMessage } from "#/stores/ui/message";
-
 import { agentPlanStore } from "#/stores/ui/agentPlan";
 import { agentStore } from "#/stores/ui/agent";
 import { streamStateStore } from "#/stores/ui/stream";
@@ -63,11 +62,9 @@ import type {
   MessageMetadata,
   ToolInteractionResponse,
 } from "@argos/shared/types/agent-interface";
-
 interface ChatPageProps {
   sessionId: string;
 }
-
 const RATE_LIMIT_STREAM_MESSAGE_PREFIX = "__rate_limit__:";
 const INITIAL_MESSAGE_RESTORE_COUNT = 40;
 const NEAR_BOTTOM_THRESHOLD = 80;
@@ -75,7 +72,6 @@ const TOP_HISTORY_THRESHOLD = 80;
 const MESSAGE_JUMP_RETRY_INTERVAL = 80;
 const MESSAGE_HIGHLIGHT_DURATION = 2000;
 const MAX_MESSAGE_JUMP_RETRIES = 8;
-
 const displayMessageCache = new Map<
   string,
   {
@@ -88,7 +84,6 @@ const displayMessageCache = new Map<
     message: DisplayMessage;
   }
 >();
-
 function ChatPage({ sessionId }: ChatPageProps) {
   const { toast } = useToast();
   const uiSettingsStore = useUiSettingsStore();
@@ -100,8 +95,8 @@ function ChatPage({ sessionId }: ChatPageProps) {
   const modelStore = useModelStore();
   const connectionState = useRuntimeConnectionState();
   const isDaemonConnected = connectionState.connected;
-  const chatClient = useMemo(() => createChatClient(), []);
-  const sessionClient = useMemo(() => createSessionClient(), []);
+  const chatClient = createChatClient();
+  const sessionClient = createSessionClient();
 
   // Latest-value indirection for unstable hook stores read from effects.
   const messageStoreRef = useRef(messageStore);
@@ -112,19 +107,19 @@ function ChatPage({ sessionId }: ChatPageProps) {
   useEffect(() => {
     spotlightStoreRef.current = spotlightStore;
   }, [spotlightStore]);
-
   const activeSession = (sessionState.activeSessionSummary ?? sessionState.bootstrapActiveSession) as
     | import("#/stores/ui/session").UIActiveSessionSummary
     | null;
-
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const messageSearchRootRef = useRef<HTMLDivElement>(null);
   const bottomScrollAnchorRef = useRef<HTMLDivElement>(null);
   const planFloatLayerRef = useRef<HTMLDivElement>(null);
   const chatInputHeroHostRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<ThreadComposerHandle | null>(null);
-  const chatSearchBarRef = useRef<{ focusInput: () => void; selectInput: () => void } | null>(null);
-
+  const chatSearchBarRef = useRef<{
+    focusInput: () => void;
+    selectInput: () => void;
+  } | null>(null);
   const shouldAutoFollowRef = useRef(true);
 
   // Heal the store binding when the chat route is restored directly (deep
@@ -139,7 +134,6 @@ function ChatPage({ sessionId }: ChatPageProps) {
     healedSessionBindingRef.current = sessionId;
     void selectSession(sessionId).catch(() => {});
   }, [sessionId]);
-
   const scrollModeRef = useRef<"initial-bottom" | "auto-follow" | "anchored-reading" | "manual-jump">("initial-bottom");
   const [planFloatReservedHeight, setPlanFloatReservedHeight] = useState(0);
   const [traceMessageId, setTraceMessageId] = useState<string | null>(null);
@@ -151,7 +145,6 @@ function ChatPage({ sessionId }: ChatPageProps) {
   const [attachedFiles, setAttachedFiles] = useState<MessageFile[]>([]);
   const [isHandlingInteraction, setIsHandlingInteraction] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
-
   const spotlightJumpTimerRef = useRef<number | null>(null);
   const scrollReadFrameRef = useRef<number | null>(null);
   const pendingUserScrollMetricsRef = useRef(false);
@@ -166,7 +159,6 @@ function ChatPage({ sessionId }: ChatPageProps) {
   const planFloatResizeObserverRef = useRef<ResizeObserver | null>(null);
   const sessionRestoreResizeObserverRef = useRef<ResizeObserver | null>(null);
   const anchorRestoreFrameRef = useRef<number | null>(null);
-
   const sessionTitle = activeSession?.title ?? "New Chat";
   const sessionProject = activeSession?.projectDir ?? "";
   const isReadOnlySession = activeSession?.sessionKind === "subagent";
@@ -175,86 +167,75 @@ function ChatPage({ sessionId }: ChatPageProps) {
   // A session change or a generation boundary must not carry over the
   // previous session's cancelling state; adjust during render instead of
   // in an effect.
-  const [cancelReset, setCancelReset] = useState({ sessionId, isGenerating });
+  const [cancelReset, setCancelReset] = useState({
+    sessionId,
+    isGenerating,
+  });
   if (cancelReset.sessionId !== sessionId || cancelReset.isGenerating !== isGenerating) {
-    setCancelReset({ sessionId, isGenerating });
+    setCancelReset({
+      sessionId,
+      isGenerating,
+    });
     setIsCancelling(false);
   }
-
-  const isAcpWorkdirMissing = useMemo(() => {
+  const isAcpWorkdirMissing = (() => {
     const s = activeSession;
     if (!s || s.providerId !== "acp") return false;
     return !s.projectDir?.trim();
-  }, [activeSession]);
-
-  const resolveChatInputBoxElement = useCallback(
-    () => (chatInputHeroHostRef.current?.querySelector('[data-testid="chat-input-box"]') as HTMLElement | null) ?? null,
-    [],
-  );
-
-  const markProgrammaticScroll = useCallback((durationMs = 300) => {
+  })();
+  const resolveChatInputBoxElement = () =>
+    (chatInputHeroHostRef.current?.querySelector('[data-testid="chat-input-box"]') as HTMLElement | null) ?? null;
+  const markProgrammaticScroll = (durationMs = 300) => {
     programmaticScrollUntilRef.current = Math.max(programmaticScrollUntilRef.current, Date.now() + durationMs);
-  }, []);
-
-  const isProgrammaticScrollActive = useCallback(() => Date.now() < programmaticScrollUntilRef.current, []);
-
-  const scrollDomToBottom = useCallback(() => {
+  };
+  const isProgrammaticScrollActive = () => Date.now() < programmaticScrollUntilRef.current;
+  const scrollDomToBottom = () => {
     const el = scrollContainerRef.current;
     if (!el) return;
     el.scrollTop = Math.max(el.scrollHeight - el.clientHeight, 0);
-  }, []);
-
-  const scheduleScrollMetricsRead = useCallback(
-    (fromUserScroll = false) => {
-      if (fromUserScroll) pendingUserScrollMetricsRef.current = true;
-      if (scrollReadFrameRef.current !== null) return;
-      scrollReadFrameRef.current = window.requestAnimationFrame(() => {
-        scrollReadFrameRef.current = null;
-        const userInitiated = pendingUserScrollMetricsRef.current;
-        pendingUserScrollMetricsRef.current = false;
-        const el = scrollContainerRef.current;
-        if (!el) return;
-        const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-        if (isProgrammaticScrollActive()) {
-          if (userInitiated && distanceFromBottom > NEAR_BOTTOM_THRESHOLD) {
-            programmaticScrollUntilRef.current = 0;
-            scrollModeRef.current = "anchored-reading";
-            shouldAutoFollowRef.current = false;
-          }
-          return;
+  };
+  const scheduleScrollMetricsRead = (fromUserScroll = false) => {
+    if (fromUserScroll) pendingUserScrollMetricsRef.current = true;
+    if (scrollReadFrameRef.current !== null) return;
+    scrollReadFrameRef.current = window.requestAnimationFrame(() => {
+      scrollReadFrameRef.current = null;
+      const userInitiated = pendingUserScrollMetricsRef.current;
+      pendingUserScrollMetricsRef.current = false;
+      const el = scrollContainerRef.current;
+      if (!el) return;
+      const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+      if (isProgrammaticScrollActive()) {
+        if (userInitiated && distanceFromBottom > NEAR_BOTTOM_THRESHOLD) {
+          programmaticScrollUntilRef.current = 0;
+          scrollModeRef.current = "anchored-reading";
+          shouldAutoFollowRef.current = false;
         }
-        if (userInitiated && scrollModeRef.current !== "manual-jump") {
-          const nearBottom = distanceFromBottom <= NEAR_BOTTOM_THRESHOLD;
-          shouldAutoFollowRef.current = nearBottom;
-          scrollModeRef.current = uiSettingsStore.autoScrollEnabled && nearBottom ? "auto-follow" : "anchored-reading";
-        }
-      });
-    },
-    [uiSettingsStore.autoScrollEnabled, isProgrammaticScrollActive],
-  );
-
-  const scrollToBottom = useCallback(
-    (force = false) => {
-      if (force) {
-        markProgrammaticScroll(500);
-        scrollModeRef.current = "initial-bottom";
-        shouldAutoFollowRef.current = true;
-      } else if (!uiSettingsStore.autoScrollEnabled || !shouldAutoFollowRef.current) {
         return;
       }
-      Promise.resolve().then(() => {
-        scrollDomToBottom();
-        if (force) scheduleScrollMetricsRead();
-      });
-    },
-    [uiSettingsStore.autoScrollEnabled, markProgrammaticScroll, scrollDomToBottom, scheduleScrollMetricsRead],
-  );
-
-  const schedulePostSubmitScrollToBottom = useCallback(() => {
+      if (userInitiated && scrollModeRef.current !== "manual-jump") {
+        const nearBottom = distanceFromBottom <= NEAR_BOTTOM_THRESHOLD;
+        shouldAutoFollowRef.current = nearBottom;
+        scrollModeRef.current = uiSettingsStore.autoScrollEnabled && nearBottom ? "auto-follow" : "anchored-reading";
+      }
+    });
+  };
+  const scrollToBottom = (force = false) => {
+    if (force) {
+      markProgrammaticScroll(500);
+      scrollModeRef.current = "initial-bottom";
+      shouldAutoFollowRef.current = true;
+    } else if (!uiSettingsStore.autoScrollEnabled || !shouldAutoFollowRef.current) {
+      return;
+    }
+    Promise.resolve().then(() => {
+      scrollDomToBottom();
+      if (force) scheduleScrollMetricsRead();
+    });
+  };
+  const schedulePostSubmitScrollToBottom = () => {
     Promise.resolve().then(() => scrollToBottom(true));
-  }, [scrollToBottom]);
-
-  const loadOlderMessagesAtTop = useCallback(async () => {
+  };
+  const loadOlderMessagesAtTop = async () => {
     if (messageStore.isLoadingHistory || !messageStore.hasMoreHistory || isProgrammaticScrollActive()) return;
     const el = scrollContainerRef.current;
     if (!el) return;
@@ -269,28 +250,24 @@ function ChatPage({ sessionId }: ChatPageProps) {
         resolve();
       });
     });
-  }, [messageStore, isProgrammaticScrollActive]);
-
-  const onScroll = useCallback(() => {
+  };
+  const onScroll = () => {
     const el = scrollContainerRef.current;
     if (!el) return;
     scheduleScrollMetricsRead(true);
     if (el.scrollTop <= TOP_HISTORY_THRESHOLD) {
       void loadOlderMessagesAtTop();
     }
-  }, [scheduleScrollMetricsRead, loadOlderMessagesAtTop]);
-
+  };
   const hasInlineStreamingTarget = streamState.currentStreamMessageId
     ? messageStore.messageIds.includes(streamState.currentStreamMessageId)
     : false;
-
-  const ephemeralRateLimitMessageId = useMemo(() => {
+  const ephemeralRateLimitMessageId = (() => {
     const messageId = streamState.currentStreamMessageId;
     if (!streamState.isStreaming || !messageId || !messageId.startsWith(RATE_LIMIT_STREAM_MESSAGE_PREFIX)) return null;
     return messageId;
-  }, [streamState.isStreaming, streamState.currentStreamMessageId]);
-
-  const ephemeralRateLimitBlock = useMemo<DisplayAssistantMessageBlock | null>(() => {
+  })();
+  const ephemeralRateLimitBlock = (() => {
     if (!ephemeralRateLimitMessageId || streamState.streamingBlocks.length === 0) return null;
     const [firstBlock] = streamState.streamingBlocks as DisplayAssistantMessageBlock[];
     if (
@@ -300,30 +277,23 @@ function ChatPage({ sessionId }: ChatPageProps) {
     )
       return null;
     return firstBlock;
-  }, [ephemeralRateLimitMessageId, streamState.streamingBlocks]);
-
-  const latestPlanSnapshot = useMemo(() => {
+  })();
+  const latestPlanSnapshot = (() => {
     const snapshot = agentPlanStoreState.snapshots[sessionId];
     if (!snapshot || snapshot.plan.length === 0) return null;
     return snapshot;
-  }, [agentPlanStoreState.snapshots, sessionId]);
-
+  })();
   const isPlanFloatCollapsed = isCollapsed(sessionId);
-
-  const messageSearchRootStyle = useMemo(() => {
+  const messageSearchRootStyle = (() => {
     if (planFloatReservedHeight <= 0) return undefined;
-    return { paddingBottom: `${planFloatReservedHeight}px` };
-  }, [planFloatReservedHeight]);
-
-  const traceMessageIds = useMemo(
-    () =>
-      messageStore
-        .getMessages()
-        .flatMap((msg) => (msg.role === "assistant" && (msg.traceCount ?? 0) > 0 ? [msg.id] : [])),
-    [messageStore],
-  );
-
-  const pendingInteractions = useMemo(() => {
+    return {
+      paddingBottom: `${planFloatReservedHeight}px`,
+    };
+  })();
+  const traceMessageIds = messageStore
+    .getMessages()
+    .flatMap((msg) => (msg.role === "assistant" && (msg.traceCount ?? 0) > 0 ? [msg.id] : []));
+  const pendingInteractions = (() => {
     const list: PendingInteractionView[] = [];
     for (const message of messageStore.getMessages()) {
       if (message.role !== "assistant") continue;
@@ -369,8 +339,7 @@ function ChatPage({ sessionId }: ChatPageProps) {
       }
     }
     return list;
-  }, [messageStore, sessionId]);
-
+  })();
   const activePendingInteraction = pendingInteractions[0] ?? null;
   const hasInputText = Boolean(message.trim());
   const hasAttachments = attachedFiles.length > 0;
@@ -388,40 +357,42 @@ function ChatPage({ sessionId }: ChatPageProps) {
     isHandlingInteraction ||
     (isGenerating && isAtCapacity()) ||
     !hasDraftInput;
-
-  const getActiveModelSelection = useCallback((): { providerId: string; modelId: string } | null => {
+  const getActiveModelSelection = (): {
+    providerId: string;
+    modelId: string;
+  } | null => {
     const s = activeSession;
     if (!s?.providerId || !s?.modelId) return null;
-    return { providerId: s.providerId, modelId: s.modelId };
-  }, [activeSession]);
-
+    return {
+      providerId: s.providerId,
+      modelId: s.modelId,
+    };
+  };
   const { prepareFiles: prepareFilesForCurrentModel, handleFilesChange: filterAttachmentFiles } =
     useModelAwareAttachments(getActiveModelSelection);
-
-  const handleManualCompactionCommand = useCallback(
-    async (text: string): Promise<boolean> => {
-      if (!isManualCompactionCommand(text)) return false;
-      if (activeSession?.providerId === "acp") return false;
-      if (isGenerating) return true;
-      try {
-        const result = await sessionClient.compactSession(sessionId);
-        if (!result.compacted) {
-          toast({ title: "No changes", description: "Nothing to compact." });
-        }
-      } catch (error) {
-        console.error("[ChatPage] manual compaction failed:", error);
+  const handleManualCompactionCommand = async (text: string): Promise<boolean> => {
+    if (!isManualCompactionCommand(text)) return false;
+    if (activeSession?.providerId === "acp") return false;
+    if (isGenerating) return true;
+    try {
+      const result = await sessionClient.compactSession(sessionId);
+      if (!result.compacted) {
         toast({
-          title: "Compaction Failed",
-          description: error instanceof Error ? error.message : String(error),
-          variant: "destructive",
+          title: "No changes",
+          description: "Nothing to compact.",
         });
       }
-      return true;
-    },
-    [activeSession, isGenerating, sessionId, sessionClient, toast],
-  );
-
-  const onSubmit = useCallback(async () => {
+    } catch (error) {
+      console.error("[ChatPage] manual compaction failed:", error);
+      toast({
+        title: "Compaction Failed",
+        description: error instanceof Error ? error.message : String(error),
+        variant: "destructive",
+      });
+    }
+    return true;
+  };
+  const onSubmit = async () => {
     if (isReadOnlySession || isAcpWorkdirMissing || !isDaemonConnected) return;
     if (activePendingInteraction || isHandlingInteraction) return;
     const text = message.trim();
@@ -432,93 +403,65 @@ function ChatPage({ sessionId }: ChatPageProps) {
       return;
     }
     if (isGenerating) {
-      await queueInput(sessionId, { text, files });
+      await queueInput(sessionId, {
+        text,
+        files,
+      });
     } else {
       clearPlanSnapshot(sessionId);
       addOptimisticUserMessage(sessionId, text, files);
-      await chatClient.sendMessage(sessionId, { text, files });
+      await chatClient.sendMessage(sessionId, {
+        text,
+        files,
+      });
     }
     unsettleSession(sessionId);
     setMessage("");
     setAttachedFiles([]);
     chatInputRef.current?.clearInput();
     schedulePostSubmitScrollToBottom();
-  }, [
-    isReadOnlySession,
-    isAcpWorkdirMissing,
-    isDaemonConnected,
-    activePendingInteraction,
-    isHandlingInteraction,
-    message,
-    attachedFiles,
-    prepareFilesForCurrentModel,
-    handleManualCompactionCommand,
-    isGenerating,
-    sessionId,
-    chatClient,
-    schedulePostSubmitScrollToBottom,
-  ]);
-
-  const onCommandSubmit = useCallback(
-    async (command: string) => {
-      if (isReadOnlySession || isAcpWorkdirMissing || !isDaemonConnected) return;
-      if (activePendingInteraction || isHandlingInteraction) return;
-      const text = command.trim();
-      if (!text) return;
-      if (await handleManualCompactionCommand(text)) return;
-      const files = await prepareFilesForCurrentModel([...attachedFiles]);
-      if (isGenerating) {
-        await queueInput(sessionId, { text, files });
-      } else {
-        clearPlanSnapshot(sessionId);
-        addOptimisticUserMessage(sessionId, text, files);
-        await chatClient.sendMessage(sessionId, { text, files });
-      }
-      unsettleSession(sessionId);
-      setAttachedFiles([]);
-      chatInputRef.current?.clearInput();
-      setMessage("");
-      schedulePostSubmitScrollToBottom();
-    },
-    [
-      isReadOnlySession,
-      isAcpWorkdirMissing,
-      isDaemonConnected,
-      activePendingInteraction,
-      isHandlingInteraction,
-      attachedFiles,
-      prepareFilesForCurrentModel,
-      handleManualCompactionCommand,
-      isGenerating,
-      sessionId,
-      chatClient,
-      schedulePostSubmitScrollToBottom,
-    ],
-  );
-
-  const onQueueSubmit = useCallback(async () => {
+  };
+  const onCommandSubmit = async (command: string) => {
+    if (isReadOnlySession || isAcpWorkdirMissing || !isDaemonConnected) return;
+    if (activePendingInteraction || isHandlingInteraction) return;
+    const text = command.trim();
+    if (!text) return;
+    if (await handleManualCompactionCommand(text)) return;
+    const files = await prepareFilesForCurrentModel([...attachedFiles]);
+    if (isGenerating) {
+      await queueInput(sessionId, {
+        text,
+        files,
+      });
+    } else {
+      clearPlanSnapshot(sessionId);
+      addOptimisticUserMessage(sessionId, text, files);
+      await chatClient.sendMessage(sessionId, {
+        text,
+        files,
+      });
+    }
+    unsettleSession(sessionId);
+    setAttachedFiles([]);
+    chatInputRef.current?.clearInput();
+    setMessage("");
+    schedulePostSubmitScrollToBottom();
+  };
+  const onQueueSubmit = async () => {
     if (isReadOnlySession || isAcpWorkdirMissing) return;
     if (activePendingInteraction || isHandlingInteraction) return;
     const text = message.trim();
     const files = await prepareFilesForCurrentModel([...attachedFiles]);
     if (!text && files.length === 0) return;
     if (await handleManualCompactionCommand(text)) return;
-    await queueInput(sessionId, { text, files });
+    await queueInput(sessionId, {
+      text,
+      files,
+    });
     setMessage("");
     setAttachedFiles([]);
-  }, [
-    isReadOnlySession,
-    isAcpWorkdirMissing,
-    activePendingInteraction,
-    isHandlingInteraction,
-    message,
-    attachedFiles,
-    prepareFilesForCurrentModel,
-    handleManualCompactionCommand,
-    sessionId,
-  ]);
-
-  const onSteer = useCallback(async () => {
+  };
+  const onSteer = async () => {
     if (isReadOnlySession || isAcpWorkdirMissing) return;
     if (activePendingInteraction || isHandlingInteraction) return;
     const text = message.trim();
@@ -528,226 +471,164 @@ function ChatPage({ sessionId }: ChatPageProps) {
     clearPlanSnapshot(sessionId);
     addOptimisticUserMessage(sessionId, text, files);
     try {
-      await chatClient.steerActiveTurn(sessionId, { text, files });
+      await chatClient.steerActiveTurn(sessionId, {
+        text,
+        files,
+      });
       setMessage("");
       setAttachedFiles([]);
       chatInputRef.current?.clearInput();
     } catch (error) {
       console.error("[ChatPage] steer failed:", error);
     }
-  }, [
-    isReadOnlySession,
-    isAcpWorkdirMissing,
-    activePendingInteraction,
-    isHandlingInteraction,
-    message,
-    attachedFiles,
-    prepareFilesForCurrentModel,
-    handleManualCompactionCommand,
-    sessionId,
-    chatClient,
-  ]);
-
-  const onFilesChange = useCallback(
-    (files: MessageFile[]) => {
-      void filterAttachmentFiles(files, setAttachedFiles);
-    },
-    [filterAttachmentFiles],
-  );
-
-  const onToolInteractionRespond = useCallback(
-    async (response: ToolInteractionResponse) => {
-      if (isReadOnlySession) return;
-      const interaction = activePendingInteraction;
-      if (!interaction || isHandlingInteraction) return;
-      setIsHandlingInteraction(true);
-      try {
-        await chatClient.respondToolInteraction({
-          sessionId: interaction.sessionId,
-          messageId: interaction.messageId,
-          toolCallId: interaction.toolCallId,
-          response,
-        });
-      } catch (error) {
-        console.error("[ChatPage] respond tool interaction failed:", error);
-      }
-      setIsHandlingInteraction(false);
-    },
-    [isReadOnlySession, activePendingInteraction, isHandlingInteraction, chatClient],
-  );
-
-  const onStop = useCallback(async () => {
+  };
+  const onFilesChange = (files: MessageFile[]) => {
+    void filterAttachmentFiles(files, setAttachedFiles);
+  };
+  const onToolInteractionRespond = async (response: ToolInteractionResponse) => {
+    if (isReadOnlySession) return;
+    const interaction = activePendingInteraction;
+    if (!interaction || isHandlingInteraction) return;
+    setIsHandlingInteraction(true);
+    try {
+      await chatClient.respondToolInteraction({
+        sessionId: interaction.sessionId,
+        messageId: interaction.messageId,
+        toolCallId: interaction.toolCallId,
+        response,
+      });
+    } catch (error) {
+      console.error("[ChatPage] respond tool interaction failed:", error);
+    }
+    setIsHandlingInteraction(false);
+  };
+  const onStop = async () => {
     if (isReadOnlySession || !isGenerating || isCancelling) return;
     setIsCancelling(true);
     try {
-      await chatClient.stopStream({ sessionId });
+      await chatClient.stopStream({
+        sessionId,
+      });
     } catch (error) {
       console.error("[ChatPage] cancel generation failed:", error);
       setIsCancelling(false);
     }
-  }, [isReadOnlySession, isGenerating, isCancelling, sessionId, chatClient]);
-
-  const onMessageRetry = useCallback(
-    async (messageId: string) => {
-      if (isReadOnlySession || !messageId) return;
-      if (activePendingInteraction || isHandlingInteraction) return;
-      try {
-        messageStore.clearStreamingState();
-        await sessionClient.retryMessage(sessionId, messageId);
-      } catch (error) {
-        console.error("[ChatPage] retry message failed:", error);
-      }
-    },
-    [isReadOnlySession, activePendingInteraction, isHandlingInteraction, sessionId, sessionClient, messageStore],
-  );
-
-  const onMessageDelete = useCallback(
-    async (messageId: string) => {
-      if (isReadOnlySession || !messageId) return;
-      try {
-        messageStore.clearStreamingState();
-        await sessionClient.deleteMessage(sessionId, messageId);
-      } catch (error) {
-        console.error("[ChatPage] delete message failed:", error);
-      }
-    },
-    [isReadOnlySession, sessionId, sessionClient, messageStore],
-  );
-
-  const onMessageEditSave = useCallback(
-    async (payload: { messageId: string; text: string }) => {
-      if (isReadOnlySession) return;
-      const { messageId, text } = payload;
-      if (!messageId || !text?.trim()) return;
-      try {
-        await sessionClient.editUserMessage(sessionId, messageId, text.trim());
-        await onMessageRetry(messageId);
-      } catch (error) {
-        console.error("[ChatPage] edit message failed:", error);
-      }
-    },
-    [isReadOnlySession, sessionId, sessionClient, onMessageRetry],
-  );
-
-  const onMessageFork = useCallback(
-    async (messageId: string) => {
-      if (isReadOnlySession || !messageId) return;
-      try {
-        const forked = await sessionClient.forkSession(sessionId, messageId);
-        await fetchSessions();
-        await selectSession(forked.id);
-      } catch (error) {
-        console.error("[ChatPage] fork session failed:", error);
-      }
-    },
-    [isReadOnlySession, sessionId, sessionClient],
-  );
-
-  const onMessageContinue = useCallback(
-    async (_conversationId: string, messageId: string) => {
-      if (isReadOnlySession || !messageId) return;
-      try {
-        messageStore.clearStreamingState();
-        await sessionClient.retryMessage(sessionId, messageId);
-      } catch (error) {
-        console.error("[ChatPage] continue message failed:", error);
-      }
-    },
-    [isReadOnlySession, sessionId, sessionClient, messageStore],
-  );
-
-  const onMessageTrace = useCallback((messageId: string) => {
+  };
+  const onMessageRetry = async (messageId: string) => {
+    if (isReadOnlySession || !messageId) return;
+    if (activePendingInteraction || isHandlingInteraction) return;
+    try {
+      messageStore.clearStreamingState();
+      await sessionClient.retryMessage(sessionId, messageId);
+    } catch (error) {
+      console.error("[ChatPage] retry message failed:", error);
+    }
+  };
+  const onMessageDelete = async (messageId: string) => {
+    if (isReadOnlySession || !messageId) return;
+    try {
+      messageStore.clearStreamingState();
+      await sessionClient.deleteMessage(sessionId, messageId);
+    } catch (error) {
+      console.error("[ChatPage] delete message failed:", error);
+    }
+  };
+  const onMessageEditSave = async (payload: { messageId: string; text: string }) => {
+    if (isReadOnlySession) return;
+    const { messageId, text } = payload;
+    if (!messageId || !text?.trim()) return;
+    try {
+      await sessionClient.editUserMessage(sessionId, messageId, text.trim());
+      await onMessageRetry(messageId);
+    } catch (error) {
+      console.error("[ChatPage] edit message failed:", error);
+    }
+  };
+  const onMessageFork = async (messageId: string) => {
+    if (isReadOnlySession || !messageId) return;
+    try {
+      const forked = await sessionClient.forkSession(sessionId, messageId);
+      await fetchSessions();
+      await selectSession(forked.id);
+    } catch (error) {
+      console.error("[ChatPage] fork session failed:", error);
+    }
+  };
+  const onMessageContinue = async (_conversationId: string, messageId: string) => {
+    if (isReadOnlySession || !messageId) return;
+    try {
+      messageStore.clearStreamingState();
+      await sessionClient.retryMessage(sessionId, messageId);
+    } catch (error) {
+      console.error("[ChatPage] continue message failed:", error);
+    }
+  };
+  const onMessageTrace = (messageId: string) => {
     setTraceMessageId(messageId);
-  }, []);
-
-  const onPendingInputUpdate = useCallback(
-    async (payload: { itemId: string; text: string }) => {
-      if (isReadOnlySession) return;
-      const target = getQueueItems().find((item) => item.id === payload.itemId);
-      if (!target) return;
-      await updateQueueInput(sessionId, payload.itemId, {
-        text: payload.text,
-        files: target.payload.files ?? [],
-      });
-    },
-    [isReadOnlySession, sessionId],
-  );
-
-  const onPendingInputMove = useCallback(
-    async (payload: { itemId: string; toIndex: number }) => {
-      if (isReadOnlySession) return;
-      await moveQueueInput(sessionId, payload.itemId, payload.toIndex);
-    },
-    [isReadOnlySession, sessionId],
-  );
-
-  const onPendingInputDelete = useCallback(
-    async (itemId: string) => {
-      if (isReadOnlySession) return;
-      await deleteQueueInput(sessionId, itemId);
-    },
-    [isReadOnlySession, sessionId],
-  );
-
-  const onSteerPendingInput = useCallback(
-    async (itemId: string) => {
-      if (isReadOnlySession || !sessionId) return;
-      try {
-        await steerPendingInput(sessionId, itemId);
-      } catch {
-        // Error is already surfaced in the store state
-      }
-    },
-    [isReadOnlySession, sessionId],
-  );
-
-  const onDismissPlanFloat = useCallback(() => {
+  };
+  const onPendingInputUpdate = async (payload: { itemId: string; text: string }) => {
+    if (isReadOnlySession) return;
+    const target = getQueueItems().find((item) => item.id === payload.itemId);
+    if (!target) return;
+    await updateQueueInput(sessionId, payload.itemId, {
+      text: payload.text,
+      files: target.payload.files ?? [],
+    });
+  };
+  const onPendingInputMove = async (payload: { itemId: string; toIndex: number }) => {
+    if (isReadOnlySession) return;
+    await moveQueueInput(sessionId, payload.itemId, payload.toIndex);
+  };
+  const onPendingInputDelete = async (itemId: string) => {
+    if (isReadOnlySession) return;
+    await deleteQueueInput(sessionId, itemId);
+  };
+  const onSteerPendingInput = async (itemId: string) => {
+    if (isReadOnlySession || !sessionId) return;
+    try {
+      await steerPendingInput(sessionId, itemId);
+    } catch {
+      // Error is already surfaced in the store state
+    }
+  };
+  const onDismissPlanFloat = () => {
     setCollapsed(sessionId, true);
     clearPlanSnapshot(sessionId);
     setPlanFloatReservedHeight(0);
-  }, [sessionId]);
-
-  const handleContextMenuAskAI = useCallback(
-    (event: Event) => {
-      if (isReadOnlySession) return;
-      const detail = (event as CustomEvent<string>).detail;
-      const text = typeof detail === "string" ? detail.trim() : "";
-      if (!text) return;
-      setMessage(text);
-    },
-    [isReadOnlySession],
-  );
-
-  const handleWorkspaceInsertReferenceRequested = useCallback(
-    (event: Event) => {
-      if (isReadOnlySession) return;
-      const detail = (event as CustomEvent<{ sessionId?: unknown; filePath?: unknown }>).detail;
-      const evtSessionId = typeof detail?.sessionId === "string" ? detail.sessionId.trim() : "";
-      const filePath = typeof detail?.filePath === "string" ? detail.filePath.trim() : "";
-      if (evtSessionId !== sessionId || !filePath) return;
-      chatInputRef.current?.insertWorkspaceReference?.(filePath);
-    },
-    [isReadOnlySession, sessionId],
-  );
-
-  const handleWindowKeydown = useCallback((event: KeyboardEvent) => {
+  };
+  const handleContextMenuAskAI = (event: Event) => {
+    if (isReadOnlySession) return;
+    const detail = (event as CustomEvent<string>).detail;
+    const text = typeof detail === "string" ? detail.trim() : "";
+    if (!text) return;
+    setMessage(text);
+  };
+  const handleWorkspaceInsertReferenceRequested = (event: Event) => {
+    if (isReadOnlySession) return;
+    const detail = (
+      event as CustomEvent<{
+        sessionId?: unknown;
+        filePath?: unknown;
+      }>
+    ).detail;
+    const evtSessionId = typeof detail?.sessionId === "string" ? detail.sessionId.trim() : "";
+    const filePath = typeof detail?.filePath === "string" ? detail.filePath.trim() : "";
+    if (evtSessionId !== sessionId || !filePath) return;
+    chatInputRef.current?.insertWorkspaceReference?.(filePath);
+  };
+  const handleWindowKeydown = (event: KeyboardEvent) => {
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "f") {
       event.preventDefault();
       setIsChatSearchOpen(true);
       Promise.resolve().then(() => chatSearchBarRef.current?.selectInput());
       return;
     }
-  }, []);
-
-  const contextMenuAskAIRef = useRef(handleContextMenuAskAI);
-  useEffect(() => {
-    contextMenuAskAIRef.current = handleContextMenuAskAI;
-  }, [handleContextMenuAskAI]);
-  const insertReferenceRequestedRef = useRef(handleWorkspaceInsertReferenceRequested);
-  useEffect(() => {
-    insertReferenceRequestedRef.current = handleWorkspaceInsertReferenceRequested;
-  }, [handleWorkspaceInsertReferenceRequested]);
-
+  };
+  // Effect Events keep the listeners subscribed once for the page lifetime
+  // while still seeing the latest session state.
+  const onContextMenuAskAI = useEffectEvent(handleContextMenuAskAI);
+  const onInsertReferenceRequested = useEffectEvent(handleWorkspaceInsertReferenceRequested);
+  const onWindowKeydown = useEffectEvent(handleWindowKeydown);
   useEffect(() => {
     function cancelSessionRestoreScrollSettle() {
       if (sessionRestoreScrollFrameRef.current !== null) {
@@ -763,7 +644,6 @@ function ChatPage({ sessionId }: ChatPageProps) {
       sessionRestoreResizeObserverRef.current?.disconnect();
       sessionRestoreResizeObserverRef.current = null;
     }
-
     async function focusPendingSpotlightMessageJump(): Promise<void> {
       const pendingJump = spotlightStoreRef.current.pendingMessageJump;
       if (!pendingJump || pendingJump.sessionId !== sessionId) return;
@@ -773,7 +653,11 @@ function ChatPage({ sessionId }: ChatPageProps) {
           `[data-message-id="${CSS.escape(pendingJump.messageId)}"]`,
         );
         if (target) {
-          target.scrollIntoView({ block: "center", inline: "nearest", behavior: "auto" });
+          target.scrollIntoView({
+            block: "center",
+            inline: "nearest",
+            behavior: "auto",
+          });
           target.classList.add("message-highlight");
           window.setTimeout(() => target.classList.remove("message-highlight"), MESSAGE_HIGHLIGHT_DURATION);
           spotlightStoreRef.current.clearPendingMessageJump();
@@ -785,7 +669,6 @@ function ChatPage({ sessionId }: ChatPageProps) {
         });
       }
     }
-
     displayMessageCache.clear();
     sessionRestoreRequestIdRef.current += 1;
     cancelSessionRestoreTaskRef.current?.();
@@ -811,21 +694,16 @@ function ChatPage({ sessionId }: ChatPageProps) {
     }
   }, [sessionId, scrollDomToBottom]);
 
-  // Listener registrations: the session-dependent handlers are read through
-  // latest-value refs so the listeners are registered exactly once.
   useEffect(() => {
-    const handleContextMenuAskAiEvent = (event: Event) => contextMenuAskAIRef.current(event);
-    const handleInsertReferenceEvent = (event: Event) => insertReferenceRequestedRef.current(event);
-    window.addEventListener("context-menu-ask-ai", handleContextMenuAskAiEvent);
-    window.addEventListener(WORKSPACE_EVENTS.INSERT_REFERENCE_REQUESTED, handleInsertReferenceEvent);
-    window.addEventListener("keydown", handleWindowKeydown);
-
+    window.addEventListener("context-menu-ask-ai", onContextMenuAskAI);
+    window.addEventListener(WORKSPACE_EVENTS.INSERT_REFERENCE_REQUESTED, onInsertReferenceRequested);
+    window.addEventListener("keydown", onWindowKeydown);
     return () => {
-      window.removeEventListener("context-menu-ask-ai", handleContextMenuAskAiEvent);
-      window.removeEventListener(WORKSPACE_EVENTS.INSERT_REFERENCE_REQUESTED, handleInsertReferenceEvent);
-      window.removeEventListener("keydown", handleWindowKeydown);
+      window.removeEventListener("context-menu-ask-ai", onContextMenuAskAI);
+      window.removeEventListener(WORKSPACE_EVENTS.INSERT_REFERENCE_REQUESTED, onInsertReferenceRequested);
+      window.removeEventListener("keydown", onWindowKeydown);
     };
-  }, [handleWindowKeydown]);
+  }, []);
 
   // Re-subscribes per session so plan snapshots are filtered by the active session.
   useEffect(() => {
@@ -834,18 +712,15 @@ function ChatPage({ sessionId }: ChatPageProps) {
         applySnapshot(payload);
       }
     });
-
     return () => {
       cancelPlanUpdatedListenerRef.current?.();
       cancelPlanUpdatedListenerRef.current = null;
     };
   }, [chatClient, sessionId]);
-
   useEffect(() => {
     Promise.resolve().then(async () => {
       await playChatInputHeroFlight(resolveChatInputBoxElement());
     });
-
     return () => {
       clearChatSearchHighlights(messageSearchRootRef.current);
       if (spotlightJumpTimerRef.current) {
@@ -867,8 +742,7 @@ function ChatPage({ sessionId }: ChatPageProps) {
       planFloatResizeObserverRef.current = null;
     };
   }, [resolveChatInputBoxElement]);
-
-  const closeChatSearch = useCallback(() => {
+  const closeChatSearch = () => {
     if (chatSearchRefreshFrameRef.current !== null) {
       window.cancelAnimationFrame(chatSearchRefreshFrameRef.current);
       chatSearchRefreshFrameRef.current = null;
@@ -878,8 +752,7 @@ function ChatPage({ sessionId }: ChatPageProps) {
     setChatSearchQuery("");
     setActiveChatSearchIndex(0);
     setIsChatSearchOpen(false);
-  }, []);
-
+  };
   function resolveAssistantModelName(modelId: string): string {
     if (!modelId) return "Assistant";
     const found = modelStore.findModelByIdOrName(modelId);
@@ -888,7 +761,6 @@ function ChatPage({ sessionId }: ChatPageProps) {
     if (agent?.name) return agent.name;
     return modelId;
   }
-
   function buildUsage(metadata: MessageMetadata): DisplayMessageUsage {
     return {
       context_usage: 0,
@@ -902,7 +774,6 @@ function ChatPage({ sessionId }: ChatPageProps) {
       output_tokens: metadata.outputTokens ?? 0,
     };
   }
-
   function toDisplayMessage(record: ChatMessageRecord): DisplayMessage {
     const metadata = messageStore.getMessageMetadata(record);
     const modelId = metadata.model || activeSession?.modelId || "";
@@ -975,10 +846,8 @@ function ChatPage({ sessionId }: ChatPageProps) {
     });
     return nextMessage;
   }
-
-  function toStreamingMessage(blocks: AssistantMessageBlock[], messageId?: string | null): DisplayMessage {
+  function toStreamingMessage(blocks: AssistantMessageBlock[], messageId: string | null, now: number): DisplayMessage {
     const modelId = activeSession?.modelId ?? "";
-    const now = Date.now();
     return {
       id: messageId ?? "__streaming__",
       content: blocks as DisplayAssistantMessageBlock[],
@@ -998,37 +867,30 @@ function ChatPage({ sessionId }: ChatPageProps) {
       orderSeq: Number.MAX_SAFE_INTEGER,
     };
   }
-
-  const displayMessages = useMemo(() => {
+  const displayMessages = (() => {
     const msgs: DisplayMessage[] = [];
     for (const rec of messageStore.getMessages()) {
       msgs.push(toDisplayMessage(rec));
     }
     if (streamState.isStreaming && !hasInlineStreamingTarget && !ephemeralRateLimitBlock) {
-      msgs.push(toStreamingMessage(streamState.streamingBlocks, streamState.currentStreamMessageId));
+      msgs.push(
+        toStreamingMessage(
+          streamState.streamingBlocks,
+          streamState.currentStreamMessageId,
+          streamState.streamStartedAt,
+        ),
+      );
     }
     return msgs;
-  }, [
-    messageStore,
-    toDisplayMessage,
-    toStreamingMessage,
-    streamState.isStreaming,
-    streamState.streamingBlocks,
-    streamState.currentStreamMessageId,
-    hasInlineStreamingTarget,
-    ephemeralRateLimitBlock,
-  ]);
-
+  })();
   const messageWindow = useMessageWindow(displayMessages);
-
   const messageWindowRef = useRef(messageWindow);
   const scrollToBottomRef = useRef(scrollToBottom);
   useEffect(() => {
     messageWindowRef.current = messageWindow;
     scrollToBottomRef.current = scrollToBottom;
   });
-
-  const onMessageMeasure = useCallback((payload: { messageId: string; height: number }) => {
+  const onMessageMeasure = (payload: { messageId: string; height: number }) => {
     const mode = scrollModeRef.current;
     const isBottomFollowing = mode === "initial-bottom" || mode === "auto-follow";
     const delta = messageWindowRef.current.setMeasuredHeight(payload.messageId, payload.height);
@@ -1036,8 +898,7 @@ function ChatPage({ sessionId }: ChatPageProps) {
     if (isBottomFollowing) {
       scrollToBottomRef.current(mode === "initial-bottom");
     }
-  }, []);
-
+  };
   return (
     <div
       ref={scrollContainerRef}
@@ -1068,13 +929,17 @@ function ChatPage({ sessionId }: ChatPageProps) {
                   if (chatSearchMatches.length === 0) return;
                   const next = (activeChatSearchIndex - 1 + chatSearchMatches.length) % chatSearchMatches.length;
                   setActiveChatSearchIndex(next);
-                  setActiveChatSearchMatch(chatSearchMatches, next, { behavior: "smooth" });
+                  setActiveChatSearchMatch(chatSearchMatches, next, {
+                    behavior: "smooth",
+                  });
                 }}
                 onNext={() => {
                   if (chatSearchMatches.length === 0) return;
                   const next = (activeChatSearchIndex + 1) % chatSearchMatches.length;
                   setActiveChatSearchIndex(next);
-                  setActiveChatSearchMatch(chatSearchMatches, next, { behavior: "smooth" });
+                  setActiveChatSearchMatch(chatSearchMatches, next, {
+                    behavior: "smooth",
+                  });
                 }}
                 onClose={closeChatSearch}
               />
@@ -1201,7 +1066,6 @@ function ChatPage({ sessionId }: ChatPageProps) {
     </div>
   );
 }
-
 type PendingInteractionView = {
   sessionId: string;
   messageId: string;
@@ -1211,7 +1075,6 @@ type PendingInteractionView = {
   toolArgs: string;
   block: DisplayAssistantMessageBlock;
 };
-
 type SubagentProgressPayload = {
   tasks?: Array<{
     sessionId?: string | null;
@@ -1223,7 +1086,6 @@ type SubagentProgressPayload = {
     } | null;
   }>;
 };
-
 function parseSubagentProgress(value: unknown): SubagentProgressPayload | null {
   if (typeof value !== "string" || !value.trim()) return null;
   try {
@@ -1233,5 +1095,4 @@ function parseSubagentProgress(value: unknown): SubagentProgressPayload | null {
     return null;
   }
 }
-
 export default ChatPage;

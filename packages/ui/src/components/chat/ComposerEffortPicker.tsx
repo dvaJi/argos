@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import {
@@ -16,24 +16,44 @@ import { findChatSelectableModel } from "#/stores/modelStore";
 import { isReasoningEffort } from "@argos/shared/types/model-db";
 import type { ReasoningEffort, ReasoningPortrait } from "@argos/shared/types/model-db";
 import type { ServiceTier } from "@argos/shared/types/agent-interface";
-
-const T3_EFFORT_OPTIONS: Array<{ value: ReasoningEffort; label: string; t3Label: string }> = [
-  { value: "low", label: "Low", t3Label: "Low" },
-  { value: "medium", label: "Medium", t3Label: "Medium" },
-  { value: "high", label: "High", t3Label: "High" },
-  { value: "xhigh", label: "Extra High", t3Label: "Extra High" },
-  { value: "max", label: "Max", t3Label: "Max" },
+const T3_EFFORT_OPTIONS: Array<{
+  value: ReasoningEffort;
+  label: string;
+  t3Label: string;
+}> = [
+  {
+    value: "low",
+    label: "Low",
+    t3Label: "Low",
+  },
+  {
+    value: "medium",
+    label: "Medium",
+    t3Label: "Medium",
+  },
+  {
+    value: "high",
+    label: "High",
+    t3Label: "High",
+  },
+  {
+    value: "xhigh",
+    label: "Extra High",
+    t3Label: "Extra High",
+  },
+  {
+    value: "max",
+    label: "Max",
+    t3Label: "Max",
+  },
 ];
-
 const labelForEffort = (effort?: ReasoningEffort | null) => {
   if (!effort) return "Medium";
   if (effort === "minimal") return "Low";
   const hit = T3_EFFORT_OPTIONS.find((o) => o.value === effort);
   return hit?.t3Label ?? effort;
 };
-
 const FALLBACK_EFFORTS: ReasoningEffort[] = ["minimal", "low", "medium", "high"];
-
 const getEffortOptions = (portrait: ReasoningPortrait | null | undefined): ReasoningEffort[] => {
   if (!portrait || portrait.mode === "budget" || portrait.mode === "level" || portrait.mode === "fixed") return [];
   const opts = portrait?.effortOptions?.filter(isReasoningEffort);
@@ -41,37 +61,29 @@ const getEffortOptions = (portrait: ReasoningPortrait | null | undefined): Reaso
   if (portrait.mode === "mixed" || !isReasoningEffort(portrait?.effort)) return [];
   return FALLBACK_EFFORTS.includes(portrait.effort) ? [...FALLBACK_EFFORTS] : [portrait.effort];
 };
-
 const supportsEffort = (portrait: ReasoningPortrait | null | undefined): boolean =>
   portrait?.supported !== false && getEffortOptions(portrait).length > 0;
-
 const ComposerEffortPicker = () => {
-  const modelClient = useMemo(() => createModelClient(), []);
-  const sessionClient = useMemo(() => createSessionClient(), []);
+  const modelClient = createModelClient();
+  const sessionClient = createSessionClient();
   const sessionState = useSessionStore();
   void sessionState;
   const draftState = useDraftStore();
   void draftState;
-
   const hasActiveSession = getHasActiveSession();
   const activeSession = getActiveSession();
-
   const [supportsReasoningLoaded, setSupportsReasoning] = useState<boolean | null>(null);
   const [availableEffortsLoaded, setAvailableEfforts] = useState<ReasoningEffort[]>([]);
   const [generationReasoningEffortLoaded, setGenerationReasoningEffort] = useState<ReasoningEffort | undefined>(
     undefined,
   );
   const [serviceTierLoaded, setServiceTier] = useState<ServiceTier>("standard");
-
   const effectiveProviderId = hasActiveSession ? activeSession?.providerId : draftState.providerId;
   const effectiveModelId = hasActiveSession ? activeSession?.modelId : draftState.modelId;
-
   const isAcpSession = effectiveProviderId === "acp";
-
   const isReasoningUnavailable = !effectiveProviderId || !effectiveModelId || isAcpSession;
   const supportsReasoning = isReasoningUnavailable ? false : supportsReasoningLoaded;
   const availableEfforts = isReasoningUnavailable ? [] : availableEffortsLoaded;
-
   useEffect(() => {
     if (isReasoningUnavailable) return;
     let cancelled = false;
@@ -97,7 +109,6 @@ const ComposerEffortPicker = () => {
       cancelled = true;
     };
   }, [isReasoningUnavailable, effectiveProviderId, effectiveModelId, modelClient]);
-
   const isSessionGenerationSettings = hasActiveSession && Boolean(activeSession?.id);
   const generationReasoningEffort = isSessionGenerationSettings
     ? generationReasoningEffortLoaded
@@ -105,7 +116,6 @@ const ComposerEffortPicker = () => {
   const serviceTier = isSessionGenerationSettings
     ? serviceTierLoaded
     : ((draftState.serviceTier as ServiceTier) ?? "standard");
-
   useEffect(() => {
     if (!isSessionGenerationSettings || !activeSession?.id) return;
     let cancelled = false;
@@ -121,47 +131,45 @@ const ComposerEffortPicker = () => {
       cancelled = true;
     };
   }, [isSessionGenerationSettings, activeSession?.id, sessionClient]);
-
-  const currentLabel = useMemo(() => {
+  const currentLabel = (() => {
     if (isAcpSession) return "Max";
     if (supportsReasoning === false) return "Max";
     return labelForEffort(generationReasoningEffort);
-  }, [isAcpSession, supportsReasoning, generationReasoningEffort]);
-
+  })();
   const isDisabled = isAcpSession || supportsReasoning === false;
-
-  const handleSelectEffort = useCallback(
-    async (effort: ReasoningEffort) => {
-      if (hasActiveSession && activeSession?.id) {
-        try {
-          await sessionClient.updateSessionGenerationSettings(activeSession.id, { reasoningEffort: effort });
-          setGenerationReasoningEffort(effort);
-        } catch {}
-      } else {
-        draftStore.setState((prev) => ({ ...prev, reasoningEffort: effort }));
+  const handleSelectEffort = async (effort: ReasoningEffort) => {
+    if (hasActiveSession && activeSession?.id) {
+      try {
+        await sessionClient.updateSessionGenerationSettings(activeSession.id, {
+          reasoningEffort: effort,
+        });
         setGenerationReasoningEffort(effort);
-      }
-    },
-    [hasActiveSession, activeSession?.id, sessionClient],
-  );
-
-  const handleSelectTier = useCallback(
-    async (tier: ServiceTier) => {
-      if (hasActiveSession && activeSession?.id) {
-        try {
-          await sessionClient.updateSessionGenerationSettings(activeSession.id, { serviceTier: tier });
-          setServiceTier(tier);
-        } catch {}
-      } else {
-        draftStore.setState((prev) => ({ ...prev, serviceTier: tier }));
+      } catch {}
+    } else {
+      draftStore.setState((prev) => ({
+        ...prev,
+        reasoningEffort: effort,
+      }));
+      setGenerationReasoningEffort(effort);
+    }
+  };
+  const handleSelectTier = async (tier: ServiceTier) => {
+    if (hasActiveSession && activeSession?.id) {
+      try {
+        await sessionClient.updateSessionGenerationSettings(activeSession.id, {
+          serviceTier: tier,
+        });
         setServiceTier(tier);
-      }
-    },
-    [hasActiveSession, activeSession?.id, sessionClient],
-  );
-
+      } catch {}
+    } else {
+      draftStore.setState((prev) => ({
+        ...prev,
+        serviceTier: tier,
+      }));
+      setServiceTier(tier);
+    }
+  };
   const availableEffortSet = new Set(availableEfforts);
-
   const picker = (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -230,7 +238,6 @@ const ComposerEffortPicker = () => {
       </DropdownMenuContent>
     </DropdownMenu>
   );
-
   if (isDisabled) {
     return (
       <Tooltip>
@@ -239,8 +246,6 @@ const ComposerEffortPicker = () => {
       </Tooltip>
     );
   }
-
   return picker;
 };
-
 export default ComposerEffortPicker;

@@ -5,25 +5,54 @@ import { Popover, PopoverContent, PopoverTrigger } from "#shadcn/components/ui/p
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "#shadcn/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "#shadcn/components/ui/tabs";
 import { ScrollArea } from "#shadcn/components/ui/scroll-area";
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import type { SkillMetadata } from "@argos/shared/types/skill";
-
 interface EmojiPickerProps {
   modelValue: string;
   onModelValueChange?: (value: string) => void;
 }
-
 const categories = [
-  { id: "smileys", name: "Smileys & Emotion", icon: "😀" },
-  { id: "people", name: "People & Body", icon: "👨" },
-  { id: "animals", name: "Animals & Nature", icon: "🐶" },
-  { id: "food", name: "Food & Drink", icon: "🍔" },
-  { id: "travel", name: "Travel & Places", icon: "✈️" },
-  { id: "activities", name: "Activities", icon: "⚽" },
-  { id: "objects", name: "Objects", icon: "💡" },
-  { id: "symbols", name: "Symbols", icon: "❤️" },
+  {
+    id: "smileys",
+    name: "Smileys & Emotion",
+    icon: "😀",
+  },
+  {
+    id: "people",
+    name: "People & Body",
+    icon: "👨",
+  },
+  {
+    id: "animals",
+    name: "Animals & Nature",
+    icon: "🐶",
+  },
+  {
+    id: "food",
+    name: "Food & Drink",
+    icon: "🍔",
+  },
+  {
+    id: "travel",
+    name: "Travel & Places",
+    icon: "✈️",
+  },
+  {
+    id: "activities",
+    name: "Activities",
+    icon: "⚽",
+  },
+  {
+    id: "objects",
+    name: "Objects",
+    icon: "💡",
+  },
+  {
+    id: "symbols",
+    name: "Symbols",
+    icon: "❤️",
+  },
 ];
-
 const emojiData: Record<string, string[]> = {
   smileys: [
     "😀",
@@ -413,13 +442,11 @@ const emojiData: Record<string, string[]> = {
     "⚛️",
   ],
 };
-
 export default function EmojiPicker({ modelValue, onModelValueChange }: EmojiPickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedTab, setSelectedTab] = useState("smileys");
   const [searchQuery, setSearchQuery] = useState("");
-
-  const filteredEmojis = useMemo(() => {
+  const filteredEmojis = (() => {
     if (!searchQuery) return emojiData;
     const query = searchQuery.toLowerCase();
     const result: Record<string, string[]> = {};
@@ -427,13 +454,11 @@ export default function EmojiPicker({ modelValue, onModelValueChange }: EmojiPic
       result[category] = emojis.filter((emoji) => emoji.toLowerCase().includes(query));
     }
     return result;
-  }, [searchQuery]);
-
+  })();
   const selectEmoji = (emoji: string) => {
     onModelValueChange?.(emoji);
     setIsOpen(false);
   };
-
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
       <DropdownMenuTrigger

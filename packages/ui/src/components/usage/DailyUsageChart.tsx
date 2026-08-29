@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { areaY, d3Curve, defineChart, lineY } from "@tanstack/charts";
 import { motion } from "@tanstack/charts/motion";
 import { scaleLinear } from "@tanstack/charts/scales/linear";
@@ -7,23 +6,19 @@ import { tooltip } from "@tanstack/charts/tooltip";
 import { RendererChart } from "@tanstack/charts/react/tooltip";
 import { curveMonotoneX } from "d3-shape";
 import type { UsageDailySeriesPoint } from "@argos/shared-contracts/routes";
-
 const currency = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
   maximumFractionDigits: 2,
 });
-
 const compactTokens = new Intl.NumberFormat("en-US", {
   notation: "compact",
   maximumFractionDigits: 1,
 });
-
 interface DailyUsageChartProps {
   points: UsageDailySeriesPoint[];
   mode: "cost" | "tokens";
 }
-
 const monotone = d3Curve(curveMonotoneX);
 
 /** Spring motion: crisp, weighty, respects reduced motion. */
@@ -33,15 +28,13 @@ const springTransition = {
   damping: 24,
   mass: 0.8,
 };
-
 interface ChartRow {
   id: string;
   date: string;
   value: number;
 }
-
 export function DailyUsageChart({ points, mode }: DailyUsageChartProps) {
-  const definition = useMemo(() => {
+  const definition = (() => {
     const rows: ChartRow[] = points.map((point, index) => ({
       id: `${mode}-${index}-${point.date}`,
       date: point.date,
@@ -55,7 +48,6 @@ export function DailyUsageChart({ points, mode }: DailyUsageChartProps) {
     // the axis reads honestly.
     const baseline = 0;
     const accent = "var(--chart-1)";
-
     const line = lineY(rows, {
       id: `${mode}-line`,
       x: "date",
@@ -65,7 +57,6 @@ export function DailyUsageChart({ points, mode }: DailyUsageChartProps) {
       strokeWidth: 2.4,
       curve: monotone,
     });
-
     const marks = [
       ...(mode === "cost"
         ? [
@@ -98,8 +89,16 @@ export function DailyUsageChart({ points, mode }: DailyUsageChartProps) {
                 x2: 0,
                 y2: 1,
                 stops: [
-                  { offset: 0, color: accent, opacity: 0.26 },
-                  { offset: 1, color: accent, opacity: 0 },
+                  {
+                    offset: 0,
+                    color: accent,
+                    opacity: 0.26,
+                  },
+                  {
+                    offset: 1,
+                    color: accent,
+                    opacity: 0,
+                  },
                 ],
               },
             ]
@@ -110,11 +109,17 @@ export function DailyUsageChart({ points, mode }: DailyUsageChartProps) {
           axis: {
             label: "Date",
             line: true,
-            ticks: { count: Math.min(rows.length, 6), format: (value) => String(value).slice(5) },
+            ticks: {
+              count: Math.min(rows.length, 6),
+              format: (value) => String(value).slice(5),
+            },
             tickLabels: {
               fontSize: 11,
               opacity: 0.7,
-              thin: { minGap: 24, priority: "ends" },
+              thin: {
+                minGap: 24,
+                priority: "ends",
+              },
             },
           },
         },
@@ -128,11 +133,19 @@ export function DailyUsageChart({ points, mode }: DailyUsageChartProps) {
               format: (value) =>
                 mode === "cost" ? currency.format(Number(value)) : compactTokens.format(Number(value)),
             },
-            tickLabels: { fontSize: 11, opacity: 0.7 },
+            tickLabels: {
+              fontSize: 11,
+              opacity: 0.7,
+            },
           },
         },
       },
-      margin: { top: 12, right: 12, bottom: 28, left: 52 },
+      margin: {
+        top: 12,
+        right: 12,
+        bottom: 28,
+        left: 52,
+      },
       clip: true,
       guides: true,
       pointer: true,
@@ -167,20 +180,16 @@ export function DailyUsageChart({ points, mode }: DailyUsageChartProps) {
         },
       },
       svgAnimation: false,
-      motion: { transition: springTransition },
-    });
-  }, [points, mode]);
-
-  const renderer = useMemo(
-    () =>
-      motion({
-        initial: true,
-        respectReducedMotion: true,
+      motion: {
         transition: springTransition,
-      }),
-    [],
-  );
-
+      },
+    });
+  })();
+  const renderer = motion({
+    initial: true,
+    respectReducedMotion: true,
+    transition: springTransition,
+  });
   return (
     <RendererChart
       definition={definition as never}
@@ -202,7 +211,12 @@ export function DailyUsageChart({ points, mode }: DailyUsageChartProps) {
                   <div key={row.label} className="flex items-center justify-between gap-4">
                     <span className="flex items-center gap-1.5 text-muted-foreground">
                       {row.color ? (
-                        <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: row.color }} />
+                        <span
+                          className="inline-block h-2 w-2 rounded-full"
+                          style={{
+                            backgroundColor: row.color,
+                          }}
+                        />
                       ) : null}
                       {row.label}
                     </span>

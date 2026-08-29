@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useEffectEvent } from "react";
 import { Icon } from "@iconify/react";
 import { Loader2 } from "lucide-react";
 import { Button } from "#shadcn/components/ui/button";
@@ -15,26 +15,73 @@ import {
 import { useLanguageStore } from "#/stores/language";
 import type { ShortcutKey } from "@argos/shared/presenter";
 import SettingsPageShell from "./control-center/SettingsPageShell";
-
 const FORBIDDEN_SINGLE_KEYS = ["Control", "Command", "Alt", "Shift", "Meta", "Escape", "Tab"];
-
-const shortcutMapping: Record<ShortcutKey, { icon: string; label: string; key?: string; disabled?: boolean }> = {
-  ShowHideWindow: { icon: "lucide:plus-square", label: "Show/Hide Window" },
-  NewConversation: { icon: "lucide:plus-square", label: "New Conversation" },
-  QuickSearch: { icon: "lucide:search", label: "Quick Search" },
-  ToggleSidebar: { icon: "lucide:panel-left-close", label: "Toggle Sidebar" },
-  ToggleWorkspace: { icon: "lucide:panel-right-close", label: "Toggle Workspace" },
-  NewWindow: { icon: "lucide:app-window", label: "New Window" },
-  CloseWindow: { icon: "lucide:x", label: "Close Window" },
-  ZoomIn: { icon: "lucide:zoom-in", label: "Zoom In" },
-  ZoomOut: { icon: "lucide:zoom-out", label: "Zoom Out" },
-  ZoomResume: { icon: "lucide:rotate-ccw", label: "Zoom Reset" },
-  GoSettings: { icon: "lucide:settings", label: "Go to Settings" },
-  CleanChatHistory: { icon: "lucide:eraser", label: "Clean Chat History" },
-  DeleteConversation: { icon: "lucide:trash-2", label: "Delete Conversation" },
-  Quit: { icon: "lucide:log-out", label: "Quit App" },
+const shortcutMapping: Record<
+  ShortcutKey,
+  {
+    icon: string;
+    label: string;
+    key?: string;
+    disabled?: boolean;
+  }
+> = {
+  ShowHideWindow: {
+    icon: "lucide:plus-square",
+    label: "Show/Hide Window",
+  },
+  NewConversation: {
+    icon: "lucide:plus-square",
+    label: "New Conversation",
+  },
+  QuickSearch: {
+    icon: "lucide:search",
+    label: "Quick Search",
+  },
+  ToggleSidebar: {
+    icon: "lucide:panel-left-close",
+    label: "Toggle Sidebar",
+  },
+  ToggleWorkspace: {
+    icon: "lucide:panel-right-close",
+    label: "Toggle Workspace",
+  },
+  NewWindow: {
+    icon: "lucide:app-window",
+    label: "New Window",
+  },
+  CloseWindow: {
+    icon: "lucide:x",
+    label: "Close Window",
+  },
+  ZoomIn: {
+    icon: "lucide:zoom-in",
+    label: "Zoom In",
+  },
+  ZoomOut: {
+    icon: "lucide:zoom-out",
+    label: "Zoom Out",
+  },
+  ZoomResume: {
+    icon: "lucide:rotate-ccw",
+    label: "Zoom Reset",
+  },
+  GoSettings: {
+    icon: "lucide:settings",
+    label: "Go to Settings",
+  },
+  CleanChatHistory: {
+    icon: "lucide:eraser",
+    label: "Clean Chat History",
+  },
+  DeleteConversation: {
+    icon: "lucide:trash-2",
+    label: "Delete Conversation",
+  },
+  Quit: {
+    icon: "lucide:log-out",
+    label: "Quit App",
+  },
 };
-
 function formatShortcut(shortcut: string | undefined | null): string[] {
   if (!shortcut) return [];
   return shortcut
@@ -48,7 +95,6 @@ function formatShortcut(shortcut: string | undefined | null): string[] {
     .map((k) => k.trim())
     .filter(Boolean);
 }
-
 function normalizeShortcut(shortcut: string): string[] {
   const isMac = navigator.platform.toLowerCase().includes("mac");
   return shortcut
@@ -56,7 +102,6 @@ function normalizeShortcut(shortcut: string): string[] {
     .replace(/CmdOrCtrl/g, isMac ? "Command" : "Control")
     .split("+");
 }
-
 function areShortcutsEquivalent(s1: string, s2: string): boolean {
   if (s1 === s2) return true;
   const parts1 = normalizeShortcut(s1);
@@ -66,19 +111,15 @@ function areShortcutsEquivalent(s1: string, s2: string): boolean {
   const sorted2 = parts2.toSorted();
   return sorted1.every((p, i) => p === sorted2[i]);
 }
-
 export default function ShortcutSettings() {
   const languageStore = useLanguageStore();
   const shortcutKeyStore = useShortcutKeyStore();
-
   const [resetLoading, setResetLoading] = useState(false);
   const [recordingShortcutId, setRecordingShortcutId] = useState<string | null>(null);
   const [tempShortcut, setTempShortcut] = useState("");
   const [shortcutError, setShortcutError] = useState("");
-
   const shortcutKeys = shortcutKeyStore.shortcutKeys;
-
-  const shortcuts = useMemo(() => {
+  const shortcuts = (() => {
     if (!shortcutKeys || Object.keys(shortcutKeys).length === 0) return [];
     try {
       return Object.entries(shortcutMapping).map(([key, value]) => {
@@ -95,36 +136,26 @@ export default function ShortcutSettings() {
     } catch {
       return [];
     }
-  }, [shortcutKeys]);
-
-  const formattedTempShortcut = useMemo(() => formatShortcut(tempShortcut), [tempShortcut]);
-
-  const isShortcutConflict = useCallback(
-    (key: string, currentId: string): boolean => {
-      for (const [id, shortcut] of Object.entries<string>(shortcutKeys || {})) {
-        if (id !== currentId && areShortcutsEquivalent(shortcut, key)) return true;
-      }
+  })();
+  const formattedTempShortcut = formatShortcut(tempShortcut);
+  const isShortcutConflict = (key: string, currentId: string): boolean => {
+    for (const [id, shortcut] of Object.entries<string>(shortcutKeys || {})) {
+      if (id !== currentId && areShortcutsEquivalent(shortcut, key)) return true;
+    }
+    return false;
+  };
+  const validateShortcut = (shortcut: string): boolean => {
+    if (FORBIDDEN_SINGLE_KEYS.includes(shortcut)) {
+      setShortcutError("Modifier keys alone are not allowed");
       return false;
-    },
-    [shortcutKeys],
-  );
-
-  const validateShortcut = useCallback(
-    (shortcut: string): boolean => {
-      if (FORBIDDEN_SINGLE_KEYS.includes(shortcut)) {
-        setShortcutError("Modifier keys alone are not allowed");
-        return false;
-      }
-      if (recordingShortcutId && isShortcutConflict(shortcut, recordingShortcutId)) {
-        setShortcutError("Shortcut is already in use");
-        return false;
-      }
-      return true;
-    },
-    [recordingShortcutId, isShortcutConflict],
-  );
-
-  const saveChanges = useCallback(async () => {
+    }
+    if (recordingShortcutId && isShortcutConflict(shortcut, recordingShortcutId)) {
+      setShortcutError("Shortcut is already in use");
+      return false;
+    }
+    return true;
+  };
+  const saveChanges = async () => {
     try {
       await saveShortcutKeys();
       disableShortcutKey();
@@ -132,22 +163,18 @@ export default function ShortcutSettings() {
     } catch (error) {
       console.error("Save shortcut keys error:", error);
     }
-  }, []);
-
-  const stopRecording = useCallback(() => {
+  };
+  const stopRecording = () => {
     if (recordingShortcutId) {
       setRecordingShortcutId(null);
-      document.body.style.overflow = "";
     }
-  }, [recordingShortcutId]);
-
-  const cancelRecording = useCallback(() => {
+  };
+  const cancelRecording = () => {
     setTempShortcut("");
     setShortcutError("");
     stopRecording();
-  }, [stopRecording]);
-
-  const saveAndStopRecording = useCallback(() => {
+  };
+  const saveAndStopRecording = () => {
     if (shortcutKeys && recordingShortcutId && tempShortcut) {
       const key = recordingShortcutId as keyof typeof shortcutKeys;
       updateShortcutKey(key, tempShortcut);
@@ -155,63 +182,58 @@ export default function ShortcutSettings() {
     }
     setShortcutError("");
     stopRecording();
-  }, [shortcutKeys, recordingShortcutId, tempShortcut, saveChanges, stopRecording]);
-
-  const handleKeyDown = useCallback(
-    (event: KeyboardEvent) => {
-      if (!recordingShortcutId) return;
-      event.preventDefault();
-      if (event.key === "Escape") {
-        cancelRecording();
-        return;
+  };
+  const handleKeyDown = (event: KeyboardEvent) => {
+    if (!recordingShortcutId) return;
+    event.preventDefault();
+    if (event.key === "Escape") {
+      cancelRecording();
+      return;
+    }
+    if (event.key === "Enter" && tempShortcut) {
+      if (validateShortcut(tempShortcut)) {
+        enableShortcutKey();
+        saveAndStopRecording();
       }
-      if (event.key === "Enter" && tempShortcut) {
-        if (validateShortcut(tempShortcut)) {
-          enableShortcutKey();
-          saveAndStopRecording();
-        }
-        return;
-      }
-      setShortcutError("");
-      const keys: string[] = [];
-      if (event.ctrlKey) keys.push("Control");
-      if (event.metaKey) keys.push("Command");
-      if (event.altKey) keys.push("Alt");
-      if (event.shiftKey) keys.push("Shift");
-      const key = event.key;
-      if (!["Control", "Alt", "Shift", "Meta", "Enter", "Escape"].includes(key)) {
-        keys.push(key.length === 1 ? key.toUpperCase() : key);
-      }
-      if (keys.length > 0) setTempShortcut(keys.join("+"));
-    },
-    [recordingShortcutId, tempShortcut, cancelRecording, validateShortcut, saveAndStopRecording],
-  );
+      return;
+    }
+    setShortcutError("");
+    const keys: string[] = [];
+    if (event.ctrlKey) keys.push("Control");
+    if (event.metaKey) keys.push("Command");
+    if (event.altKey) keys.push("Alt");
+    if (event.shiftKey) keys.push("Shift");
+    const key = event.key;
+    if (!["Control", "Alt", "Shift", "Meta", "Enter", "Escape"].includes(key)) {
+      keys.push(key.length === 1 ? key.toUpperCase() : key);
+    }
+    if (keys.length > 0) setTempShortcut(keys.join("+"));
+  };
+  const startRecording = (shortcutId: string) => {
+    if (recordingShortcutId && recordingShortcutId !== shortcutId) stopRecording();
+    setRecordingShortcutId(shortcutId);
+    setTempShortcut("");
+    setShortcutError("");
+    disableShortcutKey();
+  };
 
-  const startRecording = useCallback(
-    (shortcutId: string) => {
-      if (recordingShortcutId && recordingShortcutId !== shortcutId) stopRecording();
-      setRecordingShortcutId(shortcutId);
-      setTempShortcut("");
-      setShortcutError("");
-      disableShortcutKey();
-      document.body.style.overflow = "hidden";
-    },
-    [recordingShortcutId, stopRecording],
-  );
-
+  // Scroll lock follows the recording state instead of mutating document styles
+  // inside render-scope handlers.
+  useEffect(() => {
+    document.body.style.overflow = recordingShortcutId ? "hidden" : "";
+  }, [recordingShortcutId]);
   useEffect(() => {
     void loadShortcutKeys();
   }, []);
-
+  const onKeyDown = useEffectEvent(handleKeyDown);
   useEffect(() => {
     if (recordingShortcutId) {
-      window.addEventListener("keydown", handleKeyDown, true);
-      return () => window.removeEventListener("keydown", handleKeyDown, true);
+      window.addEventListener("keydown", onKeyDown, true);
+      return () => window.removeEventListener("keydown", onKeyDown, true);
     }
     return;
-  }, [recordingShortcutId, handleKeyDown]);
-
-  const handleResetShortcutKeys = useCallback(async () => {
+  }, [recordingShortcutId]);
+  const handleResetShortcutKeys = async () => {
     setResetLoading(true);
     if (recordingShortcutId) cancelRecording();
     setShortcutError("");
@@ -225,23 +247,18 @@ export default function ShortcutSettings() {
       console.error("Failed to reset shortcut keys:", error);
     }
     setResetLoading(false);
-  }, [recordingShortcutId, cancelRecording]);
-
-  const clearShortcut = useCallback(
-    async (shortcutId: string) => {
-      if (!shortcutKeys) return;
-      try {
-        if (recordingShortcutId === shortcutId) cancelRecording();
-        const key = shortcutId as keyof typeof shortcutKeys;
-        updateShortcutKey(key, "");
-        await saveChanges();
-      } catch (error) {
-        console.error("Clear shortcut error:", error);
-      }
-    },
-    [shortcutKeys, recordingShortcutId, cancelRecording, saveChanges],
-  );
-
+  };
+  const clearShortcut = async (shortcutId: string) => {
+    if (!shortcutKeys) return;
+    try {
+      if (recordingShortcutId === shortcutId) cancelRecording();
+      const key = shortcutId as keyof typeof shortcutKeys;
+      updateShortcutKey(key, "");
+      await saveChanges();
+    } catch (error) {
+      console.error("Clear shortcut error:", error);
+    }
+  };
   return (
     <SettingsPageShell
       title="Shortcuts"
@@ -267,13 +284,7 @@ export default function ShortcutSettings() {
             </span>
             <div className="min-w-[240px] shrink-0">
               <div
-                className={`group flex items-center gap-3 rounded-md border bg-background/60 px-3 transition ${
-                  recordingShortcutId === shortcut.id && !shortcutError
-                    ? "border-accent-400 ring-2 ring-accent-400/50"
-                    : recordingShortcutId === shortcut.id && shortcutError
-                      ? "border-destructive ring-2 ring-destructive/50"
-                      : ""
-                } ${shortcut.disabled ? "opacity-60" : ""}`}
+                className={`group flex items-center gap-3 rounded-md border bg-background/60 px-3 transition ${recordingShortcutId === shortcut.id && !shortcutError ? "border-accent-400 ring-2 ring-accent-400/50" : recordingShortcutId === shortcut.id && shortcutError ? "border-destructive ring-2 ring-destructive/50" : ""} ${shortcut.disabled ? "opacity-60" : ""}`}
               >
                 <KbdGroup className="flex flex-wrap items-center gap-1">
                   {recordingShortcutId === shortcut.id ? (
@@ -304,9 +315,7 @@ export default function ShortcutSettings() {
                 </KbdGroup>
 
                 <div
-                  className={`ml-auto flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 ${
-                    recordingShortcutId === shortcut.id ? "!opacity-100" : ""
-                  }`}
+                  className={`ml-auto flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 ${recordingShortcutId === shortcut.id ? "!opacity-100" : ""}`}
                 >
                   {!shortcut.disabled && (
                     <Button

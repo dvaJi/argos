@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef, forwardRef, useImperativeHandle } from "react";
+import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import {
@@ -83,45 +83,51 @@ import { scheduleStartupDeferredTask } from "#/lib/startupDeferred";
 import { useChatStatusBarAcpConfig } from "./composables/useChatStatusBarAcpConfig";
 import AcpAdvancedSettings from "./AcpAdvancedSettings";
 import AgentAvatar from "#/components/icons/AgentAvatar";
-
 type ModelSelection = {
   providerId: string;
   modelId: string;
 };
-
 type ReasoningEffortValue = NonNullable<SessionGenerationSettings["reasoningEffort"]>;
 type VerbosityValue = NonNullable<SessionGenerationSettings["verbosity"]>;
-
 const isSameModelSelection = (
   left: ModelSelection | null | undefined,
   right: ModelSelection | null | undefined,
 ): boolean => Boolean(left && right && left.providerId === right.providerId && left.modelId === right.modelId);
-
 type AcpOptionValueLike = {
   value: string;
   label: string;
   groupId?: string | null;
   groupLabel?: string | null;
 };
-
-const resolveAcpOptionGroup = (entry: AcpOptionValueLike): { key: string; label: string } => {
+const resolveAcpOptionGroup = (
+  entry: AcpOptionValueLike,
+): {
+  key: string;
+  label: string;
+} => {
   if (entry.groupId && entry.groupId.trim()) {
-    return { key: entry.groupId, label: entry.groupLabel?.trim() ? entry.groupLabel : entry.groupId };
+    return {
+      key: entry.groupId,
+      label: entry.groupLabel?.trim() ? entry.groupLabel : entry.groupId,
+    };
   }
-
   const valueSlash = entry.value.indexOf("/");
   const labelSlash = entry.label.indexOf("/");
   const labSource = valueSlash > 0 ? entry.value : labelSlash > 0 ? entry.label : "";
   if (labSource) {
     const lab = labSource.slice(0, labSource.indexOf("/"));
     if (lab.trim()) {
-      return { key: `__lab__${lab.toLowerCase()}`, label: lab };
+      return {
+        key: `__lab__${lab.toLowerCase()}`,
+        label: lab,
+      };
     }
   }
-
-  return { key: "__default__", label: "" };
+  return {
+    key: "__default__",
+    label: "",
+  };
 };
-
 const resolveAcpOptionDisplayLabel = (entry: { label: string }): string => {
   const idx = entry.label.indexOf("/");
   if (idx > 0 && entry.label.slice(idx + 1).trim()) {
@@ -129,32 +135,27 @@ const resolveAcpOptionDisplayLabel = (entry: { label: string }): string => {
   }
   return entry.label;
 };
-
 type SystemPromptOption = {
   id: string;
   label: string;
   content: string;
   disabled?: boolean;
 };
-
 type GroupedModelList = {
   providerId: string;
   providerName: string;
   models: RENDERER_MODEL_META[];
 };
-
 type ModelDisplayEntry = {
   model: RENDERER_MODEL_META;
   providerId: string;
   displayName: string;
 };
-
 type ModelDisplaySection = {
   key: string;
   label: string;
   entries: ModelDisplayEntry[];
 };
-
 const TEMPERATURE_STEP = 0.1;
 const TOP_P_STEP = 0.1;
 const TOP_P_MIN = 0.1;
@@ -166,12 +167,10 @@ const TIMEOUT_MIN = MODEL_TIMEOUT_MIN_MS;
 const TIMEOUT_MAX = MODEL_TIMEOUT_MAX_MS;
 const THINKING_BUDGET_STEP = 128;
 const DEFAULT_VERBOSITY_OPTIONS: SessionGenerationSettings["verbosity"][] = ["low", "medium", "high"];
-
 function normalizeTopP(value: unknown): number | undefined {
   const numeric = parseFiniteNumericValue(value);
   return numeric !== undefined && numeric >= 0.1 && numeric <= 1 ? numeric : undefined;
 }
-
 interface ChatStatusBarProps {
   acpDraftSessionId?: string | null;
   maxWidthClass?: string;
@@ -183,7 +182,6 @@ interface ChatStatusBarProps {
    */
   composerFooterActive?: boolean;
 }
-
 const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
   ({ acpDraftSessionId = null, maxWidthClass = "max-w-2xl", composerFooterActive = false }, ref) => {
     const themeStore = useThemeStore();
@@ -200,7 +198,6 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
     const onboardingClient = createOnboardingClient();
     const providerClient = createProviderClient();
     const sessionClient = createSessionClient();
-
     const [draftModelSelection, setDraftModelSelection] = useState<ModelSelection | null>(null);
     const [permissionMode, setPermissionMode] = useState<PermissionMode>("full_access");
     const [subagentEnabled, setSubagentEnabled] = useState(false);
@@ -241,7 +238,6 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
     const [capabilitySupportsTemperature, setCapabilitySupportsTemperature] = useState<boolean | null>(null);
     const [capabilityProviderId, setCapabilityProviderId] = useState("");
     const [isSubagentToggleUpdating, setIsSubagentToggleUpdating] = useState(false);
-
     const draftModelSyncTokenRef = useRef(0);
     const permissionSyncTokenRef = useRef(0);
     const generationSyncTokenRef = useRef(0);
@@ -255,179 +251,128 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
     // Store getters are cheap reads; React Compiler handles caching.
     const hasActiveSession = getHasActiveSession();
     const availableAgents = Array.isArray(agentStore.agents) ? agentStore.agents : [];
-
     const selectedAgentSnapshot = getSelectedAgent();
-
-    const inferAgentType = useCallback(
-      (agentId: string | null | undefined): "argos" | "acp" | null => {
-        if (!agentId) return null;
-        const matchedAgent = availableAgents.find((agent) => agent.id === agentId);
-        const selectedAgent = selectedAgentSnapshot?.id === agentId ? selectedAgentSnapshot : null;
-        const explicitType = matchedAgent?.agentType ?? matchedAgent?.type ?? selectedAgent?.type;
-        if (explicitType === "argos" || explicitType === "acp") return explicitType;
-        return sharedInferAgentType(agentId, availableAgents);
-      },
-      [availableAgents, selectedAgentSnapshot],
-    );
-
-    const resolveArgosAgentConfig = useCallback(
-      async (agentId: string): Promise<ArgosAgentConfig> => {
-        const config = await configClient.resolveArgosAgentConfig(agentId);
-        if (config) return config;
-        const defaultSystemPrompt = (await configClient.getDefaultSystemPrompt()) ?? "";
-        return normalizeArgosSubagentConfig({
-          defaultModelPreset: undefined,
-          systemPrompt: typeof defaultSystemPrompt === "string" ? defaultSystemPrompt : "",
-          permissionMode: "full_access",
-          disabledAgentTools: [],
-        });
-      },
-      [configClient],
-    );
-
-    const selectedAgentType = useMemo(
-      () => inferAgentType(agentStore.selectedAgentId),
-      [inferAgentType, agentStore.selectedAgentId],
-    );
-    const selectedArgosAgentId = useMemo(() => {
+    const inferAgentType = (agentId: string | null | undefined): "argos" | "acp" | null => {
+      if (!agentId) return null;
+      const matchedAgent = availableAgents.find((agent) => agent.id === agentId);
+      const selectedAgent = selectedAgentSnapshot?.id === agentId ? selectedAgentSnapshot : null;
+      const explicitType = matchedAgent?.agentType ?? matchedAgent?.type ?? selectedAgent?.type;
+      if (explicitType === "argos" || explicitType === "acp") return explicitType;
+      return sharedInferAgentType(agentId, availableAgents);
+    };
+    const resolveArgosAgentConfig = async (agentId: string): Promise<ArgosAgentConfig> => {
+      const config = await configClient.resolveArgosAgentConfig(agentId);
+      if (config) return config;
+      const defaultSystemPrompt = (await configClient.getDefaultSystemPrompt()) ?? "";
+      return normalizeArgosSubagentConfig({
+        defaultModelPreset: undefined,
+        systemPrompt: typeof defaultSystemPrompt === "string" ? defaultSystemPrompt : "",
+        permissionMode: "full_access",
+        disabledAgentTools: [],
+      });
+    };
+    const selectedAgentType = inferAgentType(agentStore.selectedAgentId);
+    const selectedArgosAgentId = (() => {
       if (selectedAgentType === "acp") return null;
       return agentStore.selectedAgentId ?? "argos";
-    }, [selectedAgentType, agentStore.selectedAgentId]);
-
+    })();
     const activeSession = getActiveSession();
-    const isAcpAgent = useMemo(() => {
+    const isAcpAgent = (() => {
       if (hasActiveSession) return activeSession?.providerId === "acp";
       return selectedAgentType === "acp";
-    }, [hasActiveSession, activeSession?.providerId, selectedAgentType]);
+    })();
 
     // When the composer footer bar owns the ACP chips (active session on the
     // chat page), the status bar neither renders them nor runs its own
     // config-option sync — the footer's AcpComposerControls does both.
     const footerOwnsAcpControls = composerFooterActive && hasActiveSession && isAcpAgent;
-
-    const activeAcpAgentId = useMemo(() => {
+    const activeAcpAgentId = (() => {
       if (hasActiveSession && activeSession?.providerId === "acp") return activeSession?.modelId || null;
       const selectedId = agentStore.selectedAgentId;
       return selectedAgentType === "acp" ? selectedId : null;
-    }, [hasActiveSession, activeSession, agentStore.selectedAgentId, selectedAgentType]);
-
-    const activeAcpSessionId = useMemo(() => {
+    })();
+    const activeAcpSessionId = (() => {
       if (hasActiveSession && activeSession?.providerId === "acp") return activeSession?.id;
       const draftSessionId = acpDraftSessionId?.trim();
       return draftSessionId ? draftSessionId : null;
-    }, [hasActiveSession, activeSession, acpDraftSessionId]);
-
-    const acpWorkspacePath = useMemo(() => {
+    })();
+    const acpWorkspacePath = (() => {
       if (hasActiveSession && activeSession?.providerId === "acp") return activeSession?.projectDir?.trim() || null;
       return getSelectedProject()?.path?.trim() || null;
-    }, [hasActiveSession, activeSession]);
-
-    const lockedAcpModelId = useMemo(() => {
+    })();
+    const lockedAcpModelId = (() => {
       if (hasActiveSession && activeSession?.providerId === "acp") return activeSession?.modelId || null;
       const selectedId = agentStore.selectedAgentId;
       return selectedAgentType === "acp" ? selectedId : null;
-    }, [hasActiveSession, activeSession, agentStore.selectedAgentId, selectedAgentType]);
-
-    const isModelSelectionLocked = useMemo(
-      () => isAcpAgent && Boolean(lockedAcpModelId),
-      [isAcpAgent, lockedAcpModelId],
-    );
-    const showModelPopover = useMemo(
-      () => !isAcpAgent || Boolean(activeAcpSessionId || acpWorkspacePath),
-      [isAcpAgent, activeAcpSessionId, acpWorkspacePath],
-    );
-
-    const activeSessionSelection = useMemo<ModelSelection | null>(() => {
+    })();
+    const isModelSelectionLocked = isAcpAgent && Boolean(lockedAcpModelId);
+    const showModelPopover = !isAcpAgent || Boolean(activeAcpSessionId || acpWorkspacePath);
+    const activeSessionSelection = (() => {
       if (!activeSession?.providerId || !activeSession?.modelId) return null;
-      return { providerId: activeSession.providerId, modelId: activeSession.modelId };
-    }, [activeSession]);
-
-    const effectiveModelSelection = useMemo<ModelSelection | null>(() => {
+      return {
+        providerId: activeSession.providerId,
+        modelId: activeSession.modelId,
+      };
+    })();
+    const effectiveModelSelection = (() => {
       if (hasActiveSession) return activeSessionSelection;
       if (isAcpAgent) {
         const agentId = agentStore.selectedAgentId;
-        return selectedAgentType === "acp" && agentId ? { providerId: "acp", modelId: agentId } : null;
+        return selectedAgentType === "acp" && agentId
+          ? {
+              providerId: "acp",
+              modelId: agentId,
+            }
+          : null;
       }
       // Prefer an explicit in-session quick select; otherwise surface the draft
       // defaults (agent defaultModelPreset) so the bar shows the effective
       // model instead of "Select model" right after boot.
       if (draftModelSelection) return draftModelSelection;
       if (draftState.providerId && draftState.modelId) {
-        return { providerId: draftState.providerId, modelId: draftState.modelId };
+        return {
+          providerId: draftState.providerId,
+          modelId: draftState.modelId,
+        };
       }
       return null;
-    }, [
-      hasActiveSession,
-      activeSessionSelection,
-      isAcpAgent,
-      agentStore.selectedAgentId,
-      selectedAgentType,
-      draftModelSelection,
-      draftState.providerId,
-      draftState.modelId,
-    ]);
-
-    const moonshotKimiTemperaturePolicyValue = useMemo(
-      () => getMoonshotKimiTemperaturePolicy(effectiveModelSelection?.providerId, effectiveModelSelection?.modelId),
-      [effectiveModelSelection],
+    })();
+    const moonshotKimiTemperaturePolicyValue = getMoonshotKimiTemperaturePolicy(
+      effectiveModelSelection?.providerId,
+      effectiveModelSelection?.modelId,
     );
-    const isMoonshotKimiTemperatureLocked = useMemo(
-      () => moonshotKimiTemperaturePolicyValue?.lockTemperatureControl === true,
-      [moonshotKimiTemperaturePolicyValue],
-    );
-    const moonshotKimiTemperatureHint = useMemo(
-      () =>
-        isMoonshotKimiTemperatureLocked
-          ? `Temperature is fixed for this model (${MOONSHOT_KIMI_THINKING_ENABLED_TEMPERATURE.toFixed(1)} / ${MOONSHOT_KIMI_THINKING_DISABLED_TEMPERATURE.toFixed(1)})`
-          : "",
-      [isMoonshotKimiTemperatureLocked],
-    );
-
-    const canSelectPermissionMode = useMemo(() => !isAcpAgent, [isAcpAgent]);
-    const showSubagentToggle = useMemo(() => {
+    const isMoonshotKimiTemperatureLocked = moonshotKimiTemperaturePolicyValue?.lockTemperatureControl === true;
+    const moonshotKimiTemperatureHint = isMoonshotKimiTemperatureLocked
+      ? `Temperature is fixed for this model (${MOONSHOT_KIMI_THINKING_ENABLED_TEMPERATURE.toFixed(1)} / ${MOONSHOT_KIMI_THINKING_DISABLED_TEMPERATURE.toFixed(1)})`
+      : "";
+    const canSelectPermissionMode = !isAcpAgent;
+    const showSubagentToggle = (() => {
       if (isAcpAgent) return false;
       if (hasActiveSession)
         return activeSession?.sessionKind === "regular" && inferAgentType(activeSession?.agentId) === "argos";
       return selectedAgentType === "argos";
-    }, [isAcpAgent, hasActiveSession, activeSession, inferAgentType, selectedAgentType]);
-
-    const providerNameMap = useMemo(() => {
+    })();
+    const providerNameMap = (() => {
       const map = new Map<string, string>();
       getSortedProvidersFrom(providers, providerOrder, providerTimestamps).forEach((provider) =>
         map.set(provider.id, provider.name),
       );
       return map;
-    }, [providers, providerOrder, providerTimestamps]);
-
-    const isModelOptionsReady = useMemo(
-      () => isAcpAgent || modelStore.initialized,
-      [isAcpAgent, modelStore.initialized],
-    );
-    const hasModelOptionsError = useMemo(
-      () => !isAcpAgent && !modelStore.initialized && Boolean(modelStore.initializationError),
-      [isAcpAgent, modelStore.initialized, modelStore.initializationError],
-    );
-    const showModelOptionsLoading = useMemo(
-      () => !isAcpAgent && !modelStore.initialized && !hasModelOptionsError,
-      [isAcpAgent, modelStore.initialized, hasModelOptionsError],
-    );
-
-    const resolveProviderApiType = useCallback(
-      (providerId: string): string | undefined =>
-        getSortedProvidersFrom(providers, providerOrder, providerTimestamps).find(
-          (provider) => provider.id === providerId,
-        )?.apiType,
-      [providers, providerOrder, providerTimestamps],
-    );
-
-    const modelGroups = useMemo<GroupedModelList[]>(() => {
+    })();
+    const isModelOptionsReady = isAcpAgent || modelStore.initialized;
+    const hasModelOptionsError = !isAcpAgent && !modelStore.initialized && Boolean(modelStore.initializationError);
+    const showModelOptionsLoading = !isAcpAgent && !modelStore.initialized && !hasModelOptionsError;
+    const resolveProviderApiType = (providerId: string): string | undefined =>
+      getSortedProvidersFrom(providers, providerOrder, providerTimestamps).find(
+        (provider) => provider.id === providerId,
+      )?.apiType;
+    const modelGroups = (() => {
       if (!isModelOptionsReady) return [];
       const sorted = getSortedProvidersFrom(providers, providerOrder, providerTimestamps);
       const orderedProviders = sorted.length > 0 ? sorted : providers;
       return getChatSelectableModelGroupsFrom(orderedProviders, enabledModels);
-    }, [isModelOptionsReady, providers, providerOrder, providerTimestamps, enabledModels]);
-
-    const filteredModelGroups = useMemo<GroupedModelList[]>(() => {
+    })();
+    const filteredModelGroups = (() => {
       const keyword = modelSearchKeyword.trim().toLowerCase();
       if (!keyword) return modelGroups;
       return modelGroups.flatMap((group) => {
@@ -435,11 +380,17 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
         const models = providerMatched
           ? group.models
           : group.models.filter((model) => `${model.name} ${model.id}`.toLowerCase().includes(keyword));
-        return models.length > 0 ? [{ ...group, models }] : [];
+        return models.length > 0
+          ? [
+              {
+                ...group,
+                models,
+              },
+            ]
+          : [];
       });
-    }, [modelSearchKeyword, modelGroups]);
-
-    const modelDisplaySections = useMemo<ModelDisplaySection[]>(() => {
+    })();
+    const modelDisplaySections = (() => {
       const sections: ModelDisplaySection[] = [];
       const sectionIndex = new Map<string, number>();
       for (const group of filteredModelGroups) {
@@ -454,41 +405,37 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
           let idx = sectionIndex.get(sectionKey);
           if (idx === undefined) {
             idx = sections.length;
-            sections.push({ key: sectionKey, label: sectionLabel, entries: [] });
+            sections.push({
+              key: sectionKey,
+              label: sectionLabel,
+              entries: [],
+            });
             sectionIndex.set(sectionKey, idx);
           }
-          sections[idx].entries.push({ model, providerId: group.providerId, displayName });
+          sections[idx].entries.push({
+            model,
+            providerId: group.providerId,
+            displayName,
+          });
         }
       }
       return sections;
-    }, [filteredModelGroups]);
-
-    const modelSettingsTarget = useMemo<ModelSelection | null>(
-      () => modelSettingsSelection ?? effectiveModelSelection,
-      [modelSettingsSelection, effectiveModelSelection],
-    );
-
-    const findEnabledModelMeta = useCallback(
-      (providerId: string, modelId: string): RENDERER_MODEL_META | null =>
-        findChatSelectableModel(providerId, modelId)?.model ?? null,
-      [],
-    );
-
-    const modelSettingsTargetMeta = useMemo(() => {
+    })();
+    const modelSettingsTarget = modelSettingsSelection ?? effectiveModelSelection;
+    const findEnabledModelMeta = (providerId: string, modelId: string): RENDERER_MODEL_META | null =>
+      findChatSelectableModel(providerId, modelId)?.model ?? null;
+    const modelSettingsTargetMeta = (() => {
       const target = modelSettingsTarget;
       if (!target) return null;
       return findEnabledModelMeta(target.providerId, target.modelId);
-    }, [modelSettingsTarget, findEnabledModelMeta]);
-
-    const modelSettingsTargetResolvedConfig = useMemo(
-      () =>
-        isSameModelSelection(modelSettingsTarget, modelSettingsTargetConfigSelection)
-          ? modelSettingsTargetConfig
-          : null,
-      [modelSettingsTarget, modelSettingsTargetConfigSelection, modelSettingsTargetConfig],
-    );
-
-    const showOpenAIImageGenerationSettings = useMemo(() => {
+    })();
+    const modelSettingsTargetResolvedConfig = isSameModelSelection(
+      modelSettingsTarget,
+      modelSettingsTargetConfigSelection,
+    )
+      ? modelSettingsTargetConfig
+      : null;
+    const showOpenAIImageGenerationSettings = (() => {
       const target = modelSettingsTarget;
       if (!target) return false;
       const modelMeta = modelSettingsTargetMeta;
@@ -502,9 +449,8 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
         supportedEndpointTypes: modelMeta?.supportedEndpointTypes,
         type: modelConfig?.type ?? modelMeta?.type,
       });
-    }, [modelSettingsTarget, modelSettingsTargetMeta, modelSettingsTargetResolvedConfig, resolveProviderApiType]);
-
-    const showOpenAIVideoGenerationSettings = useMemo(() => {
+    })();
+    const showOpenAIVideoGenerationSettings = (() => {
       const target = modelSettingsTarget;
       if (!target) return false;
       const modelMeta = modelSettingsTargetMeta;
@@ -518,49 +464,39 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
         supportedEndpointTypes: modelMeta?.supportedEndpointTypes,
         type: modelConfig?.type ?? modelMeta?.type,
       });
-    }, [modelSettingsTarget, modelSettingsTargetMeta, modelSettingsTargetResolvedConfig, resolveProviderApiType]);
-
-    const showOpenAIMediaGenerationSettings = useMemo(
-      () => showOpenAIImageGenerationSettings || showOpenAIVideoGenerationSettings,
-      [showOpenAIImageGenerationSettings, showOpenAIVideoGenerationSettings],
-    );
-
-    const resolveModelIconId = useCallback((providerId?: string | null, modelId?: string | null): string => {
+    })();
+    const showOpenAIMediaGenerationSettings = showOpenAIImageGenerationSettings || showOpenAIVideoGenerationSettings;
+    const resolveModelIconId = (providerId?: string | null, modelId?: string | null): string => {
       if (providerId === "acp" && modelId) return modelId;
       return providerId || "anthropic";
-    }, []);
-
-    const resolveModelName = useCallback(
-      (providerId?: string | null, modelId?: string | null): string => {
-        if (!modelId) return "";
-        if (providerId) {
-          const hit = findEnabledModelMeta(providerId, modelId);
-          if (hit) return hit.name;
-        }
-        const found = modelStore.findModelByIdOrName(modelId);
-        if (found) return found.model.name;
-        return modelId;
-      },
-      [findEnabledModelMeta, modelStore],
-    );
-
-    const resolveCapabilityProviderIdForSelection = useCallback(
-      (providerId: string, modelId: string, endpointType?: unknown): string => {
-        const modelMeta = findEnabledModelMeta(providerId, modelId);
-        return resolveProviderCapabilityProviderId(
-          providerId,
-          {
-            endpointType: isNewApiEndpointType(endpointType) ? endpointType : modelMeta?.endpointType,
-            supportedEndpointTypes: modelMeta?.supportedEndpointTypes,
-            type: modelMeta?.type,
-            providerApiType: resolveProviderApiType(providerId),
-          },
-          modelId,
-        );
-      },
-      [findEnabledModelMeta, resolveProviderApiType],
-    );
-
+    };
+    const resolveModelName = (providerId?: string | null, modelId?: string | null): string => {
+      if (!modelId) return "";
+      if (providerId) {
+        const hit = findEnabledModelMeta(providerId, modelId);
+        if (hit) return hit.name;
+      }
+      const found = modelStore.findModelByIdOrName(modelId);
+      if (found) return found.model.name;
+      return modelId;
+    };
+    const resolveCapabilityProviderIdForSelection = (
+      providerId: string,
+      modelId: string,
+      endpointType?: unknown,
+    ): string => {
+      const modelMeta = findEnabledModelMeta(providerId, modelId);
+      return resolveProviderCapabilityProviderId(
+        providerId,
+        {
+          endpointType: isNewApiEndpointType(endpointType) ? endpointType : modelMeta?.endpointType,
+          supportedEndpointTypes: modelMeta?.supportedEndpointTypes,
+          type: modelMeta?.type,
+          providerApiType: resolveProviderApiType(providerId),
+        },
+        modelId,
+      );
+    };
     const {
       acpConfigState,
       acpInlineOpenOptionId,
@@ -591,13 +527,11 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
       resolveModelName,
       resolveModelIconId,
     });
-
     const syncAcpConfigOptionsRef = useRef(syncAcpConfigOptions);
     useEffect(() => {
       syncAcpConfigOptionsRef.current = syncAcpConfigOptions;
     }, [syncAcpConfigOptions]);
-
-    const acpAgentForAvatar = useMemo(() => {
+    const acpAgentForAvatar = (() => {
       const agentId = activeAcpAgentId ?? lockedAcpModelId;
       if (!agentId) return null;
       return (
@@ -611,8 +545,7 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
           icon: undefined,
         }
       );
-    }, [activeAcpAgentId, lockedAcpModelId, agentStore.agents, acpAgentLabel]);
-
+    })();
     useEffect(() => {
       if (!isAcpAgent) return;
       let cancelled = false;
@@ -630,12 +563,10 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
         cancel();
       };
     }, [isAcpAgent, activeAcpSessionId]);
-
     const handleAcpConfigOptionsReadyRef = useRef(handleAcpConfigOptionsReady);
     useEffect(() => {
       handleAcpConfigOptionsReadyRef.current = handleAcpConfigOptionsReady;
     }, [handleAcpConfigOptionsReady]);
-
     useEffect(() => {
       const unsubscribe = sessionClient.onAcpConfigOptionsReady((payload) => {
         handleAcpConfigOptionsReadyRef.current(payload as unknown as Record<string, unknown>);
@@ -644,34 +575,23 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
         unsubscribe?.();
       };
     }, [sessionClient]);
-
-    const permissionModeLabel = useMemo(
-      () => (permissionMode === "default" ? "Default" : "Full Access"),
-      [permissionMode],
-    );
-    const permissionIcon = useMemo(
-      () => (permissionMode === "full_access" ? "lucide:shield-alert" : "lucide:shield"),
-      [permissionMode],
-    );
-    const permissionOptions = useMemo(
-      () => [
-        {
-          value: "default" as const,
-          label: "Default",
-          icon: "lucide:shield",
-          iconClass: "text-muted-foreground",
-        },
-        {
-          value: "full_access" as const,
-          label: "Full Access",
-          icon: "lucide:shield-alert",
-          iconClass: "text-orange-500",
-        },
-      ],
-      [],
-    );
-
-    const displayIconId = useMemo(() => {
+    const permissionModeLabel = permissionMode === "default" ? "Default" : "Full Access";
+    const permissionIcon = permissionMode === "full_access" ? "lucide:shield-alert" : "lucide:shield";
+    const permissionOptions = [
+      {
+        value: "default" as const,
+        label: "Default",
+        icon: "lucide:shield",
+        iconClass: "text-muted-foreground",
+      },
+      {
+        value: "full_access" as const,
+        label: "Full Access",
+        icon: "lucide:shield-alert",
+        iconClass: "text-orange-500",
+      },
+    ];
+    const displayIconId = (() => {
       if (hasActiveSession)
         return resolveModelIconId(
           activeSessionSelection?.providerId || draftModelSelection?.providerId,
@@ -679,16 +599,8 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
         );
       if (isAcpAgent) return resolveModelIconId("acp", agentStore.selectedAgentId);
       return resolveModelIconId(draftModelSelection?.providerId, draftModelSelection?.modelId);
-    }, [
-      hasActiveSession,
-      activeSessionSelection,
-      draftModelSelection,
-      isAcpAgent,
-      agentStore.selectedAgentId,
-      resolveModelIconId,
-    ]);
-
-    const displayModelText = useMemo(() => {
+    })();
+    const displayModelText = (() => {
       if (!isModelOptionsReady) return hasModelOptionsError ? "Failed to load" : "Loading...";
       if (isAcpAgent) return acpAgentLabel;
       if (hasActiveSession) {
@@ -699,242 +611,158 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
       const selection = draftModelSelection;
       if (selection?.modelId) return selection.modelId;
       return "Select model";
-    }, [
-      isModelOptionsReady,
-      hasModelOptionsError,
-      isAcpAgent,
-      acpAgentLabel,
-      hasActiveSession,
-      activeSessionSelection,
-      draftModelSelection,
-    ]);
-
-    const isModelSettingsReady = useMemo(() => {
+    })();
+    const isModelSettingsReady = (() => {
       if (!isModelSettingsExpanded) return false;
       const target = modelSettingsTarget;
       if (!target) return false;
       return isSameModelSelection(loadedSettingsSelection, target) && Boolean(localSettings);
-    }, [isModelSettingsExpanded, modelSettingsTarget, loadedSettingsSelection, localSettings]);
-
-    const modelSettingsModelName = useMemo(
-      () => resolveModelName(modelSettingsTarget?.providerId ?? null, modelSettingsTarget?.modelId ?? null),
-      [modelSettingsTarget, resolveModelName],
+    })();
+    const modelSettingsModelName = resolveModelName(
+      modelSettingsTarget?.providerId ?? null,
+      modelSettingsTarget?.modelId ?? null,
     );
-    const modelSettingsProviderText = useMemo(() => {
+    const modelSettingsProviderText = (() => {
       const selection = modelSettingsTarget;
       if (!selection) return "";
       const providerName = providerNameMap.get(selection.providerId) ?? selection.providerId;
       return `${providerName} / ${selection.modelId}`;
-    }, [modelSettingsTarget, providerNameMap]);
-
-    const getReasoningEffortOptions = useCallback(
-      (portrait: ReasoningPortrait | null | undefined): ReasoningEffortValue[] => {
-        if (!portrait || portrait.mode === "budget" || portrait.mode === "level" || portrait.mode === "fixed")
-          return [];
-        const options = portrait?.effortOptions?.filter(isReasoningEffort);
-        if (options && options.length > 0) return options;
-        if (portrait.mode === "mixed" || !isReasoningEffort(portrait?.effort)) return [];
-        return FALLBACK_REASONING_EFFORT_OPTIONS.includes(portrait.effort)
-          ? [...FALLBACK_REASONING_EFFORT_OPTIONS]
-          : [portrait.effort];
-      },
-      [],
-    );
-
-    const getVerbosityOptions = useCallback((portrait: ReasoningPortrait | null | undefined): VerbosityValue[] => {
+    })();
+    const getReasoningEffortOptions = (portrait: ReasoningPortrait | null | undefined): ReasoningEffortValue[] => {
+      if (!portrait || portrait.mode === "budget" || portrait.mode === "level" || portrait.mode === "fixed") return [];
+      const options = portrait?.effortOptions?.filter(isReasoningEffort);
+      if (options && options.length > 0) return options;
+      if (portrait.mode === "mixed" || !isReasoningEffort(portrait?.effort)) return [];
+      return FALLBACK_REASONING_EFFORT_OPTIONS.includes(portrait.effort)
+        ? [...FALLBACK_REASONING_EFFORT_OPTIONS]
+        : [portrait.effort];
+    };
+    const getVerbosityOptions = (portrait: ReasoningPortrait | null | undefined): VerbosityValue[] => {
       const options = portrait?.verbosityOptions?.filter(isVerbosity);
       if (options && options.length > 0) return options;
       return isVerbosity(portrait?.verbosity) ? DEFAULT_VERBOSITY_OPTIONS.filter(isVerbosity) : [];
-    }, []);
-
-    const getReasoningVisibilityOptions = useCallback(
-      (providerId: string, portrait: ReasoningPortrait | null | undefined): AnthropicReasoningVisibility[] =>
-        hasAnthropicReasoningToggle(providerId, portrait) ? [...ANTHROPIC_REASONING_VISIBILITY_VALUES] : [],
-      [],
-    );
-
-    const supportsReasoningEffortFn = useCallback(
-      (portrait: ReasoningPortrait | null | undefined): boolean =>
-        portrait?.supported !== false && getReasoningEffortOptions(portrait).length > 0,
-      [getReasoningEffortOptions],
-    );
-
-    const supportsVerbosityFn = useCallback(
-      (portrait: ReasoningPortrait | null | undefined): boolean =>
-        portrait?.supported !== false && getVerbosityOptions(portrait).length > 0,
-      [getVerbosityOptions],
-    );
-
-    const hasThinkingBudgetSupportFn = useCallback(
-      (portrait: ReasoningPortrait | null | undefined): boolean =>
-        Boolean(
-          portrait &&
-          portrait.mode !== "effort" &&
-          portrait.mode !== "level" &&
-          portrait.mode !== "fixed" &&
-          portrait.budget &&
-          (portrait.budget.default !== undefined ||
-            portrait.budget.min !== undefined ||
-            portrait.budget.max !== undefined ||
-            portrait.budget.auto !== undefined ||
-            portrait.budget.off !== undefined),
-        ),
-      [],
-    );
-
-    const effortOptions = useMemo(
-      () =>
-        getReasoningEffortOptions(capabilityReasoningPortrait).map((value) => ({
-          value,
-          label: value,
-        })),
-      [capabilityReasoningPortrait, getReasoningEffortOptions],
-    );
-    const verbosityOptions = useMemo(
-      () => getVerbosityOptions(capabilityReasoningPortrait).map((value) => ({ value, label: value })),
-      [capabilityReasoningPortrait, getVerbosityOptions],
-    );
-    const reasoningVisibilityOptions = useMemo(
-      () =>
-        getReasoningVisibilityOptions(capabilityProviderId, capabilityReasoningPortrait).map((value) => ({
-          value,
-          label: value,
-        })),
-      [capabilityProviderId, capabilityReasoningPortrait, getReasoningVisibilityOptions],
-    );
-
-    const showTemperatureControl = useMemo(
-      () => (capabilitySupportsTemperature !== false || isMoonshotKimiTemperatureLocked) && Boolean(localSettings),
-      [capabilitySupportsTemperature, isMoonshotKimiTemperatureLocked, localSettings],
-    );
-    const supportsTopPControl = useMemo(
-      () => capabilityProviderId !== "anthropic" || capabilitySupportsTemperature !== false,
-      [capabilityProviderId, capabilitySupportsTemperature],
-    );
-    const showTopPControl = useMemo(
-      () => !showOpenAIMediaGenerationSettings && supportsTopPControl && Boolean(localSettings),
-      [showOpenAIMediaGenerationSettings, supportsTopPControl, localSettings],
-    );
-    const showVerbosity = useMemo(
-      () => !isAcpAgent && supportsVerbosityFn(capabilityReasoningPortrait) && Boolean(localSettings),
-      [isAcpAgent, capabilityReasoningPortrait, supportsVerbosityFn, localSettings],
-    );
-    const showReasoningEffort = useMemo(
-      () =>
-        !isAcpAgent &&
-        supportsReasoningEffortFn(capabilityReasoningPortrait) &&
-        Boolean(localSettings) &&
-        (!hasAnthropicReasoningToggle(capabilityProviderId, capabilityReasoningPortrait) ||
-          localSettings?.reasoningEffort !== undefined),
-      [isAcpAgent, capabilityReasoningPortrait, capabilityProviderId, supportsReasoningEffortFn, localSettings],
-    );
-    const showReasoningVisibility = useMemo(
-      () =>
-        !isAcpAgent &&
-        Boolean(localSettings) &&
-        getReasoningVisibilityOptions(capabilityProviderId, capabilityReasoningPortrait).length > 0,
-      [isAcpAgent, localSettings, capabilityProviderId, capabilityReasoningPortrait, getReasoningVisibilityOptions],
-    );
-    const showThinkingBudget = useMemo(
-      () =>
-        localSettings &&
-        capabilitySupportsReasoning === true &&
-        hasThinkingBudgetSupportFn(capabilityReasoningPortrait),
-      [localSettings, capabilitySupportsReasoning, capabilityReasoningPortrait, hasThinkingBudgetSupportFn],
-    );
-
-    const isThinkingBudgetEnabled = useMemo(
-      () => localSettings?.thinkingBudget !== undefined,
-      [localSettings?.thinkingBudget],
-    );
-    const isInterleavedThinkingEnabled = useMemo(
-      () => localSettings?.forceInterleavedThinkingCompat === true,
-      [localSettings?.forceInterleavedThinkingCompat],
-    );
-    const thinkingBudgetHint = useMemo(() => (!isThinkingBudgetEnabled ? "Disabled" : ""), [isThinkingBudgetEnabled]);
-
-    const getCommittedNumericInputValue = useCallback(
-      (field: GenerationNumericField): string => {
-        if (!localSettings) return "";
-        switch (field) {
-          case "temperature":
-            return String(localSettings.temperature);
-          case "topP": {
-            const v = localSettings.topP;
-            return v === undefined ? "" : String(v);
-          }
-          case "contextLength":
-            return String(localSettings.contextLength);
-          case "maxTokens":
-            return String(localSettings.maxTokens);
-          case "timeout":
-            return String(localSettings.timeout);
-          case "thinkingBudget": {
-            const v = localSettings.thinkingBudget;
-            return v === undefined ? "" : String(v);
-          }
+    };
+    const getReasoningVisibilityOptions = (
+      providerId: string,
+      portrait: ReasoningPortrait | null | undefined,
+    ): AnthropicReasoningVisibility[] =>
+      hasAnthropicReasoningToggle(providerId, portrait) ? [...ANTHROPIC_REASONING_VISIBILITY_VALUES] : [];
+    const supportsReasoningEffortFn = (portrait: ReasoningPortrait | null | undefined): boolean =>
+      portrait?.supported !== false && getReasoningEffortOptions(portrait).length > 0;
+    const supportsVerbosityFn = (portrait: ReasoningPortrait | null | undefined): boolean =>
+      portrait?.supported !== false && getVerbosityOptions(portrait).length > 0;
+    const hasThinkingBudgetSupportFn = (portrait: ReasoningPortrait | null | undefined): boolean =>
+      Boolean(
+        portrait &&
+        portrait.mode !== "effort" &&
+        portrait.mode !== "level" &&
+        portrait.mode !== "fixed" &&
+        portrait.budget &&
+        (portrait.budget.default !== undefined ||
+          portrait.budget.min !== undefined ||
+          portrait.budget.max !== undefined ||
+          portrait.budget.auto !== undefined ||
+          portrait.budget.off !== undefined),
+      );
+    const effortOptions = getReasoningEffortOptions(capabilityReasoningPortrait).map((value) => ({
+      value,
+      label: value,
+    }));
+    const verbosityOptions = getVerbosityOptions(capabilityReasoningPortrait).map((value) => ({
+      value,
+      label: value,
+    }));
+    const reasoningVisibilityOptions = getReasoningVisibilityOptions(
+      capabilityProviderId,
+      capabilityReasoningPortrait,
+    ).map((value) => ({
+      value,
+      label: value,
+    }));
+    const showTemperatureControl =
+      (capabilitySupportsTemperature !== false || isMoonshotKimiTemperatureLocked) && Boolean(localSettings);
+    const supportsTopPControl = capabilityProviderId !== "anthropic" || capabilitySupportsTemperature !== false;
+    const showTopPControl = !showOpenAIMediaGenerationSettings && supportsTopPControl && Boolean(localSettings);
+    const showVerbosity = !isAcpAgent && supportsVerbosityFn(capabilityReasoningPortrait) && Boolean(localSettings);
+    const showReasoningEffort =
+      !isAcpAgent &&
+      supportsReasoningEffortFn(capabilityReasoningPortrait) &&
+      Boolean(localSettings) &&
+      (!hasAnthropicReasoningToggle(capabilityProviderId, capabilityReasoningPortrait) ||
+        localSettings?.reasoningEffort !== undefined);
+    const showReasoningVisibility =
+      !isAcpAgent &&
+      Boolean(localSettings) &&
+      getReasoningVisibilityOptions(capabilityProviderId, capabilityReasoningPortrait).length > 0;
+    const showThinkingBudget =
+      localSettings && capabilitySupportsReasoning === true && hasThinkingBudgetSupportFn(capabilityReasoningPortrait);
+    const isThinkingBudgetEnabled = localSettings?.thinkingBudget !== undefined;
+    const isInterleavedThinkingEnabled = localSettings?.forceInterleavedThinkingCompat === true;
+    const thinkingBudgetHint = !isThinkingBudgetEnabled ? "Disabled" : "";
+    const getCommittedNumericInputValue = (field: GenerationNumericField): string => {
+      if (!localSettings) return "";
+      switch (field) {
+        case "temperature":
+          return String(localSettings.temperature);
+        case "topP": {
+          const v = localSettings.topP;
+          return v === undefined ? "" : String(v);
         }
-      },
-      [localSettings],
-    );
-
-    const hasNumericInputError = useCallback(
-      (field: GenerationNumericField): boolean => numericInputErrors[field] !== null,
-      [numericInputErrors],
-    );
-    const getNumericInputErrorMessage = useCallback(
-      (field: GenerationNumericField): string => {
-        const code = numericInputErrors[field];
-        if (!code) return "";
-        switch (code) {
-          case "finite_number":
-            return "Must be a valid number";
-          case "non_negative_integer":
-            return "Must be a non-negative integer";
-          case "context_length_below_max_tokens":
-            return "Context length must be at least max tokens";
-          case "max_tokens_exceed_context_length":
-            return "Max tokens must be within context length";
-          case "timeout_too_small":
-            return "Timeout is too small";
-          case "timeout_too_large":
-            return "Timeout is too large";
-          case "top_p_out_of_range":
-            return "Top P must be between 0.1 and 1";
-          default:
-            return "";
+        case "contextLength":
+          return String(localSettings.contextLength);
+        case "maxTokens":
+          return String(localSettings.maxTokens);
+        case "timeout":
+          return String(localSettings.timeout);
+        case "thinkingBudget": {
+          const v = localSettings.thinkingBudget;
+          return v === undefined ? "" : String(v);
         }
-      },
-      [numericInputErrors],
-    );
-
-    const getNumericInputValue = useCallback(
-      (field: GenerationNumericField): string => {
-        if (activeNumericInput === field || hasNumericInputError(field)) return numericInputDrafts[field];
-        return getCommittedNumericInputValue(field);
-      },
-      [activeNumericInput, numericInputDrafts, hasNumericInputError, getCommittedNumericInputValue],
-    );
-
-    const temperatureInputValue = useMemo(() => getNumericInputValue("temperature"), [getNumericInputValue]);
-    const topPInputValue = useMemo(() => getNumericInputValue("topP"), [getNumericInputValue]);
-    const topPCommittedValue = useMemo(() => localSettings?.topP ?? TOP_P_MAX, [localSettings?.topP]);
-    const topPDecreaseDisabled = useMemo(
-      () => localSettings?.topP === undefined || topPCommittedValue <= TOP_P_MIN,
-      [localSettings?.topP, topPCommittedValue],
-    );
-    const topPIncreaseDisabled = useMemo(
-      () => localSettings?.topP !== undefined && topPCommittedValue >= TOP_P_MAX,
-      [localSettings?.topP, topPCommittedValue],
-    );
-    const contextLengthInputValue = useMemo(() => getNumericInputValue("contextLength"), [getNumericInputValue]);
-    const maxTokensInputValue = useMemo(() => getNumericInputValue("maxTokens"), [getNumericInputValue]);
-    const timeoutInputValue = useMemo(() => getNumericInputValue("timeout"), [getNumericInputValue]);
-    const thinkingBudgetInputValue = useMemo(() => getNumericInputValue("thinkingBudget"), [getNumericInputValue]);
-
-    const systemPromptOptions = useMemo<SystemPromptOption[]>(() => {
+      }
+    };
+    const hasNumericInputError = (field: GenerationNumericField): boolean => numericInputErrors[field] !== null;
+    const getNumericInputErrorMessage = (field: GenerationNumericField): string => {
+      const code = numericInputErrors[field];
+      if (!code) return "";
+      switch (code) {
+        case "finite_number":
+          return "Must be a valid number";
+        case "non_negative_integer":
+          return "Must be a non-negative integer";
+        case "context_length_below_max_tokens":
+          return "Context length must be at least max tokens";
+        case "max_tokens_exceed_context_length":
+          return "Max tokens must be within context length";
+        case "timeout_too_small":
+          return "Timeout is too small";
+        case "timeout_too_large":
+          return "Timeout is too large";
+        case "top_p_out_of_range":
+          return "Top P must be between 0.1 and 1";
+        default:
+          return "";
+      }
+    };
+    const getNumericInputValue = (field: GenerationNumericField): string => {
+      if (activeNumericInput === field || hasNumericInputError(field)) return numericInputDrafts[field];
+      return getCommittedNumericInputValue(field);
+    };
+    const temperatureInputValue = getNumericInputValue("temperature");
+    const topPInputValue = getNumericInputValue("topP");
+    const topPCommittedValue = localSettings?.topP ?? TOP_P_MAX;
+    const topPDecreaseDisabled = localSettings?.topP === undefined || topPCommittedValue <= TOP_P_MIN;
+    const topPIncreaseDisabled = localSettings?.topP !== undefined && topPCommittedValue >= TOP_P_MAX;
+    const contextLengthInputValue = getNumericInputValue("contextLength");
+    const maxTokensInputValue = getNumericInputValue("maxTokens");
+    const timeoutInputValue = getNumericInputValue("timeout");
+    const thinkingBudgetInputValue = getNumericInputValue("thinkingBudget");
+    const systemPromptOptions = (() => {
       const presetOptions: SystemPromptOption[] = [
-        { id: "empty", label: "Empty", content: "" },
+        {
+          id: "empty",
+          label: "Empty",
+          content: "",
+        },
         ...systemPromptList.map((prompt) => ({
           id: prompt.id,
           label: prompt.name,
@@ -945,20 +773,22 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
       if (!currentPrompt) return presetOptions;
       const matched = presetOptions.find((option) => option.content === currentPrompt);
       if (matched) return presetOptions;
-      return [{ id: "__custom__", label: "Custom prompt", content: currentPrompt, disabled: true }, ...presetOptions];
-    }, [systemPromptList, localSettings?.systemPrompt]);
-
-    const systemPromptMenuOptions = useMemo(
-      () =>
-        systemPromptOptions.map((option) => ({
-          id: option.id,
-          label: option.label,
-          disabled: option.disabled,
-        })),
-      [systemPromptOptions],
-    );
-
-    const hasLoadedGenerationSettingsForCurrentSelection = useMemo(() => {
+      return [
+        {
+          id: "__custom__",
+          label: "Custom prompt",
+          content: currentPrompt,
+          disabled: true,
+        },
+        ...presetOptions,
+      ];
+    })();
+    const systemPromptMenuOptions = systemPromptOptions.map((option) => ({
+      id: option.id,
+      label: option.label,
+      disabled: option.disabled,
+    }));
+    const hasLoadedGenerationSettingsForCurrentSelection = (() => {
       const loaded = loadedSettingsSelection;
       const effective = effectiveModelSelection;
       return Boolean(
@@ -968,74 +798,74 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
         loaded.providerId === effective.providerId &&
         loaded.modelId === effective.modelId,
       );
-    }, [localSettings, loadedSettingsSelection, effectiveModelSelection]);
-
-    const selectedSystemPromptId = useMemo(() => {
+    })();
+    const selectedSystemPromptId = (() => {
       if (!hasLoadedGenerationSettingsForCurrentSelection || !localSettings) return "empty";
       const currentPrompt = localSettings.systemPrompt;
       const matched = systemPromptOptions.find((option) => option.content === currentPrompt);
       return matched?.id ?? "empty";
-    }, [hasLoadedGenerationSettingsForCurrentSelection, localSettings, systemPromptOptions]);
-
-    const showSystemPromptSection = useMemo(
-      () => !isAcpAgent && hasLoadedGenerationSettingsForCurrentSelection,
-      [isAcpAgent, hasLoadedGenerationSettingsForCurrentSelection],
-    );
-
-    const clearPendingGenerationPersist = useCallback(() => {
+    })();
+    const showSystemPromptSection = !isAcpAgent && hasLoadedGenerationSettingsForCurrentSelection;
+    const clearPendingGenerationPersist = () => {
       if (generationPersistTimerRef.current) {
         clearTimeout(generationPersistTimerRef.current);
         generationPersistTimerRef.current = null;
       }
       pendingGenerationPatchRef.current = {};
-    }, []);
-
-    const stepTemperature = useCallback(
-      (dir: number) => {
-        if (!localSettings) return;
-        setLocalSettings({
-          ...localSettings,
-          temperature: Math.round((localSettings.temperature + dir * TEMPERATURE_STEP) * 10) / 10,
-        });
-      },
-      [localSettings],
-    );
-
-    const onTemperatureInput = useCallback((value: string) => {
-      setNumericInputDrafts((prev) => ({ ...prev, temperature: value }));
+    };
+    const stepTemperature = (dir: number) => {
+      if (!localSettings) return;
+      setLocalSettings({
+        ...localSettings,
+        temperature: Math.round((localSettings.temperature + dir * TEMPERATURE_STEP) * 10) / 10,
+      });
+    };
+    const onTemperatureInput = (value: string) => {
+      setNumericInputDrafts((prev) => ({
+        ...prev,
+        temperature: value,
+      }));
       const code = validateGenerationNumericField("temperature", value);
-      setNumericInputErrors((prev) => ({ ...prev, temperature: code }));
-    }, []);
-
-    const commitTemperatureInput = useCallback(() => {
+      setNumericInputErrors((prev) => ({
+        ...prev,
+        temperature: code,
+      }));
+    };
+    const commitTemperatureInput = () => {
       if (!localSettings) return;
       const value = numericInputDrafts.temperature;
       if (!hasNumericInputError("temperature")) {
         const num = parseFiniteNumericValue(value);
         if (num !== undefined) {
-          setLocalSettings({ ...localSettings, temperature: num });
+          setLocalSettings({
+            ...localSettings,
+            temperature: num,
+          });
         }
       }
       setActiveNumericInput(null);
-    }, [localSettings, numericInputDrafts, hasNumericInputError]);
-
-    const stepTopP = useCallback(
-      (dir: number) => {
-        if (!localSettings) return;
-        const current = localSettings.topP ?? TOP_P_MAX;
-        const next = Math.round((current + dir * TOP_P_STEP) * 10) / 10;
-        setLocalSettings({ ...localSettings, topP: Math.min(TOP_P_MAX, Math.max(TOP_P_MIN, next)) });
-      },
-      [localSettings],
-    );
-
-    const onTopPInput = useCallback((value: string) => {
-      setNumericInputDrafts((prev) => ({ ...prev, topP: value }));
+    };
+    const stepTopP = (dir: number) => {
+      if (!localSettings) return;
+      const current = localSettings.topP ?? TOP_P_MAX;
+      const next = Math.round((current + dir * TOP_P_STEP) * 10) / 10;
+      setLocalSettings({
+        ...localSettings,
+        topP: Math.min(TOP_P_MAX, Math.max(TOP_P_MIN, next)),
+      });
+    };
+    const onTopPInput = (value: string) => {
+      setNumericInputDrafts((prev) => ({
+        ...prev,
+        topP: value,
+      }));
       const code = validateGenerationNumericField("topP", value);
-      setNumericInputErrors((prev) => ({ ...prev, topP: code }));
-    }, []);
-
-    const commitTopPInput = useCallback(() => {
+      setNumericInputErrors((prev) => ({
+        ...prev,
+        topP: code,
+      }));
+    };
+    const commitTopPInput = () => {
       if (!localSettings) return;
       const value = numericInputDrafts.topP;
       if (!hasNumericInputError("topP")) {
@@ -1046,287 +876,289 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
         });
       }
       setActiveNumericInput(null);
-    }, [localSettings, numericInputDrafts, hasNumericInputError]);
-
-    const stepContextLength = useCallback(
-      (dir: number) => {
-        if (!localSettings) return;
-        setLocalSettings({
-          ...localSettings,
-          contextLength: Math.max(0, localSettings.contextLength + dir * CONTEXT_LENGTH_STEP),
-        });
-      },
-      [localSettings],
-    );
-
-    const onContextLengthInput = useCallback((value: string) => {
-      setNumericInputDrafts((prev) => ({ ...prev, contextLength: value }));
+    };
+    const stepContextLength = (dir: number) => {
+      if (!localSettings) return;
+      setLocalSettings({
+        ...localSettings,
+        contextLength: Math.max(0, localSettings.contextLength + dir * CONTEXT_LENGTH_STEP),
+      });
+    };
+    const onContextLengthInput = (value: string) => {
+      setNumericInputDrafts((prev) => ({
+        ...prev,
+        contextLength: value,
+      }));
       const code = validateGenerationNumericField("contextLength", value);
-      setNumericInputErrors((prev) => ({ ...prev, contextLength: code }));
-    }, []);
-
-    const commitContextLengthInput = useCallback(() => {
+      setNumericInputErrors((prev) => ({
+        ...prev,
+        contextLength: code,
+      }));
+    };
+    const commitContextLengthInput = () => {
       if (!localSettings) return;
       const value = numericInputDrafts.contextLength;
       if (!hasNumericInputError("contextLength")) {
         const num = parseFiniteNumericValue(value);
         if (num !== undefined) {
-          setLocalSettings({ ...localSettings, contextLength: num });
+          setLocalSettings({
+            ...localSettings,
+            contextLength: num,
+          });
         }
       }
       setActiveNumericInput(null);
-    }, [localSettings, numericInputDrafts, hasNumericInputError]);
-
-    const stepMaxTokens = useCallback(
-      (dir: number) => {
-        if (!localSettings) return;
-        setLocalSettings({ ...localSettings, maxTokens: Math.max(0, localSettings.maxTokens + dir * MAX_TOKENS_STEP) });
-      },
-      [localSettings],
-    );
-
-    const onMaxTokensInput = useCallback((value: string) => {
-      setNumericInputDrafts((prev) => ({ ...prev, maxTokens: value }));
+    };
+    const stepMaxTokens = (dir: number) => {
+      if (!localSettings) return;
+      setLocalSettings({
+        ...localSettings,
+        maxTokens: Math.max(0, localSettings.maxTokens + dir * MAX_TOKENS_STEP),
+      });
+    };
+    const onMaxTokensInput = (value: string) => {
+      setNumericInputDrafts((prev) => ({
+        ...prev,
+        maxTokens: value,
+      }));
       const code = validateGenerationNumericField("maxTokens", value);
-      setNumericInputErrors((prev) => ({ ...prev, maxTokens: code }));
-    }, []);
-
-    const commitMaxTokensInput = useCallback(() => {
+      setNumericInputErrors((prev) => ({
+        ...prev,
+        maxTokens: code,
+      }));
+    };
+    const commitMaxTokensInput = () => {
       if (!localSettings) return;
       const value = numericInputDrafts.maxTokens;
       if (!hasNumericInputError("maxTokens")) {
         const num = parseFiniteNumericValue(value);
         if (num !== undefined) {
-          setLocalSettings({ ...localSettings, maxTokens: num });
+          setLocalSettings({
+            ...localSettings,
+            maxTokens: num,
+          });
         }
       }
       setActiveNumericInput(null);
-    }, [localSettings, numericInputDrafts, hasNumericInputError]);
-
-    const stepTimeout = useCallback(
-      (dir: number) => {
-        if (!localSettings) return;
-        const current = localSettings.timeout ?? 0;
-        const next = current + dir * TIMEOUT_STEP;
-        setLocalSettings({ ...localSettings, timeout: Math.min(TIMEOUT_MAX, Math.max(TIMEOUT_MIN, next)) });
-      },
-      [localSettings],
-    );
-
-    const onTimeoutInput = useCallback((value: string) => {
-      setNumericInputDrafts((prev) => ({ ...prev, timeout: value }));
+    };
+    const stepTimeout = (dir: number) => {
+      if (!localSettings) return;
+      const current = localSettings.timeout ?? 0;
+      const next = current + dir * TIMEOUT_STEP;
+      setLocalSettings({
+        ...localSettings,
+        timeout: Math.min(TIMEOUT_MAX, Math.max(TIMEOUT_MIN, next)),
+      });
+    };
+    const onTimeoutInput = (value: string) => {
+      setNumericInputDrafts((prev) => ({
+        ...prev,
+        timeout: value,
+      }));
       const code = validateGenerationNumericField("timeout", value);
-      setNumericInputErrors((prev) => ({ ...prev, timeout: code }));
-    }, []);
-
-    const commitTimeoutInput = useCallback(() => {
+      setNumericInputErrors((prev) => ({
+        ...prev,
+        timeout: code,
+      }));
+    };
+    const commitTimeoutInput = () => {
       if (!localSettings) return;
       const value = numericInputDrafts.timeout;
       if (!hasNumericInputError("timeout")) {
         const num = parseFiniteNumericValue(value);
         if (num !== undefined) {
-          setLocalSettings({ ...localSettings, timeout: Math.min(TIMEOUT_MAX, Math.max(TIMEOUT_MIN, num)) });
+          setLocalSettings({
+            ...localSettings,
+            timeout: Math.min(TIMEOUT_MAX, Math.max(TIMEOUT_MIN, num)),
+          });
         }
       }
       setActiveNumericInput(null);
-    }, [localSettings, numericInputDrafts, hasNumericInputError]);
-
-    const stepThinkingBudget = useCallback(
-      (dir: number) => {
-        if (!localSettings) return;
-        const current = localSettings.thinkingBudget ?? 0;
-        const next = Math.max(0, current + dir * THINKING_BUDGET_STEP);
-        setLocalSettings({ ...localSettings, thinkingBudget: next });
-      },
-      [localSettings],
-    );
-
-    const onThinkingBudgetInput = useCallback((value: string) => {
-      setNumericInputDrafts((prev) => ({ ...prev, thinkingBudget: value }));
+    };
+    const stepThinkingBudget = (dir: number) => {
+      if (!localSettings) return;
+      const current = localSettings.thinkingBudget ?? 0;
+      const next = Math.max(0, current + dir * THINKING_BUDGET_STEP);
+      setLocalSettings({
+        ...localSettings,
+        thinkingBudget: next,
+      });
+    };
+    const onThinkingBudgetInput = (value: string) => {
+      setNumericInputDrafts((prev) => ({
+        ...prev,
+        thinkingBudget: value,
+      }));
       const code = validateGenerationNumericField("thinkingBudget", value);
-      setNumericInputErrors((prev) => ({ ...prev, thinkingBudget: code }));
-    }, []);
-
-    const commitThinkingBudgetInput = useCallback(() => {
+      setNumericInputErrors((prev) => ({
+        ...prev,
+        thinkingBudget: code,
+      }));
+    };
+    const commitThinkingBudgetInput = () => {
       if (!localSettings) return;
       const value = numericInputDrafts.thinkingBudget;
       if (!hasNumericInputError("thinkingBudget")) {
         if (value === "" || value === undefined) {
-          setLocalSettings({ ...localSettings, thinkingBudget: undefined });
+          setLocalSettings({
+            ...localSettings,
+            thinkingBudget: undefined,
+          });
         } else {
           const num = parseFiniteNumericValue(value);
           if (num !== undefined) {
-            setLocalSettings({ ...localSettings, thinkingBudget: num });
+            setLocalSettings({
+              ...localSettings,
+              thinkingBudget: num,
+            });
           }
         }
       }
       setActiveNumericInput(null);
-    }, [localSettings, numericInputDrafts, hasNumericInputError]);
-
-    const onThinkingBudgetToggle = useCallback(
-      (enabled: boolean) => {
-        if (!localSettings) return;
+    };
+    const onThinkingBudgetToggle = (enabled: boolean) => {
+      if (!localSettings) return;
+      setLocalSettings({
+        ...localSettings,
+        thinkingBudget: enabled ? (capabilityReasoningPortrait?.budget?.default ?? 4096) : undefined,
+      });
+    };
+    const onImageGenerationSettingsUpdate = (value: ImageGenerationOptions | undefined) => {
+      if (!localSettings) return;
+      setLocalSettings({
+        ...localSettings,
+        imageGeneration: value,
+      });
+    };
+    const onVideoGenerationSettingsUpdate = (value: VideoGenerationOptions | undefined) => {
+      if (!localSettings) return;
+      setLocalSettings({
+        ...localSettings,
+        videoGeneration: value,
+      });
+    };
+    const onSystemPromptSelect = (optionId: string) => {
+      if (!localSettings) return;
+      const option = systemPromptOptions.find((o) => o.id === optionId);
+      if (option) {
         setLocalSettings({
           ...localSettings,
-          thinkingBudget: enabled ? (capabilityReasoningPortrait?.budget?.default ?? 4096) : undefined,
+          systemPrompt: option.content,
         });
-      },
-      [localSettings, capabilityReasoningPortrait],
-    );
-
-    const onImageGenerationSettingsUpdate = useCallback(
-      (value: ImageGenerationOptions | undefined) => {
-        if (!localSettings) return;
-        setLocalSettings({ ...localSettings, imageGeneration: value });
-      },
-      [localSettings],
-    );
-
-    const onVideoGenerationSettingsUpdate = useCallback(
-      (value: VideoGenerationOptions | undefined) => {
-        if (!localSettings) return;
-        setLocalSettings({ ...localSettings, videoGeneration: value });
-      },
-      [localSettings],
-    );
-
-    const onSystemPromptSelect = useCallback(
-      (optionId: string) => {
-        if (!localSettings) return;
-        const option = systemPromptOptions.find((o) => o.id === optionId);
-        if (option) {
-          setLocalSettings({ ...localSettings, systemPrompt: option.content });
-        }
-      },
-      [localSettings, systemPromptOptions],
-    );
-
-    const onSubagentToggle = useCallback((enabled: boolean) => {
+      }
+    };
+    const onSubagentToggle = (enabled: boolean) => {
       setSubagentEnabled(enabled);
-    }, []);
-
-    const onInterleavedThinkingToggle = useCallback(
-      (enabled: boolean) => {
-        if (!localSettings) return;
-        setLocalSettings({ ...localSettings, forceInterleavedThinkingCompat: enabled });
-      },
-      [localSettings],
-    );
-
-    const changeModelSelection = useCallback((providerId: string, modelId: string) => {
-      setDraftModelSelection({ providerId, modelId });
-    }, []);
-
-    const openModelSettings = useCallback(
-      async (providerId: string, modelId: string) => {
-        const selection: ModelSelection = { providerId, modelId };
-        setModelSettingsSelection(selection);
-        setIsModelSettingsExpanded(true);
-        setLocalSettings(null);
-        setLoadedSettingsSelection(null);
-        const loadToken = ++modelSettingsTargetConfigTokenRef.current;
-        try {
-          const config = await modelClient.getModelConfig(providerId, modelId);
-          if (loadToken !== modelSettingsTargetConfigTokenRef.current) return;
-          setModelSettingsTargetConfig(config);
-          setModelSettingsTargetConfigSelection(selection);
-
-          let settings: SessionGenerationSettings | null = null;
-          if (hasActiveSession && activeSession?.id) {
-            try {
-              settings = await sessionClient.getSessionGenerationSettings(activeSession.id);
-            } catch (e) {
-              console.warn("[ChatStatusBar] Failed to load session generation settings:", e);
-            }
+    };
+    const onInterleavedThinkingToggle = (enabled: boolean) => {
+      if (!localSettings) return;
+      setLocalSettings({
+        ...localSettings,
+        forceInterleavedThinkingCompat: enabled,
+      });
+    };
+    const changeModelSelection = (providerId: string, modelId: string) => {
+      setDraftModelSelection({
+        providerId,
+        modelId,
+      });
+    };
+    const openModelSettings = async (providerId: string, modelId: string) => {
+      const selection: ModelSelection = {
+        providerId,
+        modelId,
+      };
+      setModelSettingsSelection(selection);
+      setIsModelSettingsExpanded(true);
+      setLocalSettings(null);
+      setLoadedSettingsSelection(null);
+      const loadToken = ++modelSettingsTargetConfigTokenRef.current;
+      try {
+        const config = await modelClient.getModelConfig(providerId, modelId);
+        if (loadToken !== modelSettingsTargetConfigTokenRef.current) return;
+        setModelSettingsTargetConfig(config);
+        setModelSettingsTargetConfigSelection(selection);
+        let settings: SessionGenerationSettings | null = null;
+        if (hasActiveSession && activeSession?.id) {
+          try {
+            settings = await sessionClient.getSessionGenerationSettings(activeSession.id);
+          } catch (e) {
+            console.warn("[ChatStatusBar] Failed to load session generation settings:", e);
           }
-          if (!settings && config) {
-            settings = {
-              systemPrompt: "",
-              temperature: typeof config.temperature === "number" ? config.temperature : 1,
-              maxTokens: typeof config.maxTokens === "number" ? config.maxTokens : 4096,
-              contextLength: typeof config.contextLength === "number" ? config.contextLength : 0,
-              timeout: typeof config.timeout === "number" ? config.timeout : DEFAULT_MODEL_TIMEOUT,
-            };
-          }
-          if (loadToken !== modelSettingsTargetConfigTokenRef.current) return;
-          if (settings) {
-            setLocalSettings(settings);
-            setLoadedSettingsSelection(selection);
-          }
-        } catch (e) {
-          console.warn("[ChatStatusBar] Failed to load model settings:", e);
         }
-      },
-      [modelClient, sessionClient, hasActiveSession, activeSession],
-    );
-
-    const collapseModelSettings = useCallback(() => {
+        if (!settings && config) {
+          settings = {
+            systemPrompt: "",
+            temperature: typeof config.temperature === "number" ? config.temperature : 1,
+            maxTokens: typeof config.maxTokens === "number" ? config.maxTokens : 4096,
+            contextLength: typeof config.contextLength === "number" ? config.contextLength : 0,
+            timeout: typeof config.timeout === "number" ? config.timeout : DEFAULT_MODEL_TIMEOUT,
+          };
+        }
+        if (loadToken !== modelSettingsTargetConfigTokenRef.current) return;
+        if (settings) {
+          setLocalSettings(settings);
+          setLoadedSettingsSelection(selection);
+        }
+      } catch (e) {
+        console.warn("[ChatStatusBar] Failed to load model settings:", e);
+      }
+    };
+    const collapseModelSettings = () => {
       setIsModelSettingsExpanded(false);
       setModelSettingsSelection(null);
       setModelSettingsTargetConfig(null);
       setModelSettingsTargetConfigSelection(null);
-    }, []);
-
-    const ensureCompleteModelOptionsReady = useCallback(async () => {
+    };
+    const ensureCompleteModelOptionsReady = async () => {
       try {
         await ensureInitialized();
       } catch {}
-    }, []);
-
-    const onReasoningEffortSelect = useCallback(
-      (value: string) => {
-        if (!localSettings) return;
-        setLocalSettings({ ...localSettings, reasoningEffort: value as ReasoningEffortValue });
-      },
-      [localSettings],
-    );
-
-    const onVerbositySelect = useCallback(
-      (value: string) => {
-        if (!localSettings) return;
-        setLocalSettings({ ...localSettings, verbosity: value as VerbosityValue });
-      },
-      [localSettings],
-    );
-
-    const onReasoningVisibilitySelect = useCallback(
-      (value: string) => {
-        if (!localSettings) return;
-        setLocalSettings({ ...localSettings, reasoningVisibility: value as AnthropicReasoningVisibility });
-      },
-      [localSettings],
-    );
-
-    const handleSessionPanelOpenChange = useCallback((_open: boolean) => {
+    };
+    const onReasoningEffortSelect = (value: string) => {
+      if (!localSettings) return;
+      setLocalSettings({
+        ...localSettings,
+        reasoningEffort: value as ReasoningEffortValue,
+      });
+    };
+    const onVerbositySelect = (value: string) => {
+      if (!localSettings) return;
+      setLocalSettings({
+        ...localSettings,
+        verbosity: value as VerbosityValue,
+      });
+    };
+    const onReasoningVisibilitySelect = (value: string) => {
+      if (!localSettings) return;
+      setLocalSettings({
+        ...localSettings,
+        reasoningVisibility: value as AnthropicReasoningVisibility,
+      });
+    };
+    const handleSessionPanelOpenChange = (_open: boolean) => {
       // no-op
-    }, []);
-
-    const selectPermissionMode = useCallback(async (mode: PermissionMode) => {
+    };
+    const selectPermissionMode = async (mode: PermissionMode) => {
       setPermissionMode(mode);
-    }, []);
-
-    const handleModelQuickSelect = useCallback(
-      async (providerId: string, modelId: string) => {
-        if (hasActiveSession) {
-          try {
-            await (sessionClient as any).updateSessionModelConfig(activeSession?.id ?? "", providerId, modelId, {});
-          } catch {}
-        } else {
-          setDraftModelSelection({ providerId, modelId });
-        }
-        setIsModelPanelOpen(false);
-      },
-      [hasActiveSession, activeSession?.id, sessionClient],
-    );
-
-    const isModelSelected = useCallback(
-      (providerId: string, modelId: string): boolean => {
-        const effective = effectiveModelSelection;
-        return effective?.providerId === providerId && effective?.modelId === modelId;
-      },
-      [effectiveModelSelection],
-    );
-
+    };
+    const handleModelQuickSelect = async (providerId: string, modelId: string) => {
+      if (hasActiveSession) {
+        try {
+          await (sessionClient as any).updateSessionModelConfig(activeSession?.id ?? "", providerId, modelId, {});
+        } catch {}
+      } else {
+        setDraftModelSelection({
+          providerId,
+          modelId,
+        });
+      }
+      setIsModelPanelOpen(false);
+    };
+    const isModelSelected = (providerId: string, modelId: string): boolean => {
+      const effective = effectiveModelSelection;
+      return effective?.providerId === providerId && effective?.modelId === modelId;
+    };
     useImperativeHandle(ref, () => ({
       acpConfigState,
       localSettings,
@@ -1346,7 +1178,6 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
     if (footerOwnsAcpControls) {
       return null;
     }
-
     return (
       <div className={`w-full ${maxWidthClass}`}>
         <div className="flex w-full items-center justify-between px-1 py-2">
@@ -1398,17 +1229,25 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                 )}
                 {acpInlineOptions.map((option) => {
                   const optionEntries = option.options ?? [];
-                  const grouped = optionEntries.reduce<Map<string, { label: string; entries: typeof optionEntries }>>(
-                    (acc, entry) => {
-                      const g = resolveAcpOptionGroup(entry);
-                      if (!acc.has(g.key)) {
-                        acc.set(g.key, { label: g.label, entries: [] });
+                  const grouped = optionEntries.reduce<
+                    Map<
+                      string,
+                      {
+                        label: string;
+                        entries: typeof optionEntries;
                       }
-                      acc.get(g.key)!.entries.push(entry);
-                      return acc;
-                    },
-                    new Map(),
-                  );
+                    >
+                  >((acc, entry) => {
+                    const g = resolveAcpOptionGroup(entry);
+                    if (!acc.has(g.key)) {
+                      acc.set(g.key, {
+                        label: g.label,
+                        entries: [],
+                      });
+                    }
+                    acc.get(g.key)!.entries.push(entry);
+                    return acc;
+                  }, new Map());
                   const groupKeys = [...grouped.keys()];
                   return (
                     <Popover
@@ -2241,7 +2080,5 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
     );
   },
 );
-
 ChatStatusBar.displayName = "ChatStatusBar";
-
 export default ChatStatusBar;

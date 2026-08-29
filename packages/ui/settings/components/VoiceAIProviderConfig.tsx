@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { LLM_PROVIDER } from "@argos/shared/presenter";
 import { useProviderStore } from "#/stores/providerStore";
 import { Input } from "#shadcn/components/ui/input";
@@ -7,25 +7,55 @@ import { Separator } from "#shadcn/components/ui/separator";
 import { Slider } from "#shadcn/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#shadcn/components/ui/select";
 import { Icon } from "@iconify/react";
-
 interface VoiceAIProviderConfigProps {
   provider: LLM_PROVIDER;
 }
-
 const LANGUAGE_OPTIONS = [
-  { value: "en", label: "English (en)" },
-  { value: "ca", label: "Catalan (ca)" },
-  { value: "sv", label: "Swedish (sv)" },
-  { value: "es", label: "Spanish (es)" },
-  { value: "fr", label: "French (fr)" },
-  { value: "de", label: "German (de)" },
-  { value: "it", label: "Italian (it)" },
-  { value: "pt", label: "Portuguese (pt)" },
-  { value: "pl", label: "Polish (pl)" },
-  { value: "ru", label: "Russian (ru)" },
-  { value: "nl", label: "Dutch (nl)" },
+  {
+    value: "en",
+    label: "English (en)",
+  },
+  {
+    value: "ca",
+    label: "Catalan (ca)",
+  },
+  {
+    value: "sv",
+    label: "Swedish (sv)",
+  },
+  {
+    value: "es",
+    label: "Spanish (es)",
+  },
+  {
+    value: "fr",
+    label: "French (fr)",
+  },
+  {
+    value: "de",
+    label: "German (de)",
+  },
+  {
+    value: "it",
+    label: "Italian (it)",
+  },
+  {
+    value: "pt",
+    label: "Portuguese (pt)",
+  },
+  {
+    value: "pl",
+    label: "Polish (pl)",
+  },
+  {
+    value: "ru",
+    label: "Russian (ru)",
+  },
+  {
+    value: "nl",
+    label: "Dutch (nl)",
+  },
 ];
-
 type VoiceAIConfigUpdates = {
   audioFormat?: string;
   model?: string;
@@ -34,10 +64,8 @@ type VoiceAIConfigUpdates = {
   topP?: number;
   agentId?: string;
 };
-
 export default function VoiceAIProviderConfig({ provider }: VoiceAIProviderConfigProps) {
   const providerStore = useProviderStore();
-
   const [audioFormat, setAudioFormat] = useState("mp3");
   const [ttsModel, setTtsModel] = useState("voiceai-tts-v1-latest");
   const [language, setLanguage] = useState("en");
@@ -46,20 +74,15 @@ export default function VoiceAIProviderConfig({ provider }: VoiceAIProviderConfi
   const [agentId, setAgentId] = useState("");
   const [isHydrating, setIsHydrating] = useState(true);
   const hydratingRef = useRef(true);
-
   const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const persistUpdates = useCallback(
-    (updates: VoiceAIConfigUpdates) => {
-      if (persistTimerRef.current) {
-        clearTimeout(persistTimerRef.current);
-      }
-      persistTimerRef.current = setTimeout(async () => {
-        await providerStore.updateVoiceAIConfig(updates);
-      }, 200);
-    },
-    [providerStore],
-  );
-
+  const persistUpdates = (updates: VoiceAIConfigUpdates) => {
+    if (persistTimerRef.current) {
+      clearTimeout(persistTimerRef.current);
+    }
+    persistTimerRef.current = setTimeout(async () => {
+      await providerStore.updateVoiceAIConfig(updates);
+    }, 200);
+  };
   useEffect(() => {
     return () => {
       if (persistTimerRef.current) {
@@ -67,7 +90,6 @@ export default function VoiceAIProviderConfig({ provider }: VoiceAIProviderConfi
       }
     };
   }, []);
-
   const loadConfig = async () => {
     hydratingRef.current = true;
     setIsHydrating(true);
@@ -81,52 +103,55 @@ export default function VoiceAIProviderConfig({ provider }: VoiceAIProviderConfi
     hydratingRef.current = false;
     setIsHydrating(false);
   };
-
   const loadConfigRef = useRef(loadConfig);
   useEffect(() => {
     loadConfigRef.current = loadConfig;
   }, [loadConfig]);
-
   useEffect(() => {
     void Promise.resolve().then(() => loadConfigRef.current());
   }, []);
-
   useEffect(() => {
     if (hydratingRef.current) return;
-    persistUpdates({ audioFormat });
+    persistUpdates({
+      audioFormat,
+    });
   }, [audioFormat, persistUpdates]);
-
   useEffect(() => {
     if (hydratingRef.current) return;
-    persistUpdates({ model: ttsModel });
+    persistUpdates({
+      model: ttsModel,
+    });
   }, [ttsModel, persistUpdates]);
-
   useEffect(() => {
     if (hydratingRef.current) return;
-    persistUpdates({ language });
+    persistUpdates({
+      language,
+    });
   }, [language, persistUpdates]);
-
   useEffect(() => {
     if (hydratingRef.current) return;
-    persistUpdates({ agentId });
+    persistUpdates({
+      agentId,
+    });
   }, [agentId, persistUpdates]);
-
   const onTemperatureChange = (value: number | readonly number[]) => {
     const next = Array.isArray(value) ? value[0] : value;
     if (next === undefined) return;
     setTemperature(next);
     if (hydratingRef.current) return;
-    persistUpdates({ temperature: next });
+    persistUpdates({
+      temperature: next,
+    });
   };
-
   const onTopPChange = (value: number | readonly number[]) => {
     const next = Array.isArray(value) ? value[0] : value;
     if (next === undefined) return;
     setTopP(next);
     if (hydratingRef.current) return;
-    persistUpdates({ topP: next });
+    persistUpdates({
+      topP: next,
+    });
   };
-
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border bg-muted/30 p-4">

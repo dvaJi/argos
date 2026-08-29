@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "#shadcn/components/ui/popover";
@@ -10,32 +10,41 @@ import { useModelStore, getChatSelectableModelGroups } from "#/stores/modelStore
 import { useChatStatusBarAcpConfig } from "./composables/useChatStatusBarAcpConfig";
 import AcpAdvancedSettings from "./AcpAdvancedSettings";
 import type { AcpConfigOption } from "@argos/shared/presenter";
-
 type AcpOptionValueLike = {
   value: string;
   label: string;
   groupId?: string | null;
   groupLabel?: string | null;
 };
-
-const resolveAcpOptionGroup = (entry: AcpOptionValueLike): { key: string; label: string } => {
+const resolveAcpOptionGroup = (
+  entry: AcpOptionValueLike,
+): {
+  key: string;
+  label: string;
+} => {
   if (entry.groupId && entry.groupId.trim()) {
-    return { key: entry.groupId, label: entry.groupLabel?.trim() ? entry.groupLabel : entry.groupId };
+    return {
+      key: entry.groupId,
+      label: entry.groupLabel?.trim() ? entry.groupLabel : entry.groupId,
+    };
   }
-
   const valueSlash = entry.value.indexOf("/");
   const labelSlash = entry.label.indexOf("/");
   const labSource = valueSlash > 0 ? entry.value : labelSlash > 0 ? entry.label : "";
   if (labSource) {
     const lab = labSource.slice(0, labSource.indexOf("/"));
     if (lab.trim()) {
-      return { key: `__lab__${lab.toLowerCase()}`, label: lab };
+      return {
+        key: `__lab__${lab.toLowerCase()}`,
+        label: lab,
+      };
     }
   }
-
-  return { key: "__default__", label: "" };
+  return {
+    key: "__default__",
+    label: "",
+  };
 };
-
 const resolveAcpOptionDisplayLabel = (entry: { label: string }): string => {
   const idx = entry.label.indexOf("/");
   if (idx > 0 && entry.label.slice(idx + 1).trim()) {
@@ -43,7 +52,6 @@ const resolveAcpOptionDisplayLabel = (entry: { label: string }): string => {
   }
   return entry.label;
 };
-
 const OPTION_ICON_BY_ID: Record<string, string> = {
   mode: "lucide:cpu",
   model: "lucide:box",
@@ -69,38 +77,30 @@ const AcpComposerControls = () => {
   const sessionStoreState = useSessionStore();
   void sessionStoreState;
   const modelStore = useModelStore();
-  const sessionClient = useMemo(() => createSessionClient(), []);
-  const providerClient = useMemo(() => createProviderClient(), []);
-
+  const sessionClient = createSessionClient();
+  const providerClient = createProviderClient();
   const hasActiveSession = getHasActiveSession();
   const activeSession = getActiveSession();
   const isAcpActiveSession = hasActiveSession && activeSession?.providerId === "acp";
-
   const activeAcpAgentId = isAcpActiveSession ? activeSession?.modelId || null : null;
   const activeAcpSessionId = isAcpActiveSession ? (activeSession?.id ?? null) : null;
   const acpWorkspacePath = isAcpActiveSession ? activeSession?.projectDir?.trim() || null : null;
-
-  const resolveModelIconId = useCallback((providerId?: string | null, modelId?: string | null): string => {
+  const resolveModelIconId = (providerId?: string | null, modelId?: string | null): string => {
     if (providerId === "acp" && modelId) return modelId;
     return providerId || "anthropic";
-  }, []);
-
-  const resolveModelName = useCallback(
-    (providerId?: string | null, modelId?: string | null): string => {
-      if (!modelId) return "";
-      if (providerId) {
-        const hit = getChatSelectableModelGroups()
-          .flatMap((group) => group.models)
-          .find((model) => model.providerId === providerId && model.id === modelId);
-        if (hit) return hit.name;
-      }
-      const found = modelStore.findModelByIdOrName(modelId);
-      if (found) return found.model.name;
-      return modelId;
-    },
-    [modelStore],
-  );
-
+  };
+  const resolveModelName = (providerId?: string | null, modelId?: string | null): string => {
+    if (!modelId) return "";
+    if (providerId) {
+      const hit = getChatSelectableModelGroups()
+        .flatMap((group) => group.models)
+        .find((model) => model.providerId === providerId && model.id === modelId);
+      if (hit) return hit.name;
+    }
+    const found = modelStore.findModelByIdOrName(modelId);
+    if (found) return found.model.name;
+    return modelId;
+  };
   const acp = useChatStatusBarAcpConfig({
     isAcpAgent: Boolean(isAcpActiveSession),
     activeAcpAgentId,
@@ -113,12 +113,10 @@ const AcpComposerControls = () => {
     resolveModelName,
     resolveModelIconId,
   });
-
   const syncAcpConfigOptionsRef = useRef(acp.syncAcpConfigOptions);
   useEffect(() => {
     syncAcpConfigOptionsRef.current = acp.syncAcpConfigOptions;
   }, [acp.syncAcpConfigOptions]);
-
   useEffect(() => {
     if (!isAcpActiveSession || !activeAcpSessionId) return;
     let cancelled = false;
@@ -127,12 +125,10 @@ const AcpComposerControls = () => {
       cancelled = true;
     };
   }, [isAcpActiveSession, activeAcpSessionId]);
-
   const handleAcpConfigOptionsReadyRef = useRef(acp.handleAcpConfigOptionsReady);
   useEffect(() => {
     handleAcpConfigOptionsReadyRef.current = acp.handleAcpConfigOptionsReady;
   }, [acp.handleAcpConfigOptionsReady]);
-
   useEffect(() => {
     const unsubscribe = sessionClient.onAcpConfigOptionsReady((payload) => {
       handleAcpConfigOptionsReadyRef.current(payload as unknown as Record<string, unknown>);
@@ -141,11 +137,9 @@ const AcpComposerControls = () => {
       unsubscribe?.();
     };
   }, [sessionClient]);
-
   if (!isAcpActiveSession) {
     return null;
   }
-
   return (
     <>
       {acp.isAcpConfigLoading && !acp.hasAcpConfigOptions && (
@@ -166,17 +160,25 @@ const AcpComposerControls = () => {
       )}
       {acp.acpInlineOptions.map((option) => {
         const optionEntries = option.options ?? [];
-        const grouped = optionEntries.reduce<Map<string, { label: string; entries: typeof optionEntries }>>(
-          (acc, entry) => {
-            const g = resolveAcpOptionGroup(entry);
-            if (!acc.has(g.key)) {
-              acc.set(g.key, { label: g.label, entries: [] });
+        const grouped = optionEntries.reduce<
+          Map<
+            string,
+            {
+              label: string;
+              entries: typeof optionEntries;
             }
-            acc.get(g.key)!.entries.push(entry);
-            return acc;
-          },
-          new Map(),
-        );
+          >
+        >((acc, entry) => {
+          const g = resolveAcpOptionGroup(entry);
+          if (!acc.has(g.key)) {
+            acc.set(g.key, {
+              label: g.label,
+              entries: [],
+            });
+          }
+          acc.get(g.key)!.entries.push(entry);
+          return acc;
+        }, new Map());
         const groupKeys = [...grouped.keys()];
         return (
           <Popover
@@ -301,5 +303,4 @@ const AcpComposerControls = () => {
     </>
   );
 };
-
 export default AcpComposerControls;

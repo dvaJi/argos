@@ -1,8 +1,7 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "@iconify/react";
 import { useSpotlightStore, type SpotlightItem } from "#/stores/ui/spotlight";
-
 export default function SpotlightOverlay() {
   const spotlightStore = useSpotlightStore();
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -11,139 +10,134 @@ export default function SpotlightOverlay() {
   const activeChangeSource = useRef<"keyboard" | "mouse">("keyboard");
   const mouseEnterRaf = useRef(0);
   const pendingMouseEnterId = useRef<string | number | null>(null);
-
-  const focusInput = useCallback((): number => {
+  const focusInput = (): number => {
     return window.setTimeout(() => {
       inputRef.current?.focus();
       inputRef.current?.select();
     }, 0);
-  }, []);
-
-  const resolveItemTitle = useCallback((item: SpotlightItem): string => {
+  };
+  const resolveItemTitle = (item: SpotlightItem): string => {
     if (item.title) return item.title;
     if (item.titleKey) return item.titleKey;
     return "";
-  }, []);
-
-  const highlightSegments = useCallback(
-    (value: string) => {
-      const query = spotlightStore.query.trim();
-      if (!query) return [{ text: value, match: false }];
-
-      const lowerValue = value.toLowerCase();
-      const lowerQuery = query.toLowerCase();
-      const segments: Array<{ text: string; match: boolean }> = [];
-      let searchIndex = 0;
-      let matchIndex = lowerValue.indexOf(lowerQuery);
-
-      while (matchIndex !== -1) {
-        if (matchIndex > searchIndex) {
-          segments.push({ text: value.slice(searchIndex, matchIndex), match: false });
-        }
+  };
+  const highlightSegments = (value: string) => {
+    const query = spotlightStore.query.trim();
+    if (!query)
+      return [
+        {
+          text: value,
+          match: false,
+        },
+      ];
+    const lowerValue = value.toLowerCase();
+    const lowerQuery = query.toLowerCase();
+    const segments: Array<{
+      text: string;
+      match: boolean;
+    }> = [];
+    let searchIndex = 0;
+    let matchIndex = lowerValue.indexOf(lowerQuery);
+    while (matchIndex !== -1) {
+      if (matchIndex > searchIndex) {
         segments.push({
-          text: value.slice(matchIndex, matchIndex + query.length),
-          match: true,
+          text: value.slice(searchIndex, matchIndex),
+          match: false,
         });
-        searchIndex = matchIndex + query.length;
-        matchIndex = lowerValue.indexOf(lowerQuery, searchIndex);
       }
-
-      if (searchIndex < value.length) {
-        segments.push({ text: value.slice(searchIndex), match: false });
-      }
-
-      return segments.length > 0 ? segments : [{ text: value, match: false }];
-    },
-    [spotlightStore.query],
-  );
-
-  const handleKeydown = useCallback(
-    (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        spotlightStore.closeSpotlight();
-        return;
-      }
-      if (event.key === "ArrowDown") {
-        event.preventDefault();
-        activeChangeSource.current = "keyboard";
-        spotlightStore.moveActiveItem(1);
-        return;
-      }
-      if (event.key === "ArrowUp") {
-        event.preventDefault();
-        activeChangeSource.current = "keyboard";
-        spotlightStore.moveActiveItem(-1);
-        return;
-      }
-      if (event.key === "Home") {
-        event.preventDefault();
-        activeChangeSource.current = "keyboard";
-        spotlightStore.setActiveItem(0);
-        return;
-      }
-      if (event.key === "End") {
-        event.preventDefault();
-        activeChangeSource.current = "keyboard";
-        spotlightStore.setActiveItem(spotlightStore.results.length - 1);
-        return;
-      }
-      if (event.key === "Enter") {
-        event.preventDefault();
-        void spotlightStore.executeActiveItem();
-      }
-    },
-    [spotlightStore],
-  );
-
-  const handleItemMouseEnter = useCallback(
-    (item: SpotlightItem) => {
-      const currentIndex = spotlightStore.results.findIndex((r) => r.id === item.id);
-      if (currentIndex === -1 || spotlightStore.activeIndex === currentIndex) return;
-      pendingMouseEnterId.current = item.id;
-      if (mouseEnterRaf.current !== 0) return;
-      mouseEnterRaf.current = window.requestAnimationFrame(() => {
-        mouseEnterRaf.current = 0;
-        const targetId = pendingMouseEnterId.current;
-        pendingMouseEnterId.current = null;
-        if (targetId === null) return;
-        const foundItem = spotlightStore.results.find((r) => r.id === targetId);
-        if (!foundItem) return;
-        const targetIndex = spotlightStore.results.findIndex((r) => r.id === targetId);
-        if (targetIndex < 0 || spotlightStore.activeIndex === targetIndex) return;
-        activeChangeSource.current = "mouse";
-        spotlightStore.setActiveItem(targetIndex);
+      segments.push({
+        text: value.slice(matchIndex, matchIndex + query.length),
+        match: true,
       });
-    },
-    [spotlightStore],
-  );
-
-  const handleItemMouseDown = useCallback(
-    (event: React.MouseEvent, item: SpotlightItem) => {
-      if (event.button !== 0) return;
+      searchIndex = matchIndex + query.length;
+      matchIndex = lowerValue.indexOf(lowerQuery, searchIndex);
+    }
+    if (searchIndex < value.length) {
+      segments.push({
+        text: value.slice(searchIndex),
+        match: false,
+      });
+    }
+    return segments.length > 0
+      ? segments
+      : [
+          {
+            text: value,
+            match: false,
+          },
+        ];
+  };
+  const handleKeydown = (event: KeyboardEvent) => {
+    if (event.key === "Escape") {
       event.preventDefault();
-      pointerActivatedItemId.current = item.id;
-      void spotlightStore.executeItem(item);
-      window.setTimeout(() => {
-        if (pointerActivatedItemId.current === item.id) {
-          pointerActivatedItemId.current = null;
-        }
-      }, 0);
-    },
-    [spotlightStore],
-  );
-
-  const handleItemClick = useCallback(
-    (item: SpotlightItem) => {
+      spotlightStore.closeSpotlight();
+      return;
+    }
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      activeChangeSource.current = "keyboard";
+      spotlightStore.moveActiveItem(1);
+      return;
+    }
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      activeChangeSource.current = "keyboard";
+      spotlightStore.moveActiveItem(-1);
+      return;
+    }
+    if (event.key === "Home") {
+      event.preventDefault();
+      activeChangeSource.current = "keyboard";
+      spotlightStore.setActiveItem(0);
+      return;
+    }
+    if (event.key === "End") {
+      event.preventDefault();
+      activeChangeSource.current = "keyboard";
+      spotlightStore.setActiveItem(spotlightStore.results.length - 1);
+      return;
+    }
+    if (event.key === "Enter") {
+      event.preventDefault();
+      void spotlightStore.executeActiveItem();
+    }
+  };
+  const handleItemMouseEnter = (item: SpotlightItem) => {
+    const currentIndex = spotlightStore.results.findIndex((r) => r.id === item.id);
+    if (currentIndex === -1 || spotlightStore.activeIndex === currentIndex) return;
+    pendingMouseEnterId.current = item.id;
+    if (mouseEnterRaf.current !== 0) return;
+    mouseEnterRaf.current = window.requestAnimationFrame(() => {
+      mouseEnterRaf.current = 0;
+      const targetId = pendingMouseEnterId.current;
+      pendingMouseEnterId.current = null;
+      if (targetId === null) return;
+      const foundItem = spotlightStore.results.find((r) => r.id === targetId);
+      if (!foundItem) return;
+      const targetIndex = spotlightStore.results.findIndex((r) => r.id === targetId);
+      if (targetIndex < 0 || spotlightStore.activeIndex === targetIndex) return;
+      activeChangeSource.current = "mouse";
+      spotlightStore.setActiveItem(targetIndex);
+    });
+  };
+  const handleItemMouseDown = (event: React.MouseEvent, item: SpotlightItem) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    pointerActivatedItemId.current = item.id;
+    void spotlightStore.executeItem(item);
+    window.setTimeout(() => {
       if (pointerActivatedItemId.current === item.id) {
         pointerActivatedItemId.current = null;
-        return;
       }
-      void spotlightStore.executeItem(item);
-    },
-    [spotlightStore],
-  );
-
+    }, 0);
+  };
+  const handleItemClick = (item: SpotlightItem) => {
+    if (pointerActivatedItemId.current === item.id) {
+      pointerActivatedItemId.current = null;
+      return;
+    }
+    void spotlightStore.executeItem(item);
+  };
   useEffect(() => {
     if (!spotlightStore.open) return;
     const focusTimer = focusInput();
@@ -151,7 +145,6 @@ export default function SpotlightOverlay() {
       window.clearTimeout(focusTimer);
     };
   }, [spotlightStore.open, focusInput]);
-
   useEffect(() => {
     if (
       !spotlightStore.open ||
@@ -160,18 +153,14 @@ export default function SpotlightOverlay() {
     )
       return;
     if (activeChangeSource.current === "mouse") return;
-
     const scrollTimer = setTimeout(() => {
-      resultsContainerRef.current
-        ?.querySelector<HTMLElement>('[data-spotlight-active="true"]')
-        ?.scrollIntoView({ block: "nearest" });
+      resultsContainerRef.current?.querySelector<HTMLElement>('[data-spotlight-active="true"]')?.scrollIntoView({
+        block: "nearest",
+      });
     }, 0);
-
     return () => clearTimeout(scrollTimer);
   }, [spotlightStore.open, spotlightStore.activeIndex, spotlightStore.results.length]);
-
   if (!spotlightStore.open) return null;
-
   return createPortal(
     <div
       role="presentation"
@@ -200,9 +189,7 @@ export default function SpotlightOverlay() {
               <button
                 key={item.id}
                 type="button"
-                className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left${
-                  index === spotlightStore.activeIndex ? " bg-accent text-accent-foreground" : " text-foreground/90"
-                }`}
+                className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left${index === spotlightStore.activeIndex ? " bg-accent text-accent-foreground" : " text-foreground/90"}`}
                 data-spotlight-active={index === spotlightStore.activeIndex ? "true" : undefined}
                 onMouseEnter={() => handleItemMouseEnter(item)}
                 onMouseDown={(e) => handleItemMouseDown(e, item)}

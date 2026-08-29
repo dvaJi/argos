@@ -1,8 +1,7 @@
-import { type FC, useMemo } from "react";
+import { type FC } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "#shadcn/components/ui/tooltip";
-
 interface ChatInputToolbarProps {
   isGenerating?: boolean;
   isCancelling?: boolean;
@@ -42,19 +41,17 @@ const ChatInputToolbar: FC<ChatInputToolbarProps> = ({
   onSteer,
   onStop,
 }) => {
-  const buttonMode = useMemo<"send" | "queue" | "stop">(() => {
+  const buttonMode = (() => {
     if (isGenerating && !hasInput) return "stop";
     if (isGenerating) return "queue";
     return "send";
-  }, [isGenerating, hasInput]);
-
-  const primaryTooltip = useMemo(() => {
+  })();
+  const primaryTooltip = (() => {
     if (buttonMode === "stop") return isCancelling ? "Cancelling…" : "Stop";
     if (buttonMode === "queue") return "Queue";
     if (isSending) return "Sending…";
     return "Send";
-  }, [buttonMode, isCancelling, isSending]);
-
+  })();
   const handlePrimaryAction = () => {
     if (buttonMode === "stop") {
       onStop?.();
@@ -66,7 +63,6 @@ const ChatInputToolbar: FC<ChatInputToolbarProps> = ({
     }
     onSend();
   };
-
   return (
     <div className="flex items-center gap-1">
       {isGenerating && hasInput && (
@@ -144,5 +140,4 @@ const ChatInputToolbar: FC<ChatInputToolbarProps> = ({
     </div>
   );
 };
-
 export default ChatInputToolbar;

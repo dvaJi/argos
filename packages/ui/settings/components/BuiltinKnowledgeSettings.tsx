@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
@@ -29,34 +29,27 @@ import { useMcpStore } from "#/stores/mcp";
 import { useToast } from "#/components/use-toast";
 import { createConfigClient } from "#api/ConfigClient";
 import type { BuiltinKnowledgeConfig } from "@argos/shared/presenter";
-
 const configClient = createConfigClient();
-
 interface BuiltinKnowledgeSettingsProps {
   onShowDetail: (detail: BuiltinKnowledgeConfig) => void;
 }
-
 export default function BuiltinKnowledgeSettings({ onShowDetail }: BuiltinKnowledgeSettingsProps) {
   const mcpStore = useMcpStore();
   const { toast } = useToast();
-
   const [isConfigPanelOpen, setIsConfigPanelOpen] = useState(false);
   const [configs, setConfigs] = useState<BuiltinKnowledgeConfig[]>([]);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const loadConfigs = useCallback(async () => {
+  const loadConfigs = async () => {
     try {
       const list = await configClient.getKnowledgeConfigs();
       setConfigs(list || []);
     } catch {}
-  }, []);
-
+  };
   const toggleMcpServer = async () => {
     if (!mcpStore.mcpEnabled) return;
     await mcpStore.toggleServer("builtinKnowledge");
   };
-
   const isMcpEnabled = mcpStore.serverStatuses["builtinKnowledge"] || false;
-
   useEffect(() => {
     if (!mcpStore.config.ready) return;
     let cancelled = false;
@@ -71,11 +64,9 @@ export default function BuiltinKnowledgeSettings({ onShowDetail }: BuiltinKnowle
       cancelled = true;
     };
   }, [mcpStore.config.ready]);
-
   const handleSetting = (config: BuiltinKnowledgeConfig) => {
     onShowDetail(config);
   };
-
   const handleCreate = async (_name: string, description: string, embeddingModel: string) => {
     try {
       const currentConfigs = await configClient.getKnowledgeConfigs();
@@ -83,41 +74,62 @@ export default function BuiltinKnowledgeSettings({ onShowDetail }: BuiltinKnowle
         id: `kb_${Date.now()}`,
         description,
         enabled: true,
-        embedding: { modelId: embeddingModel, providerId: "" },
+        embedding: {
+          modelId: embeddingModel,
+          providerId: "",
+        },
         dimensions: 1536,
         normalized: true,
         fragmentsNumber: 1,
       };
       await configClient.setKnowledgeConfigs([...currentConfigs, newConfig]);
-      toast({ title: "Created successfully" });
+      toast({
+        title: "Created successfully",
+      });
       setIsCreateDialogOpen(false);
       loadConfigs();
     } catch (error) {
-      toast({ title: "Creation failed", description: String(error), variant: "destructive" });
+      toast({
+        title: "Creation failed",
+        description: String(error),
+        variant: "destructive",
+      });
     }
   };
-
   const handleDelete = async (index: number) => {
     const config = configs[index];
     try {
       const currentConfigs = await configClient.getKnowledgeConfigs();
       await configClient.setKnowledgeConfigs(currentConfigs.filter((c) => c.id !== config.id));
-      toast({ title: "Deleted successfully" });
+      toast({
+        title: "Deleted successfully",
+      });
       loadConfigs();
     } catch (error) {
-      toast({ title: "Deletion failed", description: String(error), variant: "destructive" });
+      toast({
+        title: "Deletion failed",
+        description: String(error),
+        variant: "destructive",
+      });
     }
   };
-
   const toggleConfigEnabled = async (index: number, enabled: boolean) => {
     const config = configs[index];
     try {
       const currentConfigs = await configClient.getKnowledgeConfigs();
-      await configClient.setKnowledgeConfigs(currentConfigs.map((c) => (c.id === config.id ? { ...c, enabled } : c)));
+      await configClient.setKnowledgeConfigs(
+        currentConfigs.map((c) =>
+          c.id === config.id
+            ? {
+                ...c,
+                enabled,
+              }
+            : c,
+        ),
+      );
       loadConfigs();
     } catch {}
   };
-
   return (
     <div className="border rounded-lg overflow-hidden">
       <div
@@ -213,7 +225,6 @@ export default function BuiltinKnowledgeSettings({ onShowDetail }: BuiltinKnowle
     </div>
   );
 }
-
 function CreateKnowledgeDialog({
   open,
   onOpenChange,
@@ -225,14 +236,12 @@ function CreateKnowledgeDialog({
 }) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-
   const handleSave = () => {
     if (!name.trim()) return;
     onCreate(name.trim(), description.trim(), "default");
     setName("");
     setDescription("");
   };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>

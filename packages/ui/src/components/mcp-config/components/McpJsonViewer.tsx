@@ -1,7 +1,6 @@
-import { type FC, useMemo } from "react";
+import { type FC } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
-
 interface McpJsonViewerProps {
   content: string;
   loading?: boolean;
@@ -10,7 +9,6 @@ interface McpJsonViewerProps {
   onCopy?: () => void;
   onFormat?: () => void;
 }
-
 const McpJsonViewer: FC<McpJsonViewerProps> = ({
   content,
   loading = false,
@@ -19,7 +17,7 @@ const McpJsonViewer: FC<McpJsonViewerProps> = ({
   onCopy,
   onFormat,
 }) => {
-  const isJsonContent = useMemo(() => {
+  const isJsonContent = (() => {
     if (!content) return false;
     try {
       JSON.parse(content);
@@ -27,18 +25,18 @@ const McpJsonViewer: FC<McpJsonViewerProps> = ({
     } catch {
       return false;
     }
-  }, [content]);
-
-  const jsonParts = useMemo(() => {
+  })();
+  const jsonParts = (() => {
     if (!isJsonContent || !content) return [];
-
     try {
       const formattedJson = JSON.stringify(JSON.parse(content), null, 2);
-      const parts: Array<{ type: string; content: string }> = [];
+      const parts: Array<{
+        type: string;
+        content: string;
+      }> = [];
       const regex = /"([^"]+)":|"([^"]+)"|-?\d+\.?\d*|true|false|null|[[\]{}:,]/g;
       let match;
       let lastIndex = 0;
-
       while ((match = regex.exec(formattedJson)) !== null) {
         if (match.index > lastIndex) {
           parts.push({
@@ -46,41 +44,61 @@ const McpJsonViewer: FC<McpJsonViewerProps> = ({
             content: formattedJson.substring(lastIndex, match.index),
           });
         }
-
         const value = match[0];
-
         if (value.endsWith(":")) {
-          parts.push({ type: "key", content: value });
+          parts.push({
+            type: "key",
+            content: value,
+          });
         } else if (value.startsWith('"')) {
-          parts.push({ type: "string", content: value });
+          parts.push({
+            type: "string",
+            content: value,
+          });
         } else if (/^-?\d+\.?\d*$/.test(value)) {
-          parts.push({ type: "number", content: value });
+          parts.push({
+            type: "number",
+            content: value,
+          });
         } else if (value === "true" || value === "false") {
-          parts.push({ type: "boolean", content: value });
+          parts.push({
+            type: "boolean",
+            content: value,
+          });
         } else if (value === "null") {
-          parts.push({ type: "null", content: value });
+          parts.push({
+            type: "null",
+            content: value,
+          });
         } else if (/^[[\]{}:,]$/.test(value)) {
-          parts.push({ type: "bracket", content: value });
+          parts.push({
+            type: "bracket",
+            content: value,
+          });
         } else {
-          parts.push({ type: "other", content: value });
+          parts.push({
+            type: "other",
+            content: value,
+          });
         }
-
         lastIndex = regex.lastIndex;
       }
-
       if (lastIndex < formattedJson.length) {
         parts.push({
           type: "whitespace",
           content: formattedJson.substring(lastIndex),
         });
       }
-
       return parts;
     } catch {
-      return [{ type: "text", content }];
+      return [
+        {
+          type: "text",
+          content,
+        },
+      ];
     }
-  }, [content, isJsonContent]);
-
+  })();
   const getJsonPartClass = (type: string): string => {
     switch (type) {
       case "key":
@@ -99,7 +117,6 @@ const McpJsonViewer: FC<McpJsonViewerProps> = ({
         return "";
     }
   };
-
   const copyToClipboard = async () => {
     try {
       await navigator.clipboard.writeText(content);
@@ -108,7 +125,6 @@ const McpJsonViewer: FC<McpJsonViewerProps> = ({
       console.error("Copy failed:", err);
     }
   };
-
   return (
     <div className="w-full">
       {(title || !readonly) && (
@@ -199,5 +215,4 @@ const McpJsonViewer: FC<McpJsonViewerProps> = ({
     </div>
   );
 };
-
 export default McpJsonViewer;

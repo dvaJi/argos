@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useImperativeHandle, forwardRef } from "react";
+import { useState, useEffect, useRef, useImperativeHandle, forwardRef } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Label } from "#shadcn/components/ui/label";
@@ -25,15 +25,12 @@ import {
 import { downloadBlob } from "#/lib/download";
 import PromptEditorSheet, { type PromptForm } from "./PromptEditorSheet";
 import type { Prompt, FileItem } from "@argos/shared/presenter";
-
 interface PromptParameter {
   name: string;
   description: string;
   required: boolean;
 }
-
 type PromptItem = Prompt;
-
 const getSourceLabel = (source?: string) => {
   switch (source) {
     case "local":
@@ -46,7 +43,6 @@ const getSourceLabel = (source?: string) => {
       return "Local";
   }
 };
-
 const safeClone = (obj: unknown): unknown => {
   if (obj === null || typeof obj !== "object") return obj;
   if (obj instanceof Date) return new Date(obj.getTime());
@@ -62,30 +58,27 @@ const safeClone = (obj: unknown): unknown => {
   }
   return cloned;
 };
-
 interface CustomPromptSettingsSectionHandle {
   importPrompts: () => void;
   exportPrompts: () => void;
 }
-
 const CustomPromptSettingsSection = forwardRef<CustomPromptSettingsSectionHandle>(
   function CustomPromptSettingsSection(_props, ref) {
     const { toast } = useToast();
-
     const [prompts, setPrompts] = useState<PromptItem[]>([]);
     const [expandedPrompts, setExpandedPrompts] = useState<Set<string>>(new Set());
     const [editorOpen, setEditorOpen] = useState(false);
     const [editingPrompt, setEditingPrompt] = useState<PromptForm | null>(null);
-
     const getContent = (prompt: PromptItem) => prompt.content ?? "";
-
-    const loadPrompts = useCallback(async () => {
+    const loadPrompts = async () => {
       await loadCustomPrompts();
-      setPrompts(promptsStoreInstance.state.prompts.map((p) => ({ ...p })));
-    }, []);
-
+      setPrompts(
+        promptsStoreInstance.state.prompts.map((p) => ({
+          ...p,
+        })),
+      );
+    };
     const isExpanded = (id: string) => expandedPrompts.has(id);
-
     const toggleShowMore = (id: string) => {
       setExpandedPrompts((prev) => {
         const next = new Set(prev);
@@ -94,83 +87,97 @@ const CustomPromptSettingsSection = forwardRef<CustomPromptSettingsSectionHandle
         return next;
       });
     };
-
-    const togglePromptEnabled = useCallback(
-      async (index: number) => {
-        const prompt = prompts[index];
-        const newEnabled = !(prompt.enabled ?? true);
-        setPrompts((prev) => prev.map((p, i) => (i === index ? { ...p, enabled: newEnabled } : p)));
-        try {
-          await updatePrompt(prompt.id, { enabled: newEnabled, updatedAt: Date.now() });
-          toast({ title: newEnabled ? "Prompt enabled" : "Prompt disabled" });
-        } catch (error) {
-          console.error("Failed to toggle prompt:", error);
-          await loadPrompts();
-          toast({ title: "Failed to toggle", variant: "destructive" });
-        }
-      },
-      [prompts, toast, loadPrompts],
-    );
-
-    const handleDeletePrompt = useCallback(
-      async (index: number) => {
-        const prompt = prompts[index];
-        try {
-          await deletePrompt(prompt.id as any);
-          await loadPrompts();
-          toast({ title: "Prompt deleted" });
-        } catch (error) {
-          console.error("Failed to delete prompt:", error);
-          toast({ title: "Failed to delete", variant: "destructive" });
-        }
-      },
-      [prompts, toast, loadPrompts],
-    );
-
+    const togglePromptEnabled = async (index: number, updatedAt: number) => {
+      const prompt = prompts[index];
+      const newEnabled = !(prompt.enabled ?? true);
+      setPrompts((prev) =>
+        prev.map((p, i) =>
+          i === index
+            ? {
+                ...p,
+                enabled: newEnabled,
+              }
+            : p,
+        ),
+      );
+      try {
+        await updatePrompt(prompt.id, {
+          enabled: newEnabled,
+          updatedAt,
+        });
+        toast({
+          title: newEnabled ? "Prompt enabled" : "Prompt disabled",
+        });
+      } catch (error) {
+        console.error("Failed to toggle prompt:", error);
+        await loadPrompts();
+        toast({
+          title: "Failed to toggle",
+          variant: "destructive",
+        });
+      }
+    };
+    const handleDeletePrompt = async (index: number) => {
+      const prompt = prompts[index];
+      try {
+        await deletePrompt(prompt.id as any);
+        await loadPrompts();
+        toast({
+          title: "Prompt deleted",
+        });
+      } catch (error) {
+        console.error("Failed to delete prompt:", error);
+        toast({
+          title: "Failed to delete",
+          variant: "destructive",
+        });
+      }
+    };
     const toPromptForm = (prompt: PromptItem): PromptForm => ({
       id: prompt.id,
       name: prompt.name,
       description: prompt.description,
       content: prompt.content ?? "",
-      parameters: prompt.parameters ? prompt.parameters.map((p) => ({ ...p })) : [],
+      parameters: prompt.parameters
+        ? prompt.parameters.map((p) => ({
+            ...p,
+          }))
+        : [],
       files: prompt.files ? [...prompt.files] : [],
       enabled: prompt.enabled ?? true,
       source: prompt.source ?? "local",
       createdAt: prompt.createdAt,
       updatedAt: prompt.updatedAt,
     });
-
     const editPrompt = (index: number) => {
       setEditingPrompt(toPromptForm(prompts[index]));
       setEditorOpen(true);
     };
-
-    const handleEditorSubmit = useCallback(
-      async (prompt: PromptForm) => {
-        const timestamp = Date.now();
-        try {
-          if (!prompt.id) {
-            await addPrompt({
-              ...prompt,
-              id: timestamp.toString(),
-              enabled: prompt.enabled ?? true,
-              source: "local" as const,
-              createdAt: timestamp,
-              updatedAt: timestamp,
-            });
-          } else {
-            await updatePrompt(prompt.id, { ...prompt, updatedAt: timestamp });
-          }
-          await loadPrompts();
-          setEditorOpen(false);
-          setEditingPrompt(null);
-        } catch (error) {
-          console.error("Failed to save prompt:", error);
+    const handleEditorSubmit = async (prompt: PromptForm) => {
+      const timestamp = Date.now();
+      try {
+        if (!prompt.id) {
+          await addPrompt({
+            ...prompt,
+            id: timestamp.toString(),
+            enabled: prompt.enabled ?? true,
+            source: "local" as const,
+            createdAt: timestamp,
+            updatedAt: timestamp,
+          });
+        } else {
+          await updatePrompt(prompt.id, {
+            ...prompt,
+            updatedAt: timestamp,
+          });
         }
-      },
-      [loadPrompts],
-    );
-
+        await loadPrompts();
+        setEditorOpen(false);
+        setEditingPrompt(null);
+      } catch (error) {
+        console.error("Failed to save prompt:", error);
+      }
+    };
     const formatDate = (id: string) => {
       try {
         const timestamp = parseInt(id);
@@ -180,24 +187,29 @@ const CustomPromptSettingsSection = forwardRef<CustomPromptSettingsSectionHandle
         return "Custom";
       }
     };
-
-    const exportPrompts = useCallback(() => {
+    const exportPrompts = () => {
       try {
         const data = JSON.stringify(
           prompts.map((p) => structuredClone(p)),
           null,
           2,
         );
-        const blob = new Blob([data], { type: "application/json" });
+        const blob = new Blob([data], {
+          type: "application/json",
+        });
         downloadBlob(blob, "prompts.json");
-        toast({ title: "Export successful" });
+        toast({
+          title: "Export successful",
+        });
       } catch (error) {
         console.error("Failed to export prompts:", error);
-        toast({ title: "Export failed", variant: "destructive" });
+        toast({
+          title: "Export failed",
+          variant: "destructive",
+        });
       }
-    }, [prompts, toast]);
-
-    const importPrompts = useCallback(() => {
+    };
+    const importPrompts = () => {
       const input = document.createElement("input");
       input.type = "file";
       input.accept = ".json";
@@ -253,26 +265,38 @@ const CustomPromptSettingsSection = forwardRef<CustomPromptSettingsSectionHandle
             });
           }
         };
-        reader.onerror = () => toast({ title: "Import failed", variant: "destructive" });
+        reader.onerror = () =>
+          toast({
+            title: "Import failed",
+            variant: "destructive",
+          });
         reader.readAsText(file);
       };
       input.click();
-    }, [prompts, loadPrompts, toast]);
-
-    useImperativeHandle(ref, () => ({ importPrompts, exportPrompts }), [importPrompts, exportPrompts]);
-
+    };
+    useImperativeHandle(
+      ref,
+      () => ({
+        importPrompts,
+        exportPrompts,
+      }),
+      [importPrompts, exportPrompts],
+    );
     useEffect(() => {
       let cancelled = false;
       void (async () => {
         await loadCustomPrompts();
         if (cancelled) return;
-        setPrompts(promptsStoreInstance.state.prompts.map((p) => ({ ...p })));
+        setPrompts(
+          promptsStoreInstance.state.prompts.map((p) => ({
+            ...p,
+          })),
+        );
       })();
       return () => {
         cancelled = true;
       };
     }, []);
-
     return (
       <div className="space-y-4 rounded-lg border border-border bg-card p-4">
         <div className="flex items-center justify-between">
@@ -323,13 +347,9 @@ const CustomPromptSettingsSection = forwardRef<CustomPromptSettingsSectionHandle
                         </span>
                         <button
                           type="button"
-                          className={`cursor-pointer rounded-md px-2 py-0.5 text-xs transition-colors ${
-                            prompt.enabled
-                              ? "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50"
-                              : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
-                          }`}
+                          className={`cursor-pointer rounded-md px-2 py-0.5 text-xs transition-colors ${prompt.enabled ? "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50" : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"}`}
                           title={prompt.enabled ? "Click to disable" : "Click to enable"}
-                          onClick={() => void togglePromptEnabled(index)}
+                          onClick={() => void togglePromptEnabled(index, Date.now())}
                         >
                           {prompt.enabled ? "Active" : "Inactive"}
                         </button>
@@ -423,5 +443,4 @@ const CustomPromptSettingsSection = forwardRef<CustomPromptSettingsSectionHandle
     );
   },
 );
-
 export default CustomPromptSettingsSection;

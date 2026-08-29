@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Badge } from "#shadcn/components/ui/badge";
@@ -45,9 +45,7 @@ import AcpDebugDialog from "./AcpDebugDialog";
 import AcpDiagnostics from "./AcpDiagnostics";
 import AcpAgentIcon from "#/components/icons/AcpAgentIcon";
 import AgentMcpSelector from "#/components/mcp-config/AgentMcpSelector";
-
 type RegistryDialogFilter = "all" | "installed" | "not_installed";
-
 const parseEnvBlock = (value: string): Record<string, string> => {
   return Object.fromEntries(
     value
@@ -62,14 +60,11 @@ const parseEnvBlock = (value: string): Record<string, string> => {
       .filter(([key]) => key.length > 0),
   );
 };
-
 const stringifyEnvBlock = (env?: Record<string, string>) =>
   Object.entries(env ?? {})
     .map(([key, value]) => `${key}=${value}`)
     .join("\n");
-
 const formatArgs = (args?: string[]) => (args?.length ? args.join(" ") : "None");
-
 const buildPreviewCommand = (agent: AcpRegistryAgent) => {
   if (agent.distribution.binary) {
     const firstBinary = Object.values(agent.distribution.binary)[0];
@@ -88,7 +83,6 @@ const buildPreviewCommand = (agent: AcpRegistryAgent) => {
   }
   return "None";
 };
-
 const installBadgeLabel = (agent: AcpRegistryAgent) => {
   const status = agent.installState?.status ?? "not_installed";
   if (status === "installed") return agent.enabled ? "Enabled" : "Installed, off";
@@ -96,7 +90,6 @@ const installBadgeLabel = (agent: AcpRegistryAgent) => {
   if (status === "error") return "Error";
   return "Not Installed";
 };
-
 const installBadgeClass = (agent: AcpRegistryAgent) => {
   const status = agent.installState?.status ?? "not_installed";
   if (status === "installed") return "text-foreground";
@@ -104,7 +97,6 @@ const installBadgeClass = (agent: AcpRegistryAgent) => {
   if (status === "error") return "border-destructive/40 text-destructive";
   return "";
 };
-
 const registryActionLabel = (agent: AcpRegistryAgent) => {
   const status = agent.installState?.status ?? "not_installed";
   if (status === "installed") return agent.enabled ? "Enabled" : "Enable";
@@ -112,10 +104,8 @@ const registryActionLabel = (agent: AcpRegistryAgent) => {
   if (status === "error") return "Repair";
   return "Install";
 };
-
 const registryActionVariant = (agent: AcpRegistryAgent) =>
   agent.installState?.status === "installed" ? "outline" : "default";
-
 const registryActionIcon = (agent: AcpRegistryAgent) => {
   const status = agent.installState?.status ?? "not_installed";
   if (status === "installed") return agent.enabled ? "lucide:check" : "lucide:power";
@@ -123,33 +113,34 @@ const registryActionIcon = (agent: AcpRegistryAgent) => {
   if (status === "error") return "lucide:wrench";
   return "lucide:download";
 };
-
 const isUpdateAvailable = (agent: AcpRegistryAgent): boolean => {
   if (agent.installState?.status !== "installed") return false;
   const installedVersion = agent.installState?.version;
   return Boolean(installedVersion) && installedVersion !== agent.version;
 };
-
 const updatePendingState = (current: Record<string, boolean>, id: string, pending: boolean) => {
-  const next = { ...current };
+  const next = {
+    ...current,
+  };
   if (pending) next[id] = true;
   else delete next[id];
   return next;
 };
-
 const incrementAgentRequest = (current: Record<string, number>, id: string) => ({
   ...current,
   [id]: (current[id] ?? 0) + 1,
 });
-
 const consumeAgentRequest = (current: Record<string, number>, id: string, request: number) =>
-  current[id] === request ? { ...current, [id]: 0 } : current;
-
+  current[id] === request
+    ? {
+        ...current,
+        [id]: 0,
+      }
+    : current;
 const subscribeToAgentChanges = (listener: () => void) =>
   window.argos?.on?.("config.agents.changed" as never, listener) ?? (() => undefined);
-
 export default function AcpSettings() {
-  const configClient = useMemo(() => createConfigClient(), []);
+  const configClient = createConfigClient();
   const [acpEnabled, setAcpEnabled] = useState(false);
   const [toggling, setToggling] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -165,11 +156,9 @@ export default function AcpSettings() {
   const [agentConfigurationOpen, setAgentConfigurationOpen] = useState<Record<string, boolean>>({});
   const [connectionCheckRequests, setConnectionCheckRequests] = useState<Record<string, number>>({});
   const [loadError, setLoadError] = useState<string | null>(null);
-
   const [registryDialogOpen, setRegistryDialogOpen] = useState(false);
   const [registrySearch, setRegistrySearch] = useState("");
   const [registryFilter, setRegistryFilter] = useState<RegistryDialogFilter>("all");
-
   const [manualDialogOpen, setManualDialogOpen] = useState(false);
   const [manualEditId, setManualEditId] = useState("");
   const [manualName, setManualName] = useState("");
@@ -177,35 +166,21 @@ export default function AcpSettings() {
   const [manualArgsText, setManualArgsText] = useState("");
   const [manualEnv, setManualEnv] = useState("");
   const [manualEnabled, setManualEnabled] = useState(true);
-
   const [debugOpen, setDebugOpen] = useState(false);
   const [debugAgentId, setDebugAgentId] = useState("");
   const [debugAgentName, setDebugAgentName] = useState("");
-
   const [uninstallOpen, setUninstallOpen] = useState(false);
   const [uninstallAgent, setUninstallAgent] = useState<AcpRegistryAgent | null>(null);
-
   const setPending = (id: string, pending: boolean) =>
     setAgentPending((current) => updatePendingState(current, id, pending));
-
   const requestConnectionCheck = (id: string) =>
     setConnectionCheckRequests((current) => incrementAgentRequest(current, id));
-
-  const consumeConnectionCheckRequest = useCallback((id: string, request: number) => {
+  const consumeConnectionCheckRequest = (id: string, request: number) => {
     setConnectionCheckRequests((current) => consumeAgentRequest(current, id, request));
-  }, []);
-
-  const installedRegistryAgents = useMemo(
-    () => registryAgents.filter((a) => a.installState?.status === "installed"),
-    [registryAgents],
-  );
-
-  const showSharedMcpSection = useMemo(
-    () => installedRegistryAgents.length > 0 || manualAgents.length > 0,
-    [installedRegistryAgents, manualAgents],
-  );
-
-  const filteredRegistryCatalogAgents = useMemo(() => {
+  };
+  const installedRegistryAgents = registryAgents.filter((a) => a.installState?.status === "installed");
+  const showSharedMcpSection = installedRegistryAgents.length > 0 || manualAgents.length > 0;
+  const filteredRegistryCatalogAgents = (() => {
     const keyword = registrySearch.trim().toLowerCase();
     return registryAgents.filter((agent) => {
       const matchKeyword =
@@ -218,17 +193,15 @@ export default function AcpSettings() {
       if (registryFilter === "not_installed") return agent.installState?.status !== "installed";
       return true;
     });
-  }, [registryAgents, registrySearch, registryFilter]);
-
-  const syncEnvDrafts = useCallback((agents: AcpRegistryAgent[]) => {
+  })();
+  const syncEnvDrafts = (agents: AcpRegistryAgent[]) => {
     const drafts: Record<string, string> = {};
     agents.forEach((agent) => {
       drafts[agent.id] = stringifyEnvBlock(agent.envOverride);
     });
     setEnvDrafts(drafts);
-  }, []);
-
-  const loadAcpData = useCallback(async () => {
+  };
+  const loadAcpData = async () => {
     try {
       const enabled = await configClient.getAcpEnabled();
       setLoadError(null);
@@ -253,8 +226,7 @@ export default function AcpSettings() {
       setLoadError(error instanceof Error ? error.message : "ACP settings could not be loaded.");
     }
     setLoading(false);
-  }, [configClient, syncEnvDrafts]);
-
+  };
   useEffect(() => {
     queueMicrotask(() => void loadAcpData());
     return subscribeToAgentChanges(() => void loadAcpData());
@@ -268,7 +240,6 @@ export default function AcpSettings() {
     didAutoExpandManualRef.current = true;
     setManualSectionOpen(true);
   }, [manualAgents]);
-
   const handleToggle = async (enabled: boolean) => {
     if (toggling) return;
     setToggling(true);
@@ -281,7 +252,6 @@ export default function AcpSettings() {
     }
     setToggling(false);
   };
-
   const refreshRegistry = async () => {
     setRefreshing(true);
     try {
@@ -293,7 +263,6 @@ export default function AcpSettings() {
     }
     setRefreshing(false);
   };
-
   const toggleRegistryAgent = async (agent: AcpRegistryAgent, enabled: boolean) => {
     setPending(agent.id, true);
     try {
@@ -310,13 +279,14 @@ export default function AcpSettings() {
     }
     setPending(agent.id, false);
   };
-
   const saveEnvOverride = async (agent: AcpRegistryAgent) => {
     setPending(agent.id, true);
     try {
       await configClient.setAcpAgentEnvOverride(agent.id, parseEnvBlock(envDrafts[agent.id] ?? ""));
       await loadAcpData();
-      toast({ title: "Saved" });
+      toast({
+        title: "Saved",
+      });
     } catch (error) {
       console.error(error);
       await loadAcpData();
@@ -328,12 +298,13 @@ export default function AcpSettings() {
     }
     setPending(agent.id, false);
   };
-
   const clearEnvOverride = async (agent: AcpRegistryAgent) => {
-    setEnvDrafts((d) => ({ ...d, [agent.id]: "" }));
+    setEnvDrafts((d) => ({
+      ...d,
+      [agent.id]: "",
+    }));
     await saveEnvOverride(agent);
   };
-
   const installRegistryAgent = async (agent: AcpRegistryAgent) => {
     setPending(agent.id, true);
     try {
@@ -363,7 +334,6 @@ export default function AcpSettings() {
     }
     setPending(agent.id, false);
   };
-
   const repairRegistryAgent = async (agent: AcpRegistryAgent) => {
     setPending(agent.id, true);
     try {
@@ -374,7 +344,6 @@ export default function AcpSettings() {
     }
     setPending(agent.id, false);
   };
-
   const updateRegistryAgent = async (agent: AcpRegistryAgent) => {
     setPending(agent.id, true);
     try {
@@ -399,24 +368,23 @@ export default function AcpSettings() {
     }
     setPending(agent.id, false);
   };
-
   const uninstallRegistryAgent = async (agent: AcpRegistryAgent) => {
     setPending(agent.id, true);
     try {
       await configClient.uninstallAcpRegistryAgent(agent.id);
       await loadAcpData();
-      toast({ title: "Agent removed" });
+      toast({
+        title: "Agent removed",
+      });
     } catch (error) {
       console.error(error);
     }
     setPending(agent.id, false);
   };
-
   const confirmRegistryAgentUninstall = (agent: AcpRegistryAgent) => {
     setUninstallAgent(agent);
     setUninstallOpen(true);
   };
-
   const confirmRegistryAgentUninstallAction = async () => {
     const agent = uninstallAgent;
     if (!agent) return;
@@ -424,7 +392,6 @@ export default function AcpSettings() {
     await uninstallRegistryAgent(agent);
     setUninstallAgent(null);
   };
-
   const handleRegistryCatalogAction = async (agent: AcpRegistryAgent) => {
     const status = agent.installState?.status ?? "not_installed";
     if (agentPending[agent.id] || status === "installing") return;
@@ -434,7 +401,6 @@ export default function AcpSettings() {
     }
     await installRegistryAgent(agent);
   };
-
   const openManualDialog = (agent?: AcpManualAgent) => {
     setManualEditId(agent?.id ?? "");
     setManualName(agent?.name ?? "");
@@ -444,10 +410,13 @@ export default function AcpSettings() {
     setManualEnabled(agent?.enabled ?? true);
     setManualDialogOpen(true);
   };
-
   const saveManualAgent = async () => {
     if (!manualName.trim() || !manualCommand.trim()) {
-      toast({ title: "Missing fields", description: "Name and command are required", variant: "destructive" });
+      toast({
+        title: "Missing fields",
+        description: "Name and command are required",
+        variant: "destructive",
+      });
       return;
     }
     setManualSaving(true);
@@ -478,13 +447,14 @@ export default function AcpSettings() {
       if (manualEditId && payload.enabled && !wasEnabled) requestConnectionCheck(manualEditId);
       setManualDialogOpen(false);
       await loadAcpData();
-      toast({ title: "Saved" });
+      toast({
+        title: "Saved",
+      });
     } catch (error) {
       console.error(error);
     }
     setManualSaving(false);
   };
-
   const deleteManualAgent = async (agent: AcpManualAgent) => {
     try {
       await configClient.removeManualAcpAgent(agent.id);
@@ -493,13 +463,11 @@ export default function AcpSettings() {
       console.error(error);
     }
   };
-
   const openInspector = (agentId: string, agentName: string) => {
     setDebugAgentId(agentId);
     setDebugAgentName(agentName);
     setDebugOpen(true);
   };
-
   return (
     <div data-testid="settings-acp-page" className="flex size-full flex-col">
       <div className="flex shrink-0 flex-col gap-2 border-b px-4 py-3">
@@ -627,7 +595,10 @@ export default function AcpSettings() {
                       key={agent.id}
                       open={Boolean(agentConfigurationOpen[agent.id])}
                       onOpenChange={(open) =>
-                        setAgentConfigurationOpen((current) => ({ ...current, [agent.id]: open }))
+                        setAgentConfigurationOpen((current) => ({
+                          ...current,
+                          [agent.id]: open,
+                        }))
                       }
                     >
                       <article>
@@ -737,7 +708,10 @@ export default function AcpSettings() {
                                 id={`acp-env-${agent.id}`}
                                 value={envDrafts[agent.id] ?? ""}
                                 onChange={(event) =>
-                                  setEnvDrafts((current) => ({ ...current, [agent.id]: event.target.value }))
+                                  setEnvDrafts((current) => ({
+                                    ...current,
+                                    [agent.id]: event.target.value,
+                                  }))
                                 }
                                 className="min-h-24 font-mono text-xs"
                                 placeholder="KEY=value"
@@ -864,7 +838,9 @@ export default function AcpSettings() {
                                 onCheckedChange={async (value) => {
                                   setPending(agent.id, true);
                                   try {
-                                    await configClient.updateManualAcpAgent(agent.id, { enabled: value });
+                                    await configClient.updateManualAcpAgent(agent.id, {
+                                      enabled: value,
+                                    });
                                     if (value) requestConnectionCheck(agent.id);
                                     await loadAcpData();
                                   } catch (error) {

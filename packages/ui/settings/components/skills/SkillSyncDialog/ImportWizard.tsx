@@ -1,4 +1,4 @@
-import { type FC, useState, useEffect, useMemo } from "react";
+import { type FC, useState, useEffect } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { createSkillSyncClient } from "#api/SkillSyncClient";
@@ -8,9 +8,7 @@ import { ConflictStrategy } from "@argos/shared/types/skillSync";
 import ToolSelector from "./ToolSelector";
 import SkillSelector from "./SkillSelector";
 import ConflictResolver, { type ConflictItem } from "./ConflictResolver";
-
 const skillSyncClient = createSkillSyncClient();
-
 interface ImportWizardProps {
   currentStep: number;
   initialToolId?: string;
@@ -19,7 +17,6 @@ interface ImportWizardProps {
   onComplete: () => void;
   onCancel: () => void;
 }
-
 const ImportWizard: FC<ImportWizardProps> = ({
   currentStep,
   initialToolId,
@@ -29,7 +26,6 @@ const ImportWizard: FC<ImportWizardProps> = ({
   onCancel,
 }) => {
   const { toast } = useToast();
-
   const [scanning, setScanning] = useState(false);
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -38,25 +34,26 @@ const ImportWizard: FC<ImportWizardProps> = ({
   const [selectedSkills, setSelectedSkills] = useState<string[]>(initialSkills ?? []);
   const [importPreviews, setImportPreviews] = useState<ImportPreview[]>([]);
   const [conflictStrategies, setConflictStrategies] = useState<Record<string, ConflictStrategy>>({});
-  const [importProgress, setImportProgress] = useState({ current: 0, total: 0, currentSkill: "" });
-
-  const selectedTool = useMemo(
-    () => scanResults.find((t) => t.toolId === selectedToolId),
-    [scanResults, selectedToolId],
-  );
-
-  const conflictNames = useMemo(
-    () => importPreviews.flatMap((p) => (p.conflict ? [p.skill.name] : [])),
-    [importPreviews],
-  );
-
-  const conflictItems = useMemo((): ConflictItem[] => {
+  const [importProgress, setImportProgress] = useState({
+    current: 0,
+    total: 0,
+    currentSkill: "",
+  });
+  const selectedTool = scanResults.find((t) => t.toolId === selectedToolId);
+  const conflictNames = importPreviews.flatMap((p) => (p.conflict ? [p.skill.name] : []));
+  const conflictItems = ((): ConflictItem[] => {
     return importPreviews.flatMap((p) =>
-      p.conflict ? [{ skillName: p.skill.name, existingName: p.conflict!.existingSkillName }] : [],
+      p.conflict
+        ? [
+            {
+              skillName: p.skill.name,
+              existingName: p.conflict!.existingSkillName,
+            },
+          ]
+        : [],
     );
-  }, [importPreviews]);
-
-  const allWarnings = useMemo(() => {
+  })();
+  const allWarnings = (() => {
     const warnings: string[] = [];
     for (const preview of importPreviews) {
       if (preview.warnings.length > 0) {
@@ -64,27 +61,22 @@ const ImportWizard: FC<ImportWizardProps> = ({
       }
     }
     return warnings;
-  }, [importPreviews]);
-
-  const canProceed = useMemo(() => {
+  })();
+  const canProceed = (() => {
     if (currentStep === 1) return selectedToolId !== null;
     if (currentStep === 2) return selectedSkills.length > 0;
     return true;
-  }, [currentStep, selectedToolId, selectedSkills]);
-
+  })();
   const nextButtonText = currentStep === 3 ? "Import" : "Next";
-
   const getStepClass = (step: number) => {
     if (currentStep > step) return "bg-primary text-primary-foreground";
     if (currentStep === step) return "bg-primary text-primary-foreground";
     return "bg-muted text-muted-foreground";
   };
-
   const handleToolSelect = (tool: ScanResult) => {
     setSelectedToolId(tool.toolId);
     setSelectedSkills(tool.skills.map((s) => s.name));
   };
-
   const handleBack = () => {
     if (currentStep === 1) {
       onCancel();
@@ -98,7 +90,6 @@ const ImportWizard: FC<ImportWizardProps> = ({
       onStepChange(currentStep - 1);
     }
   };
-
   const previewImport = async () => {
     if (!selectedToolId) return;
     setLoading(true);
@@ -114,14 +105,21 @@ const ImportWizard: FC<ImportWizardProps> = ({
       setConflictStrategies(strategies);
     } catch (error) {
       console.error("Preview import error:", error);
-      toast({ title: "Preview Error", description: String(error), variant: "destructive" });
+      toast({
+        title: "Preview Error",
+        description: String(error),
+        variant: "destructive",
+      });
     }
     setLoading(false);
   };
-
   const executeImport = async () => {
     setImporting(true);
-    setImportProgress({ current: 0, total: importPreviews.length, currentSkill: "" });
+    setImportProgress({
+      current: 0,
+      total: importPreviews.length,
+      currentSkill: "",
+    });
     try {
       const result = await skillSyncClient.executeImport(importPreviews, conflictStrategies);
       if (result.success) {
@@ -140,11 +138,14 @@ const ImportWizard: FC<ImportWizardProps> = ({
       }
     } catch (error) {
       console.error("Import error:", error);
-      toast({ title: "Import Error", description: String(error), variant: "destructive" });
+      toast({
+        title: "Import Error",
+        description: String(error),
+        variant: "destructive",
+      });
     }
     setImporting(false);
   };
-
   const handleNext = async () => {
     if (currentStep === 1) {
       onStepChange(2);
@@ -155,7 +156,6 @@ const ImportWizard: FC<ImportWizardProps> = ({
       await executeImport();
     }
   };
-
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -166,7 +166,11 @@ const ImportWizard: FC<ImportWizardProps> = ({
         setScanResults(results);
       } catch (error) {
         console.error("Scan error:", error);
-        toast({ title: "Scan Error", description: String(error), variant: "destructive" });
+        toast({
+          title: "Scan Error",
+          description: String(error),
+          variant: "destructive",
+        });
       }
       if (!cancelled) {
         setScanning(false);
@@ -176,7 +180,6 @@ const ImportWizard: FC<ImportWizardProps> = ({
       cancelled = true;
     };
   }, [toast]);
-
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-center gap-2 mb-6">
@@ -268,5 +271,4 @@ const ImportWizard: FC<ImportWizardProps> = ({
     </div>
   );
 };
-
 export default ImportWizard;

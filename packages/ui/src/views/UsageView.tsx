@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Button } from "#shadcn/components/ui/button";
 import { Badge } from "#shadcn/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "#shadcn/components/ui/card";
@@ -11,14 +11,27 @@ import ModelIcon from "#/components/icons/ModelIcon";
 import { themeStore } from "#/stores/theme";
 import { RefreshIcon, CoinsIcon, CachedIcon, OutputIcon, WalletIcon, LayersIcon } from "#/components/icons/UsageIcons";
 import "#/components/usage/usage-motion.css";
-
-const WINDOWS: Array<{ id: UsageWindow; label: string }> = [
-  { id: "past24h", label: "Past 24h" },
-  { id: "7d", label: "7 days" },
-  { id: "30d", label: "30 days" },
-  { id: "90d", label: "90 days" },
+const WINDOWS: Array<{
+  id: UsageWindow;
+  label: string;
+}> = [
+  {
+    id: "past24h",
+    label: "Past 24h",
+  },
+  {
+    id: "7d",
+    label: "7 days",
+  },
+  {
+    id: "30d",
+    label: "30 days",
+  },
+  {
+    id: "90d",
+    label: "90 days",
+  },
 ];
-
 const HARNESS_LABELS: Record<string, string> = {
   codex: "Codex",
   "claude-code": "Claude Code",
@@ -27,18 +40,21 @@ const HARNESS_LABELS: Record<string, string> = {
   argos: "Argos agent",
   pi: "Argos agent",
 };
-
 function harnessLabel(providerId: string): string {
   return HARNESS_LABELS[providerId] ?? providerId;
 }
-
-const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
-const compactTokens = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 });
-
+const currency = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  maximumFractionDigits: 2,
+});
+const compactTokens = new Intl.NumberFormat("en-US", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
 function formatTokens(value: number): string {
   return compactTokens.format(value);
 }
-
 function Metric({ icon, label, value, hint }: { icon: ReactNode; label: string; value: string; hint?: string }) {
   return (
     <div className="min-w-0 border-l border-border pl-4 first:border-l-0 first:pl-0">
@@ -51,7 +67,6 @@ function Metric({ icon, label, value, hint }: { icon: ReactNode; label: string; 
     </div>
   );
 }
-
 function CostSourceBadge({ source }: { source: UsageStatsOutput["summary"]["costSource"] }) {
   const label =
     source === "reported"
@@ -63,9 +78,8 @@ function CostSourceBadge({ source }: { source: UsageStatsOutput["summary"]["cost
           : "No cost data";
   return <Badge variant="outline">{label}</Badge>;
 }
-
 export default function UsageView() {
-  const usageClient = useMemo(() => createUsageClient(), []);
+  const usageClient = createUsageClient();
   const [window, setWindow] = useState<UsageWindow>("30d");
   const [data, setData] = useState<UsageStatsOutput | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -76,25 +90,21 @@ export default function UsageView() {
   // Incremented on each successful load; keys the reveal animation so data
   // changes are visible without page-load theater.
   const [dataKey, setDataKey] = useState(0);
-
-  const load = useCallback(
-    async (targetWindow: UsageWindow) => {
-      setIsLoading(true);
-      setError("");
-      try {
-        // The daemon caches local scans (10s TTL), so per-window fetches are
-        // cheap and the response's summary/services/breakdown are already
-        // window-correct. Only the service filter is derived client-side.
-        const result = await usageClient.getStats(targetWindow);
-        setData(result);
-        setDataKey((key) => key + 1);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load usage");
-      }
-      setIsLoading(false);
-    },
-    [usageClient],
-  );
+  const load = async (targetWindow: UsageWindow) => {
+    setIsLoading(true);
+    setError("");
+    try {
+      // The daemon caches local scans (10s TTL), so per-window fetches are
+      // cheap and the response's summary/services/breakdown are already
+      // window-correct. Only the service filter is derived client-side.
+      const result = await usageClient.getStats(targetWindow);
+      setData(result);
+      setDataKey((key) => key + 1);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load usage");
+    }
+    setIsLoading(false);
+  };
 
   // Initial + window-change loads run in an effect-local async IIFE (with
   // cancellation) so no setState happens synchronously inside the effect.
@@ -117,7 +127,6 @@ export default function UsageView() {
       cancelled = true;
     };
   }, [window, usageClient]);
-
   const selectWindow = (next: UsageWindow) => {
     setError("");
     setIsLoading(true);
@@ -125,7 +134,7 @@ export default function UsageView() {
   };
 
   // ---- Client-side derivation: service filter only (window is server-side) ----
-  const filtered = useMemo(() => {
+  const filtered = (() => {
     if (!data) return null;
     // Chart data: per-service series when a harness is selected, else the
     // aggregate series (both already window-scoped by the server).
@@ -150,7 +159,6 @@ export default function UsageView() {
       (sum, points) => sum + points.reduce((s, p) => s + p.cachedInputTokens, 0),
       0,
     );
-
     const summary =
       selectedService === undefined
         ? data.summary
@@ -177,7 +185,6 @@ export default function UsageView() {
               unpricedTurns: 0,
             },
           } satisfies UsageStatsOutput["summary"]);
-
     return {
       chartSeries,
       summary,
@@ -189,8 +196,7 @@ export default function UsageView() {
         .filter((item) => item.providerId === selectedService || selectedService === undefined)
         .sort((a, b) => (b.costUsd ?? 0) - (a.costUsd ?? 0)),
     };
-  }, [data, selectedService]);
-
+  })();
   const hasData = (filtered?.services.length ?? 0) > 0;
   const hasChartActivity = (filtered?.chartSeries ?? []).some(
     (point) => point.totalTokens > 0 || (point.costUsd ?? 0) > 0,
@@ -199,7 +205,6 @@ export default function UsageView() {
   const services = filtered?.services ?? [];
   const chartSeries = filtered?.chartSeries ?? [];
   const modelBreakdown = filtered?.modelBreakdown ?? [];
-
   return (
     <div className="h-full w-full overflow-y-auto">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 p-6 lg:p-8">
@@ -218,9 +223,7 @@ export default function UsageView() {
                 type="button"
                 aria-pressed={window === item.id}
                 onClick={() => selectWindow(item.id)}
-                className={`usage-press rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                  window === item.id ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground"
-                }`}
+                className={`usage-press rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${window === item.id ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground"}`}
               >
                 {item.label}
               </button>
@@ -305,11 +308,7 @@ export default function UsageView() {
                 <button
                   type="button"
                   onClick={() => setSelectedService(undefined)}
-                  className={`usage-press flex items-center justify-between gap-4 rounded-lg border px-4 py-3 transition-colors ${
-                    selectedService === undefined
-                      ? "border-accent bg-accent/10"
-                      : "border-dashed border-border bg-transparent text-muted-foreground hover:text-foreground"
-                  }`}
+                  className={`usage-press flex items-center justify-between gap-4 rounded-lg border px-4 py-3 transition-colors ${selectedService === undefined ? "border-accent bg-accent/10" : "border-dashed border-border bg-transparent text-muted-foreground hover:text-foreground"}`}
                 >
                   <span className="text-sm font-medium">All services</span>
                   <span className="text-xs tabular-nums text-muted-foreground">{services.length} harnesses</span>
@@ -320,11 +319,7 @@ export default function UsageView() {
                     type="button"
                     onClick={() => setSelectedService(service.id)}
                     aria-pressed={selectedService === service.id}
-                    className={`usage-press flex items-center justify-between gap-4 rounded-lg border px-4 py-3 text-left transition-colors ${
-                      selectedService === service.id
-                        ? "border-accent bg-accent/10"
-                        : "border-border bg-card hover:bg-muted/50"
-                    }`}
+                    className={`usage-press flex items-center justify-between gap-4 rounded-lg border px-4 py-3 text-left transition-colors ${selectedService === service.id ? "border-accent bg-accent/10" : "border-border bg-card hover:bg-muted/50"}`}
                   >
                     <div className="flex min-w-0 items-center gap-3">
                       <ModelIcon modelId={service.id} customClass="h-4 w-4 shrink-0" isDark={themeStore.state.isDark} />
@@ -363,9 +358,7 @@ export default function UsageView() {
                       key={mode}
                       type="button"
                       onClick={() => setChartMode(mode)}
-                      className={`usage-press rounded px-2.5 py-1 text-xs font-medium transition-colors ${
-                        chartMode === mode ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground"
-                      }`}
+                      className={`usage-press rounded px-2.5 py-1 text-xs font-medium transition-colors ${chartMode === mode ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground"}`}
                     >
                       {mode === "cost" ? "Cost" : "Tokens"}
                     </button>

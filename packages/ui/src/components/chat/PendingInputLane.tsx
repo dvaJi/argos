@@ -1,21 +1,18 @@
-import { type FC, useMemo } from "react";
+import { type FC } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import type { MessageFile } from "@argos/shared/types/agent-interface";
 import type { PendingSessionInputRecord } from "@argos/shared/types/agent-interface";
-
 interface PendingInputLaneProps {
   steerItems: PendingSessionInputRecord[];
   queueItems: PendingSessionInputRecord[];
   activeLimit?: number;
   disableSteerAction?: boolean;
   isGenerating?: boolean;
-
   onDeleteQueue: (itemId: string) => void;
   onDeleteSteer: (itemId: string) => void;
   onSteerQueueItem: (itemId: string) => void;
 }
-
 const formatPayloadText = (item: PendingSessionInputRecord): string => {
   const text = item.payload.text?.trim();
   if (text) return text;
@@ -23,22 +20,18 @@ const formatPayloadText = (item: PendingSessionInputRecord): string => {
   if (fileCount > 0) return `${fileCount} attachment(s)`;
   return "(empty)";
 };
-
 const PendingInputLane: FC<PendingInputLaneProps> = ({
   steerItems,
   queueItems,
   activeLimit = 5,
   disableSteerAction = false,
   isGenerating = false,
-
   onDeleteQueue,
   onDeleteSteer,
   onSteerQueueItem,
 }) => {
-  const showLane = useMemo(() => steerItems.length > 0 || queueItems.length > 0, [steerItems, queueItems]);
-
+  const showLane = steerItems.length > 0 || queueItems.length > 0;
   if (!showLane) return null;
-
   return (
     <div className="w-full max-w-4xl" data-testid="pending-rail">
       <div className="rounded-xl border border-border/70 bg-card/55 px-2.5 py-2 shadow-sm backdrop-blur-lg">
@@ -174,5 +167,4 @@ const PendingInputLane: FC<PendingInputLaneProps> = ({
     </div>
   );
 };
-
 export default PendingInputLane;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Input } from "#shadcn/components/ui/input";
 import { Button } from "#shadcn/components/ui/button";
 import { Badge } from "#shadcn/components/ui/badge";
@@ -11,7 +11,6 @@ import { useModelStore } from "#/stores/modelStore";
 import { useUiSettingsStore } from "#/stores/uiSettingsStore";
 import AddCustomModelButton from "./AddCustomModelButton";
 import { ScrollArea } from "#shadcn/components/ui/scroll-area";
-
 type ModelSortKey = "status" | "name";
 type ModelCapabilityKey = "vision" | "functionCall" | "reasoning" | "search";
 type FilterToken = {
@@ -19,21 +18,20 @@ type FilterToken = {
   value: string;
   label: string;
 };
-
 type BatchAction = "enable" | "disable";
-
 type FacetOption<Value extends string> = {
   value: Value;
   label: string;
   icon: string;
   count: number;
 };
-
 const LABEL_ITEM_HEIGHT = 36;
 const MODEL_ITEM_HEIGHT = 48;
 const PROVIDER_ACTIONS_ITEM_HEIGHT = 56;
-const modelNameCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
-
+const modelNameCollator = new Intl.Collator(undefined, {
+  numeric: true,
+  sensitivity: "base",
+});
 const CAPABILITY_ORDER: ModelCapabilityKey[] = ["vision", "functionCall", "reasoning", "search"];
 const TYPE_ORDER: ModelType[] = [
   ModelType.Chat,
@@ -43,14 +41,12 @@ const TYPE_ORDER: ModelType[] = [
   ModelType.VideoGeneration,
   ModelType.TTS,
 ];
-
 const CAPABILITY_ICONS: Record<ModelCapabilityKey, string> = {
   vision: "lucide:eye",
   functionCall: "lucide:function-square",
   reasoning: "lucide:brain",
   search: "lucide:globe",
 };
-
 const TYPE_ICONS: Record<ModelType, string> = {
   [ModelType.Chat]: "lucide:messages-square",
   [ModelType.Embedding]: "lucide:database",
@@ -59,9 +55,7 @@ const TYPE_ICONS: Record<ModelType, string> = {
   [ModelType.VideoGeneration]: "lucide:clapperboard",
   [ModelType.TTS]: "lucide:volume-2",
 };
-
 const getModelTypeValue = (model: RENDERER_MODEL_META): ModelType => model.type ?? ModelType.Chat;
-
 const hasModelCapability = (model: RENDERER_MODEL_META, capability: ModelCapabilityKey) => {
   switch (capability) {
     case "vision":
@@ -74,7 +68,6 @@ const hasModelCapability = (model: RENDERER_MODEL_META, capability: ModelCapabil
       return !!model.enableSearch;
   }
 };
-
 const getCapabilityLabel = (capability: ModelCapabilityKey) => {
   const labels: Record<ModelCapabilityKey, string> = {
     vision: "Vision",
@@ -84,7 +77,6 @@ const getCapabilityLabel = (capability: ModelCapabilityKey) => {
   };
   return labels[capability];
 };
-
 const getModelTypeLabel = (type: ModelType) => {
   const labels: Record<ModelType, string> = {
     [ModelType.Chat]: "Chat",
@@ -96,11 +88,8 @@ const getModelTypeLabel = (type: ModelType) => {
   };
   return labels[type] ?? type;
 };
-
 const getModelKey = (model: RENDERER_MODEL_META) => `${model.providerId}:${model.id}`;
-
 const statusSortWeight = (model: RENDERER_MODEL_META) => (model.enabled ? 0 : 1);
-
 const buildStatusSortOrder = (models: RENDERER_MODEL_META[]) => {
   const orderedModels = models.toSorted((left, right) => {
     const statusDifference = statusSortWeight(left) - statusSortWeight(right);
@@ -113,7 +102,6 @@ const buildStatusSortOrder = (models: RENDERER_MODEL_META[]) => {
   });
   return nextOrder;
 };
-
 type ModelFilterContext = {
   filterSort: ModelSortKey;
   statusSortOrder: Record<string, number>;
@@ -121,7 +109,6 @@ type ModelFilterContext = {
   selectedCapabilities: ModelCapabilityKey[];
   selectedTypes: ModelType[];
 };
-
 const matchesSearch = (model: RENDERER_MODEL_META, normalizedSearchQuery: string) => {
   if (!normalizedSearchQuery) return true;
   return (
@@ -131,7 +118,6 @@ const matchesSearch = (model: RENDERER_MODEL_META, normalizedSearchQuery: string
     (!!model.description && model.description.toLowerCase().includes(normalizedSearchQuery))
   );
 };
-
 const matchesAdvancedFilters = (
   model: RENDERER_MODEL_META,
   selectedCapabilities: ModelCapabilityKey[],
@@ -149,7 +135,6 @@ const matchesAdvancedFilters = (
   }
   return true;
 };
-
 const sortModels = (models: RENDERER_MODEL_META[], filterSort: ModelSortKey, statusSortOrder: Record<string, number>) =>
   models.toSorted((left, right) => {
     if (filterSort === "name") {
@@ -164,7 +149,6 @@ const sortModels = (models: RENDERER_MODEL_META[], filterSort: ModelSortKey, sta
     }
     return modelNameCollator.compare(left.name, right.name);
   });
-
 const filterAndSortModels = (models: RENDERER_MODEL_META[], ctx: ModelFilterContext) =>
   sortModels(
     models.filter(
@@ -175,19 +159,23 @@ const filterAndSortModels = (models: RENDERER_MODEL_META[], ctx: ModelFilterCont
     ctx.filterSort,
     ctx.statusSortOrder,
   );
-
 interface ProviderModelListProps {
   providerId?: string;
-  providerModels: { providerId: string; models: RENDERER_MODEL_META[] }[];
+  providerModels: {
+    providerId: string;
+    models: RENDERER_MODEL_META[];
+  }[];
   customModels: RENDERER_MODEL_META[];
-  providers: { id: string; name: string }[];
+  providers: {
+    id: string;
+    name: string;
+  }[];
   isLoading?: boolean;
   stickyOffset?: number;
   onEnabledChange?: (model: RENDERER_MODEL_META, enabled: boolean) => void;
   onSaved?: () => void;
   onConfigChanged?: () => void;
 }
-
 export default function ProviderModelList({
   providerModels: providerModelsProp,
   customModels: customModelsProp,
@@ -199,7 +187,6 @@ export default function ProviderModelList({
 }: ProviderModelListProps) {
   const modelStore = useModelStore();
   const uiSettingsStore = useUiSettingsStore();
-
   const [modelSearchQuery, setModelSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [filterPopoverOpen, setFilterPopoverOpen] = useState(false);
@@ -208,29 +195,26 @@ export default function ProviderModelList({
   const [selectedCapabilities, setSelectedCapabilities] = useState<ModelCapabilityKey[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<ModelType[]>([]);
   const [providerBatchPending, setProviderBatchPending] = useState<Record<string, BatchAction | undefined>>({});
-
   const isLoading = isLoadingProp ?? false;
   const newProviderModel = providers?.[0]?.id ?? "";
   const stickyBaseOffset = stickyOffset ?? 0;
-
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearchQuery(modelSearchQuery);
     }, 180);
     return () => clearTimeout(timer);
   }, [modelSearchQuery]);
-
   const normalizedSearchQuery = debouncedSearchQuery.trim().toLowerCase();
-
-  const allModels = useMemo(
-    () => [...customModelsProp, ...providerModelsProp.flatMap((p) => p.models)],
-    [customModelsProp, providerModelsProp],
-  );
-
-  const facetCounts = useMemo(() => {
+  const allModels = [...customModelsProp, ...providerModelsProp.flatMap((p) => p.models)];
+  const facetCounts = (() => {
     const counts = {
       total: 0,
-      capabilities: { vision: 0, functionCall: 0, reasoning: 0, search: 0 } as Record<ModelCapabilityKey, number>,
+      capabilities: {
+        vision: 0,
+        functionCall: 0,
+        reasoning: 0,
+        search: 0,
+      } as Record<ModelCapabilityKey, number>,
       types: {} as Partial<Record<ModelType, number>>,
     };
     for (const model of allModels) {
@@ -243,101 +227,91 @@ export default function ProviderModelList({
       counts.types[type] = (counts.types[type] ?? 0) + 1;
     }
     return counts;
-  }, [allModels]);
-
+  })();
   const totalModelCount = facetCounts.total;
-
-  const capabilityFilterOptions = useMemo<FacetOption<ModelCapabilityKey>[]>(
-    () =>
-      CAPABILITY_ORDER.map((capability) => ({
-        value: capability,
-        label: getCapabilityLabel(capability),
-        icon: CAPABILITY_ICONS[capability],
-        count: facetCounts.capabilities[capability],
-      })).filter((option) => option.count > 0),
-    [facetCounts],
-  );
-
-  const typeFilterOptions = useMemo<FacetOption<ModelType>[]>(
-    () =>
-      TYPE_ORDER.map((type) => ({
-        value: type,
-        label: getModelTypeLabel(type),
-        icon: TYPE_ICONS[type],
-        count: facetCounts.types[type] ?? 0,
-      })).filter((option) => option.count > 0),
-    [facetCounts],
-  );
-
-  const sortOptions = useMemo(
-    () => [
-      { value: "status" as ModelSortKey, label: "Status" },
-      { value: "name" as ModelSortKey, label: "Name" },
-    ],
-    [],
-  );
-
+  const capabilityFilterOptions = CAPABILITY_ORDER.map((capability) => ({
+    value: capability,
+    label: getCapabilityLabel(capability),
+    icon: CAPABILITY_ICONS[capability],
+    count: facetCounts.capabilities[capability],
+  })).filter((option) => option.count > 0);
+  const typeFilterOptions = TYPE_ORDER.map((type) => ({
+    value: type,
+    label: getModelTypeLabel(type),
+    icon: TYPE_ICONS[type],
+    count: facetCounts.types[type] ?? 0,
+  })).filter((option) => option.count > 0);
+  const sortOptions = [
+    {
+      value: "status" as ModelSortKey,
+      label: "Status",
+    },
+    {
+      value: "name" as ModelSortKey,
+      label: "Name",
+    },
+  ];
   const currentSortLabel = filterSort === "status" ? "Status" : "Name";
   const activeAdvancedFilterCount = selectedCapabilities.length + selectedTypes.length;
   const selectedCapabilitySet = new Set(selectedCapabilities);
   const selectedTypeSet = new Set(selectedTypes);
-
-  const activeFilterTokens = useMemo<FilterToken[]>(() => {
+  const activeFilterTokens = (() => {
     const tokens: FilterToken[] = [];
     selectedCapabilities.forEach((capability) => {
-      tokens.push({ kind: "capability", value: capability, label: getCapabilityLabel(capability) });
+      tokens.push({
+        kind: "capability",
+        value: capability,
+        label: getCapabilityLabel(capability),
+      });
     });
     selectedTypes.forEach((type) => {
-      tokens.push({ kind: "type", value: type, label: getModelTypeLabel(type) });
+      tokens.push({
+        kind: "type",
+        value: type,
+        label: getModelTypeLabel(type),
+      });
     });
     return tokens;
-  }, [selectedCapabilities, selectedTypes]);
-
+  })();
   const hasListRefinements = normalizedSearchQuery.length > 0 || activeAdvancedFilterCount > 0;
-
-  const statusSortOrder = useMemo(() => buildStatusSortOrder(allModels), [allModels]);
-
-  const filteredProviderModels = useMemo(
-    () =>
-      providerModelsProp.flatMap((p) => {
-        const models = filterAndSortModels(p.models, {
-          filterSort,
-          statusSortOrder,
-          normalizedSearchQuery,
-          selectedCapabilities,
-          selectedTypes,
-        });
-        return models.length > 0 ? [{ providerId: p.providerId, models }] : [];
-      }),
-    [providerModelsProp, filterSort, normalizedSearchQuery, selectedCapabilities, selectedTypes, statusSortOrder],
-  );
-
-  const filteredCustomModels = useMemo(
-    () =>
-      filterAndSortModels(customModelsProp, {
-        filterSort,
-        statusSortOrder,
-        normalizedSearchQuery,
-        selectedCapabilities,
-        selectedTypes,
-      }),
-    [customModelsProp, filterSort, normalizedSearchQuery, selectedCapabilities, selectedTypes, statusSortOrder],
-  );
-
+  const statusSortOrder = buildStatusSortOrder(allModels);
+  const filteredProviderModels = providerModelsProp.flatMap((p) => {
+    const models = filterAndSortModels(p.models, {
+      filterSort,
+      statusSortOrder,
+      normalizedSearchQuery,
+      selectedCapabilities,
+      selectedTypes,
+    });
+    return models.length > 0
+      ? [
+          {
+            providerId: p.providerId,
+            models,
+          },
+        ]
+      : [];
+  });
+  const filteredCustomModels = filterAndSortModels(customModelsProp, {
+    filterSort,
+    statusSortOrder,
+    normalizedSearchQuery,
+    selectedCapabilities,
+    selectedTypes,
+  });
   const visibleModelCount =
     filteredCustomModels.length + filteredProviderModels.reduce((total, p) => total + p.models.length, 0);
-
   const getProviderName = (providerId: string) => {
     const p = providers.find((item) => item.id === providerId);
     return p?.name || providerId;
   };
-
   const getProviderPendingAction = (providerId: string) => providerBatchPending[providerId];
   const isProviderBatchPending = (providerId: string) => getProviderPendingAction(providerId) !== undefined;
-
   const setProviderBatchPendingAction = (providerId: string, action?: BatchAction) => {
     setProviderBatchPending((prev) => {
-      const next = { ...prev };
+      const next = {
+        ...prev,
+      };
       if (action) {
         next[providerId] = action;
       } else {
@@ -346,7 +320,6 @@ export default function ProviderModelList({
       return next;
     });
   };
-
   const getBatchTargetModels = (providerId: string) => {
     const pModels = filteredProviderModels.find((p) => p.providerId === providerId)?.models ?? [];
     const pCustomModels = filteredCustomModels.filter((model) => model.providerId === providerId);
@@ -356,7 +329,6 @@ export default function ProviderModelList({
     for (const model of pCustomModels) dedupedModels.set(getModelKey(model), model);
     return Array.from(dedupedModels.values());
   };
-
   const enableAllModels = async (providerId: string) => {
     if (isProviderBatchPending(providerId)) return;
     setProviderBatchPendingAction(providerId, "enable");
@@ -367,7 +339,6 @@ export default function ProviderModelList({
     }
     setProviderBatchPendingAction(providerId);
   };
-
   const disableAllModels = async (providerId: string) => {
     if (isProviderBatchPending(providerId)) return;
     setProviderBatchPendingAction(providerId, "disable");
@@ -378,7 +349,6 @@ export default function ProviderModelList({
     }
     setProviderBatchPendingAction(providerId);
   };
-
   const handleDeleteCustomModel = async (model: RENDERER_MODEL_META) => {
     try {
       await modelStore.removeCustomModel(model.providerId, model.id);
@@ -386,26 +356,21 @@ export default function ProviderModelList({
       console.error("Failed to delete custom model:", error);
     }
   };
-
   const toggleCapabilityFilter = (capability: ModelCapabilityKey) => {
     setSelectedCapabilities((prev) =>
       prev.includes(capability) ? prev.filter((item) => item !== capability) : [...prev, capability],
     );
   };
-
   const toggleTypeFilter = (type: ModelType) => {
     setSelectedTypes((prev) => (prev.includes(type) ? prev.filter((item) => item !== type) : [...prev, type]));
   };
-
   const clearAdvancedFilters = () => {
     setSelectedCapabilities([]);
     setSelectedTypes([]);
   };
-
   const clearAllFilters = () => {
     clearAdvancedFilters();
   };
-
   const removeFilterToken = (token: FilterToken) => {
     if (token.kind === "capability") {
       setSelectedCapabilities((prev) => prev.filter((item) => item !== token.value));
@@ -413,17 +378,17 @@ export default function ProviderModelList({
     }
     setSelectedTypes((prev) => prev.filter((item) => item !== token.value));
   };
-
   const setSort = (sort: ModelSortKey) => {
     setFilterSort(sort);
     setSortPopoverOpen(false);
   };
-
   return (
     <div className="flex flex-col w-full gap-4">
       <div
         className="sticky z-30 border-b border-border/60 py-2 backdrop-blur supports-backdrop-filter:bg-background/80"
-        style={{ top: `${stickyBaseOffset}px` }}
+        style={{
+          top: `${stickyBaseOffset}px`,
+        }}
       >
         <div className="flex gap-2">
           <Input
@@ -629,9 +594,7 @@ export default function ProviderModelList({
                             ? "lucide:loader-2"
                             : "lucide:check-circle"
                         }
-                        className={`h-3.5 w-3.5 shrink-0 sm:mr-1 ${
-                          getProviderPendingAction(providerGroup.providerId) === "enable" ? "animate-spin" : ""
-                        }`}
+                        className={`h-3.5 w-3.5 shrink-0 sm:mr-1 ${getProviderPendingAction(providerGroup.providerId) === "enable" ? "animate-spin" : ""}`}
                       />
                       <span className="hidden min-w-0 truncate sm:inline">Enable all</span>
                     </Button>
@@ -649,9 +612,7 @@ export default function ProviderModelList({
                             ? "lucide:loader-2"
                             : "lucide:x-circle"
                         }
-                        className={`h-3.5 w-3.5 shrink-0 sm:mr-1 ${
-                          getProviderPendingAction(providerGroup.providerId) === "disable" ? "animate-spin" : ""
-                        }`}
+                        className={`h-3.5 w-3.5 shrink-0 sm:mr-1 ${getProviderPendingAction(providerGroup.providerId) === "disable" ? "animate-spin" : ""}`}
                       />
                       <span className="hidden min-w-0 truncate sm:inline">Disable all</span>
                     </Button>

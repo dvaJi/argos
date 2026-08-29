@@ -1,22 +1,18 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import logoSrc from "../src/assets/logo.png";
 import logoDarkSrc from "../src/assets/logo-dark.png";
 import { TextShimmer } from "../components/agent-elements/text-shimmer";
 import { onIpcChannel } from "#api/runtime";
 import "./loading.css";
-
 type SplashActivityStatus = "running" | "completed" | "failed";
-
 interface SplashActivityItem {
   key: string;
   name: string;
   status: SplashActivityStatus;
 }
-
 interface SplashUpdatePayload {
   activities?: SplashActivityItem[];
 }
-
 const ACTIVITY_LABELS: Record<string, string> = {
   "config-initialization": "Loading configuration",
   "database-initialization": "Opening local database",
@@ -30,7 +26,6 @@ const ACTIVITY_LABELS: Record<string, string> = {
   "usage-stats-backfill": "Queueing usage stats backfill",
   "startup-error": "Startup error",
 };
-
 const getActivityLabel = (name: string) => {
   if (ACTIVITY_LABELS[name]) {
     return ACTIVITY_LABELS[name];
@@ -64,7 +59,6 @@ function Emblem() {
     </div>
   );
 }
-
 function StatusList({ activities }: { activities: SplashActivityItem[] }) {
   return (
     <div className="splash-status" data-testid="splash-status">
@@ -89,7 +83,15 @@ function StatusList({ activities }: { activities: SplashActivityItem[] }) {
             .join(" ");
           const label = getActivityLabel(activity.name);
           return (
-            <div key={activity.key} className={rowClass} style={{ "--splash-row-i": index } as React.CSSProperties}>
+            <div
+              key={activity.key}
+              className={rowClass}
+              style={
+                {
+                  "--splash-row-i": index,
+                } as React.CSSProperties
+              }
+            >
               <span className="splash-status__glyph" aria-hidden="true" />
               <span className="splash-status__label">
                 {activity.status === "running" ? (
@@ -107,21 +109,17 @@ function StatusList({ activities }: { activities: SplashActivityItem[] }) {
     </div>
   );
 }
-
 export default function Loading() {
   const [activities, setActivities] = useState<SplashActivityItem[]>([]);
-
-  const handleSplashUpdate = useCallback((_event: unknown, payload: SplashUpdatePayload) => {
+  const handleSplashUpdate = (_event: unknown, payload: SplashUpdatePayload) => {
     setActivities(payload.activities?.slice(0, 3) ?? []);
-  }, []);
-
+  };
   useEffect(() => {
     const unsubscribe = onIpcChannel("splash-update", handleSplashUpdate);
     return () => {
       unsubscribe();
     };
   }, [handleSplashUpdate]);
-
   return (
     <div className="splash-shell">
       <div className="splash-stage" data-testid="splash-stage">

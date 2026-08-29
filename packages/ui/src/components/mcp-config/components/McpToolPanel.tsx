@@ -1,4 +1,4 @@
-import { type FC, useState, useEffect, useMemo, useCallback } from "react";
+import { type FC, useState, useEffect, useCallback } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Badge } from "#shadcn/components/ui/badge";
@@ -6,7 +6,6 @@ import { ScrollArea } from "#shadcn/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "#shadcn/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#shadcn/components/ui/select";
 import { useMcpStore, mcpStore as mcpStoreInstance } from "#/stores/mcp";
-
 function useMediaQuery(query: string): boolean {
   const [matches, setMatches] = useState(() => window.matchMedia(query).matches);
   useEffect(() => {
@@ -17,37 +16,27 @@ function useMediaQuery(query: string): boolean {
   }, [query]);
   return matches;
 }
-
 import McpJsonViewer from "./McpJsonViewer";
 import type { MCPToolDefinition } from "@argos/shared/presenter";
-
 interface McpToolPanelProps {
   serverName: string;
   open: boolean;
   onOpenChange: (value: boolean) => void;
 }
-
 const McpToolPanel: FC<McpToolPanelProps> = ({ serverName, open, onOpenChange }) => {
   const mcpStore = useMcpStore();
-
   const [selectedToolName, setSelectedToolName] = useState("");
   const [localToolInputs, setLocalToolInputs] = useState<Record<string, string>>({});
   const [localToolResults, setLocalToolResults] = useState<Record<string, string>>({});
   const [jsonError, setJsonError] = useState<Record<string, boolean>>({});
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [isParametersExpanded, setIsParametersExpanded] = useState(false);
-
-  const serverTools = useMemo(
-    () => mcpStore.tools.filter((tool) => tool.server.name === serverName),
-    [mcpStore.tools, serverName],
-  );
-
+  const serverTools = mcpStore.tools.filter((tool) => tool.server.name === serverName);
   const selectedTool = selectedToolName
     ? (serverTools.find((t) => t.function.name === selectedToolName) ?? null)
     : null;
-
   const isLgScreen = useMediaQuery("(min-width: 1024px)");
-  const showTopSelector = useMemo(() => !isLgScreen || serverTools.length === 0, [isLgScreen, serverTools.length]);
+  const showTopSelector = !isLgScreen || serverTools.length === 0;
 
   // Reset the selection whenever the panel is (re)opened — adjusted during render.
   const [wasOpen, setWasOpen] = useState(open);
@@ -62,53 +51,73 @@ const McpToolPanel: FC<McpToolPanelProps> = ({ serverName, open, onOpenChange })
     setLastSelectedToolName(selectedToolName);
     if (selectedToolName) {
       if (!localToolInputs[selectedToolName]) {
-        setLocalToolInputs((prev) => ({ ...prev, [selectedToolName]: "{}" }));
+        setLocalToolInputs((prev) => ({
+          ...prev,
+          [selectedToolName]: "{}",
+        }));
       }
-      setJsonError((prev) => ({ ...prev, [selectedToolName]: false }));
+      setJsonError((prev) => ({
+        ...prev,
+        [selectedToolName]: false,
+      }));
       setIsDescriptionExpanded(false);
       setIsParametersExpanded(false);
     }
   }
-
   const validateJson = (input: string, toolName: string): boolean => {
     try {
       JSON.parse(input);
-      setJsonError((prev) => ({ ...prev, [toolName]: false }));
+      setJsonError((prev) => ({
+        ...prev,
+        [toolName]: false,
+      }));
       return true;
     } catch {
-      setJsonError((prev) => ({ ...prev, [toolName]: true }));
+      setJsonError((prev) => ({
+        ...prev,
+        [toolName]: true,
+      }));
       return false;
     }
   };
-
   const callTool = async (toolName: string) => {
     if (!validateJson(localToolInputs[toolName], toolName)) return;
     try {
       const params = JSON.parse(localToolInputs[toolName]);
       mcpStoreInstance.setState((s) => ({
         ...s,
-        toolInputs: { ...s.toolInputs, [toolName]: params },
+        toolInputs: {
+          ...s.toolInputs,
+          [toolName]: params,
+        },
       }));
       const result = await mcpStore.callTool(toolName);
       if (result) {
-        setLocalToolResults((prev) => ({ ...prev, [toolName]: result.content || "" }));
+        setLocalToolResults((prev) => ({
+          ...prev,
+          [toolName]: result.content || "",
+        }));
       }
       return result;
     } catch (error) {
       console.error("Tool call error:", error);
-      setLocalToolResults((prev) => ({ ...prev, [toolName]: String(error) }));
+      setLocalToolResults((prev) => ({
+        ...prev,
+        [toolName]: String(error),
+      }));
       return;
     }
   };
-
   const formatToolInput = (toolName: string) => {
     try {
       const formatted = JSON.stringify(JSON.parse(localToolInputs[toolName]), null, 2);
-      setLocalToolInputs((prev) => ({ ...prev, [toolName]: formatted }));
+      setLocalToolInputs((prev) => ({
+        ...prev,
+        [toolName]: formatted,
+      }));
     } catch {}
   };
-
-  const toolParametersDescription = useMemo(() => {
+  const toolParametersDescription = (() => {
     if (!selectedTool?.function.parameters?.properties) return [];
     const properties = selectedTool.function.parameters.properties;
     const required = selectedTool.function.parameters.required || [];
@@ -123,12 +132,10 @@ const McpToolPanel: FC<McpToolPanelProps> = ({ serverName, open, onOpenChange })
       enum: prop.enum || null,
       items: prop.items || null,
     }));
-  }, [selectedTool]);
-
+  })();
   const selectTool = (tool: MCPToolDefinition) => {
     setSelectedToolName(tool.function.name);
   };
-
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -358,5 +365,4 @@ const McpToolPanel: FC<McpToolPanelProps> = ({ serverName, open, onOpenChange })
     </Sheet>
   );
 };
-
 export default McpToolPanel;

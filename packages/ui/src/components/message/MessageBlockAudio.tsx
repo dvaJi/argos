@@ -6,43 +6,46 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from "#shadcn/components/ui/context-menu";
-
 interface MessageBlockAudioProps {
   block: import("#/components/chat/messageListItems").DisplayAssistantMessageBlock;
   messageId?: string;
   threadId?: string;
 }
-
 type LegacyAudioBlockContent = {
   data?: string;
   mimeType?: string;
 };
-
-const parseAudioDataUri = (value: string): { data: string; mimeType: string } | null => {
+const parseAudioDataUri = (
+  value: string,
+): {
+  data: string;
+  mimeType: string;
+} | null => {
   const match = value.match(/^data:([^;]+);base64,(.*)$/);
   if (!match?.[1] || !match?.[2]) return null;
   if (!match[1].startsWith("audio/")) return null;
-  return { data: match[2], mimeType: match[1] };
+  return {
+    data: match[2],
+    mimeType: match[1],
+  };
 };
-
 const normalizeAudioData = (rawData: string, mimeType?: string) => {
   const trimmed = rawData.trim();
   if (!trimmed) return null;
   const parsed = parseAudioDataUri(trimmed);
   if (parsed) return parsed;
-
   const normalizedMimeType = mimeType?.trim() || "audio/mpeg";
-  return { data: trimmed, mimeType: normalizedMimeType };
+  return {
+    data: trimmed,
+    mimeType: normalizedMimeType,
+  };
 };
-
 export const MessageBlockAudio: React.FC<MessageBlockAudioProps> = ({ block }) => {
   const [audioError, setAudioError] = React.useState(false);
-
-  const resolvedAudioData = React.useMemo(() => {
+  const resolvedAudioData = (() => {
     if (block.image_data?.data) {
       return normalizeAudioData(block.image_data.data, block.image_data.mimeType);
     }
-
     const content = block.content;
     if (content && typeof content === "object" && "data" in (content as LegacyAudioBlockContent)) {
       const legacyContent = content as LegacyAudioBlockContent;
@@ -50,23 +53,19 @@ export const MessageBlockAudio: React.FC<MessageBlockAudioProps> = ({ block }) =
         return normalizeAudioData(legacyContent.data, legacyContent.mimeType);
       }
     }
-
     if (typeof content === "string" && content.length > 0) {
       return normalizeAudioData(content);
     }
-
     return null;
-  }, [block.image_data, block.content]);
-
-  const audioSrc = React.useMemo(() => {
+  })();
+  const audioSrc = (() => {
     if (!resolvedAudioData) return "";
     const raw = resolvedAudioData.data;
     if (raw.startsWith("imgcache://") || raw.startsWith("http://") || raw.startsWith("https://")) {
       return raw;
     }
     return `data:${resolvedAudioData.mimeType};base64,${raw}`;
-  }, [resolvedAudioData]);
-
+  })();
   return (
     <div className="my-1">
       <div className="rounded-lg border bg-card text-card-foreground p-4 w-fit">

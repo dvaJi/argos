@@ -1,10 +1,9 @@
-import { type FC, useCallback, useEffect, useMemo, useRef } from "react";
+import { type FC, useEffect, useRef } from "react";
 import { MessageBlockAction } from "#/components/message/MessageBlockAction";
 import { useMessageCapture } from "#/composables/message/useMessageCapture";
 import { useThemeStore } from "#/stores/theme";
 import { type DisplayAssistantMessageBlock, type DisplayMessage, type MessageListItem } from "./messageListItems";
 import MessageListRow from "./MessageListRow";
-
 interface MessageListProps {
   messages: MessageListItem[];
   conversationId?: string;
@@ -21,7 +20,6 @@ interface MessageListProps {
   onEditSave: (payload: { messageId: string; text: string }) => void;
   onMeasure: (payload: { messageId: string; height: number }) => void;
 }
-
 const MessageList: FC<MessageListProps> = ({
   messages,
   conversationId = "",
@@ -39,9 +37,9 @@ const MessageList: FC<MessageListProps> = ({
   onMeasure,
 }) => {
   const themeStore = useThemeStore();
-  const traceMessageIdSet = useMemo(() => new Set(traceMessageIds), [traceMessageIds]);
-  const allRenderedMessages = useMemo(() => messages, [messages]);
-  const displayMessages = useMemo(() => allRenderedMessages, [allRenderedMessages]);
+  const traceMessageIdSet = new Set(traceMessageIds);
+  const allRenderedMessages = messages;
+  const displayMessages = allRenderedMessages;
   const displayMessagesRef = useRef(displayMessages);
   useEffect(() => {
     displayMessagesRef.current = displayMessages;
@@ -51,8 +49,7 @@ const MessageList: FC<MessageListProps> = ({
   useEffect(() => {
     captureMessageRef.current = captureMessage;
   });
-
-  const resolveCaptureParentId = useCallback((messageId: string, parentId?: string): string | undefined => {
+  const resolveCaptureParentId = (messageId: string, parentId?: string): string | undefined => {
     const messageItems = displayMessagesRef.current;
     if (parentId) {
       const parentMessage = messageItems.find((msg) => msg.id === parentId);
@@ -65,21 +62,24 @@ const MessageList: FC<MessageListProps> = ({
       if (candidate.role === "user") return candidate.id;
     }
     return undefined;
-  }, []);
-
-  const handleCopyImage = useCallback(
-    async (
-      messageId: string,
-      parentId: string | undefined,
-      fromTop: boolean,
-      modelInfo: { model_name: string; model_provider: string },
-    ) => {
-      const resolvedParentId = resolveCaptureParentId(messageId, parentId);
-      await captureMessageRef.current({ messageId, parentId: resolvedParentId, fromTop, modelInfo });
+  };
+  const handleCopyImage = async (
+    messageId: string,
+    parentId: string | undefined,
+    fromTop: boolean,
+    modelInfo: {
+      model_name: string;
+      model_provider: string;
     },
-    [resolveCaptureParentId],
-  );
-
+  ) => {
+    const resolvedParentId = resolveCaptureParentId(messageId, parentId);
+    await captureMessageRef.current({
+      messageId,
+      parentId: resolvedParentId,
+      fromTop,
+      modelInfo,
+    });
+  };
   return (
     <div data-testid="chat-message-list" className="chat-message-list w-full min-w-0">
       <div className="mx-auto w-full max-w-5xl space-y-1 px-6 py-6">
@@ -116,5 +116,4 @@ const MessageList: FC<MessageListProps> = ({
     </div>
   );
 };
-
 export default MessageList;

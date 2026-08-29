@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState } from "react";
 import { Icon } from "@iconify/react";
 import {
   Dialog,
@@ -27,21 +27,35 @@ import {
   retryPrepareModels,
 } from "#/stores/mcpSampling";
 import type { RENDERER_MODEL_META } from "@argos/shared/presenter";
-
 export default function McpSamplingDialog() {
   const store = useMcpSamplingStore();
   const [modelSelectOpen, setModelSelectOpen] = useState(false);
-
-  const preferenceSummary = useMemo(() => {
+  const preferenceSummary = (() => {
     const prefs = store.request?.modelPreferences;
-    if (!prefs) return [] as Array<{ key: string; label: string; value: string }>;
-
-    const entries: Array<{ key: string; label: string; value: string }> = [];
+    if (!prefs)
+      return [] as Array<{
+        key: string;
+        label: string;
+        value: string;
+      }>;
+    const entries: Array<{
+      key: string;
+      label: string;
+      value: string;
+    }> = [];
     if (typeof prefs.costPriority === "number") {
-      entries.push({ key: "cost", label: "Cost Priority", value: prefs.costPriority.toFixed(2) });
+      entries.push({
+        key: "cost",
+        label: "Cost Priority",
+        value: prefs.costPriority.toFixed(2),
+      });
     }
     if (typeof prefs.speedPriority === "number") {
-      entries.push({ key: "speed", label: "Speed Priority", value: prefs.speedPriority.toFixed(2) });
+      entries.push({
+        key: "speed",
+        label: "Speed Priority",
+        value: prefs.speedPriority.toFixed(2),
+      });
     }
     if (typeof prefs.intelligencePriority === "number") {
       entries.push({
@@ -58,34 +72,25 @@ export default function McpSamplingDialog() {
       });
     }
     return entries;
-  }, [store.request?.modelPreferences]);
-
-  const onModelUpdate = useCallback((model: RENDERER_MODEL_META, providerId: string) => {
+  })();
+  const onModelUpdate = (model: RENDERER_MODEL_META, providerId: string) => {
     selectModel(model, providerId);
     setModelSelectOpen(false);
-  }, []);
-
-  const onReject = useCallback(() => {
+  };
+  const onReject = () => {
     void rejectRequest();
-  }, []);
-
-  const onConfirm = useCallback(() => {
+  };
+  const onConfirm = () => {
     void confirmApproval();
-  }, []);
-
-  const onRetryModels = useCallback(() => {
+  };
+  const onRetryModels = () => {
     void retryPrepareModels();
-  }, []);
-
-  const onDialogToggle = useCallback(
-    (open: boolean) => {
-      if (!open && !store.isSubmitting) {
-        void dismissRequest();
-      }
-    },
-    [store],
-  );
-
+  };
+  const onDialogToggle = (open: boolean) => {
+    if (!open && !store.isSubmitting) {
+      void dismissRequest();
+    }
+  };
   return (
     <Dialog open={store.isOpen} onOpenChange={onDialogToggle}>
       <DialogContent className="max-w-3xl max-h-[85vh] p-0">

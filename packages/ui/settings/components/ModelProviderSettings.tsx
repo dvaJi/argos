@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -23,13 +23,10 @@ import { useGuidedOnboardingStep } from "#/composables/useGuidedOnboardingStep";
 import { createWindowClient } from "#api/WindowClient";
 import { continueGuidedOnboardingFromSettings } from "../lib/guidedOnboardingSettings";
 import { useStartupWorkloadStore } from "#/stores/startupWorkloadStore";
-
 const windowClient = createWindowClient();
-
 interface ModelProviderSettingsProps {
   providerId?: string;
 }
-
 function reorderSubset(
   fullList: LLM_PROVIDER[],
   subsetBefore: LLM_PROVIDER[],
@@ -40,18 +37,15 @@ function reorderSubset(
   const untouchedSubset = subsetBefore.filter((provider) => !nextSubsetMap.has(provider.id));
   const completeSubset = [...subsetAfter, ...untouchedSubset];
   let subsetIndex = 0;
-
   return fullList.map((provider) => {
     if (!predicate(provider)) {
       return provider;
     }
-
     const replacement = completeSubset[subsetIndex];
     subsetIndex += 1;
     return replacement ?? provider;
   });
 }
-
 function SortableProviderRow({
   provider,
   dimmed,
@@ -65,19 +59,21 @@ function SortableProviderRow({
   onClick: () => void;
   children: React.ReactNode;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: provider.id });
-
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: provider.id,
+  });
   return (
     <div
       ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition }}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+      }}
       className={isDragging ? "z-10" : ""}
     >
       <div
         data-provider-id={provider.id}
-        className={`flex flex-row items-center gap-2 rounded-lg p-2 group hover:bg-accent ${
-          dimmed ? "opacity-60" : ""
-        } ${selected ? "bg-accent text-accent-foreground" : ""}`}
+        className={`flex flex-row items-center gap-2 rounded-lg p-2 group hover:bg-accent ${dimmed ? "opacity-60" : ""} ${selected ? "bg-accent text-accent-foreground" : ""}`}
         onClick={onClick}
       >
         <span
@@ -96,7 +92,6 @@ function SortableProviderRow({
     </div>
   );
 }
-
 export default function ModelProviderSettings({ providerId: routeProviderId }: ModelProviderSettingsProps) {
   const languageStore = useLanguageStore();
   const providerStore = useProviderStore();
@@ -104,83 +99,78 @@ export default function ModelProviderSettings({ providerId: routeProviderId }: M
   const modelStore = useModelStore();
   const themeStore = useThemeStore();
   const router = useRouter();
-
   const providerDetailRef = useRef<HTMLDivElement | null>(null);
   const [guideRootEl, setGuideRootEl] = useState<HTMLDivElement | null>(null);
   const [providerListGuideTargetEl, setProviderListGuideTargetEl] = useState<HTMLDivElement | null>(null);
   const [providerApiKeyTargetEl] = useState<HTMLDivElement | null>(null);
   const [providerModelTargetEl] = useState<HTMLDivElement | null>(null);
-
   const selectProviderGuide = useGuidedOnboardingStep("select-provider");
   const providerApiKeyGuide = useGuidedOnboardingStep("provider-api-key");
   const providerModelGuide = useGuidedOnboardingStep("provider-model");
-
   const [isAddProviderDialogOpen, setIsAddProviderDialogOpen] = useState(false);
   const [searchQueryBase, setSearchQueryBase] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [editingProviderId, setEditingProviderId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
   const editInputRef = useRef<HTMLInputElement | null>(null);
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
-
-  const attachProviderListGuideTarget = useCallback((el: HTMLDivElement | null) => {
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 6,
+      },
+    }),
+  );
+  const attachProviderListGuideTarget = (el: HTMLDivElement | null) => {
     setProviderListGuideTargetEl((el?.parentElement as HTMLDivElement | null) ?? el);
-  }, []);
-
+  };
   const showClearButton = searchQueryBase.trim().length > 0;
-
   const showSelectProviderGuide = selectProviderGuide.showGuide && Boolean(providerListGuideTargetEl);
   const showProviderApiKeyGuide = providerApiKeyGuide.showGuide && Boolean(providerApiKeyTargetEl);
   const showProviderModelGuide = providerModelGuide.showGuide && Boolean(providerModelTargetEl);
-
-  const detailGuideStepId = useMemo(() => {
+  const detailGuideStepId = (() => {
     if (providerModelGuide.currentStepId === "provider-model") return "provider-model";
     if (providerApiKeyGuide.currentStepId === "provider-api-key") return "provider-api-key";
     return null;
-  }, [providerModelGuide.currentStepId, providerApiKeyGuide.currentStepId]);
-
+  })();
   const startupWorkloadStore = useStartupWorkloadStore();
-
-  const continueProviderGuide = useCallback(
-    async (state: any) => {
-      await continueGuidedOnboardingFromSettings({
-        state,
-        router: {
-          navigate: (opts: { to: string; params?: Record<string, string>; replace?: boolean }) => {
-            const to = opts.to as any;
-            const params = opts.params as any;
-            void router.navigate({ to, params, replace: opts.replace });
-            return Promise.resolve();
-          },
+  const continueProviderGuide = async (state: any) => {
+    await continueGuidedOnboardingFromSettings({
+      state,
+      router: {
+        navigate: (opts: { to: string; params?: Record<string, string>; replace?: boolean }) => {
+          const to = opts.to as any;
+          const params = opts.params as any;
+          void router.navigate({
+            to,
+            params,
+            replace: opts.replace,
+          });
+          return Promise.resolve();
         },
-        currentRoute: { params: { providerId: routeProviderId } },
-        windowClient,
-      });
-    },
-    [router, routeProviderId],
-  );
-
+      },
+      currentRoute: {
+        params: {
+          providerId: routeProviderId,
+        },
+      },
+      windowClient,
+    });
+  };
   useEffect(() => {
     const timer = setTimeout(() => {
       setSearchQuery(searchQueryBase);
     }, 150);
     return () => clearTimeout(timer);
   }, [searchQueryBase]);
-
   const clearSearch = () => {
     setSearchQueryBase("");
   };
-
-  const filterProviders = useCallback(
-    (providerList: LLM_PROVIDER[]) => {
-      if (!searchQuery.trim()) return providerList;
-      const query = searchQuery.toLowerCase().trim();
-      return providerList.filter((provider) => provider.name.toLowerCase().includes(query));
-    },
-    [searchQuery],
-  );
-
-  const visibleProviders = useMemo(() => {
+  const filterProviders = (providerList: LLM_PROVIDER[]) => {
+    if (!searchQuery.trim()) return providerList;
+    const query = searchQuery.toLowerCase().trim();
+    return providerList.filter((provider) => provider.name.toLowerCase().includes(query));
+  };
+  const visibleProviders = (() => {
     const seen = new Set<string>();
     return getSortedProvidersFrom(providers, providerOrder, providerTimestamps).filter((provider) => {
       if (provider.id === "acp" || seen.has(provider.id)) {
@@ -189,42 +179,29 @@ export default function ModelProviderSettings({ providerId: routeProviderId }: M
       seen.add(provider.id);
       return true;
     });
-  }, [providers, providerOrder, providerTimestamps]);
-
-  const allEnabledProviders = useMemo(() => visibleProviders.filter((p) => p.enable), [visibleProviders]);
-  const allDisabledProviders = useMemo(() => visibleProviders.filter((p) => !p.enable), [visibleProviders]);
-
-  const enabledProviders = useMemo(() => filterProviders(allEnabledProviders), [allEnabledProviders, filterProviders]);
-  const disabledProviders = useMemo(
-    () => filterProviders(allDisabledProviders),
-    [allDisabledProviders, filterProviders],
-  );
-
+  })();
+  const allEnabledProviders = visibleProviders.filter((p) => p.enable);
+  const allDisabledProviders = visibleProviders.filter((p) => !p.enable);
+  const enabledProviders = filterProviders(allEnabledProviders);
+  const disabledProviders = filterProviders(allDisabledProviders);
   const showProviderSkeleton =
     (!providerStore.initialized || startupWorkloadStore?.isTaskRunning("settings.providers.summary")) &&
     visibleProviders.length === 0;
-
-  const activeProvider = useMemo(() => {
+  const activeProvider = (() => {
     const provider = providerStore.providers.find((p) => p.id === routeProviderId);
     if (provider?.id === "acp") return null;
     return provider;
-  }, [providerStore.providers, routeProviderId]);
-
-  const navigateToProvider = useCallback(
-    (id: string) => {
-      const prefix = router.state.location.pathname.startsWith("/settings/") ? "/settings/provider" : "/provider";
-      console.log("Navigating to provider:", `${prefix}/${id}`);
-      void router.navigate({ to: `${prefix}/${id}` as any });
-    },
-    [router],
-  );
-
-  const setActiveProvider = useCallback(
-    (id: string) => {
-      navigateToProvider(id);
-    },
-    [navigateToProvider],
-  );
+  })();
+  const navigateToProvider = (id: string) => {
+    const prefix = router.state.location.pathname.startsWith("/settings/") ? "/settings/provider" : "/provider";
+    console.log("Navigating to provider:", `${prefix}/${id}`);
+    void router.navigate({
+      to: `${prefix}/${id}` as any,
+    });
+  };
+  const setActiveProvider = (id: string) => {
+    navigateToProvider(id);
+  };
 
   // When the user lands on `/provider` with no `providerId` in the URL, the
   // detail pane is gated on `routeProviderId` and stays empty. Auto-select the
@@ -240,18 +217,18 @@ export default function ModelProviderSettings({ providerId: routeProviderId }: M
     }
     // Intentionally only react to the empty-id case so we don't fight user clicks.
   }, [routeProviderId, providerStore.initialized, visibleProviders, allEnabledProviders, navigateToProvider]);
-
   const handleProviderRowClick = async (id: string) => {
     setActiveProvider(id);
   };
-
   const scrollToProvider = (id: string) => {
     const element = document.querySelector(`[data-provider-id="${id}"]`);
     if (element) {
-      element.scrollIntoView({ behavior: "smooth", block: "end" });
+      element.scrollIntoView({
+        behavior: "smooth",
+        block: "end",
+      });
     }
   };
-
   const toggleProviderStatus = async (provider: LLM_PROVIDER) => {
     const willEnable = !provider.enable;
     await providerStore.updateProviderStatus(provider.id, willEnable);
@@ -260,7 +237,6 @@ export default function ModelProviderSettings({ providerId: routeProviderId }: M
       setTimeout(() => scrollToProvider(provider.id), 100);
     }
   };
-
   const startEditingName = (provider: LLM_PROVIDER, event: React.MouseEvent) => {
     event.stopPropagation();
     setEditingProviderId(provider.id);
@@ -270,7 +246,6 @@ export default function ModelProviderSettings({ providerId: routeProviderId }: M
       editInputRef.current?.select();
     }, 0);
   };
-
   const saveEditingName = async () => {
     if (!editingProviderId || !editingName.trim()) {
       cancelEditingName();
@@ -279,14 +254,14 @@ export default function ModelProviderSettings({ providerId: routeProviderId }: M
     const trimmedName = editingName.trim();
     const providerId = editingProviderId;
     setEditingProviderId(null);
-    await providerStore.updateProviderConfig(providerId, { name: trimmedName });
+    await providerStore.updateProviderConfig(providerId, {
+      name: trimmedName,
+    });
   };
-
   const cancelEditingName = () => {
     setEditingProviderId(null);
     setEditingName("");
   };
-
   const handleEditKeydown = (event: React.KeyboardEvent) => {
     if (event.key === "Enter") {
       void saveEditingName();
@@ -294,61 +269,39 @@ export default function ModelProviderSettings({ providerId: routeProviderId }: M
       cancelEditingName();
     }
   };
-
   const handleProviderAdded = (provider: LLM_PROVIDER) => {
     setActiveProvider(provider.id);
   };
-
-  const reorderEnabledProviders = useCallback(
-    async (activeId: string, overId: string) => {
-      const oldIndex = enabledProviders.findIndex((provider) => provider.id === activeId);
-      const newIndex = enabledProviders.findIndex((provider) => provider.id === overId);
-      if (oldIndex < 0 || newIndex < 0 || oldIndex === newIndex) return;
-
-      const nextEnabled = arrayMove(enabledProviders, oldIndex, newIndex);
-      const nextAll = searchQuery.trim()
-        ? reorderSubset(visibleProviders, enabledProviders, nextEnabled, (provider) => provider.enable)
-        : [...nextEnabled, ...allDisabledProviders];
-
-      await providerStore.updateProvidersOrder(nextAll);
-    },
-    [allDisabledProviders, enabledProviders, providerStore, searchQuery, visibleProviders],
-  );
-
-  const reorderDisabledProviders = useCallback(
-    async (activeId: string, overId: string) => {
-      const oldIndex = disabledProviders.findIndex((provider) => provider.id === activeId);
-      const newIndex = disabledProviders.findIndex((provider) => provider.id === overId);
-      if (oldIndex < 0 || newIndex < 0 || oldIndex === newIndex) return;
-
-      const nextDisabled = arrayMove(disabledProviders, oldIndex, newIndex);
-      const nextAll = searchQuery.trim()
-        ? reorderSubset(visibleProviders, disabledProviders, nextDisabled, (provider) => !provider.enable)
-        : [...allEnabledProviders, ...nextDisabled];
-
-      await providerStore.updateProvidersOrder(nextAll);
-    },
-    [allEnabledProviders, disabledProviders, providerStore, searchQuery, visibleProviders],
-  );
-
-  const handleEnabledDragEnd = useCallback(
-    async (event: DragEndEvent) => {
-      const { active, over } = event;
-      if (!over || active.id === over.id) return;
-      await reorderEnabledProviders(String(active.id), String(over.id));
-    },
-    [reorderEnabledProviders],
-  );
-
-  const handleDisabledDragEnd = useCallback(
-    async (event: DragEndEvent) => {
-      const { active, over } = event;
-      if (!over || active.id === over.id) return;
-      await reorderDisabledProviders(String(active.id), String(over.id));
-    },
-    [reorderDisabledProviders],
-  );
-
+  const reorderEnabledProviders = async (activeId: string, overId: string) => {
+    const oldIndex = enabledProviders.findIndex((provider) => provider.id === activeId);
+    const newIndex = enabledProviders.findIndex((provider) => provider.id === overId);
+    if (oldIndex < 0 || newIndex < 0 || oldIndex === newIndex) return;
+    const nextEnabled = arrayMove(enabledProviders, oldIndex, newIndex);
+    const nextAll = searchQuery.trim()
+      ? reorderSubset(visibleProviders, enabledProviders, nextEnabled, (provider) => provider.enable)
+      : [...nextEnabled, ...allDisabledProviders];
+    await providerStore.updateProvidersOrder(nextAll);
+  };
+  const reorderDisabledProviders = async (activeId: string, overId: string) => {
+    const oldIndex = disabledProviders.findIndex((provider) => provider.id === activeId);
+    const newIndex = disabledProviders.findIndex((provider) => provider.id === overId);
+    if (oldIndex < 0 || newIndex < 0 || oldIndex === newIndex) return;
+    const nextDisabled = arrayMove(disabledProviders, oldIndex, newIndex);
+    const nextAll = searchQuery.trim()
+      ? reorderSubset(visibleProviders, disabledProviders, nextDisabled, (provider) => !provider.enable)
+      : [...allEnabledProviders, ...nextDisabled];
+    await providerStore.updateProvidersOrder(nextAll);
+  };
+  const handleEnabledDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    await reorderEnabledProviders(String(active.id), String(over.id));
+  };
+  const handleDisabledDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    await reorderDisabledProviders(String(active.id), String(over.id));
+  };
   const renderProviderRow = (provider: LLM_PROVIDER, dimmed: boolean = false) => (
     <SortableProviderRow
       key={provider.id}
@@ -397,28 +350,26 @@ export default function ModelProviderSettings({ providerId: routeProviderId }: M
       />
     </SortableProviderRow>
   );
-
   useEffect(() => {
     void ensureInitialized();
     if (!routeProviderId && visibleProviders.length > 0) {
       setActiveProvider(visibleProviders[0].id);
     }
   }, [routeProviderId, setActiveProvider, visibleProviders]);
-
   useEffect(() => {
     if (!routeProviderId) {
       return;
     }
-
     void refreshProviderModels(routeProviderId);
   }, [routeProviderId]);
-
   if (showProviderSkeleton) {
     return (
       <div className="w-full h-full flex flex-row animate-pulse">
         <div className="w-80 h-full border-r p-4 space-y-3">
           <div className="h-9 rounded-md bg-muted/60" />
-          {Array.from({ length: 8 }).map((_, i) => (
+          {Array.from({
+            length: 8,
+          }).map((_, i) => (
             <div key={`provider-skeleton-${i}`} className="h-10 rounded-lg bg-muted/40" />
           ))}
           <div className="pt-2">
@@ -437,7 +388,6 @@ export default function ModelProviderSettings({ providerId: routeProviderId }: M
       </div>
     );
   }
-
   return (
     <>
       <div ref={setGuideRootEl} data-testid="settings-provider-page" className="w-full h-full flex flex-row">

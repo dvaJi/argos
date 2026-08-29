@@ -1,4 +1,4 @@
-import { type FC, useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { type FC, useState, useEffect, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { MessageInfo } from "./MessageInfo";
 import ChatAttachmentItem from "../chat/ChatAttachmentItem";
@@ -13,32 +13,26 @@ import type {
   DisplayUserMessageCodeBlock,
   DisplayUserMessageMentionBlock,
 } from "#/components/chat/messageListItems";
-
 const COLLAPSE_CHAR_THRESHOLD = 600;
 const COLLAPSE_EXPLICIT_LINE_THRESHOLD = 8;
-
 type DisplayUserMessageRichBlock =
   | DisplayUserMessageTextBlock
   | DisplayUserMessageMentionBlock
   | DisplayUserMessageCodeBlock;
-
 const getVisibleMentionLabel = (block: DisplayUserMessageMentionBlock) => {
   if (block.category === "prompts") return block.id || block.content;
   if (block.category === "context") return block.id || block.category;
   return block.content;
 };
-
 const getVisibleBlockText = (block: DisplayUserMessageRichBlock) => {
   if (block.type === "mention") return getVisibleMentionLabel(block);
   return block.content;
 };
-
 const getVisibleMessageText = (message: DisplayUserMessage) => {
   const blocks = message.content.content;
   if (blocks && blocks.length > 0) return blocks.map(getVisibleBlockText).join("");
   return message.content.text || "";
 };
-
 const countExplicitLines = (value: string) => {
   if (!value) return 0;
   let count = 1;
@@ -53,7 +47,6 @@ const countExplicitLines = (value: string) => {
   }
   return count;
 };
-
 interface MessageItemUserProps {
   message: DisplayUserMessage;
   isReadOnly?: boolean;
@@ -61,25 +54,20 @@ interface MessageItemUserProps {
   onDelete?: (messageId: string) => void;
   onEditSave?: (payload: { messageId: string; text: string }) => void;
 }
-
 const MessageItemUser: FC<MessageItemUserProps> = ({ message, isReadOnly = false, onRetry, onDelete, onEditSave }) => {
   const deviceClient = createDeviceClient();
   const windowClient = createWindowClient();
-
   const [isEditMode, setIsEditMode] = useState(false);
   const [editedText, setEditedText] = useState("");
   const editTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [isExpanded, setIsExpanded] = useState(true);
   const [hasManualCollapsePreference, setHasManualCollapsePreference] = useState(false);
   const pendingResizeFrameRef = useRef<number | null>(null);
-
-  const visibleMessageText = useMemo(() => getVisibleMessageText(message), [message]);
-  const explicitLineCount = useMemo(() => countExplicitLines(visibleMessageText), [visibleMessageText]);
-  const isCollapsible = useMemo(
-    () => visibleMessageText.length >= COLLAPSE_CHAR_THRESHOLD || explicitLineCount >= COLLAPSE_EXPLICIT_LINE_THRESHOLD,
-    [visibleMessageText, explicitLineCount],
-  );
-  const shouldClampContent = useMemo(() => isCollapsible && !isExpanded, [isCollapsible, isExpanded]);
+  const visibleMessageText = getVisibleMessageText(message);
+  const explicitLineCount = countExplicitLines(visibleMessageText);
+  const isCollapsible =
+    visibleMessageText.length >= COLLAPSE_CHAR_THRESHOLD || explicitLineCount >= COLLAPSE_EXPLICIT_LINE_THRESHOLD;
+  const shouldClampContent = isCollapsible && !isExpanded;
   const showFadeMask = shouldClampContent;
 
   // Re-evaluate collapse defaults when the message identity/content changes
@@ -96,18 +84,15 @@ const MessageItemUser: FC<MessageItemUserProps> = ({ message, isReadOnly = false
       setIsExpanded(false);
     }
   }
-
   const previewFile = (filePath: string) => {
     void windowClient.previewFile(filePath);
   };
-
   const toggleExpanded = () => {
     if (!isCollapsible) return;
     setIsExpanded((prev) => !prev);
     setHasManualCollapsePreference(true);
   };
-
-  const autoResize = useCallback(() => {
+  const autoResize = () => {
     if (pendingResizeFrameRef.current !== null) window.cancelAnimationFrame(pendingResizeFrameRef.current);
     pendingResizeFrameRef.current = window.requestAnimationFrame(() => {
       pendingResizeFrameRef.current = null;
@@ -120,8 +105,7 @@ const MessageItemUser: FC<MessageItemUserProps> = ({ message, isReadOnly = false
       el.style.height = target + "px";
       el.style.overflowY = scrollH > target ? "auto" : "hidden";
     });
-  }, []);
-
+  };
   const startEdit = () => {
     if (isReadOnly) return;
     setIsEditMode(true);
@@ -133,17 +117,17 @@ const MessageItemUser: FC<MessageItemUserProps> = ({ message, isReadOnly = false
     }
     setTimeout(() => autoResize(), 0);
   };
-
   const saveEdit = () => {
     if (isReadOnly) return;
     const nextText = editedText.trim();
     if (!nextText) return;
-    onEditSave?.({ messageId: message.id, text: nextText });
+    onEditSave?.({
+      messageId: message.id,
+      text: nextText,
+    });
     setIsEditMode(false);
   };
-
   const cancelEdit = () => setIsEditMode(false);
-
   const getCopyText = () => {
     if (message.content?.content && message.content.content.length > 0) {
       return message.content.content
@@ -153,7 +137,6 @@ const MessageItemUser: FC<MessageItemUserProps> = ({ message, isReadOnly = false
     }
     return message.content.text || "";
   };
-
   const handleAction = (action: "delete" | "copy") => {
     if (action === "delete") {
       if (isReadOnly) return;
@@ -162,18 +145,14 @@ const MessageItemUser: FC<MessageItemUserProps> = ({ message, isReadOnly = false
       deviceClient.copyText(getCopyText());
     }
   };
-
   const handleMentionClick = async (_block: DisplayUserMessageMentionBlock) => {
     return;
   };
-
   useEffect(() => {
     if (!isEditMode) return;
-
     const resizeTimer = setTimeout(() => autoResize(), 0);
     return () => clearTimeout(resizeTimer);
   }, [isEditMode, autoResize]);
-
   useEffect(() => {
     return () => {
       if (pendingResizeFrameRef.current !== null) {
@@ -182,9 +161,7 @@ const MessageItemUser: FC<MessageItemUserProps> = ({ message, isReadOnly = false
       }
     };
   }, []);
-
   if (message.content.continue) return null;
-
   return (
     <div
       data-testid="chat-message-user"
@@ -299,5 +276,4 @@ const MessageItemUser: FC<MessageItemUserProps> = ({ message, isReadOnly = false
     </div>
   );
 };
-
 export default MessageItemUser;

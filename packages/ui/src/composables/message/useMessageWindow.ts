@@ -1,6 +1,5 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { MessageListItem } from "#/components/chat/messageListItems";
-
 export type MessageLayoutEntry = {
   id: string;
   orderSeq: number;
@@ -9,18 +8,15 @@ export type MessageLayoutEntry = {
   top: number;
   bottom: number;
 };
-
 const MIN_HEIGHT = 96;
 const MAX_HEIGHT = 1200;
 const USER_BASE = 112;
 const ASSISTANT_BASE = 136;
 const CHARS_PER_LINE = 72;
 const LINE_H = 22;
-
 function clamp(v: number) {
   return Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, v));
 }
-
 function estimateHeight(msg: MessageListItem): number {
   if (msg.messageType === "compaction") return 64;
   if (msg.role === "user") {
@@ -65,16 +61,13 @@ function estimateHeight(msg: MessageListItem): number {
   }
   return clamp(h);
 }
-
 export function useMessageWindow(messages: MessageListItem[]) {
   const measuredHeightsRef = useRef<Record<string, number>>({});
   const [measuredHeights, setMeasuredHeights] = useState<Record<string, number>>({});
-
   useEffect(() => {
     measuredHeightsRef.current = measuredHeights;
   }, [measuredHeights]);
-
-  const entries = useMemo<MessageLayoutEntry[]>(() => {
+  const entries = (() => {
     return messages.reduce<MessageLayoutEntry[]>((acc, msg) => {
       const measured = measuredHeights[msg.id];
       const estimated = estimateHeight(msg);
@@ -90,28 +83,32 @@ export function useMessageWindow(messages: MessageListItem[]) {
       });
       return acc;
     }, []);
-  }, [messages, measuredHeights]);
-
-  const totalHeight = useMemo(() => entries[entries.length - 1]?.bottom ?? 0, [entries]);
-
+  })();
+  const totalHeight = entries[entries.length - 1]?.bottom ?? 0;
   function getEntry(messageId: string): MessageLayoutEntry | undefined {
     return entries.find((e) => e.id === messageId);
   }
-
   function setMeasuredHeight(messageId: string, height: number): number {
     if (!Number.isFinite(height) || height <= 0) return 0;
     const rounded = Math.ceil(height);
     const prev = measuredHeightsRef.current[messageId];
     if (prev === rounded) return 0;
     measuredHeightsRef.current[messageId] = rounded;
-    setMeasuredHeights((state) => ({ ...state, [messageId]: rounded }));
+    setMeasuredHeights((state) => ({
+      ...state,
+      [messageId]: rounded,
+    }));
     return rounded - (prev ?? getEntry(messageId)?.estimatedHeight ?? rounded);
   }
-
   function clearMeasurements() {
     measuredHeightsRef.current = {};
     setMeasuredHeights({});
   }
-
-  return { entries, totalHeight, getEntry, setMeasuredHeight, clearMeasurements };
+  return {
+    entries,
+    totalHeight,
+    getEntry,
+    setMeasuredHeight,
+    clearMeasurements,
+  };
 }

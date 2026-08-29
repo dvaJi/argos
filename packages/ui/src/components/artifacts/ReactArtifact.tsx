@@ -1,16 +1,18 @@
-import { useMemo, useRef } from "react";
+import { useRef } from "react";
 import { formatTemplate } from "./ReactTemplate";
-
 interface ReactArtifactProps {
-  block: { artifact: { type: string; title: string }; content: string };
+  block: {
+    artifact: {
+      type: string;
+      title: string;
+    };
+    content: string;
+  };
   className?: string;
 }
-
 export function ReactArtifact({ block, className }: ReactArtifactProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
-
-  const htmlContent = useMemo(() => formatTemplate(block.artifact.title, block.content), [block]);
-
+  const htmlContent = formatTemplate(block.artifact.title, block.content);
   return (
     <div className={`flex h-full min-h-0 w-full overflow-hidden ${className ?? ""}`} data-testid="react-artifact-root">
       <iframe

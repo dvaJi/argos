@@ -1,14 +1,12 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "#shadcn/components/ui/button";
 import { createDeviceClient } from "#api/DeviceClient";
 import UsageView from "../views/UsageView";
-
 function UsageLayout() {
   const router = useRouter();
   const [isMacOS, setIsMacOS] = useState(false);
-
   useEffect(() => {
     const deviceClient = createDeviceClient();
     deviceClient
@@ -16,17 +14,15 @@ function UsageLayout() {
       .then((info) => setIsMacOS(info.platform === "darwin"))
       .catch(() => setIsMacOS(false));
   }, []);
-
-  const navigateBack = useCallback(() => {
-    void router.navigate({ to: "/chat" });
-  }, [router]);
-
+  const navigateBack = () => {
+    void router.navigate({
+      to: "/chat",
+    });
+  };
   return (
     <div data-testid="usage-page" className="flex h-full w-full flex-col bg-background">
       <div
-        className={`flex h-9 w-full shrink-0 flex-row justify-start border border-b-0 border-window-inner-border bg-window-background/10 window-drag-region ${
-          isMacOS ? "rounded-t-[10px]" : ""
-        }`}
+        className={`flex h-9 w-full shrink-0 flex-row justify-start border border-b-0 border-window-inner-border bg-window-background/10 window-drag-region ${isMacOS ? "rounded-t-[10px]" : ""}`}
       >
         <div className="absolute bottom-0 left-0 z-10 h-[1px] w-full bg-border" />
         {!isMacOS && (
@@ -47,7 +43,6 @@ function UsageLayout() {
     </div>
   );
 }
-
 export const Route = createFileRoute("/usage")({
   component: UsageLayout,
 });

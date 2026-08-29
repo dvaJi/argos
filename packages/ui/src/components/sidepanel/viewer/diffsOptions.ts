@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { useThemeStore } from "#/stores/theme";
 
 /**
@@ -8,11 +7,11 @@ import { useThemeStore } from "#/stores/theme";
  */
 export function useDiffsBaseOptions() {
   const themeStore = useThemeStore();
-  return useMemo(
-    () => ({
-      theme: { dark: "pierre-dark", light: "pierre-light" } as const,
-      themeType: (themeStore.isDark ? "dark" : "light") as "dark" | "light",
-    }),
-    [themeStore.isDark],
-  );
+  return {
+    theme: {
+      dark: "pierre-dark",
+      light: "pierre-light",
+    } as const,
+    themeType: (themeStore.isDark ? "dark" : "light") as "dark" | "light",
+  };
 }

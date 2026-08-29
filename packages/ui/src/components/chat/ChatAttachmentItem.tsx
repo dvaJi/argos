@@ -1,20 +1,17 @@
-import { type FC, type KeyboardEvent, useMemo } from "react";
+import { type FC, type KeyboardEvent } from "react";
 import { Icon } from "@iconify/react";
 import type { MessageFile } from "@argos/shared/types/agent-interface";
 import { getMimeTypeIcon } from "#/lib/utils";
-
 interface ChatAttachmentItemProps {
   file: MessageFile;
   removable?: boolean;
   onClick?: () => void;
   onRemove?: () => void;
 }
-
 const ChatAttachmentItem: FC<ChatAttachmentItemProps> = ({ file, removable = false, onClick, onRemove }) => {
-  const mimeType = useMemo(() => file.mimeType || "application/octet-stream", [file.mimeType]);
-  const thumbnail = useMemo(() => file.thumbnail || "", [file.thumbnail]);
-  const fileIcon = useMemo(() => getMimeTypeIcon(mimeType), [mimeType]);
-
+  const mimeType = file.mimeType || "application/octet-stream";
+  const thumbnail = file.thumbnail || "";
+  const fileIcon = getMimeTypeIcon(mimeType);
   return (
     <div
       className="group inline-flex max-w-full items-center gap-2 rounded-full border bg-background/70 px-2.5 py-1 text-xs text-foreground shadow-sm transition-colors hover:bg-accent"
@@ -55,5 +52,4 @@ const ChatAttachmentItem: FC<ChatAttachmentItemProps> = ({ file, removable = fal
     </div>
   );
 };
-
 export default ChatAttachmentItem;

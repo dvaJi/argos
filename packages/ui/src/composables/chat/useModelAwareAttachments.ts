@@ -1,10 +1,9 @@
-import { useCallback, useMemo, useRef } from "react";
+import { useRef } from "react";
 import type { MessageFile } from "@argos/shared/types/agent-interface";
 import { createModelClient } from "#api/ModelClient";
 import { findChatSelectableModel } from "#/stores/modelStore";
 import { filterUnsupportedAudioAttachments } from "#/lib/audioInputSupport";
 import { useToast } from "#/components/use-toast";
-
 export interface ChatModelSelectionRef {
   providerId: string;
   modelId: string;
@@ -22,51 +21,41 @@ export interface ChatModelSelectionRef {
 export function useModelAwareAttachments(
   getSelection: () => ChatModelSelectionRef | null | Promise<ChatModelSelectionRef | null>,
 ) {
-  const modelClient = useMemo(() => createModelClient(), []);
+  const modelClient = createModelClient();
   const { toast } = useToast();
   const filterTokenRef = useRef(0);
-
-  const notifyUnsupportedAudioAttachments = useCallback(
-    (selection: ChatModelSelectionRef, rejectedAudioFiles: MessageFile[]) => {
-      if (rejectedAudioFiles.length === 0) return;
-      const modelLabel =
-        findChatSelectableModel(selection.providerId, selection.modelId)?.model.name ?? selection.modelId;
-      toast({
-        title: "Audio Input Not Supported",
-        description: `${rejectedAudioFiles.length} audio file(s) not supported by ${modelLabel}.`,
-      });
-    },
-    [toast],
-  );
-
-  const prepareFiles = useCallback(
-    async (files: MessageFile[]): Promise<MessageFile[]> => {
-      if (files.length === 0) return files;
-      const selection = await getSelection();
-      if (!selection) return files;
-      try {
-        const capabilities = await modelClient.getCapabilities(selection.providerId, selection.modelId);
-        if (capabilities.supportsAudioInput !== false) return files;
-        const { acceptedFiles, rejectedAudioFiles } = filterUnsupportedAudioAttachments(files, false);
-        notifyUnsupportedAudioAttachments(selection, rejectedAudioFiles);
-        return acceptedFiles;
-      } catch (error) {
-        console.warn("[useModelAwareAttachments] Failed to resolve audio input capability:", error);
-        return files;
-      }
-    },
-    [getSelection, modelClient, notifyUnsupportedAudioAttachments],
-  );
-
-  const handleFilesChange = useCallback(
-    async (files: MessageFile[], setFiles: (next: MessageFile[]) => void) => {
-      const token = ++filterTokenRef.current;
-      const filteredFiles = await prepareFiles(files);
-      if (token !== filterTokenRef.current) return;
-      setFiles(filteredFiles);
-    },
-    [prepareFiles],
-  );
-
-  return { prepareFiles, handleFilesChange };
+  const notifyUnsupportedAudioAttachments = (selection: ChatModelSelectionRef, rejectedAudioFiles: MessageFile[]) => {
+    if (rejectedAudioFiles.length === 0) return;
+    const modelLabel =
+      findChatSelectableModel(selection.providerId, selection.modelId)?.model.name ?? selection.modelId;
+    toast({
+      title: "Audio Input Not Supported",
+      description: `${rejectedAudioFiles.length} audio file(s) not supported by ${modelLabel}.`,
+    });
+  };
+  const prepareFiles = async (files: MessageFile[]): Promise<MessageFile[]> => {
+    if (files.length === 0) return files;
+    const selection = await getSelection();
+    if (!selection) return files;
+    try {
+      const capabilities = await modelClient.getCapabilities(selection.providerId, selection.modelId);
+      if (capabilities.supportsAudioInput !== false) return files;
+      const { acceptedFiles, rejectedAudioFiles } = filterUnsupportedAudioAttachments(files, false);
+      notifyUnsupportedAudioAttachments(selection, rejectedAudioFiles);
+      return acceptedFiles;
+    } catch (error) {
+      console.warn("[useModelAwareAttachments] Failed to resolve audio input capability:", error);
+      return files;
+    }
+  };
+  const handleFilesChange = async (files: MessageFile[], setFiles: (next: MessageFile[]) => void) => {
+    const token = ++filterTokenRef.current;
+    const filteredFiles = await prepareFiles(files);
+    if (token !== filterTokenRef.current) return;
+    setFiles(filteredFiles);
+  };
+  return {
+    prepareFiles,
+    handleFilesChange,
+  };
 }

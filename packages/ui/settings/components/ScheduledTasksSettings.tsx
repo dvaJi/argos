@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "#shadcn/components/ui/collapsible";
@@ -22,12 +22,20 @@ import type {
 } from "@argos/shared/scheduledTasks";
 import type { Agent } from "@argos/shared/types/agent-interface";
 import type { RENDERER_MODEL_META } from "@argos/shared/presenter";
-
 type TriggerKind = ScheduledTaskTrigger["kind"];
 type ActionKind = ScheduledTaskAction["kind"];
-type NotifyAction = Extract<ScheduledTaskAction, { kind: "notify" }>;
-type PromptAction = Extract<ScheduledTaskAction, { kind: "prompt" }>;
-
+type NotifyAction = Extract<
+  ScheduledTaskAction,
+  {
+    kind: "notify";
+  }
+>;
+type PromptAction = Extract<
+  ScheduledTaskAction,
+  {
+    kind: "prompt";
+  }
+>;
 const DAY_OF_WEEK_OPTIONS: Record<number, string> = {
   0: "Sunday",
   1: "Monday",
@@ -37,20 +45,16 @@ const DAY_OF_WEEK_OPTIONS: Record<number, string> = {
   5: "Friday",
   6: "Saturday",
 };
-
 const padTwo = (value: number) => value.toString().padStart(2, "0");
-
 const formatDateTimeLocal = (timestamp: number) => {
   const date = new Date(timestamp);
   return `${date.getFullYear()}-${padTwo(date.getMonth() + 1)}-${padTwo(date.getDate())}T${padTwo(date.getHours())}:${padTwo(date.getMinutes())}`;
 };
-
 export default function ScheduledTasksSettings() {
   const { toast } = useToast();
-  const client = useMemo(() => createScheduledTasksClient(), []);
-  const configClient = useMemo(() => createConfigClient(), []);
+  const client = createScheduledTasksClient();
+  const configClient = createConfigClient();
   const modelStore = useModelStore();
-
   const [settings, setSettings] = useState<ScheduledTasksSettings | null>(null);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -63,8 +67,7 @@ export default function ScheduledTasksSettings() {
   const [openTaskIds, setOpenTaskIds] = useState<string[]>([]);
   const [onceInputValues, setOnceInputValues] = useState<string[]>([]);
   const [recurringTimeValues, setRecurringTimeValues] = useState<string[]>([]);
-
-  const tasks = useMemo(() => settings?.tasks ?? [], [settings]);
+  const tasks = settings?.tasks ?? [];
   const settingsRef = useRef(settings);
   // Single ordered queue for EVERY settings-mutating operation (upsert, toggle,
   // remove, fireNow). Each op chains onto the previous one so complete-settings
@@ -74,19 +77,14 @@ export default function ScheduledTasksSettings() {
   useEffect(() => {
     settingsRef.current = settings;
   }, [settings]);
-  const enabledAgents = useMemo(() => agents.filter((a) => a.enabled), [agents]);
-
-  const getModelLabel = useCallback(
-    (action: PromptAction): string => {
-      if (!action.modelId) return "Select model";
-      const provider = modelStore.enabledModels.find((e) => e.providerId === action.providerId);
-      const model = provider?.models.find((e) => e.id === action.modelId);
-      return model?.name ?? action.modelId;
-    },
-    [modelStore.enabledModels],
-  );
-
-  const getTriggerSummary = useCallback((trigger: ScheduledTaskTrigger): string => {
+  const enabledAgents = agents.filter((a) => a.enabled);
+  const getModelLabel = (action: PromptAction): string => {
+    if (!action.modelId) return "Select model";
+    const provider = modelStore.enabledModels.find((e) => e.providerId === action.providerId);
+    const model = provider?.models.find((e) => e.id === action.modelId);
+    return model?.name ?? action.modelId;
+  };
+  const getTriggerSummary = (trigger: ScheduledTaskTrigger): string => {
     switch (trigger.kind) {
       case "once":
         return `Once at ${new Date(trigger.firesAt).toLocaleString()}`;
@@ -95,7 +93,7 @@ export default function ScheduledTasksSettings() {
       case "weekly":
         return `Weekly on ${DAY_OF_WEEK_OPTIONS[trigger.dayOfWeek]} at ${padTwo(trigger.hour)}:${padTwo(trigger.minute)}`;
     }
-  }, []);
+  };
 
   // Re-derive the form input buffers whenever the task list identity changes
   // (adjusted during render so the React Compiler can track it).
@@ -116,60 +114,48 @@ export default function ScheduledTasksSettings() {
   // are surfaced via toast and logged with `label`; the pending counter is
   // always balanced via promise chaining (no try/finally, so React Compiler can
   // still optimize this component). Returns fn's result on success.
-  const runMutation = useCallback(
-    <T,>(label: string, fn: () => Promise<T>): Promise<T> => {
-      setPendingMutations((n) => n + 1);
-      const previous = mutationQueueRef.current ?? Promise.resolve();
-      // A failed previous op must not block this one — swallow its rejection.
-      const run = previous
-        .catch(() => {})
-        .then(fn)
-        .then(
-          (result) => {
-            setPendingMutations((n) => Math.max(0, n - 1));
-            return result;
-          },
-          (error: unknown) => {
-            console.error(`[ScheduledTasks] ${label} failed:`, error);
-            toast({
-              title: "Operation failed",
-              description: error instanceof Error ? error.message : String(error),
-              variant: "destructive",
-            });
-            setPendingMutations((n) => Math.max(0, n - 1));
-            throw error;
-          },
-        );
-      mutationQueueRef.current = run.catch(() => {});
-      return run;
-    },
-    [toast],
-  );
-
-  const persistTask = useCallback(
-    (task: ScheduledTask) =>
-      runMutation(`persist task ${task.id}`, async () => {
-        const response = await client.upsert({
-          id: task.id,
-          name: task.name,
-          enabled: task.enabled,
-          trigger: structuredClone(task.trigger),
-          action: structuredClone(task.action),
-        });
-        setSettings(response.settings);
-      }),
-    [client, runMutation],
-  );
-
-  const commitTask = useCallback(
-    (index: number, override?: ScheduledTask) => {
-      const task = override ?? settingsRef.current?.tasks[index];
-      if (!task) return Promise.resolve();
-      return persistTask(task);
-    },
-    [persistTask],
-  );
-
+  const runMutation = <T,>(label: string, fn: () => Promise<T>): Promise<T> => {
+    setPendingMutations((n) => n + 1);
+    const previous = mutationQueueRef.current ?? Promise.resolve();
+    // A failed previous op must not block this one — swallow its rejection.
+    const run = previous
+      .catch(() => {})
+      .then(fn)
+      .then(
+        (result) => {
+          setPendingMutations((n) => Math.max(0, n - 1));
+          return result;
+        },
+        (error: unknown) => {
+          console.error(`[ScheduledTasks] ${label} failed:`, error);
+          toast({
+            title: "Operation failed",
+            description: error instanceof Error ? error.message : String(error),
+            variant: "destructive",
+          });
+          setPendingMutations((n) => Math.max(0, n - 1));
+          throw error;
+        },
+      );
+    mutationQueueRef.current = run.catch(() => {});
+    return run;
+  };
+  const persistTask = (task: ScheduledTask) =>
+    runMutation(`persist task ${task.id}`, async () => {
+      const response = await client.upsert({
+        id: task.id,
+        name: task.name,
+        enabled: task.enabled,
+        trigger: structuredClone(task.trigger),
+        action: structuredClone(task.action),
+      });
+      setSettings(response.settings);
+    });
+  const commitTask = (index: number, override?: ScheduledTask) => {
+    const task = override ?? settingsRef.current?.tasks[index];
+    if (!task) return Promise.resolve();
+    return persistTask(task);
+  };
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -192,9 +178,7 @@ export default function ScheduledTasksSettings() {
       cancelled = true;
     };
   }, [client, configClient, toast]);
-
   const openTaskIdSet = new Set(openTaskIds);
-
   return (
     <SettingsPageShell
       data-testid="settings-scheduled-tasks-page"
@@ -215,8 +199,16 @@ export default function ScheduledTasksSettings() {
                   const response = await client.upsert({
                     name: "New Task",
                     enabled: false,
-                    trigger: { kind: "daily", hour: 9, minute: 0 },
-                    action: { kind: "notify", title: "Notification", body: "" },
+                    trigger: {
+                      kind: "daily",
+                      hour: 9,
+                      minute: 0,
+                    },
+                    action: {
+                      kind: "notify",
+                      title: "Notification",
+                      body: "",
+                    },
                   });
                   setSettings(response.settings);
                   if (response.task) setOpenTaskIds((prev) => [...prev, response.task!.id]);
@@ -255,8 +247,16 @@ export default function ScheduledTasksSettings() {
                     const response = await client.upsert({
                       name: "New Task",
                       enabled: false,
-                      trigger: { kind: "daily", hour: 9, minute: 0 },
-                      action: { kind: "notify", title: "Notification", body: "" },
+                      trigger: {
+                        kind: "daily",
+                        hour: 9,
+                        minute: 0,
+                      },
+                      action: {
+                        kind: "notify",
+                        title: "Notification",
+                        body: "",
+                      },
                     });
                     setSettings(response.settings);
                   });
@@ -332,7 +332,10 @@ export default function ScheduledTasksSettings() {
                               void runMutation(`run task ${task.id}`, async () => {
                                 const response = await client.fireNow(task.id);
                                 setSettings(response.settings);
-                                toast({ title: "Task executed", description: response.task.name });
+                                toast({
+                                  title: "Task executed",
+                                  description: response.task.name,
+                                });
                               }).finally(() => setFiringId(null));
                             }}
                           >
@@ -371,7 +374,12 @@ export default function ScheduledTasksSettings() {
                                 const next: ScheduledTasksSettings = {
                                   ...settings!,
                                   tasks: settings.tasks.map((t, i) =>
-                                    i === index ? { ...t, name: e.target.value } : t,
+                                    i === index
+                                      ? {
+                                          ...t,
+                                          name: e.target.value,
+                                        }
+                                      : t,
                                   ),
                                 };
                                 setSettings(next);
@@ -395,10 +403,17 @@ export default function ScheduledTasksSettings() {
                                       let trigger: ScheduledTaskTrigger;
                                       switch (value as TriggerKind) {
                                         case "once":
-                                          trigger = { kind: "once", firesAt: Date.now() + 3600000 };
+                                          trigger = {
+                                            kind: "once",
+                                            firesAt: Date.now() + 3600000,
+                                          };
                                           break;
                                         case "daily":
-                                          trigger = { kind: "daily", hour: 9, minute: 0 };
+                                          trigger = {
+                                            kind: "daily",
+                                            hour: 9,
+                                            minute: 0,
+                                          };
                                           break;
                                         case "weekly":
                                           trigger = {
@@ -411,7 +426,14 @@ export default function ScheduledTasksSettings() {
                                       }
                                       const next: ScheduledTasksSettings = {
                                         ...settings!,
-                                        tasks: settings.tasks.map((t, i) => (i === index ? { ...t, trigger } : t)),
+                                        tasks: settings.tasks.map((t, i) =>
+                                          i === index
+                                            ? {
+                                                ...t,
+                                                trigger,
+                                              }
+                                            : t,
+                                        ),
                                       };
                                       setSettings(next);
                                       void commitTask(index, next.tasks[index]);
@@ -441,7 +463,13 @@ export default function ScheduledTasksSettings() {
                                             ...settings!,
                                             tasks: settings.tasks.map((t, i) =>
                                               i === index
-                                                ? { ...t, trigger: { kind: "once" as const, firesAt: ts } }
+                                                ? {
+                                                    ...t,
+                                                    trigger: {
+                                                      kind: "once" as const,
+                                                      firesAt: ts,
+                                                    },
+                                                  }
                                                 : t,
                                             ),
                                           };
@@ -509,12 +537,20 @@ export default function ScheduledTasksSettings() {
                                                 if (t.trigger.kind === "daily")
                                                   return {
                                                     ...t,
-                                                    trigger: { kind: "daily" as const, hour, minute },
+                                                    trigger: {
+                                                      kind: "daily" as const,
+                                                      hour,
+                                                      minute,
+                                                    },
                                                   };
                                                 if (t.trigger.kind === "weekly")
                                                   return {
                                                     ...t,
-                                                    trigger: { ...t.trigger, hour, minute },
+                                                    trigger: {
+                                                      ...t.trigger,
+                                                      hour,
+                                                      minute,
+                                                    },
                                                   };
                                                 return t;
                                               }),
@@ -561,7 +597,14 @@ export default function ScheduledTasksSettings() {
                                         }
                                         const next: ScheduledTasksSettings = {
                                           ...settings!,
-                                          tasks: settings.tasks.map((t, i) => (i === index ? { ...t, action } : t)),
+                                          tasks: settings.tasks.map((t, i) =>
+                                            i === index
+                                              ? {
+                                                  ...t,
+                                                  action,
+                                                }
+                                              : t,
+                                          ),
                                         };
                                         setSettings(next);
                                         void commitTask(index, next.tasks[index]);
@@ -589,7 +632,10 @@ export default function ScheduledTasksSettings() {
                                             i === index
                                               ? {
                                                   ...t,
-                                                  action: { ...t.action, title: e.target.value },
+                                                  action: {
+                                                    ...t.action,
+                                                    title: e.target.value,
+                                                  },
                                                 }
                                               : t,
                                           ),
@@ -621,7 +667,10 @@ export default function ScheduledTasksSettings() {
                                             i === index
                                               ? {
                                                   ...t,
-                                                  action: { ...t.action, body: e.target.value },
+                                                  action: {
+                                                    ...t.action,
+                                                    body: e.target.value,
+                                                  },
                                                 }
                                               : t,
                                           ),
@@ -654,7 +703,10 @@ export default function ScheduledTasksSettings() {
                                               i === index
                                                 ? {
                                                     ...t,
-                                                    action: { ...t.action, message: e.target.value },
+                                                    action: {
+                                                      ...t.action,
+                                                      message: e.target.value,
+                                                    },
                                                   }
                                                 : t,
                                             ),

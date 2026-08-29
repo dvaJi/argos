@@ -2,9 +2,7 @@ import {
   type AnchorHTMLAttributes,
   type HTMLAttributes,
   isValidElement,
-  useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
   type ComponentType,
@@ -24,10 +22,8 @@ import { CodeBlock, type CodeBlockNodeData } from "./CodeBlock";
 import { MermaidBlock } from "./MermaidBlock";
 import { useMarkdownLinkNavigation } from "./useMarkdownLinkNavigation";
 import type { MarkdownLinkContext } from "./linkTypes";
-
 import "katex/dist/katex.min.css";
 import "./code-highlight.css";
-
 interface MarkdownRendererProps {
   content: string;
   debug?: boolean;
@@ -37,7 +33,6 @@ interface MarkdownRendererProps {
   smoothStreaming?: boolean;
   onCopy?: (text: string) => void;
 }
-
 interface ReferenceNodeData {
   id: string;
   url?: string;
@@ -54,7 +49,15 @@ function extractNodeText(node: ReactNode): string {
   if (typeof node === "string" || typeof node === "number") return String(node);
   if (Array.isArray(node)) return node.map(extractNodeText).join("");
   if (typeof node === "object" && "props" in node) {
-    return extractNodeText((node as { props?: { children?: ReactNode } }).props?.children);
+    return extractNodeText(
+      (
+        node as {
+          props?: {
+            children?: ReactNode;
+          };
+        }
+      ).props?.children,
+    );
   }
   return "";
 }
@@ -62,7 +65,6 @@ function extractNodeText(node: ReactNode): string {
 // Stable plugin arrays so ReactMarkdown doesn't re-render from new references each pass.
 const REMARK_PLUGINS = [remarkGfm];
 const REHYPE_PLUGINS = [rehypeKatex];
-
 export function MarkdownRenderer({
   content,
   messageId,
@@ -72,20 +74,19 @@ export function MarkdownRenderer({
 }: MarkdownRendererProps) {
   const themeStore = useThemeStore();
   const uiSettingsStore = useUiSettingsStore();
-  const sessionClient = useMemo(() => createSessionClient(), []);
+  const sessionClient = createSessionClient();
   const referenceNodeRef = useRef<HTMLElement | null>(null);
-
   const [fallbackMessageId] = useState(() => `artifact-msg-${nanoid()}`);
   const [fallbackThreadId] = useState(() => `artifact-thread-${nanoid()}`);
-
   const effectiveMessageId = messageId ?? fallbackMessageId;
   const effectiveThreadId = threadId ?? fallbackThreadId;
-
-  const effectiveLinkContext = useMemo<MarkdownLinkContext>(() => {
+  const effectiveLinkContext = ((): MarkdownLinkContext => {
     if (linkContext) return linkContext;
-    return { source: "chat", sessionId: threadId };
-  }, [linkContext, threadId]);
-
+    return {
+      source: "chat",
+      sessionId: threadId,
+    };
+  })();
   const { navigateLink } = useMarkdownLinkNavigation({
     linkContext: effectiveLinkContext,
   });
@@ -96,33 +97,30 @@ export function MarkdownRenderer({
     messageId: string;
     promise: ReturnType<typeof sessionClient.getSearchResults>;
   } | null>(null);
-
-  const getSearchResults = useCallback(() => {
+  const getSearchResults = () => {
     const cached = searchResultsCacheRef.current;
     if (cached !== null && cached.messageId === effectiveMessageId) {
       return cached.promise;
     }
     const promise = sessionClient.getSearchResults(effectiveMessageId);
-    searchResultsCacheRef.current = { messageId: effectiveMessageId, promise };
+    searchResultsCacheRef.current = {
+      messageId: effectiveMessageId,
+      promise,
+    };
     return promise;
-  }, [sessionClient, effectiveMessageId]);
-
+  };
   const codeFontFamily = getFormattedCodeFontFamily();
-
   const [debouncedContent, setDebouncedContent] = useState(content);
   const contentRevisionRef = useRef(0);
   const fastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const slowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   useEffect(() => {
     const revision = ++contentRevisionRef.current;
-
     const apply = (rev: number, value: string) => {
       if (rev === contentRevisionRef.current) {
         setDebouncedContent(value);
       }
     };
-
     if (smoothStreaming && content.length > 12_000) {
       if (slowTimerRef.current) clearTimeout(slowTimerRef.current);
       slowTimerRef.current = setTimeout(() => apply(revision, content), 96);
@@ -130,177 +128,173 @@ export function MarkdownRenderer({
       if (fastTimerRef.current) clearTimeout(fastTimerRef.current);
       fastTimerRef.current = setTimeout(() => apply(revision, content), 32);
     }
-
     return () => {
       if (fastTimerRef.current) clearTimeout(fastTimerRef.current);
       if (slowTimerRef.current) clearTimeout(slowTimerRef.current);
     };
   }, [content, smoothStreaming]);
-
-  const handleReferenceClick = useCallback(
-    (nodeId: string, event?: MouseEvent) => {
-      getSearchResults().then((results) => {
-        const index = parseInt(nodeId, 10) - 1;
-        if (index >= 0 && index < results.length) {
-          void navigateLink(results[index].url, event);
-        }
-      });
-    },
-    [getSearchResults, navigateLink],
-  );
-
-  const handleReferenceHover = useCallback(
-    (nodeId: string, element: HTMLElement | null) => {
-      hideReference();
-      getSearchResults().then((results) => {
-        const index = parseInt(nodeId, 10) - 1;
-        if (index >= 0 && index < results.length && element) {
-          showReference(results[index], element.getBoundingClientRect());
-        }
-      });
-    },
-    [getSearchResults],
-  );
-
-  const handlePreviewCode = useCallback(
-    (nodeData: CodeBlockNodeData) => {
-      showArtifact(
-        {
-          id: `code-${effectiveMessageId}-${nanoid()}`,
-          type: "text/plain",
-          title: nodeData.language ?? "Code",
-          language: nodeData.language,
-          content: nodeData.code,
-          status: "loaded",
-        },
-        effectiveMessageId,
-        effectiveThreadId,
-        { force: true },
+  const handleReferenceClick = (nodeId: string, event?: MouseEvent) => {
+    getSearchResults().then((results) => {
+      const index = parseInt(nodeId, 10) - 1;
+      if (index >= 0 && index < results.length) {
+        void navigateLink(results[index].url, event);
+      }
+    });
+  };
+  const handleReferenceHover = (nodeId: string, element: HTMLElement | null) => {
+    hideReference();
+    getSearchResults().then((results) => {
+      const index = parseInt(nodeId, 10) - 1;
+      if (index >= 0 && index < results.length && element) {
+        showReference(results[index], element.getBoundingClientRect());
+      }
+    });
+  };
+  const handlePreviewCode = (nodeData: CodeBlockNodeData) => {
+    showArtifact(
+      {
+        id: `code-${effectiveMessageId}-${nanoid()}`,
+        type: "text/plain",
+        title: nodeData.language ?? "Code",
+        language: nodeData.language,
+        content: nodeData.code,
+        status: "loaded",
+      },
+      effectiveMessageId,
+      effectiveThreadId,
+      {
+        force: true,
+      },
+    );
+  };
+  const components = {
+    a: ({
+      href,
+      children,
+    }: AnchorHTMLAttributes<HTMLAnchorElement> & {
+      children?: ReactNode;
+    }) => {
+      const textContent = typeof children === "string" ? children : Array.isArray(children) ? children.join("") : "";
+      return (
+        <LinkNode
+          node={{
+            href,
+            text: textContent,
+          }}
+          linkContext={effectiveLinkContext}
+        >
+          {children}
+        </LinkNode>
       );
     },
-    [effectiveMessageId, effectiveThreadId],
-  );
-
-  const components = useMemo(
-    () => ({
-      a: ({
-        href,
-        children,
-      }: AnchorHTMLAttributes<HTMLAnchorElement> & {
-        children?: ReactNode;
-      }) => {
-        const textContent = typeof children === "string" ? children : Array.isArray(children) ? children.join("") : "";
+    // Fenced code blocks arrive as <pre><code class="language-x">…</code></pre>.
+    // The code override already renders language blocks as CodeBlock cards, so
+    // unwrap them here — nesting the card in <pre> is invalid HTML and fights
+    // the prose styles. Language-less fences render as bare, text-only blocks.
+    pre: ({
+      children,
+    }: HTMLAttributes<HTMLPreElement> & {
+      children?: ReactNode;
+    }) => {
+      const child = Array.isArray(children) ? children[0] : children;
+      if (isValidElement(child) && child.type === CodeBlock) {
+        return <>{children}</>;
+      }
+      return <pre className="not-prose my-[0.65rem] overflow-auto font-mono text-[0.75rem] leading-5">{children}</pre>;
+    },
+    code: ({
+      className: codeClassName,
+      children,
+      ..._rest
+    }: HTMLAttributes<HTMLElement> & {
+      children?: ReactNode;
+      node?: unknown;
+    }) => {
+      const match = /language-(\w+)/.exec(codeClassName ?? "");
+      const language = match?.[1];
+      const codeString = extractNodeText(children).replace(/\n$/, "");
+      if (language === "mermaid") {
         return (
-          <LinkNode node={{ href, text: textContent }} linkContext={effectiveLinkContext}>
-            {children}
-          </LinkNode>
+          <MermaidBlock
+            node={{
+              language: "mermaid",
+              code: codeString,
+            }}
+          />
         );
-      },
-      // Fenced code blocks arrive as <pre><code class="language-x">…</code></pre>.
-      // The code override already renders language blocks as CodeBlock cards, so
-      // unwrap them here — nesting the card in <pre> is invalid HTML and fights
-      // the prose styles. Language-less fences render as bare, text-only blocks.
-      pre: ({ children }: HTMLAttributes<HTMLPreElement> & { children?: ReactNode }) => {
-        const child = Array.isArray(children) ? children[0] : children;
-        if (isValidElement(child) && child.type === CodeBlock) {
-          return <>{children}</>;
-        }
+      }
+      if (language) {
         return (
-          <pre className="not-prose my-[0.65rem] overflow-auto font-mono text-[0.75rem] leading-5">{children}</pre>
+          <CodeBlock
+            node={{
+              type: "code_block",
+              language,
+              code: codeString,
+              raw: codeString,
+            }}
+            isDark={themeStore.isDark}
+            darkTheme="vitesse-dark"
+            lightTheme="vitesse-light"
+            monacoOptions={{
+              fontFamily: codeFontFamily,
+            }}
+            onPreviewCode={
+              handlePreviewCode as unknown as (payload: {
+                id: string;
+                artifactType: string;
+                artifactTitle: string;
+                language: string;
+                node: {
+                  code: string;
+                };
+              }) => void
+            }
+          />
         );
-      },
-      code: ({
-        className: codeClassName,
-        children,
-        ..._rest
-      }: HTMLAttributes<HTMLElement> & {
-        children?: ReactNode;
-        node?: unknown;
-      }) => {
-        const match = /language-(\w+)/.exec(codeClassName ?? "");
-        const language = match?.[1];
-        const codeString = extractNodeText(children).replace(/\n$/, "");
-
-        if (language === "mermaid") {
-          return <MermaidBlock node={{ language: "mermaid", code: codeString }} />;
-        }
-
-        if (language) {
-          return (
-            <CodeBlock
-              node={{
-                type: "code_block",
-                language,
-                code: codeString,
-                raw: codeString,
+      }
+      return (
+        <code className={codeClassName} {..._rest}>
+          {children}
+        </code>
+      );
+    },
+    sup: ({
+      children,
+      ...rest
+    }: HTMLAttributes<HTMLElement> & {
+      children?: ReactNode;
+    }) => {
+      const textContent = typeof children === "string" ? children : Array.isArray(children) ? children.join("") : "";
+      const id = textContent.replace(/[[\\]]/g, "");
+      if (/^\d+$/.test(id)) {
+        return (
+          <sup
+            ref={(el) => {
+              referenceNodeRef.current = el;
+            }}
+            {...rest}
+          >
+            <button
+              type="button"
+              className="cursor-pointer text-blue-600 dark:text-blue-400 hover:opacity-80"
+              onClick={(e) => handleReferenceClick(id, e.nativeEvent)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  handleReferenceClick(id);
+                }
               }}
-              isDark={themeStore.isDark}
-              darkTheme="vitesse-dark"
-              lightTheme="vitesse-light"
-              monacoOptions={{ fontFamily: codeFontFamily }}
-              onPreviewCode={
-                handlePreviewCode as unknown as (payload: {
-                  id: string;
-                  artifactType: string;
-                  artifactTitle: string;
-                  language: string;
-                  node: { code: string };
-                }) => void
-              }
-            />
-          );
-        }
-
-        return (
-          <code className={codeClassName} {..._rest}>
-            {children}
-          </code>
-        );
-      },
-      sup: ({ children, ...rest }: HTMLAttributes<HTMLElement> & { children?: ReactNode }) => {
-        const textContent = typeof children === "string" ? children : Array.isArray(children) ? children.join("") : "";
-        const id = textContent.replace(/[[\\]]/g, "");
-
-        if (/^\d+$/.test(id)) {
-          return (
-            <sup
-              ref={(el) => {
-                referenceNodeRef.current = el;
-              }}
-              {...rest}
+              onMouseEnter={() => handleReferenceHover(id, referenceNodeRef.current)}
+              onMouseLeave={() => hideReference()}
             >
-              <button
-                type="button"
-                className="cursor-pointer text-blue-600 dark:text-blue-400 hover:opacity-80"
-                onClick={(e) => handleReferenceClick(id, e.nativeEvent)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    handleReferenceClick(id);
-                  }
-                }}
-                onMouseEnter={() => handleReferenceHover(id, referenceNodeRef.current)}
-                onMouseLeave={() => hideReference()}
-              >
-                {children}
-              </button>
-            </sup>
-          );
-        }
-
-        return <sup {...rest}>{children}</sup>;
-      },
-    }),
-    [
-      effectiveLinkContext,
-      themeStore.isDark,
-      codeFontFamily,
-      handlePreviewCode,
-      handleReferenceClick,
-      handleReferenceHover,
-    ],
-  );
-
+              {children}
+            </button>
+          </sup>
+        );
+      }
+      return <sup {...rest}>{children}</sup>;
+    },
+  };
   return (
     <div className="prose prose-zinc prose-sm dark:prose-invert w-full max-w-none break-all markdown-renderer">
       <ReactMarkdown

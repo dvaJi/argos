@@ -1,9 +1,8 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useStore } from "@tanstack/react-store";
 import { Icon } from "@iconify/react";
 import { sessionStore, type UISession } from "#/stores/ui/session";
 import { agentStore } from "#/stores/ui/agent";
-
 interface RecentSessionsStripProps {
   /** The active agent id; the strip shows recent sessions for this agent. */
   agentId: string | null;
@@ -11,7 +10,6 @@ interface RecentSessionsStripProps {
   limit?: number;
   onSelect: (sessionId: string) => void;
 }
-
 function formatRelativeTime(timestamp: number, now: number): string {
   const diffMs = Math.max(0, now - timestamp);
   const minutes = Math.floor(diffMs / 60000);
@@ -34,19 +32,15 @@ export default function RecentSessionsStrip({ agentId, limit = 6, onSelect }: Re
   const { agents } = useStore(agentStore);
   // Lazy initializer: `Date.now` is impure and must not run during render.
   const [now] = useState(() => Date.now());
-
-  const recent = useMemo<UISession[]>(() => {
+  const recent = (() => {
     if (!agentId) return [];
     return sessions
       .filter((session) => session.agentId === agentId && !session.isDraft)
       .sort((a, b) => b.updatedAt - a.updatedAt)
       .slice(0, limit);
-  }, [sessions, agentId, limit]);
-
-  const agentName = useMemo(() => agents.find((agent) => agent.id === agentId)?.name ?? null, [agents, agentId]);
-
+  })();
+  const agentName = agents.find((agent) => agent.id === agentId)?.name ?? null;
   if (recent.length < 2) return null;
-
   return (
     <div className="mt-5 flex min-h-0 w-full flex-col gap-2">
       <p className="px-1 text-[11px] font-medium text-muted-foreground/70">Recent in {agentName ?? "this agent"}</p>

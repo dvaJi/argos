@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
@@ -37,11 +37,9 @@ import {
   createDefaultArgosSubagentSlots,
   normalizeArgosSubagentSlots,
 } from "@argos/shared/lib/argosSubagents";
-
 const configClient = createConfigClient();
 const sessionClient = createSessionClient();
 const toolClient = createToolClient();
-
 type AgentConfigForm = {
   name: string;
   description: string;
@@ -77,15 +75,12 @@ type AgentConfigForm = {
   memoryExtractionProviderId: string;
   memoryExtractionModelId: string;
 };
-
 type ToolGroup = {
   name: string;
   label: string;
   tools: MCPToolDefinition[];
 };
-
 const LUCIDE_ICON_OPTIONS = ["bot", "brain", "sparkles", "search", "shield", "code", "book-open", "wrench"];
-
 const EMPTY_FORM: AgentConfigForm = {
   name: "",
   description: "",
@@ -121,14 +116,12 @@ const EMPTY_FORM: AgentConfigForm = {
   memoryExtractionProviderId: "",
   memoryExtractionModelId: "",
 };
-
 const renderWithTranslationKey = (key: string, label: string) => (
   <>
     <span className="sr-only">{key}</span>
     <span>{label}</span>
   </>
 );
-
 const buildAvatarFromForm = (form: AgentConfigForm): AgentAvatarValue => {
   if (form.avatarKind === "monogram") {
     return {
@@ -137,7 +130,6 @@ const buildAvatarFromForm = (form: AgentConfigForm): AgentAvatarValue => {
       backgroundColor: form.monogramBackgroundColor.trim() || null,
     };
   }
-
   return {
     kind: "lucide",
     icon: form.lucideIcon.trim() || "bot",
@@ -145,7 +137,6 @@ const buildAvatarFromForm = (form: AgentConfigForm): AgentAvatarValue => {
     darkColor: form.darkColor.trim() || null,
   };
 };
-
 const GROUP_ORDER = [
   "agent-filesystem",
   "agent-core",
@@ -156,23 +147,29 @@ const GROUP_ORDER = [
   "pi",
   "yobrowser",
 ] as const;
-
 const CURRENT_SUBAGENT_TARGET = "__current_agent__";
-
 const normalizeNumericInput = (
   value: number,
-  options: { fallback: number; min: number; max: number; integer?: boolean },
+  options: {
+    fallback: number;
+    min: number;
+    max: number;
+    integer?: boolean;
+  },
 ) => {
   const parsed = Number.isFinite(value) ? value : options.fallback;
   const normalized = options.integer ? Math.round(parsed) : parsed;
   return Math.min(options.max, Math.max(options.min, normalized));
 };
-
-const selectionToFormFields = (selection?: { providerId?: string | null; modelId?: string | null } | null) => ({
+const selectionToFormFields = (
+  selection?: {
+    providerId?: string | null;
+    modelId?: string | null;
+  } | null,
+) => ({
   providerId: selection?.providerId?.trim() || "",
   modelId: selection?.modelId?.trim() || "",
 });
-
 const normalizeOptionalStringList = (values?: string[] | null): string[] | undefined => {
   if (values === undefined || values === null) {
     return undefined;
@@ -186,16 +183,17 @@ const normalizeOptionalStringList = (values?: string[] | null): string[] | undef
     ),
   );
 };
-
 const buildFormFromAgent = (agent: Agent | null): AgentConfigForm => {
-  if (!agent) return { ...EMPTY_FORM };
+  if (!agent)
+    return {
+      ...EMPTY_FORM,
+    };
   const config = agent.config ?? {};
   const defaultModel = selectionToFormFields(config.defaultModelPreset);
   const assistantModel = selectionToFormFields(config.assistantModel);
   const visionModel = selectionToFormFields(config.visionModel);
   const imageGenerationModel = selectionToFormFields(config.imageGenerationModel);
   const avatar = agent.avatar;
-
   return {
     name: agent.name ?? "",
     description: agent.description ?? "",
@@ -237,7 +235,6 @@ const buildFormFromAgent = (agent: Agent | null): AgentConfigForm => {
 export default function ArgosAgentsSettings() {
   const { toast } = useToast();
   const modelStore = useModelStore();
-
   const [agents, setAgents] = useState<Agent[]>([]);
   const [allAgents, setAllAgents] = useState<Agent[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
@@ -246,7 +243,9 @@ export default function ArgosAgentsSettings() {
   const [isCreating, setIsCreating] = useState(false);
   const [newAgentName, setNewAgentName] = useState("");
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState<AgentConfigForm>({ ...EMPTY_FORM });
+  const [form, setForm] = useState<AgentConfigForm>({
+    ...EMPTY_FORM,
+  });
   const [openModelPicker, setOpenModelPicker] = useState<Record<string, boolean>>({});
   const [tools, setTools] = useState<MCPToolDefinition[]>([]);
   const [expandedToolGroups, setExpandedToolGroups] = useState<Set<string>>(new Set());
@@ -254,46 +253,38 @@ export default function ArgosAgentsSettings() {
   const [memoryDialogOpen, setMemoryDialogOpen] = useState(false);
   const [loadingSystemPrompts, setLoadingSystemPrompts] = useState(false);
   const [systemPromptTemplates, setSystemPromptTemplates] = useState<SystemPrompt[]>([]);
-
   const [deleting, setDeleting] = useState(false);
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
   const [transferDialogLoading, setTransferDialogLoading] = useState(false);
   const [transferDialogBusy, setTransferDialogBusy] = useState(false);
   const [transferDialogError, setTransferDialogError] = useState<string | null>(null);
   const [transferImpact, setTransferImpact] = useState<AgentTransferImpact | null>(null);
-  const [pendingDeleteAgent, setPendingDeleteAgent] = useState<{ id: string; name: string } | null>(null);
+  const [pendingDeleteAgent, setPendingDeleteAgent] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const [powershellToolEnabled, setPowershellToolEnabled] = useState(false);
   const [powershellToolPending, setPowershellToolPending] = useState(false);
-
   useEffect(() => {
     void configClient
       .getSetting("pi_enable_powershell_tool")
       .then((value) => setPowershellToolEnabled(value === true))
       .catch(() => setPowershellToolEnabled(false));
   }, []);
-
-  const handlePowershellToolChange = useCallback(
-    async (value: boolean) => {
-      if (powershellToolPending) return;
-      setPowershellToolPending(true);
-      setPowershellToolEnabled(value);
-      try {
-        await configClient.setSetting("pi_enable_powershell_tool", value);
-      } catch (error) {
-        console.error("[ArgosAgentsSettings] Failed to persist PowerShell tool setting:", error);
-        setPowershellToolEnabled(!value);
-      }
-      setPowershellToolPending(false);
-    },
-    [powershellToolPending],
-  );
-
-  const selectedAgent = useMemo(
-    () => allAgents.find((a) => a.id === selectedAgentId) || null,
-    [allAgents, selectedAgentId],
-  );
-
-  const filteredAgents = useMemo(() => {
+  const handlePowershellToolChange = async (value: boolean) => {
+    if (powershellToolPending) return;
+    setPowershellToolPending(true);
+    setPowershellToolEnabled(value);
+    try {
+      await configClient.setSetting("pi_enable_powershell_tool", value);
+    } catch (error) {
+      console.error("[ArgosAgentsSettings] Failed to persist PowerShell tool setting:", error);
+      setPowershellToolEnabled(!value);
+    }
+    setPowershellToolPending(false);
+  };
+  const selectedAgent = allAgents.find((a) => a.id === selectedAgentId) || null;
+  const filteredAgents = (() => {
     const query = agentSearchQuery.trim().toLowerCase();
     if (!query) return agents;
     return agents.filter((agent) => {
@@ -301,9 +292,8 @@ export default function ArgosAgentsSettings() {
       const description = (agent.description ?? "").toLowerCase();
       return name.includes(query) || description.includes(query);
     });
-  }, [agents, agentSearchQuery]);
-
-  const loadAgents = useCallback(async () => {
+  })();
+  const loadAgents = async () => {
     try {
       const allAgentList = await configClient.listAgents();
       const argosAgents = (allAgentList ?? []).filter((agent) => agent.type === "argos");
@@ -318,8 +308,7 @@ export default function ArgosAgentsSettings() {
       }
     } catch {}
     setLoading(false);
-  }, []);
-
+  };
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -343,11 +332,12 @@ export default function ArgosAgentsSettings() {
       cancelled = true;
     };
   }, []);
-
   useEffect(() => {
     const loadTools = async () => {
       try {
-        const definitions = await toolClient.getAllToolDefinitions({ chatMode: "agent" });
+        const definitions = await toolClient.getAllToolDefinitions({
+          chatMode: "agent",
+        });
         setTools(
           Array.isArray(definitions)
             ? definitions
@@ -359,10 +349,8 @@ export default function ArgosAgentsSettings() {
         setTools([]);
       }
     };
-
     void loadTools();
   }, []);
-
   const initialAvatarRef = useRef<AgentAvatarValue | null>(null);
   // Rebuild the form only when the selected agent *identity* changes, so toggling
   // Enabled (or the optimistic update after Save) doesn't wipe unsaved edits. The
@@ -388,8 +376,7 @@ export default function ArgosAgentsSettings() {
     setForm(nextForm);
     initialAvatarRef.current = buildAvatarFromForm(nextForm);
   }, [selectedAgent]);
-
-  const loadSystemPromptTemplates = useCallback(async () => {
+  const loadSystemPromptTemplates = async () => {
     setLoadingSystemPrompts(true);
     try {
       const prompts = await configClient.getSystemPrompts();
@@ -406,77 +393,71 @@ export default function ArgosAgentsSettings() {
       setSystemPromptTemplates([]);
     }
     setLoadingSystemPrompts(false);
-  }, []);
-
-  const openSystemPromptPicker = useCallback(() => {
+  };
+  const openSystemPromptPicker = () => {
     setSystemPromptDialogOpen(true);
     void loadSystemPromptTemplates();
-  }, [loadSystemPromptTemplates]);
-
-  const updateForm = useCallback(<K extends keyof AgentConfigForm>(key: K, value: AgentConfigForm[K]) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
-  }, []);
-
-  const applySystemPromptTemplate = useCallback(
-    (prompt: SystemPrompt) => {
-      updateForm("systemPrompt", prompt.content ?? "");
-      setSystemPromptDialogOpen(false);
-    },
-    [updateForm],
-  );
-
-  const transferDialogAgents = useMemo<TransferDialogAgent[]>(
-    () =>
-      allAgents.map((a) => ({
-        id: a.id,
-        name: a.name,
-        type: a.type === "argos" ? "argos" : "acp",
-        enabled: a.enabled,
-      })),
-    [allAgents],
-  );
-
-  const previewAgent = useMemo(
-    () => ({
-      id: selectedAgent?.id || "preview",
-      name: form.name || "Unnamed Agent",
-      type: "argos" as const,
-      icon: selectedAgent?.icon,
-      avatar: buildAvatarFromForm(form),
-    }),
-    [form, selectedAgent?.icon, selectedAgent?.id],
-  );
-
+  };
+  const updateForm = <K extends keyof AgentConfigForm>(key: K, value: AgentConfigForm[K]) => {
+    setForm((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+  };
+  const applySystemPromptTemplate = (prompt: SystemPrompt) => {
+    updateForm("systemPrompt", prompt.content ?? "");
+    setSystemPromptDialogOpen(false);
+  };
+  const transferDialogAgents = allAgents.map((a): TransferDialogAgent => ({
+    id: a.id,
+    name: a.name,
+    type: a.type === "argos" ? "argos" : "acp",
+    enabled: a.enabled,
+  }));
+  const previewAgent = {
+    id: selectedAgent?.id || "preview",
+    name: form.name || "Unnamed Agent",
+    type: "argos" as const,
+    icon: selectedAgent?.icon,
+    avatar: buildAvatarFromForm(form),
+  };
   const startCreate = () => {
     setIsCreating(true);
     setNewAgentName("");
   };
-
   const handleCreate = async () => {
     if (!newAgentName.trim()) return;
     setSaving(true);
     try {
-      const created = await configClient.createArgosAgent({ name: newAgentName.trim() });
-      toast({ title: "Agent created" });
+      const created = await configClient.createArgosAgent({
+        name: newAgentName.trim(),
+      });
+      toast({
+        title: "Agent created",
+      });
       setIsCreating(false);
       setNewAgentName("");
       await loadAgents();
       setSelectedAgentId(created?.id ?? null);
     } catch (error) {
-      toast({ title: "Failed to create agent", description: String(error), variant: "destructive" });
+      toast({
+        title: "Failed to create agent",
+        description: String(error),
+        variant: "destructive",
+      });
     }
     setSaving(false);
   };
-
-  const handleDelete = useCallback(async () => {
+  const handleDelete = async () => {
     if (!selectedAgent?.id || selectedAgent.protected) return;
-
-    setPendingDeleteAgent({ id: selectedAgent.id, name: selectedAgent.name || form.name });
+    setPendingDeleteAgent({
+      id: selectedAgent.id,
+      name: selectedAgent.name || form.name,
+    });
     setTransferDialogOpen(true);
     setTransferDialogLoading(true);
     setTransferDialogError(null);
     setTransferImpact(null);
-
     try {
       const [impact, list] = await Promise.all([
         sessionClient.getAgentTransferImpact(selectedAgent.id),
@@ -488,42 +469,35 @@ export default function ArgosAgentsSettings() {
       setTransferDialogError(error instanceof Error ? error.message : String(error));
     }
     setTransferDialogLoading(false);
-  }, [selectedAgent, form.name]);
-
-  const finishDeleteAgent = useCallback(
-    async (agentId: string) => {
-      const removed = await configClient.deleteArgosAgent(agentId);
-      if (!removed) {
-        throw new Error("Agent deletion blocked — sessions may still exist");
-      }
-      if (selectedAgentId === agentId) setSelectedAgentId(null);
-      await loadAgents();
-      setTransferDialogOpen(false);
-      setPendingDeleteAgent(null);
-      toast({ title: "Agent deleted" });
-    },
-    [selectedAgentId, loadAgents, toast],
-  );
-
-  const handleDeleteAgentWithMove = useCallback(
-    async (payload: { targetAgentId: string }) => {
-      if (!pendingDeleteAgent) return;
-      setDeleting(true);
-      setTransferDialogBusy(true);
-      setTransferDialogError(null);
-      try {
-        await sessionClient.moveAgentSessions(pendingDeleteAgent.id, payload.targetAgentId);
-        await finishDeleteAgent(pendingDeleteAgent.id);
-      } catch (error) {
-        setTransferDialogError(error instanceof Error ? error.message : String(error));
-      }
-      setDeleting(false);
-      setTransferDialogBusy(false);
-    },
-    [pendingDeleteAgent, finishDeleteAgent],
-  );
-
-  const handleDeleteAgentWithSessions = useCallback(async () => {
+  };
+  const finishDeleteAgent = async (agentId: string) => {
+    const removed = await configClient.deleteArgosAgent(agentId);
+    if (!removed) {
+      throw new Error("Agent deletion blocked — sessions may still exist");
+    }
+    if (selectedAgentId === agentId) setSelectedAgentId(null);
+    await loadAgents();
+    setTransferDialogOpen(false);
+    setPendingDeleteAgent(null);
+    toast({
+      title: "Agent deleted",
+    });
+  };
+  const handleDeleteAgentWithMove = async (payload: { targetAgentId: string }) => {
+    if (!pendingDeleteAgent) return;
+    setDeleting(true);
+    setTransferDialogBusy(true);
+    setTransferDialogError(null);
+    try {
+      await sessionClient.moveAgentSessions(pendingDeleteAgent.id, payload.targetAgentId);
+      await finishDeleteAgent(pendingDeleteAgent.id);
+    } catch (error) {
+      setTransferDialogError(error instanceof Error ? error.message : String(error));
+    }
+    setDeleting(false);
+    setTransferDialogBusy(false);
+  };
+  const handleDeleteAgentWithSessions = async () => {
     if (!pendingDeleteAgent) return;
     setDeleting(true);
     setTransferDialogBusy(true);
@@ -536,15 +510,24 @@ export default function ArgosAgentsSettings() {
     }
     setDeleting(false);
     setTransferDialogBusy(false);
-  }, [pendingDeleteAgent, finishDeleteAgent]);
-
+  };
   const handleToggleEnabled = async (agentId: string, enabled: boolean) => {
-    console.log("[AgentsSettings] toggleEnabled start", { agentId, enabled });
+    console.log("[AgentsSettings] toggleEnabled start", {
+      agentId,
+      enabled,
+    });
     try {
-      const updated = await configClient.updateArgosAgent(agentId, { enabled });
+      const updated = await configClient.updateArgosAgent(agentId, {
+        enabled,
+      });
       console.log("[AgentsSettings] toggleEnabled response", {
         agentId,
-        updated: updated ? { id: updated.id, enabled: updated.enabled } : null,
+        updated: updated
+          ? {
+              id: updated.id,
+              enabled: updated.enabled,
+            }
+          : null,
       });
       if (!updated) {
         toast({
@@ -554,7 +537,16 @@ export default function ArgosAgentsSettings() {
         });
         return;
       }
-      setAgents((prev) => prev.map((agent) => (agent.id === agentId ? { ...agent, enabled } : agent)));
+      setAgents((prev) =>
+        prev.map((agent) =>
+          agent.id === agentId
+            ? {
+                ...agent,
+                enabled,
+              }
+            : agent,
+        ),
+      );
       if (selectedAgentId === agentId) {
         updateForm("enabled", enabled);
       }
@@ -562,64 +554,48 @@ export default function ArgosAgentsSettings() {
       console.error("[AgentsSettings] toggleEnabled FAILED", error);
     }
   };
-
-  const getModelLabel = useCallback(
-    (providerId: string, modelId: string) => {
-      if (!providerId || !modelId) return "Select model";
-
-      const providers = Array.isArray(modelStore.enabledModels)
-        ? modelStore.enabledModels
-        : Array.isArray(modelStore.allProviderModels)
-          ? modelStore.allProviderModels
-          : [];
-
-      const provider = providers.find((entry) => entry.providerId === providerId);
-      const model = provider?.models?.find((entry) => entry.id === modelId);
-      if (model?.name) return model.name;
-
-      if (typeof modelStore.findModelByIdOrName === "function") {
-        const lookup = modelStore.findModelByIdOrName(modelId);
-        if (lookup?.model?.name) return lookup.model.name;
-      }
-
-      return modelId;
-    },
-    [modelStore],
-  );
-
-  const getModelIconId = useCallback((providerId: string, modelId: string) => {
+  const getModelLabel = (providerId: string, modelId: string) => {
+    if (!providerId || !modelId) return "Select model";
+    const providers = Array.isArray(modelStore.enabledModels)
+      ? modelStore.enabledModels
+      : Array.isArray(modelStore.allProviderModels)
+        ? modelStore.allProviderModels
+        : [];
+    const provider = providers.find((entry) => entry.providerId === providerId);
+    const model = provider?.models?.find((entry) => entry.id === modelId);
+    if (model?.name) return model.name;
+    if (typeof modelStore.findModelByIdOrName === "function") {
+      const lookup = modelStore.findModelByIdOrName(modelId);
+      if (lookup?.model?.name) return lookup.model.name;
+    }
+    return modelId;
+  };
+  const getModelIconId = (providerId: string, modelId: string) => {
     if (!providerId) return "";
     return providerId === "acp" ? modelId : providerId;
-  }, []);
-
-  const availableSubagentTargetAgents = useMemo(
-    () =>
-      allAgents
-        .filter((agent) => {
-          if (agent.id === selectedAgent?.id) return false;
-          if (agent.type === "argos") return true;
-          if (agent.type !== "acp") return false;
-          return agent.source !== "registry" || agent.installState?.status === "installed";
-        })
-        .sort((left, right) => {
-          if (left.type !== right.type) return left.type === "argos" ? -1 : 1;
-          return left.name.localeCompare(right.name);
-        }),
-    [allAgents, selectedAgent?.id],
-  );
-
-  const subagentTargetOptions = useMemo(
-    () => [
-      {
-        value: CURRENT_SUBAGENT_TARGET,
-        label: "Self",
-      },
-      ...availableSubagentTargetAgents.map((agent) => ({ value: agent.id, label: agent.name })),
-    ],
-    [availableSubagentTargetAgents],
-  );
-
-  const getGroupLabel = useCallback((serverName: string) => {
+  };
+  const availableSubagentTargetAgents = allAgents
+    .filter((agent) => {
+      if (agent.id === selectedAgent?.id) return false;
+      if (agent.type === "argos") return true;
+      if (agent.type !== "acp") return false;
+      return agent.source !== "registry" || agent.installState?.status === "installed";
+    })
+    .sort((left, right) => {
+      if (left.type !== right.type) return left.type === "argos" ? -1 : 1;
+      return left.name.localeCompare(right.name);
+    });
+  const subagentTargetOptions = [
+    {
+      value: CURRENT_SUBAGENT_TARGET,
+      label: "Self",
+    },
+    ...availableSubagentTargetAgents.map((agent) => ({
+      value: agent.id,
+      label: agent.name,
+    })),
+  ];
+  const getGroupLabel = (serverName: string) => {
     switch (serverName) {
       case "agent-filesystem":
         return "Filesystem";
@@ -640,16 +616,14 @@ export default function ArgosAgentsSettings() {
       default:
         return serverName;
     }
-  }, []);
-
-  const groupedTools = useMemo<ToolGroup[]>(() => {
+  };
+  const groupedTools = (() => {
     const groups = new Map<string, MCPToolDefinition[]>();
     for (const tool of tools) {
       const existing = groups.get(tool.server.name) ?? [];
       existing.push(tool);
       groups.set(tool.server.name, existing);
     }
-
     return Array.from(groups.entries())
       .map(([name, items]) => ({
         name,
@@ -664,69 +638,75 @@ export default function ArgosAgentsSettings() {
         if (rightIndex >= 0) return 1;
         return left.name.localeCompare(right.name);
       });
-  }, [getGroupLabel, tools]);
-
-  const isToolEnabled = useCallback(
-    (toolName: string) => !form.disabledAgentTools.includes(toolName),
-    [form.disabledAgentTools],
-  );
-
-  const setToolEnabled = useCallback((toolName: string, enabled: boolean) => {
+  })();
+  const isToolEnabled = (toolName: string) => !form.disabledAgentTools.includes(toolName);
+  const setToolEnabled = (toolName: string, enabled: boolean) => {
     setForm((prev) => {
       const next = new Set(prev.disabledAgentTools);
       if (enabled) next.delete(toolName);
       else next.add(toolName);
-      return { ...prev, disabledAgentTools: Array.from(next).sort((a, b) => a.localeCompare(b)) };
+      return {
+        ...prev,
+        disabledAgentTools: Array.from(next).sort((a, b) => a.localeCompare(b)),
+      };
     });
-  }, []);
-
-  const isGroupEnabled = useCallback(
-    (group: ToolGroup) => group.tools.some((tool) => isToolEnabled(tool.function.name)),
-    [isToolEnabled],
-  );
-
-  const setGroupEnabled = useCallback((group: ToolGroup, enabled: boolean) => {
+  };
+  const isGroupEnabled = (group: ToolGroup) => group.tools.some((tool) => isToolEnabled(tool.function.name));
+  const setGroupEnabled = (group: ToolGroup, enabled: boolean) => {
     setForm((prev) => {
       const next = new Set(prev.disabledAgentTools);
       for (const tool of group.tools) {
         if (enabled) next.delete(tool.function.name);
         else next.add(tool.function.name);
       }
-      return { ...prev, disabledAgentTools: Array.from(next).sort((a, b) => a.localeCompare(b)) };
+      return {
+        ...prev,
+        disabledAgentTools: Array.from(next).sort((a, b) => a.localeCompare(b)),
+      };
     });
-  }, []);
-
-  const getSubagentTargetValue = useCallback(
-    (slot: ArgosSubagentSlot) =>
-      slot.targetType === "self" ? CURRENT_SUBAGENT_TARGET : (slot.targetAgentId ?? CURRENT_SUBAGENT_TARGET),
-    [],
-  );
-
-  const handleSubagentTargetChange = useCallback((index: number, targetValue: string) => {
+  };
+  const getSubagentTargetValue = (slot: ArgosSubagentSlot) =>
+    slot.targetType === "self" ? CURRENT_SUBAGENT_TARGET : (slot.targetAgentId ?? CURRENT_SUBAGENT_TARGET);
+  const handleSubagentTargetChange = (index: number, targetValue: string) => {
     setForm((prev) => {
       const nextSlots = [...prev.subagents];
       const slot = nextSlots[index];
       if (!slot) return prev;
       if (targetValue === CURRENT_SUBAGENT_TARGET) {
-        nextSlots[index] = { ...slot, targetType: "self", targetAgentId: undefined };
+        nextSlots[index] = {
+          ...slot,
+          targetType: "self",
+          targetAgentId: undefined,
+        };
       } else {
-        nextSlots[index] = { ...slot, targetType: "agent", targetAgentId: targetValue };
+        nextSlots[index] = {
+          ...slot,
+          targetType: "agent",
+          targetAgentId: targetValue,
+        };
       }
-      return { ...prev, subagents: nextSlots };
+      return {
+        ...prev,
+        subagents: nextSlots,
+      };
     });
-  }, []);
-
-  const updateSubagentField = useCallback((index: number, field: "displayName" | "description", value: string) => {
+  };
+  const updateSubagentField = (index: number, field: "displayName" | "description", value: string) => {
     setForm((prev) => {
       const nextSlots = [...prev.subagents];
       const slot = nextSlots[index];
       if (!slot) return prev;
-      nextSlots[index] = { ...slot, [field]: value };
-      return { ...prev, subagents: nextSlots };
+      nextSlots[index] = {
+        ...slot,
+        [field]: value,
+      };
+      return {
+        ...prev,
+        subagents: nextSlots,
+      };
     });
-  }, []);
-
-  const addSubagentSlot = useCallback(() => {
+  };
+  const addSubagentSlot = () => {
     setForm((prev) => {
       if (prev.subagents.length >= ARGOS_SUBAGENT_SLOT_LIMIT) return prev;
       const nextSlot: ArgosSubagentSlot = {
@@ -735,86 +715,132 @@ export default function ArgosAgentsSettings() {
         displayName: "",
         description: "",
       };
-      return { ...prev, subagents: [...prev.subagents, nextSlot] };
+      return {
+        ...prev,
+        subagents: [...prev.subagents, nextSlot],
+      };
     });
-  }, []);
-
-  const removeSubagentSlot = useCallback((index: number) => {
-    setForm((prev) => ({ ...prev, subagents: prev.subagents.filter((_, slotIndex) => slotIndex !== index) }));
-  }, []);
-
-  const selectModel = useCallback(
-    (
-      field:
-        | "defaultModel"
-        | "assistantModel"
-        | "visionModel"
-        | "imageGenerationModel"
-        | "memoryEmbedding"
-        | "memoryExtraction",
-      model: RENDERER_MODEL_META,
-      providerId: string,
-    ) => {
-      if (field === "defaultModel") {
-        setForm((prev) => ({ ...prev, defaultModelProviderId: providerId, defaultModelId: model.id }));
-      }
-      if (field === "assistantModel") {
-        setForm((prev) => ({ ...prev, assistantModelProviderId: providerId, assistantModelId: model.id }));
-      }
-      if (field === "visionModel") {
-        setForm((prev) => ({ ...prev, visionModelProviderId: providerId, visionModelId: model.id }));
-      }
-      if (field === "imageGenerationModel") {
-        setForm((prev) => ({ ...prev, imageGenerationModelProviderId: providerId, imageGenerationModelId: model.id }));
-      }
-      if (field === "memoryEmbedding") {
-        setForm((prev) => ({ ...prev, memoryEmbeddingProviderId: providerId, memoryEmbeddingModelId: model.id }));
-      }
-      if (field === "memoryExtraction") {
-        setForm((prev) => ({ ...prev, memoryExtractionProviderId: providerId, memoryExtractionModelId: model.id }));
-      }
-      setOpenModelPicker((prev) => ({ ...prev, [field]: false }));
-    },
-    [],
-  );
-
-  const clearModel = useCallback(
-    (
-      field:
-        | "defaultModel"
-        | "assistantModel"
-        | "visionModel"
-        | "imageGenerationModel"
-        | "memoryEmbedding"
-        | "memoryExtraction",
-    ) => {
-      if (field === "defaultModel") {
-        setForm((prev) => ({ ...prev, defaultModelProviderId: "", defaultModelId: "" }));
-      }
-      if (field === "assistantModel") {
-        setForm((prev) => ({ ...prev, assistantModelProviderId: "", assistantModelId: "" }));
-      }
-      if (field === "visionModel") {
-        setForm((prev) => ({ ...prev, visionModelProviderId: "", visionModelId: "" }));
-      }
-      if (field === "imageGenerationModel") {
-        setForm((prev) => ({ ...prev, imageGenerationModelProviderId: "", imageGenerationModelId: "" }));
-      }
-      if (field === "memoryEmbedding") {
-        setForm((prev) => ({ ...prev, memoryEmbeddingProviderId: "", memoryEmbeddingModelId: "" }));
-      }
-      if (field === "memoryExtraction") {
-        setForm((prev) => ({ ...prev, memoryExtractionProviderId: "", memoryExtractionModelId: "" }));
-      }
-    },
-    [],
-  );
-
-  const resetEditor = useCallback(() => {
+  };
+  const removeSubagentSlot = (index: number) => {
+    setForm((prev) => ({
+      ...prev,
+      subagents: prev.subagents.filter((_, slotIndex) => slotIndex !== index),
+    }));
+  };
+  const selectModel = (
+    field:
+      | "defaultModel"
+      | "assistantModel"
+      | "visionModel"
+      | "imageGenerationModel"
+      | "memoryEmbedding"
+      | "memoryExtraction",
+    model: RENDERER_MODEL_META,
+    providerId: string,
+  ) => {
+    if (field === "defaultModel") {
+      setForm((prev) => ({
+        ...prev,
+        defaultModelProviderId: providerId,
+        defaultModelId: model.id,
+      }));
+    }
+    if (field === "assistantModel") {
+      setForm((prev) => ({
+        ...prev,
+        assistantModelProviderId: providerId,
+        assistantModelId: model.id,
+      }));
+    }
+    if (field === "visionModel") {
+      setForm((prev) => ({
+        ...prev,
+        visionModelProviderId: providerId,
+        visionModelId: model.id,
+      }));
+    }
+    if (field === "imageGenerationModel") {
+      setForm((prev) => ({
+        ...prev,
+        imageGenerationModelProviderId: providerId,
+        imageGenerationModelId: model.id,
+      }));
+    }
+    if (field === "memoryEmbedding") {
+      setForm((prev) => ({
+        ...prev,
+        memoryEmbeddingProviderId: providerId,
+        memoryEmbeddingModelId: model.id,
+      }));
+    }
+    if (field === "memoryExtraction") {
+      setForm((prev) => ({
+        ...prev,
+        memoryExtractionProviderId: providerId,
+        memoryExtractionModelId: model.id,
+      }));
+    }
+    setOpenModelPicker((prev) => ({
+      ...prev,
+      [field]: false,
+    }));
+  };
+  const clearModel = (
+    field:
+      | "defaultModel"
+      | "assistantModel"
+      | "visionModel"
+      | "imageGenerationModel"
+      | "memoryEmbedding"
+      | "memoryExtraction",
+  ) => {
+    if (field === "defaultModel") {
+      setForm((prev) => ({
+        ...prev,
+        defaultModelProviderId: "",
+        defaultModelId: "",
+      }));
+    }
+    if (field === "assistantModel") {
+      setForm((prev) => ({
+        ...prev,
+        assistantModelProviderId: "",
+        assistantModelId: "",
+      }));
+    }
+    if (field === "visionModel") {
+      setForm((prev) => ({
+        ...prev,
+        visionModelProviderId: "",
+        visionModelId: "",
+      }));
+    }
+    if (field === "imageGenerationModel") {
+      setForm((prev) => ({
+        ...prev,
+        imageGenerationModelProviderId: "",
+        imageGenerationModelId: "",
+      }));
+    }
+    if (field === "memoryEmbedding") {
+      setForm((prev) => ({
+        ...prev,
+        memoryEmbeddingProviderId: "",
+        memoryEmbeddingModelId: "",
+      }));
+    }
+    if (field === "memoryExtraction") {
+      setForm((prev) => ({
+        ...prev,
+        memoryExtractionProviderId: "",
+        memoryExtractionModelId: "",
+      }));
+    }
+  };
+  const resetEditor = () => {
     setForm(buildFormFromAgent(selectedAgent));
-  }, [selectedAgent]);
-
-  const saveAgent = useCallback(() => {
+  };
+  const saveAgent = () => {
     if (!selectedAgent) {
       console.warn("[AgentsSettings] saveAgent: no selectedAgent — aborting");
       return;
@@ -848,31 +874,53 @@ export default function ArgosAgentsSettings() {
       }),
       defaultModelPreset:
         form.defaultModelProviderId && form.defaultModelId
-          ? { providerId: form.defaultModelProviderId, modelId: form.defaultModelId }
+          ? {
+              providerId: form.defaultModelProviderId,
+              modelId: form.defaultModelId,
+            }
           : null,
       assistantModel:
         form.assistantModelProviderId && form.assistantModelId
-          ? { providerId: form.assistantModelProviderId, modelId: form.assistantModelId }
+          ? {
+              providerId: form.assistantModelProviderId,
+              modelId: form.assistantModelId,
+            }
           : null,
       visionModel:
         form.visionModelProviderId && form.visionModelId
-          ? { providerId: form.visionModelProviderId, modelId: form.visionModelId }
+          ? {
+              providerId: form.visionModelProviderId,
+              modelId: form.visionModelId,
+            }
           : null,
       imageGenerationModel:
         form.imageGenerationModelProviderId && form.imageGenerationModelId
-          ? { providerId: form.imageGenerationModelProviderId, modelId: form.imageGenerationModelId }
+          ? {
+              providerId: form.imageGenerationModelProviderId,
+              modelId: form.imageGenerationModelId,
+            }
           : null,
       memoryEnabled: form.memoryEnabled,
       memoryEmbedding:
         form.memoryEnabled && form.memoryEmbeddingProviderId && form.memoryEmbeddingModelId
-          ? { providerId: form.memoryEmbeddingProviderId, modelId: form.memoryEmbeddingModelId }
+          ? {
+              providerId: form.memoryEmbeddingProviderId,
+              modelId: form.memoryEmbeddingModelId,
+            }
           : null,
       memoryExtractionModel:
         form.memoryEnabled && form.memoryExtractionProviderId && form.memoryExtractionModelId
-          ? { providerId: form.memoryExtractionProviderId, modelId: form.memoryExtractionModelId }
+          ? {
+              providerId: form.memoryExtractionProviderId,
+              modelId: form.memoryExtractionModelId,
+            }
           : null,
       orchestrationEnabled: form.orchestrationEnabled,
-      ...(form.enabledMcpServerIds === undefined ? {} : { enabledMcpServerIds: [...form.enabledMcpServerIds] }),
+      ...(form.enabledMcpServerIds === undefined
+        ? {}
+        : {
+            enabledMcpServerIds: [...form.enabledMcpServerIds],
+          }),
     };
 
     // Only persist the avatar if the user actually changed it; otherwise keep
@@ -887,7 +935,6 @@ export default function ArgosAgentsSettings() {
       avatarUnchanged,
       sendingAvatar: avatarUnchanged ? "(keep existing)" : nextAvatar,
     });
-
     void configClient
       .updateArgosAgent(selectedAgent.id, {
         name: form.name.trim(),
@@ -900,7 +947,12 @@ export default function ArgosAgentsSettings() {
         console.log("[AgentsSettings] saveAgent response", {
           id: selectedAgent.id,
           updated: updated
-            ? { id: updated.id, name: updated.name, enabled: updated.enabled, avatar: updated.avatar }
+            ? {
+                id: updated.id,
+                name: updated.name,
+                enabled: updated.enabled,
+                avatar: updated.avatar,
+              }
             : null,
         });
         if (!updated) {
@@ -912,17 +964,22 @@ export default function ArgosAgentsSettings() {
           return;
         }
         initialAvatarRef.current = nextAvatar;
-        toast({ title: "Saved" });
+        toast({
+          title: "Saved",
+        });
         setAgents((prev) => prev.map((agent) => (agent.id === updated.id ? updated : agent)));
         return loadAgents();
       })
       .catch((error) => {
         console.error("[AgentsSettings] saveAgent FAILED", error);
-        toast({ title: "Save failed", description: String(error), variant: "destructive" });
+        toast({
+          title: "Save failed",
+          description: String(error),
+          variant: "destructive",
+        });
       })
       .finally(() => setSaving(false));
-  }, [form, loadAgents, selectedAgent, toast]);
-
+  };
   const modelFieldConfigs: Array<{
     key: "defaultModel" | "assistantModel" | "visionModel" | "imageGenerationModel";
     label: string;
@@ -956,7 +1013,6 @@ export default function ArgosAgentsSettings() {
       modelId: form.imageGenerationModelId,
     },
   ];
-
   const memoryModelFieldConfigs: Array<{
     key: "memoryEmbedding" | "memoryExtraction";
     label: string;
@@ -979,7 +1035,6 @@ export default function ArgosAgentsSettings() {
       type: ModelType.Chat,
     },
   ];
-
   return (
     <div data-testid="settings-argos-agents-page" className="flex h-full w-full">
       <aside className="flex w-75 shrink-0 flex-col border-r border-border">
@@ -1029,7 +1084,13 @@ export default function ArgosAgentsSettings() {
               <div className="flex items-start gap-3">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-border/70 bg-muted/40">
                   <AgentAvatar
-                    agent={{ id: agent.id, name: agent.name, type: "argos", icon: agent.icon, avatar: agent.avatar }}
+                    agent={{
+                      id: agent.id,
+                      name: agent.name,
+                      type: "argos",
+                      icon: agent.icon,
+                      avatar: agent.avatar,
+                    }}
                     className="h-6 w-6"
                     fallbackClassName="rounded-xl"
                   />
@@ -1164,8 +1225,16 @@ export default function ArgosAgentsSettings() {
               <div className="text-sm font-semibold">Avatar</div>
               <div className="grid gap-3 md:grid-cols-2">
                 {[
-                  { value: "lucide", label: "Lucide Icon", description: "Use a Lucide icon with theme colors." },
-                  { value: "monogram", label: "Monogram", description: "Use letters with a background color." },
+                  {
+                    value: "lucide",
+                    label: "Lucide Icon",
+                    description: "Use a Lucide icon with theme colors.",
+                  },
+                  {
+                    value: "monogram",
+                    label: "Monogram",
+                    description: "Use letters with a background color.",
+                  },
                 ].map((option) => (
                   <button
                     key={option.value}
@@ -1281,7 +1350,12 @@ export default function ArgosAgentsSettings() {
                     </div>
                     <Popover
                       open={openModelPicker[field.key] ?? false}
-                      onOpenChange={(open) => setOpenModelPicker((prev) => ({ ...prev, [field.key]: open }))}
+                      onOpenChange={(open) =>
+                        setOpenModelPicker((prev) => ({
+                          ...prev,
+                          [field.key]: open,
+                        }))
+                      }
                     >
                       <PopoverTrigger
                         render={
@@ -1519,7 +1593,12 @@ export default function ArgosAgentsSettings() {
                       <div className="text-[11px] font-medium text-muted-foreground">{field.label}</div>
                       <Popover
                         open={openModelPicker[field.key] ?? false}
-                        onOpenChange={(open) => setOpenModelPicker((prev) => ({ ...prev, [field.key]: open }))}
+                        onOpenChange={(open) =>
+                          setOpenModelPicker((prev) => ({
+                            ...prev,
+                            [field.key]: open,
+                          }))
+                        }
                       >
                         <PopoverTrigger
                           render={
@@ -1723,14 +1802,10 @@ export default function ArgosAgentsSettings() {
                               return (
                                 <div
                                   key={tool.function.name}
-                                  className={`flex items-start gap-3 px-4 py-2.5 ${
-                                    toolIndex > 0 ? "border-t border-border/60" : ""
-                                  } ${gateOff ? "opacity-60" : ""}`}
+                                  className={`flex items-start gap-3 px-4 py-2.5 ${toolIndex > 0 ? "border-t border-border/60" : ""} ${gateOff ? "opacity-60" : ""}`}
                                 >
                                   <span
-                                    className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
-                                      enabled ? "bg-accent-400" : "bg-border"
-                                    }`}
+                                    className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${enabled ? "bg-accent-400" : "bg-border"}`}
                                   />
                                   <div className="min-w-0 flex-1">
                                     <div className="truncate font-mono text-[13px] leading-snug text-foreground">

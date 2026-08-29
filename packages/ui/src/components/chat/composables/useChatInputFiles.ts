@@ -1,10 +1,9 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef } from "react";
 import type { MessageFile } from "@argos/shared/types/agent-interface";
 import { createFileClient } from "#api/FileClient";
 import { useToast } from "#/components/use-toast";
 import { calculateImageTokens, getClipboardImageInfo, imageFileToBase64 } from "#/lib/image";
 import { estimateTokenCount } from "tokenx";
-
 export interface PromptFileItem {
   id: string;
   name: string;
@@ -15,7 +14,6 @@ export interface PromptFileItem {
   content?: string;
   createdAt: number;
 }
-
 export function useChatInputFiles(
   fileInputRef: React.RefObject<HTMLInputElement | null>,
   emit: (event: "file-upload", files: MessageFile[]) => void,
@@ -24,58 +22,48 @@ export function useChatInputFiles(
   const { toast } = useToast();
   const [selectedFiles, setSelectedFiles] = useState<MessageFile[]>([]);
   const selectedFilesRef = useRef<MessageFile[]>([]);
-
-  const syncFiles = useCallback(() => {
+  const syncFiles = () => {
     setSelectedFiles([...selectedFilesRef.current]);
-  }, []);
+  };
 
   /** Replace all files from an external source (e.g. props-driven sync). */
-  const syncExternalFiles = useCallback((files: MessageFile[]) => {
+  const syncExternalFiles = (files: MessageFile[]) => {
     selectedFilesRef.current = [...files];
     setSelectedFiles([...files]);
-  }, []);
-
-  const emitFiles = useCallback(() => {
+  };
+  const emitFiles = () => {
     emit("file-upload", selectedFilesRef.current);
-  }, [emit]);
-
+  };
   const getDisplayFileName = (file: File): string => {
     return file.name?.trim() || "Unnamed file";
   };
-
   const formatFailedFileNames = (fileNames: string[]): string => {
     const visibleNames = fileNames.slice(0, 3).join(", ");
     const remainingCount = fileNames.length - 3;
     if (remainingCount <= 0) {
       return visibleNames;
     }
-
     return `${visibleNames}, and ${remainingCount} more`;
   };
-
   const showFileProcessingError = (fileNames: string[]) => {
     if (fileNames.length === 0) {
       return;
     }
-
     toast({
       title: "File upload failed",
       description: `Failed to process ${fileNames.length} file(s): ${formatFailedFileNames(fileNames)}`,
       variant: "destructive",
     });
   };
-
   const processFile = async (file: File, isImage: boolean = false): Promise<MessageFile | null> => {
     try {
       if (isImage || file.type.startsWith("image/")) {
         const base64 = (await imageFileToBase64(file)) as string;
         const imageInfo = await getClipboardImageInfo(file);
-
         const tempFilePath = await fileClient.writeImageBase64({
           name: file.name ?? "image",
           content: base64,
         });
-
         return {
           name: file.name ?? "image",
           content: base64,
@@ -92,7 +80,6 @@ export function useChatInputFiles(
           thumbnail: imageInfo.compressedBase64,
         };
       }
-
       const path = fileClient.getPathForFile(file);
       if (!path) {
         console.error("File processing failed:", new Error(`Cannot resolve file path for ${getDisplayFileName(file)}`));
@@ -105,7 +92,6 @@ export function useChatInputFiles(
       return null;
     }
   };
-
   const processDroppedFile = async (file: File): Promise<MessageFile | null> => {
     try {
       const path = fileClient.getPathForFile(file);
@@ -116,14 +102,12 @@ export function useChatInputFiles(
         );
         return null;
       }
-
       if (file.type === "") {
         const isDirectory = await fileClient.isDirectory(path);
         if (isDirectory) {
           return await fileClient.prepareDirectory(path);
         }
       }
-
       const mimeType = await fileClient.getMimeType(path);
       return await fileClient.prepareFile(path, mimeType);
     } catch (error) {
@@ -131,11 +115,9 @@ export function useChatInputFiles(
       return null;
     }
   };
-
   const processIncomingFiles = async (files: FileList, processor: (file: File) => Promise<MessageFile | null>) => {
     let addedCount = 0;
     const failedFileNames: string[] = [];
-
     for (const file of Array.from(files)) {
       const fileInfo = await processor(file);
       if (fileInfo) {
@@ -145,41 +127,32 @@ export function useChatInputFiles(
         failedFileNames.push(getDisplayFileName(file));
       }
     }
-
     if (addedCount > 0) {
       syncFiles();
       emitFiles();
     }
-
     showFileProcessingError(failedFileNames);
   };
-
   const handleFileSelect = async (e: Event) => {
     const files = (e.target as HTMLInputElement).files;
-
     if (files && files.length > 0) {
       await processIncomingFiles(files, (file) => processFile(file));
     }
-
     if (e.target) {
       (e.target as HTMLInputElement).value = "";
     }
   };
-
   const handlePaste = async (e: ClipboardEvent, fromCapture = false) => {
     if (!fromCapture && (e as any)?._argosHandled) return;
     (e as any)._argosHandled = true;
-
     const files = e.clipboardData?.files;
     if (files && files.length > 0) {
       await processIncomingFiles(files, (file) => processFile(file, file.type.startsWith("image/")));
     }
   };
-
   const handleDrop = async (files: FileList) => {
     await processIncomingFiles(files, processDroppedFile);
   };
-
   const deleteFile = (idx: number) => {
     selectedFilesRef.current.splice(idx, 1);
     syncFiles();
@@ -188,7 +161,6 @@ export function useChatInputFiles(
       fileInputRef.current.value = "";
     }
   };
-
   const clearFiles = () => {
     selectedFilesRef.current = [];
     syncFiles();
@@ -197,20 +169,16 @@ export function useChatInputFiles(
       fileInputRef.current.value = "";
     }
   };
-
   const handlePromptFiles = async (files: PromptFileItem[]) => {
     if (!files || files.length === 0) return;
-
     let addedCount = 0;
     let errorCount = 0;
-
     for (const fileItem of files) {
       try {
         const exists = selectedFilesRef.current.some((f) => f.name === fileItem.name);
         if (exists) {
           continue;
         }
-
         const messageFile: MessageFile = {
           name: fileItem.name,
           content: fileItem.content || "",
@@ -225,7 +193,6 @@ export function useChatInputFiles(
           token: estimateTokenCount(fileItem.content || ""),
           path: fileItem.path || fileItem.name,
         };
-
         if (!messageFile.content && fileItem.path) {
           try {
             const fileContent = await fileClient.readFile(fileItem.path);
@@ -235,7 +202,6 @@ export function useChatInputFiles(
             console.warn(`Failed to read file content: ${fileItem.path}`, error);
           }
         }
-
         selectedFilesRef.current.push(messageFile);
         addedCount++;
       } catch (error) {
@@ -243,7 +209,6 @@ export function useChatInputFiles(
         errorCount++;
       }
     }
-
     if (addedCount > 0) {
       syncFiles();
       toast({
@@ -253,7 +218,6 @@ export function useChatInputFiles(
       });
       emitFiles();
     }
-
     if (errorCount > 0) {
       toast({
         title: "File processing error",
@@ -262,11 +226,9 @@ export function useChatInputFiles(
       });
     }
   };
-
   const openFilePicker = () => {
     fileInputRef.current?.click();
   };
-
   return {
     selectedFiles,
     syncExternalFiles,

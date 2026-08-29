@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#shadcn/components/ui/select";
@@ -24,9 +24,7 @@ import { useThreadSidebarStore } from "#/stores/ui/threadSidebar";
 import { useThemeStore, type ThemeMode } from "#/stores/theme";
 import FontSettingsSection from "./display/FontSettingsSection";
 import SettingsPageShell from "./control-center/SettingsPageShell";
-
 type ThemePreviewMode = Exclude<ThemeMode, "system">;
-
 const themePreviewStyles: Record<
   ThemePreviewMode,
   {
@@ -58,16 +56,13 @@ const themePreviewStyles: Record<
     text: "bg-slate-600/70",
   },
 };
-
 const fontSizeOptions = ["text-sm", "text-base", "text-lg", "text-xl", "text-2xl"];
 const fontSizeLabels = ["Small", "Default", "Large", "Extra Large", "Extra Extra Large"];
-
 export default function DisplaySettings() {
   const uiSettingsStore = useUiSettingsStore();
   const floatingButtonStore = useFloatingButtonStore();
   const threadSidebar = useThreadSidebarStore();
   const themeStore = useThemeStore();
-
   const [isUpdatingTheme, setIsUpdatingTheme] = useState(false);
   const [fontSizeLevel, setFontSizeLevel] = useState(() => uiSettingsStore.fontSizeLevel);
   const [isContentProtectionDialogOpen, setIsContentProtectionDialogOpen] = useState(false);
@@ -76,48 +71,44 @@ export default function DisplaySettings() {
   const [contentProtectionEnabled, setContentProtectionEnabled] = useState(
     () => uiSettingsStore.contentProtectionEnabled,
   );
-
   const themeMode = themeStore.themeMode;
   const dir = "ltr";
-
-  const themeOptions = useMemo(
-    () => [
-      { value: "light" as ThemeMode, label: "Light" },
-      { value: "dark" as ThemeMode, label: "Dark" },
-      { value: "system" as ThemeMode, label: "System" },
-    ],
-    [],
-  );
-
-  const selectThemeMode = useCallback(
-    async (mode: ThemeMode) => {
-      if (themeMode === mode || isUpdatingTheme) return;
-      setIsUpdatingTheme(true);
-      try {
-        await themeStore.setThemeMode(mode);
-      } catch (error) {
-        console.error("Failed to update theme mode", error);
-      }
-      setIsUpdatingTheme(false);
+  const themeOptions = [
+    {
+      value: "light" as ThemeMode,
+      label: "Light",
     },
-    [themeMode, isUpdatingTheme, themeStore],
-  );
-
-  const handleContentProtectionChange = useCallback((value: boolean) => {
+    {
+      value: "dark" as ThemeMode,
+      label: "Dark",
+    },
+    {
+      value: "system" as ThemeMode,
+      label: "System",
+    },
+  ];
+  const selectThemeMode = async (mode: ThemeMode) => {
+    if (themeMode === mode || isUpdatingTheme) return;
+    setIsUpdatingTheme(true);
+    try {
+      await themeStore.setThemeMode(mode);
+    } catch (error) {
+      console.error("Failed to update theme mode", error);
+    }
+    setIsUpdatingTheme(false);
+  };
+  const handleContentProtectionChange = (value: boolean) => {
     setNewContentProtectionValue(value);
     setIsContentProtectionDialogOpen(true);
-  }, []);
-
-  const cancelContentProtectionChange = useCallback(() => {
+  };
+  const cancelContentProtectionChange = () => {
     setIsContentProtectionDialogOpen(false);
-  }, []);
-
-  const confirmContentProtectionChange = useCallback(() => {
+  };
+  const confirmContentProtectionChange = () => {
     updateContentProtection(newContentProtectionValue);
     setContentProtectionEnabled(newContentProtectionValue);
     setIsContentProtectionDialogOpen(false);
-  }, [newContentProtectionValue]);
-
+  };
   useEffect(() => {
     updateFontSizeLevel(fontSizeLevel);
   }, [fontSizeLevel]);
@@ -129,21 +120,14 @@ export default function DisplaySettings() {
   useEffect(() => {
     void loadThreadSidebarEnabledRef.current();
   }, []);
-
-  const handleNotificationsChange = useCallback((value: boolean) => {
+  const handleNotificationsChange = (value: boolean) => {
     updateNotifications(value);
     setNotificationsEnabled(value);
-  }, []);
-
-  const handleFloatingButtonChange = useCallback((value: boolean) => setFloatingButtonEnabled(value), []);
-
-  const handleThreadSidebarChange = useCallback(
-    (value: boolean) => {
-      void threadSidebar.setThreadSidebarEnabled(value);
-    },
-    [threadSidebar],
-  );
-
+  };
+  const handleFloatingButtonChange = (value: boolean) => setFloatingButtonEnabled(value);
+  const handleThreadSidebarChange = (value: boolean) => {
+    void threadSidebar.setThreadSidebarEnabled(value);
+  };
   return (
     <>
       <SettingsPageShell title="Appearance" eyebrow="Setup" data-testid="settings-appearance-page">
@@ -169,11 +153,7 @@ export default function DisplaySettings() {
                   onClick={() => void selectThemeMode(option.value)}
                 >
                   <div
-                    className={`relative h-28 w-full rounded-xl border transition-all duration-200 ${
-                      themeMode === option.value
-                        ? "border-accent-400 shadow-[0_18px_36px_-20px_rgba(34,211,238,0.5)] ring-2 ring-accent-400/30"
-                        : "border-border/70 bg-background/30 group-hover:border-muted-foreground/60 group-hover:bg-background/50"
-                    }`}
+                    className={`relative h-28 w-full rounded-xl border transition-all duration-200 ${themeMode === option.value ? "border-accent-400 shadow-[0_18px_36px_-20px_rgba(34,211,238,0.5)] ring-2 ring-accent-400/30" : "border-border/70 bg-background/30 group-hover:border-muted-foreground/60 group-hover:bg-background/50"}`}
                   >
                     {themeMode === option.value && (
                       <span className="absolute right-4 top-4 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm shadow-primary/30">
@@ -199,11 +179,7 @@ export default function DisplaySettings() {
                               {[1, 2, 3].map((idx) => (
                                 <span
                                   key={idx}
-                                  className={`h-2 rounded-full ${
-                                    idx === 1
-                                      ? themePreviewStyles[option.value].accent
-                                      : themePreviewStyles[option.value].muted
-                                  }`}
+                                  className={`h-2 rounded-full ${idx === 1 ? themePreviewStyles[option.value].accent : themePreviewStyles[option.value].muted}`}
                                 />
                               ))}
                             </div>
@@ -213,11 +189,7 @@ export default function DisplaySettings() {
                               {[1, 2, 3].map((idx) => (
                                 <span
                                   key={idx}
-                                  className={`h-2.5 rounded-full ${
-                                    idx === 1
-                                      ? themePreviewStyles[option.value].accent
-                                      : themePreviewStyles[option.value].text
-                                  }`}
+                                  className={`h-2.5 rounded-full ${idx === 1 ? themePreviewStyles[option.value].accent : themePreviewStyles[option.value].text}`}
                                 />
                               ))}
                               <div

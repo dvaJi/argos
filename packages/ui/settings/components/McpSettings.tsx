@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import {
@@ -23,10 +23,8 @@ import { useLanguageStore } from "#/stores/language";
 import { useToast } from "#/components/use-toast";
 import { continueGuidedOnboardingFromSettings } from "../lib/guidedOnboardingSettings";
 import { useRouter, useRouterState } from "@tanstack/react-router";
-
 const windowClient = createWindowClient();
 const npmRegistryClient = createMcpClient();
-
 export default function McpSettings() {
   const languageStore = useLanguageStore();
   const mcpStore = useMcpStore();
@@ -45,53 +43,43 @@ export default function McpSettings() {
     currentRegistry: string | null;
     autoDetectEnabled: boolean;
     customRegistry?: string;
-  }>({ currentRegistry: null, autoDetectEnabled: true });
-
-  const mcpEnabled = useMemo(() => mcpStore.mcpEnabled, [mcpStore.mcpEnabled]);
-  const showSkeleton = useMemo(
-    () => mcpStore.configLoading && !mcpStore.config.ready,
-    [mcpStore.configLoading, mcpStore.config.ready],
-  );
-  const runningCount = useMemo(() => mcpStore.serverList.filter((s) => s.isRunning).length, [mcpStore.serverList]);
-  const builtInCount = useMemo(
-    () =>
-      mcpStore.serverList.filter((s) => {
-        const config = mcpStore.config.mcpServers[s.name];
-        return config?.type === "inmemory" || config?.source === "argos";
-      }).length,
-    [mcpStore.serverList, mcpStore.config.mcpServers],
-  );
-  const customCount = useMemo(
-    () => Math.max(mcpStore.serverList.length - builtInCount, 0),
-    [mcpStore.serverList.length, builtInCount],
-  );
-  const showMcpGuide = useMemo(() => mcpGuide.showGuide && Boolean(mcpActionsEl), [mcpGuide.showGuide, mcpActionsEl]);
-
-  const continueMcpGuide = useCallback(
-    async (state: any) => {
-      await continueGuidedOnboardingFromSettings({
-        state,
-        router: {
-          navigate: async (opts) => {
-            const normalizedTo = opts.to.replace(/^\/settings/, "") || "/overview";
-            const navigationOptions: any = { to: normalizedTo, replace: opts.replace };
-            if (opts.params) {
-              navigationOptions.params = opts.params;
-            }
-            await router.navigate(navigationOptions);
-          },
+  }>({
+    currentRegistry: null,
+    autoDetectEnabled: true,
+  });
+  const mcpEnabled = mcpStore.mcpEnabled;
+  const showSkeleton = mcpStore.configLoading && !mcpStore.config.ready;
+  const runningCount = mcpStore.serverList.filter((s) => s.isRunning).length;
+  const builtInCount = mcpStore.serverList.filter((s) => {
+    const config = mcpStore.config.mcpServers[s.name];
+    return config?.type === "inmemory" || config?.source === "argos";
+  }).length;
+  const customCount = Math.max(mcpStore.serverList.length - builtInCount, 0);
+  const showMcpGuide = mcpGuide.showGuide && Boolean(mcpActionsEl);
+  const continueMcpGuide = async (state: any) => {
+    await continueGuidedOnboardingFromSettings({
+      state,
+      router: {
+        navigate: async (opts) => {
+          const normalizedTo = opts.to.replace(/^\/settings/, "") || "/overview";
+          const navigationOptions: any = {
+            to: normalizedTo,
+            replace: opts.replace,
+          };
+          if (opts.params) {
+            navigationOptions.params = opts.params;
+          }
+          await router.navigate(navigationOptions);
         },
-        currentRoute: {
-          pathname: routerState.location.pathname,
-          params: routerState.location.pathname.includes("/provider") ? (routerState.location.search as any) : {},
-        },
-        windowClient,
-      });
-    },
-    [router, routerState.location.pathname, routerState.location.search],
-  );
-
-  const loadNpmRegistryStatus = useCallback(async () => {
+      },
+      currentRoute: {
+        pathname: routerState.location.pathname,
+        params: routerState.location.pathname.includes("/provider") ? (routerState.location.search as any) : {},
+      },
+      windowClient,
+    });
+  };
+  const loadNpmRegistryStatus = async () => {
     try {
       const status = await mcpStore.getNpmRegistryStatus();
       setNpmRegistryStatus(status);
@@ -99,8 +87,7 @@ export default function McpSettings() {
     } catch (error) {
       console.error("Failed to load npm registry status:", error);
     }
-  }, [mcpStore]);
-
+  };
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -117,46 +104,35 @@ export default function McpSettings() {
       cancelled = true;
     };
   }, []);
-
-  const handleMcpEnabledChange = useCallback(
-    async (enabled: boolean) => {
-      await mcpStore.setMcpEnabled(enabled);
-    },
-    [mcpStore],
-  );
-
-  const openAddServerDialog = useCallback(() => {
+  const handleMcpEnabledChange = async (enabled: boolean) => {
+    await mcpStore.setMcpEnabled(enabled);
+  };
+  const openAddServerDialog = () => {
     mcpServersRef.current?.openAddServerDialog();
-  }, []);
-
-  const handleMcpGuidePrimary = useCallback(async () => {
+  };
+  const handleMcpGuidePrimary = async () => {
     if (mcpGuide.currentStepId !== "mcp") return;
     const stepStatus = mcpGuide.stepState?.status;
     if (stepStatus === "completed" || stepStatus === "skipped") return;
     const state = await mcpGuide.completeStep();
     await continueMcpGuide(state);
-  }, [mcpGuide, continueMcpGuide]);
-
-  const handleMcpGuideTargetInteract = useCallback(async () => {
+  };
+  const handleMcpGuideTargetInteract = async () => {
     await handleMcpGuidePrimary();
-  }, [handleMcpGuidePrimary]);
-
-  const handleMcpGuideBack = useCallback(async () => {
+  };
+  const handleMcpGuideBack = async () => {
     const state = await mcpGuide.activatePreviousStep();
     await continueMcpGuide(state);
-  }, [mcpGuide, continueMcpGuide]);
-
-  const handleMcpGuideSkip = useCallback(async () => {
+  };
+  const handleMcpGuideSkip = async () => {
     const state = await mcpGuide.skipStep();
     await continueMcpGuide(state);
-  }, [mcpGuide, continueMcpGuide]);
-
-  const handleMcpGuideExpert = useCallback(async () => {
+  };
+  const handleMcpGuideExpert = async () => {
     const state = await mcpGuide.forceComplete();
     await continueMcpGuide(state);
-  }, [mcpGuide, continueMcpGuide]);
-
-  const refreshNpmRegistry = useCallback(async () => {
+  };
+  const refreshNpmRegistry = async () => {
     try {
       setRefreshing(true);
       await mcpStore.refreshNpmRegistry();
@@ -174,87 +150,72 @@ export default function McpSettings() {
       });
     }
     setRefreshing(false);
-  }, [mcpStore, toast, loadNpmRegistryStatus]);
-
-  const setAutoDetectNpmRegistry = useCallback(
-    async (enabled: boolean) => {
-      try {
-        await mcpStore.setAutoDetectNpmRegistry(enabled);
-        await loadNpmRegistryStatus();
-        toast({
-          title: "Registry detection updated",
-          description: enabled ? "Automatic registry detection enabled." : "Automatic registry detection disabled.",
-        });
-      } catch (error) {
-        console.error("Failed to set auto detect npm registry:", error);
-        toast({
-          title: "Update failed",
-          description: error instanceof Error ? error.message : String(error),
-          variant: "destructive",
-        });
-      }
-    },
-    [mcpStore, toast, loadNpmRegistryStatus],
-  );
-
-  const normalizeNpmRegistryUrl = useCallback((registry: string) => {
+  };
+  const setAutoDetectNpmRegistry = async (enabled: boolean) => {
+    try {
+      await mcpStore.setAutoDetectNpmRegistry(enabled);
+      await loadNpmRegistryStatus();
+      toast({
+        title: "Registry detection updated",
+        description: enabled ? "Automatic registry detection enabled." : "Automatic registry detection disabled.",
+      });
+    } catch (error) {
+      console.error("Failed to set auto detect npm registry:", error);
+      toast({
+        title: "Update failed",
+        description: error instanceof Error ? error.message : String(error),
+        variant: "destructive",
+      });
+    }
+  };
+  const normalizeNpmRegistryUrl = (registry: string) => {
     const trimmed = registry.trim();
     return trimmed.endsWith("/") ? trimmed : `${trimmed}/`;
-  }, []);
-
-  const validateCustomRegistry = useCallback(
-    async (registry: string): Promise<boolean> => {
-      const reportRegistryTestFailure = (error: unknown) => {
-        console.error("Custom registry validation failed:", error);
+  };
+  const validateCustomRegistry = async (registry: string): Promise<boolean> => {
+    const reportRegistryTestFailure = (error: unknown) => {
+      console.error("Custom registry validation failed:", error);
+      toast({
+        title: "Registry test failed",
+        description: `Could not reach ${normalizeNpmRegistryUrl(registry)}: ${error instanceof Error ? error.message : String(error)}`,
+        variant: "destructive",
+      });
+    };
+    try {
+      if (!registry.startsWith("http://") && !registry.startsWith("https://")) {
         toast({
-          title: "Registry test failed",
-          description: `Could not reach ${normalizeNpmRegistryUrl(registry)}: ${error instanceof Error ? error.message : String(error)}`,
+          title: "Invalid URL",
+          description: "The registry URL must start with http:// or https://.",
           variant: "destructive",
         });
-      };
-      try {
-        if (!registry.startsWith("http://") && !registry.startsWith("https://")) {
-          toast({
-            title: "Invalid URL",
-            description: "The registry URL must start with http:// or https://.",
-            variant: "destructive",
-          });
-          return false;
-        }
-
-        const normalizedRegistry = normalizeNpmRegistryUrl(registry);
-        const testUrl = `${normalizedRegistry}tiny-runtime-injector`;
-        toast({
-          title: "Testing registry",
-          description: `Testing ${normalizedRegistry}`,
-        });
-
-        const response = await fetch(testUrl, {
-          method: "HEAD",
-          signal: AbortSignal.timeout(10000),
-        });
-
-        if (!response.ok) {
-          reportRegistryTestFailure(new Error(`HTTP ${response.status}`));
-          return false;
-        }
-
-        return true;
-      } catch (error) {
-        reportRegistryTestFailure(error);
         return false;
       }
-    },
-    [normalizeNpmRegistryUrl, toast],
-  );
-
-  const saveCustomNpmRegistry = useCallback(async () => {
+      const normalizedRegistry = normalizeNpmRegistryUrl(registry);
+      const testUrl = `${normalizedRegistry}tiny-runtime-injector`;
+      toast({
+        title: "Testing registry",
+        description: `Testing ${normalizedRegistry}`,
+      });
+      const response = await fetch(testUrl, {
+        method: "HEAD",
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!response.ok) {
+        reportRegistryTestFailure(new Error(`HTTP ${response.status}`));
+        return false;
+      }
+      return true;
+    } catch (error) {
+      reportRegistryTestFailure(error);
+      return false;
+    }
+  };
+  const saveCustomNpmRegistry = async () => {
     try {
       const registry = customRegistryInput.trim();
       if (!registry) return;
       const isValid = await validateCustomRegistry(registry);
       if (!isValid) return;
-
       await mcpStore.setCustomNpmRegistry(registry);
       await loadNpmRegistryStatus();
       const normalizedRegistry = mcpStore.getNpmRegistryStatus
@@ -263,7 +224,6 @@ export default function McpSettings() {
       if (normalizedRegistry) {
         setCustomRegistryInput(normalizedRegistry);
       }
-
       toast({
         title: "Custom registry saved",
         description: `Using ${normalizedRegistry || normalizeNpmRegistryUrl(registry)}`,
@@ -276,19 +236,23 @@ export default function McpSettings() {
         variant: "destructive",
       });
     }
-  }, [customRegistryInput, mcpStore, normalizeNpmRegistryUrl, toast, validateCustomRegistry, loadNpmRegistryStatus]);
-
-  const clearCustomNpmRegistry = useCallback(async () => {
+  };
+  const clearCustomNpmRegistry = async () => {
     try {
       await mcpStore.setCustomNpmRegistry(undefined);
       setCustomRegistryInput("");
       await mcpStore.clearNpmRegistryCache();
-      toast({ title: "Custom registry cleared", description: "Re-detecting the best registry." });
-
+      toast({
+        title: "Custom registry cleared",
+        description: "Re-detecting the best registry.",
+      });
       try {
         await mcpStore.refreshNpmRegistry();
         await loadNpmRegistryStatus();
-        toast({ title: "Registry updated", description: "Optimal registry detected again." });
+        toast({
+          title: "Registry updated",
+          description: "Optimal registry detected again.",
+        });
       } catch (detectError) {
         console.error("Failed to re-detect optimal registry:", detectError);
         await loadNpmRegistryStatus();
@@ -307,8 +271,7 @@ export default function McpSettings() {
         variant: "destructive",
       });
     }
-  }, [mcpStore, toast, loadNpmRegistryStatus]);
-
+  };
   if (isMarketView) {
     return (
       <div data-testid="settings-mcp-page" className="w-full h-full">
@@ -316,7 +279,6 @@ export default function McpSettings() {
       </div>
     );
   }
-
   if (showSkeleton) {
     return (
       <div data-testid="settings-mcp-page" className="w-full h-full flex flex-col p-4 gap-4 animate-pulse">
@@ -327,7 +289,6 @@ export default function McpSettings() {
       </div>
     );
   }
-
   return (
     <div ref={setGuideRootEl} data-testid="settings-mcp-page" className="w-full h-full min-h-0 flex flex-col">
       <div className="shrink-0 px-4 pt-4">

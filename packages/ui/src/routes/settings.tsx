@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { createFileRoute, Outlet, useRouter, useRouterState } from "@tanstack/react-router";
 import { useStore } from "@tanstack/react-store";
@@ -39,11 +39,8 @@ import type { SettingsNavigationItem, SettingsNavigationPayload } from "@argos/s
 import { useStartupWorkloadStore } from "../stores/startupWorkloadStore";
 import { ArrowLeft } from "lucide-react";
 import { isBrowserMode } from "#api/runtimeKind";
-
 const SETTINGS_SECTION_EVENT = "argos:settings-section";
-
 const isProviderStoreInitialized = () => Boolean(providerStore.state.initialized);
-
 const browserMode = isBrowserMode();
 const BROWSER_SUPPORTED_SETTINGS = new Set<SettingsNavigationItem["routeName"]>([
   "settings-overview",
@@ -64,7 +61,6 @@ const BROWSER_SUPPORTED_SETTINGS = new Set<SettingsNavigationItem["routeName"]>(
   "settings-shortcut",
   "settings-about",
 ]);
-
 function isSettingAvailableInCurrentRuntime(routeName: SettingsNavigationItem["routeName"]): boolean {
   void routeName; // referenced when the BROWSER_SUPPORTED_SETTINGS gate below is re-enabled
   // if (!browserMode) {
@@ -73,7 +69,6 @@ function isSettingAvailableInCurrentRuntime(routeName: SettingsNavigationItem["r
 
   // return BROWSER_SUPPORTED_SETTINGS.has(routeName);
 }
-
 function BrowserUnsupportedSettingsPage({ routeName }: { routeName: SettingsNavigationItem["routeName"] }) {
   return (
     <div className="flex h-full w-full items-center justify-center p-6">
@@ -90,11 +85,9 @@ function BrowserUnsupportedSettingsPage({ routeName }: { routeName: SettingsNavi
     </div>
   );
 }
-
 type SettingsWindowState = Window & {
   __argosSettingsPendingSection?: string | null;
 };
-
 const SETTINGS_TAB_TEST_IDS: Record<string, string> = {
   "settings-overview": "settings-tab-overview",
   "settings-common": "settings-tab-general",
@@ -103,10 +96,8 @@ const SETTINGS_TAB_TEST_IDS: Record<string, string> = {
   "settings-mcp": "settings-tab-mcp",
   "settings-acp": "settings-tab-acp-agents",
 };
-
 const getSettingsTabTestId = (name: string) =>
   SETTINGS_TAB_TEST_IDS[name] ?? `settings-tab-${name.replace(/^settings-/, "")}`;
-
 const normalizeRouteParams = (params?: Record<string, string>) =>
   Object.entries(params ?? {})
     .filter(([, value]) => typeof value === "string" && value.trim().length > 0)
@@ -114,62 +105,44 @@ const normalizeRouteParams = (params?: Record<string, string>) =>
       acc[key] = value;
       return acc;
     }, {});
-
 const hasSameRouteParams = (currentParams: Record<string, unknown>, nextParams: Record<string, string>): boolean => {
   const currentEntries = Object.entries(currentParams).filter(([, value]) => typeof value === "string");
   const nextEntries = Object.entries(nextParams);
-
   if (currentEntries.length !== nextEntries.length) {
     return false;
   }
-
   return nextEntries.every(([key, value]) => currentParams[key] === value);
 };
-
 function SettingsLayout() {
   const routerInstance = useRouter();
   const routerState = useRouterState();
   const { isMacOS, isWinMacOS } = useDeviceVersion();
-  const windowClient = useMemo(() => createWindowClient(), []);
-
+  const windowClient = createWindowClient();
   const providerState = useStore(providerStore);
   const providerDeeplinkImportState = useStore(providerDeeplinkImportStore);
-
   const { setup: setupMcpDeeplink } = useMcpInstallDeeplinkHandler();
-
   const [isImportingProvider, setIsImportingProvider] = useState(false);
   const [isProcessingProviderPreview, setIsProcessingProviderPreview] = useState(false);
   const providerStoreInitializePromise = useRef<Promise<void> | null>(null);
-
   const [startupTimeOrigin] = useState(() => (typeof performance !== "undefined" ? performance.now() : Date.now()));
-
-  const logSettingsStartup = useCallback(
-    (phase: string) => {
-      const now = typeof performance !== "undefined" ? performance.now() : Date.now();
-      const elapsed = Math.round(now - startupTimeOrigin);
-      console.info(`[Startup][Settings][Renderer] ${phase} elapsed=${elapsed}ms`);
-    },
-    [startupTimeOrigin],
+  const logSettingsStartup = (phase: string) => {
+    const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+    const elapsed = Math.round(now - startupTimeOrigin);
+    console.info(`[Startup][Settings][Renderer] ${phase} elapsed=${elapsed}ms`);
+  };
+  const settings = getSettingsRouteItems().flatMap((item) =>
+    isSettingAvailableInCurrentRuntime(item.routeName)
+      ? [
+          {
+            title: item.titleKey,
+            name: item.routeName,
+            icon: item.icon,
+            path: resolveSettingsNavigationPath(item.routeName),
+          },
+        ]
+      : [],
   );
-
-  const settings = useMemo(
-    () =>
-      getSettingsRouteItems().flatMap((item) =>
-        isSettingAvailableInCurrentRuntime(item.routeName)
-          ? [
-              {
-                title: item.titleKey,
-                name: item.routeName,
-                icon: item.icon,
-                path: resolveSettingsNavigationPath(item.routeName),
-              },
-            ]
-          : [],
-      ),
-    [],
-  );
-
-  const settingGroups = useMemo(() => {
+  const settingGroups = (() => {
     const groups = getSettingsNavigationGroups().flatMap((group) => {
       const items = group.items.flatMap((item) =>
         isSettingAvailableInCurrentRuntime(item.routeName)
@@ -183,31 +156,33 @@ function SettingsLayout() {
             ]
           : [],
       );
-      return items.length > 0 ? [{ key: group.key, titleKey: resolveTitle(group.titleKey), items }] : [];
+      return items.length > 0
+        ? [
+            {
+              key: group.key,
+              titleKey: resolveTitle(group.titleKey),
+              items,
+            },
+          ]
+        : [];
     });
     return groups;
-  }, []);
-
+  })();
   const pendingProviderImportPreview = providerDeeplinkImportState.preview;
   const pendingProviderImportToken = providerDeeplinkImportState.previewToken;
-
-  const providerImportConfirmDisabled = useMemo(() => {
+  const providerImportConfirmDisabled = (() => {
     if (!pendingProviderImportPreview) {
       return true;
     }
-
     if (pendingProviderImportPreview.kind === "builtin") {
       return !providerState.providers.some((provider) => provider.id === pendingProviderImportPreview.id);
     }
-
     return false;
-  }, [pendingProviderImportPreview, providerState.providers]);
-
-  const ensureProviderStoreReady = useCallback(async () => {
+  })();
+  const ensureProviderStoreReady = async () => {
     if (isProviderStoreInitialized()) {
       return;
     }
-
     if (!providerStoreInitializePromise.current) {
       providerStoreInitializePromise.current = Promise.resolve(ensureInitialized?.() ?? initializeProviders?.())
         .then(() => {
@@ -218,92 +193,69 @@ function SettingsLayout() {
           throw error;
         });
     }
-
     await providerStoreInitializePromise.current;
-  }, [logSettingsStartup]);
-
-  const ensureProviderRouteReady = useCallback(
-    async (providerId?: string) => {
-      await ensureProviderStoreReady();
-      if (!providerId) {
-        return;
-      }
-
-      const provider = providerStore.state.providers.find((item) => item.id === providerId);
-      if (!provider) {
-        return;
-      }
-
-      await refreshProviderModels(providerId);
-
-      if (provider.apiType === "ollama") {
-        await ensureOllamaProviderReady(providerId);
-      }
-    },
-    [ensureProviderStoreReady],
-  );
-
-  const navigateToProviderSettings = useCallback(
-    async (providerId?: string) => {
-      console.log("Navigating to provider settings:", providerId ? `providerId=${providerId}` : "no providerId");
-      await routerInstance.navigate({
-        to: (providerId ? `/settings/provider/${providerId}` : "/settings/provider") as any,
-      });
-    },
-    [routerInstance],
-  );
-
-  const publishSettingsSection = useCallback(async (section?: string) => {
+  };
+  const ensureProviderRouteReady = async (providerId?: string) => {
+    await ensureProviderStoreReady();
+    if (!providerId) {
+      return;
+    }
+    const provider = providerStore.state.providers.find((item) => item.id === providerId);
+    if (!provider) {
+      return;
+    }
+    await refreshProviderModels(providerId);
+    if (provider.apiType === "ollama") {
+      await ensureOllamaProviderReady(providerId);
+    }
+  };
+  const navigateToProviderSettings = async (providerId?: string) => {
+    console.log("Navigating to provider settings:", providerId ? `providerId=${providerId}` : "no providerId");
+    await routerInstance.navigate({
+      to: (providerId ? `/settings/provider/${providerId}` : "/settings/provider") as any,
+    });
+  };
+  const publishSettingsSection = async (section?: string) => {
     if (!section) {
       return;
     }
-
     (window as SettingsWindowState).__argosSettingsPendingSection = section;
     await new Promise((resolve) => setTimeout(resolve, 0));
     window.dispatchEvent(
       new CustomEvent(SETTINGS_SECTION_EVENT, {
-        detail: { section },
+        detail: {
+          section,
+        },
       }),
     );
-  }, []);
-
-  const applyProviderInstallPreview = useCallback(
-    async (preview: ProviderInstallPreview) => {
-      console.log(
-        "Applying provider install preview in settings:",
-        preview.kind === "builtin" ? preview.id : preview.name,
-      );
-
-      await ensureProviderStoreReady();
-      await routerInstance.load();
-
-      if (preview.kind === "builtin") {
-        await navigateToProviderSettings(preview.id);
-      } else if (routerInstance.state.location.pathname !== "/settings/provider") {
-        await navigateToProviderSettings();
-      }
-
-      await new Promise((resolve) => setTimeout(resolve, 0));
-      openProviderPreview(preview);
-    },
-    [ensureProviderStoreReady, routerInstance, navigateToProviderSettings],
-  );
-
-  const syncPendingProviderInstall = useCallback(async () => {
+  };
+  const applyProviderInstallPreview = async (preview: ProviderInstallPreview) => {
+    console.log(
+      "Applying provider install preview in settings:",
+      preview.kind === "builtin" ? preview.id : preview.name,
+    );
+    await ensureProviderStoreReady();
+    await routerInstance.load();
+    if (preview.kind === "builtin") {
+      await navigateToProviderSettings(preview.id);
+    } else if (routerInstance.state.location.pathname !== "/settings/provider") {
+      await navigateToProviderSettings();
+    }
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    openProviderPreview(preview);
+  };
+  const syncPendingProviderInstall = async () => {
     if (isProcessingProviderPreview || providerDeeplinkImportStore.state.preview) {
       return;
     }
-
     setIsProcessingProviderPreview(true);
     let preview: ProviderInstallPreview | null = null;
-
     try {
       preview = await windowClient.consumePendingSettingsProviderInstall();
       if (!preview) {
         setIsProcessingProviderPreview(false);
         return;
       }
-
       await applyProviderInstallPreview(preview);
     } catch (error) {
       if (preview) {
@@ -313,41 +265,31 @@ function SettingsLayout() {
           console.error("Failed to requeue pending provider install preview:", requeueError);
         }
       }
-
       console.error("Failed to sync pending provider install preview:", error);
     }
     setIsProcessingProviderPreview(false);
-  }, [isProcessingProviderPreview, applyProviderInstallPreview, windowClient]);
-
-  const releaseProviderPreviewProcessing = useCallback(() => {
+  };
+  const releaseProviderPreviewProcessing = () => {
     setIsProcessingProviderPreview(false);
     if (!providerDeeplinkImportStore.state.preview) {
       void syncPendingProviderInstall();
     }
-  }, [syncPendingProviderInstall]);
-
-  const handleProviderInstall = useCallback(async () => {
+  };
+  const handleProviderInstall = async () => {
     await syncPendingProviderInstall();
-  }, [syncPendingProviderInstall]);
-
-  const handleProviderImportDialogOpenChange = useCallback(
-    (open: boolean) => {
-      if (!open) {
-        clearProviderPreview();
-        releaseProviderPreviewProcessing();
-      }
-    },
-    [releaseProviderPreviewProcessing],
-  );
-
-  const confirmProviderImport = useCallback(async () => {
+  };
+  const handleProviderImportDialogOpenChange = (open: boolean) => {
+    if (!open) {
+      clearProviderPreview();
+      releaseProviderPreviewProcessing();
+    }
+  };
+  const confirmProviderImport = async () => {
     const preview = providerDeeplinkImportStore.state.preview;
     if (!preview || isImportingProvider) {
       return;
     }
-
     setIsImportingProvider(true);
-
     try {
       if (preview.kind === "builtin") {
         const targetProvider = providerStore.state.providers.find((provider) => provider.id === preview.id);
@@ -355,12 +297,10 @@ function SettingsLayout() {
           setIsImportingProvider(false);
           return;
         }
-
         await updateProviderApi(preview.id, preview.apiKey, preview.baseUrl);
         if (!targetProvider.enable) {
           await updateProviderStatus(preview.id, true);
         }
-
         await refreshProviderModels(preview.id);
         await navigateToProviderSettings(preview.id);
       } else {
@@ -374,12 +314,10 @@ function SettingsLayout() {
           enable: true,
           custom: true,
         };
-
         await addCustomProvider(newProvider);
         await refreshProviderModels(providerId);
         await navigateToProviderSettings(providerId);
       }
-
       clearProviderPreview();
       releaseProviderPreviewProcessing();
     } catch (error) {
@@ -391,46 +329,39 @@ function SettingsLayout() {
       });
     }
     setIsImportingProvider(false);
-  }, [isImportingProvider, navigateToProviderSettings, releaseProviderPreviewProcessing]);
-
-  const handleSettingsNavigate = useCallback(
-    async (_event: unknown, payload?: SettingsNavigationPayload) => {
-      const routeName = payload?.routeName;
-      const params = normalizeRouteParams(payload?.params);
-      if (!routeName) return;
-      await routerInstance.load();
-      const currentLocation = routerInstance.state.location;
-      const currentRouteName = currentLocation.pathname;
-      const targetPath = `/settings/${routeName.replace("settings-", "")}`;
-      if (
-        currentRouteName !== targetPath ||
-        !hasSameRouteParams(currentLocation.search as Record<string, unknown>, params)
-      ) {
-        await routerInstance.navigate({
-          to: targetPath,
-          params: Object.keys(params).length > 0 ? params : undefined,
-        });
-      }
-      if (routeName === "settings-provider") {
-        await syncPendingProviderInstall();
-      }
-
-      await publishSettingsSection(payload?.section);
-    },
-    [routerInstance, syncPendingProviderInstall, publishSettingsSection],
-  );
-
-  const handleClick = useCallback(
-    (path: string) => {
-      routerInstance.navigate({ to: `/settings${path}` });
-    },
-    [routerInstance],
-  );
-
-  const navigateBack = useCallback(() => {
-    routerInstance.navigate({ to: "/chat" });
-  }, [routerInstance]);
-
+  };
+  const handleSettingsNavigate = async (_event: unknown, payload?: SettingsNavigationPayload) => {
+    const routeName = payload?.routeName;
+    const params = normalizeRouteParams(payload?.params);
+    if (!routeName) return;
+    await routerInstance.load();
+    const currentLocation = routerInstance.state.location;
+    const currentRouteName = currentLocation.pathname;
+    const targetPath = `/settings/${routeName.replace("settings-", "")}`;
+    if (
+      currentRouteName !== targetPath ||
+      !hasSameRouteParams(currentLocation.search as Record<string, unknown>, params)
+    ) {
+      await routerInstance.navigate({
+        to: targetPath,
+        params: Object.keys(params).length > 0 ? params : undefined,
+      });
+    }
+    if (routeName === "settings-provider") {
+      await syncPendingProviderInstall();
+    }
+    await publishSettingsSection(payload?.section);
+  };
+  const handleClick = (path: string) => {
+    routerInstance.navigate({
+      to: `/settings${path}`,
+    });
+  };
+  const navigateBack = () => {
+    routerInstance.navigate({
+      to: "/chat",
+    });
+  };
   useEffect(() => {
     const navigateHandler = (_event: unknown, payload?: SettingsNavigationPayload) => {
       void handleSettingsNavigate(_event, payload);
@@ -438,13 +369,10 @@ function SettingsLayout() {
     const installHandler = () => {
       void handleProviderInstall();
     };
-
     const ipcRenderer = window?.electron?.ipcRenderer;
     if (!ipcRenderer) return;
-
     ipcRenderer.on(SETTINGS_EVENTS.NAVIGATE, navigateHandler);
     ipcRenderer.on(SETTINGS_EVENTS.PROVIDER_INSTALL, installHandler);
-
     return () => {
       ipcRenderer.removeListener?.(SETTINGS_EVENTS.NAVIGATE, navigateHandler);
       ipcRenderer.removeListener?.(SETTINGS_EVENTS.PROVIDER_INSTALL, installHandler);
@@ -457,17 +385,14 @@ function SettingsLayout() {
   useEffect(() => {
     setupMcpDeeplinkRef.current = setupMcpDeeplink;
   }, [setupMcpDeeplink]);
-
   const syncPendingProviderInstallRef = useRef(syncPendingProviderInstall);
   useEffect(() => {
     syncPendingProviderInstallRef.current = syncPendingProviderInstall;
   }, [syncPendingProviderInstall]);
-
   useEffect(() => {
     void ensureIconsLoaded();
     logSettingsStartup("settings layout mounted");
     const cleanupMcpDeeplinkListeners = setupMcpDeeplinkRef.current();
-
     const init = async () => {
       try {
         await initializeProviders();
@@ -475,47 +400,37 @@ function SettingsLayout() {
       } catch (error) {
         console.error("[Startup][Settings][Renderer] provider summaries failed:", error);
       }
-
       try {
         await initializeModels();
         logSettingsStartup("enabled models ready");
       } catch (error) {
         console.error("[Startup][Settings][Renderer] enabled models failed:", error);
       }
-
       markStartupInteractive();
       await syncPendingProviderInstallRef.current();
       logSettingsStartup("settings layout ready");
     };
-
     void init();
-
     return () => {
       cleanupMcpDeeplinkListeners();
     };
   }, [logSettingsStartup]);
-
   useEffect(() => {
     const currentPath = routerState.location.pathname;
     const routeSegment = currentPath.split("/").filter(Boolean)[1] || "";
-
     if (routeSegment === "provider") {
       const providerId = (routerState.location.search as any)?.providerId as string | undefined;
       void ensureProviderRouteReady(providerId);
     }
   }, [routerState.location.pathname, routerState.location.search, ensureProviderRouteReady]);
-
   const currentPath = routerState.location.pathname;
   const currentRouteSegment = currentPath.split("/").filter(Boolean)[1] || "";
   const currentRouteName = `settings-${currentRouteSegment || "overview"}` as SettingsNavigationItem["routeName"];
   const isCurrentRouteAvailable = isSettingAvailableInCurrentRuntime(currentRouteName);
-
   return (
     <div data-testid="settings-page" className={`w-full h-full flex flex-col ${isWinMacOS ? "" : "bg-background"}`}>
       <div
-        className={`w-full h-9 window-drag-region shrink-0 justify-start flex flex-row relative border border-b-0 border-window-inner-border box-border rounded-t-[10px] ${
-          isMacOS ? "" : "rounded-t-none"
-        } ${isMacOS ? "bg-window-background" : "bg-window-background/10"}`}
+        className={`w-full h-9 window-drag-region shrink-0 justify-start flex flex-row relative border border-b-0 border-window-inner-border box-border rounded-t-[10px] ${isMacOS ? "" : "rounded-t-none"} ${isMacOS ? "bg-window-background" : "bg-window-background/10"}`}
       >
         <div className="absolute bottom-0 left-0 w-full h-[1px] bg-border z-10" />
         {!isMacOS && (
@@ -545,11 +460,7 @@ function SettingsLayout() {
                       key={setting.name}
                       type="button"
                       data-testid={getSettingsTabTestId(setting.name)}
-                      className={`flex w-full min-w-0 flex-row items-center gap-2 rounded-md px-2 py-2 text-start transition-colors hover:bg-accent ${
-                        currentRouteSegment === setting.name.replace("settings-", "")
-                          ? "bg-accent text-accent-foreground"
-                          : ""
-                      }`}
+                      className={`flex w-full min-w-0 flex-row items-center gap-2 rounded-md px-2 py-2 text-start transition-colors hover:bg-accent ${currentRouteSegment === setting.name.replace("settings-", "") ? "bg-accent text-accent-foreground" : ""}`}
                       onClick={() => handleClick(setting.path)}
                     >
                       <Icon icon={setting.icon} className="size-4 shrink-0 text-muted-foreground" />
@@ -577,7 +488,6 @@ function SettingsLayout() {
     </div>
   );
 }
-
 export const Route = createFileRoute("/settings")({
   component: SettingsLayout,
 });

@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState } from "react";
 import { Input } from "#shadcn/components/ui/input";
 import { Label } from "#shadcn/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#shadcn/components/ui/select";
@@ -8,76 +8,65 @@ import {
   type TtsResponseFormat,
   type TtsSettings,
 } from "@argos/shared/ttsSettings";
-
 const DEFAULT_SELECT_VALUE = "__default";
-
 interface TtsSettingsFieldsProps {
   modelValue?: TtsSettings;
   onValueChange: (value: TtsSettings | undefined) => void;
 }
-
 export default function TtsSettingsFields({ modelValue, onValueChange }: TtsSettingsFieldsProps) {
-  const tts = useMemo<TtsSettings>(() => normalizeTtsSettings(modelValue) ?? {}, [modelValue]);
+  const tts = normalizeTtsSettings(modelValue) ?? {};
   const [speedDraft, setSpeedDraft] = useState(() => (typeof tts.speed === "number" ? String(tts.speed) : ""));
   const [syncedSpeed, setSyncedSpeed] = useState(tts.speed);
   if (syncedSpeed !== tts.speed) {
     setSyncedSpeed(tts.speed);
     setSpeedDraft(typeof tts.speed === "number" ? String(tts.speed) : "");
   }
-
-  const emitSettings = useCallback(
-    (patch: TtsSettings) => {
-      const next = normalizeTtsSettings({
-        ...tts,
-        ...patch,
-      });
-      onValueChange(next);
-    },
-    [tts, onValueChange],
-  );
-
+  const emitSettings = (patch: TtsSettings) => {
+    const next = normalizeTtsSettings({
+      ...tts,
+      ...patch,
+    });
+    onValueChange(next);
+  };
   const optionSelectValue = (value: string | undefined) => value ?? DEFAULT_SELECT_VALUE;
-
-  const onVoiceInput = useCallback(
-    (value: string) => {
-      emitSettings({ voice: value.trim() || undefined });
-    },
-    [emitSettings],
-  );
-
-  const onResponseFormatSelect = useCallback(
-    (value: string) => {
-      if (value === DEFAULT_SELECT_VALUE) {
-        emitSettings({ responseFormat: undefined });
-        return;
-      }
-      emitSettings({ responseFormat: value as TtsResponseFormat });
-    },
-    [emitSettings],
-  );
-
-  const onSpeedInput = useCallback((value: string) => {
+  const onVoiceInput = (value: string) => {
+    emitSettings({
+      voice: value.trim() || undefined,
+    });
+  };
+  const onResponseFormatSelect = (value: string) => {
+    if (value === DEFAULT_SELECT_VALUE) {
+      emitSettings({
+        responseFormat: undefined,
+      });
+      return;
+    }
+    emitSettings({
+      responseFormat: value as TtsResponseFormat,
+    });
+  };
+  const onSpeedInput = (value: string) => {
     setSpeedDraft(value);
-  }, []);
-
-  const commitSpeed = useCallback(() => {
+  };
+  const commitSpeed = () => {
     const value = speedDraft.trim();
     if (!value) {
-      emitSettings({ speed: undefined });
+      emitSettings({
+        speed: undefined,
+      });
       return;
     }
     const speed = Number(value);
     if (!Number.isFinite(speed)) return;
-    emitSettings({ speed });
-  }, [speedDraft, emitSettings]);
-
-  const onInstructionsInput = useCallback(
-    (value: string) => {
-      emitSettings({ instructions: value.trim() || undefined });
-    },
-    [emitSettings],
-  );
-
+    emitSettings({
+      speed,
+    });
+  };
+  const onInstructionsInput = (value: string) => {
+    emitSettings({
+      instructions: value.trim() || undefined,
+    });
+  };
   return (
     <div className="space-y-4">
       <div className="space-y-2">

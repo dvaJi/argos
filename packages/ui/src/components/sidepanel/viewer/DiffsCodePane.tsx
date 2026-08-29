@@ -1,14 +1,11 @@
-import { useMemo } from "react";
 import { File } from "@pierre/diffs/react";
 import { useDiffsBaseOptions } from "./diffsOptions";
-
 export type DiffsCodeSource = {
   id: string;
   content: string;
   name?: string;
   language?: string | null;
 };
-
 interface DiffsCodePaneProps {
   source: DiffsCodeSource;
   className?: string;
@@ -24,31 +21,29 @@ interface DiffsCodePaneProps {
  */
 export function DiffsCodePane({ source, className }: DiffsCodePaneProps) {
   const base = useDiffsBaseOptions();
-
-  const file = useMemo(
-    () => ({
-      name: source.name ?? source.id,
-      contents: source.content ?? "",
-    }),
-    [source.name, source.id, source.content],
-  );
-
-  const options = useMemo(
-    () => ({
-      ...base,
-      disableLineNumbers: false,
-      overflow: "wrap" as const,
-      stickyHeader: false,
-    }),
-    [base],
-  );
-
+  const file = {
+    name: source.name ?? source.id,
+    contents: source.content ?? "",
+  };
+  const options = {
+    ...base,
+    disableLineNumbers: false,
+    overflow: "wrap" as const,
+    stickyHeader: false,
+  };
   return (
     <div
       className={`diffs-code-pane-host h-full min-h-0 w-full overflow-auto bg-background ${className ?? ""}`}
       data-testid="diffs-code-pane"
     >
-      <File file={file} options={options} disableWorkerPool style={{ minHeight: "100%" }} />
+      <File
+        file={file}
+        options={options}
+        disableWorkerPool
+        style={{
+          minHeight: "100%",
+        }}
+      />
     </div>
   );
 }

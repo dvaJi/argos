@@ -1,17 +1,14 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useRef } from "react";
 import { createDeviceClient } from "#api/DeviceClient";
 import { createTabClient } from "#api/TabClient";
-
 const tabClient = createTabClient();
 const deviceClient = createDeviceClient();
-
 interface CaptureRect {
   x: number;
   y: number;
   width: number;
   height: number;
 }
-
 interface WatermarkConfig {
   isDark?: boolean;
   version?: string;
@@ -23,7 +20,6 @@ interface WatermarkConfig {
     provider?: string;
   };
 }
-
 export interface CaptureConfig {
   container: string | HTMLElement;
   getTargetRect: () => CaptureRect | null;
@@ -35,20 +31,17 @@ export interface CaptureConfig {
   containerHeaderOffset?: number;
   isHTMLIframe?: boolean;
 }
-
 export interface CaptureResult {
   success: boolean;
   imageData?: string;
   error?: string;
 }
-
 const getScrollContainer = (container: string | HTMLElement): HTMLElement | null => {
   if (typeof container === "string") {
     return document.querySelector(container) as HTMLElement;
   }
   return container;
 };
-
 const performScroll = (scrollContainer: HTMLElement, scrollTop: number, isIframe: boolean = false): void => {
   if (isIframe && scrollContainer.tagName.toLowerCase() === "iframe") {
     const iframe = scrollContainer as HTMLIFrameElement;
@@ -59,7 +52,6 @@ const performScroll = (scrollContainer: HTMLElement, scrollTop: number, isIframe
     scrollContainer.scrollTop = scrollTop;
   }
 };
-
 const getScrollTop = (scrollContainer: HTMLElement, isIframe: boolean = false): number => {
   if (isIframe && scrollContainer.tagName.toLowerCase() === "iframe") {
     const iframe = scrollContainer as HTMLIFrameElement;
@@ -69,7 +61,6 @@ const getScrollTop = (scrollContainer: HTMLElement, isIframe: boolean = false): 
   }
   return scrollContainer.scrollTop;
 };
-
 const getMaxScrollTop = (scrollContainer: HTMLElement, isIframe: boolean = false): number => {
   if (isIframe && scrollContainer.tagName.toLowerCase() === "iframe") {
     const iframe = scrollContainer as HTMLIFrameElement;
@@ -83,7 +74,6 @@ const getMaxScrollTop = (scrollContainer: HTMLElement, isIframe: boolean = false
   }
   return scrollContainer.scrollHeight - scrollContainer.clientHeight;
 };
-
 const getIframeContentHeight = (iframe: HTMLIFrameElement): number => {
   if (iframe.contentDocument) {
     const doc = iframe.contentDocument;
@@ -114,21 +104,26 @@ const performCapture = async (
     containerHeaderOffset = 44,
     isHTMLIframe = false,
   } = config;
-
   const initialRect = config.getTargetRect();
   if (!initialRect) {
-    return { success: false, error: "Unable to get capture target area" };
+    return {
+      success: false,
+      error: "Unable to get capture target area",
+    };
   }
-
   if (initialRect.height <= 0) {
-    return { success: false, error: "Capture area height is invalid" };
+    return {
+      success: false,
+      error: "Capture area height is invalid",
+    };
   }
-
   const scrollContainer = getScrollContainer(config.container);
   if (!scrollContainer) {
-    return { success: false, error: "Unable to find scroll container" };
+    return {
+      success: false,
+      error: "Unable to find scroll container",
+    };
   }
-
   let targetContentHeight = initialRect.height;
   if (isHTMLIframe && scrollContainer.tagName.toLowerCase() === "iframe") {
     const iframe = scrollContainer as HTMLIFrameElement;
@@ -137,28 +132,26 @@ const performCapture = async (
       targetContentHeight = iframeContentHeight;
     }
   }
-
   const originalScrollBehavior = scrollContainer.style.scrollBehavior;
   scrollContainer.style.scrollBehavior = scrollBehavior;
   onScrollConfigured(scrollContainer, originalScrollBehavior);
-
   const containerOriginalScrollTop = getScrollTop(scrollContainer, isHTMLIframe);
   const containerRect = scrollContainer.getBoundingClientRect();
   const contentViewportTop = containerRect.top + containerHeaderOffset;
-
   const captureWindowVisibleHeight = containerRect.height - containerHeaderOffset;
   const captureWindowVisibleWidth = Math.max(0, containerRect.width - scrollbarOffset);
   if (captureWindowVisibleHeight <= 0 || captureWindowVisibleWidth <= 0) {
-    return { success: false, error: "Capture window dimensions are invalid" };
+    return {
+      success: false,
+      error: "Capture window dimensions are invalid",
+    };
   }
-
   const fixedCaptureWindow = {
     x: containerRect.left,
     y: contentViewportTop,
     width: captureWindowVisibleWidth,
     height: captureWindowVisibleHeight,
   };
-
   const maxScrollTopVal = getMaxScrollTop(scrollContainer, isHTMLIframe);
   const imageDataList: string[] = [];
   let totalCapturedContentHeight = 0;
@@ -167,43 +160,36 @@ const performCapture = async (
   const maxCapturableBottomInContent = maxScrollTopVal + fixedCaptureWindow.height;
   const targetBottomInContent = Math.min(targetTopInContent + targetContentHeight, maxCapturableBottomInContent);
   const effectiveTargetContentHeight = Math.max(0, targetBottomInContent - targetTopInContent);
-
   if (effectiveTargetContentHeight <= 0) {
-    return { success: false, error: "Target area is outside capturable range" };
+    return {
+      success: false,
+      error: "Target area is outside capturable range",
+    };
   }
-
   while (totalCapturedContentHeight < effectiveTargetContentHeight && iteration < maxIterations) {
     iteration++;
-
     const remainingTopInContent = targetTopInContent + totalCapturedContentHeight;
     const scrollTopTarget = Math.max(0, Math.min(remainingTopInContent, maxScrollTopVal));
-
     performScroll(scrollContainer, scrollTopTarget, isHTMLIframe);
     await new Promise((resolve) => setTimeout(resolve, captureDelay));
-
     const actualScrollTop = getScrollTop(scrollContainer, isHTMLIframe);
     const visibleTopInContent = actualScrollTop;
     const visibleBottomInContent = actualScrollTop + fixedCaptureWindow.height;
     const captureTopInContent = Math.max(remainingTopInContent, visibleTopInContent);
     const captureBottomInContent = Math.min(targetBottomInContent, visibleBottomInContent);
     const heightToCaptureFromSegment = Math.max(0, captureBottomInContent - captureTopInContent);
-
     if (heightToCaptureFromSegment < 1) {
       break;
     }
-
     const captureStartYInWindow = Math.max(0, Math.round(captureTopInContent - actualScrollTop));
-
     const captureRect: CaptureRect = {
       x: fixedCaptureWindow.x,
       y: Math.round(fixedCaptureWindow.y + captureStartYInWindow),
       width: fixedCaptureWindow.width,
       height: Math.round(heightToCaptureFromSegment),
     };
-
     try {
       const segmentData = await tabClient.captureCurrentArea(captureRect);
-
       if (segmentData) {
         imageDataList.push(segmentData);
       } else {
@@ -214,100 +200,93 @@ const performCapture = async (
       console.error(`[CAPTURE_DEBUG] Iteration ${iteration}: Capture error:`, captureError);
       break;
     }
-
     totalCapturedContentHeight += heightToCaptureFromSegment;
   }
-
   performScroll(scrollContainer, containerOriginalScrollTop, isHTMLIframe);
-
   if (imageDataList.length === 0) {
     if (targetContentHeight > 0) {
-      return { success: false, error: "Capture failed, no image data captured" };
+      return {
+        success: false,
+        error: "Capture failed, no image data captured",
+      };
     }
-    return { success: false, error: "Target area height is 0, nothing to capture" };
+    return {
+      success: false,
+      error: "Target area height is 0, nothing to capture",
+    };
   }
-
   let finalImage: string | null = null;
   if (config.watermark) {
     finalImage = await tabClient.stitchImagesWithWatermark(imageDataList, config.watermark);
   } else {
     finalImage = await tabClient.stitchImagesWithWatermark(imageDataList, {});
   }
-
   if (!finalImage) {
-    return { success: false, error: "Image stitching failed" };
+    return {
+      success: false,
+      error: "Image stitching failed",
+    };
   }
-
-  return { success: true, imageData: finalImage };
+  return {
+    success: true,
+    imageData: finalImage,
+  };
 };
-
 export function usePageCapture() {
   const [isCapturing, setIsCapturing] = useState(false);
+  const captureArea = async (config: CaptureConfig): Promise<CaptureResult> => {
+    if (isCapturing) {
+      return {
+        success: false,
+        error: "Capture already in progress, please wait...",
+      };
+    }
+    setIsCapturing(true);
+    let scrollContainer: HTMLElement | null = null;
+    let originalScrollBehavior = "";
+    let result: CaptureResult;
+    try {
+      result = await performCapture(config, tabClient, (configuredContainer, configuredOriginalBehavior) => {
+        scrollContainer = configuredContainer;
+        originalScrollBehavior = configuredOriginalBehavior;
+      });
+    } catch (error) {
+      console.error("Error during capture:", error);
+      result = {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
 
-  const captureArea = useCallback(
-    async (config: CaptureConfig): Promise<CaptureResult> => {
-      if (isCapturing) {
-        return { success: false, error: "Capture already in progress, please wait..." };
-      }
-
-      setIsCapturing(true);
-      let scrollContainer: HTMLElement | null = null;
-      let originalScrollBehavior = "";
-      let result: CaptureResult;
-
-      try {
-        result = await performCapture(config, tabClient, (configuredContainer, configuredOriginalBehavior) => {
-          scrollContainer = configuredContainer;
-          originalScrollBehavior = configuredOriginalBehavior;
-        });
-      } catch (error) {
-        console.error("Error during capture:", error);
-        result = {
-          success: false,
-          error: error instanceof Error ? error.message : "Unknown error",
-        };
-      }
-
-      // Read through a widened local: the assignment happens in the callback
-      // above, which TypeScript's control-flow analysis cannot see.
-      const restoredContainer = scrollContainer as HTMLElement | null;
-      if (restoredContainer && originalScrollBehavior !== undefined) {
-        restoredContainer.style.scrollBehavior = originalScrollBehavior;
-      }
-      setIsCapturing(false);
-      return result;
-    },
-    [isCapturing],
-  );
-
-  const captureAndCopy = useCallback(
-    async (config: CaptureConfig): Promise<boolean> => {
-      const result = await captureArea(config);
-
-      if (result.success && result.imageData) {
-        deviceClient.copyImage(result.imageData);
-        return true;
-      }
-
-      return false;
-    },
-    [captureArea],
-  );
-
+    // Read through a widened local: the assignment happens in the callback
+    // above, which TypeScript's control-flow analysis cannot see.
+    const restoredContainer = scrollContainer as HTMLElement | null;
+    if (restoredContainer && originalScrollBehavior !== undefined) {
+      restoredContainer.style.scrollBehavior = originalScrollBehavior;
+    }
+    setIsCapturing(false);
+    return result;
+  };
+  const captureAndCopy = async (config: CaptureConfig): Promise<boolean> => {
+    const result = await captureArea(config);
+    if (result.success && result.imageData) {
+      deviceClient.copyImage(result.imageData);
+      return true;
+    }
+    return false;
+  };
   return {
     isCapturing,
     captureArea,
     captureAndCopy,
   };
 }
-
 const createCapturePresets = () => {
   const captureFullConversation = (watermarkConfig?: WatermarkConfig): CaptureConfig => ({
     container: ".message-list-container",
     getTargetRect: () => {
       const container = document.querySelector(".message-list-container");
       if (!container) return null;
-
       const rect = container.getBoundingClientRect();
       return {
         x: Math.round(rect.x),
@@ -319,7 +298,6 @@ const createCapturePresets = () => {
     watermark: watermarkConfig,
     containerHeaderOffset: 44,
   });
-
   const captureMessageRange = (
     startMessageId: string,
     endMessageId: string,
@@ -329,17 +307,13 @@ const createCapturePresets = () => {
     getTargetRect: () => {
       const startElement = document.querySelector(`[data-message-id="${startMessageId}"]`);
       const endElement = document.querySelector(`[data-message-id="${endMessageId}"]`);
-
       if (!startElement || !endElement) return null;
-
       const startRect = startElement.getBoundingClientRect();
       const endRect = endElement.getBoundingClientRect();
-
       const left = Math.min(startRect.left, endRect.left);
       const top = Math.min(startRect.top, endRect.top);
       const right = Math.max(startRect.right, endRect.right);
       const bottom = Math.max(startRect.bottom, endRect.bottom);
-
       return {
         x: Math.round(left),
         y: Math.round(top),
@@ -349,7 +323,6 @@ const createCapturePresets = () => {
     },
     watermark: watermarkConfig,
   });
-
   const captureCustomElement = (
     selector: string,
     containerSelector: string = ".message-list-container",
@@ -359,7 +332,6 @@ const createCapturePresets = () => {
     getTargetRect: () => {
       const element = document.querySelector(selector);
       if (!element) return null;
-
       const rect = element.getBoundingClientRect();
       return {
         x: Math.round(rect.x),
@@ -370,7 +342,6 @@ const createCapturePresets = () => {
     },
     watermark: watermarkConfig,
   });
-
   return {
     captureFullConversation,
     captureMessageRange,

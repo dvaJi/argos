@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { openRuntimeExternal } from "#api/runtime";
 import { Button } from "#shadcn/components/ui/button";
@@ -53,13 +53,10 @@ import SettingsPageShell from "./control-center/SettingsPageShell";
 import ProviderConfigImportDialog from "./ProviderConfigImportDialog";
 import type { DatabaseRepairReport } from "@argos/shared/presenter";
 import type { ProviderImportApplyResult } from "@argos/shared/providerImport";
-
 const deviceClient = createDeviceClient();
 const providerClient = createProviderClient();
-
 const PUBLIC_PROVIDER_CONF_URL = "https://github.com/dvaJi/PublicProviderConf";
 const CLOUDFLARE_R2_S3_DOCS_URL = "https://developers.cloudflare.com/r2/api/s3/api/";
-
 function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
   const units = ["B", "KB", "MB", "GB", "TB"];
@@ -67,14 +64,11 @@ function formatBytes(bytes: number): string {
   const value = bytes / Math.pow(1024, exponent);
   return `${value.toFixed(value >= 100 || exponent === 0 ? 0 : 1)} ${units[exponent]}`;
 }
-
 type CloudSyncProviderMode = "r2" | "custom";
-
 const CLOUD_SYNC_DEFAULTS = {
   region: "auto",
   prefix: "argos-backups",
 };
-
 const createDefaultCloudSyncForm = () => ({
   endpoint: "",
   bucket: "",
@@ -83,17 +77,18 @@ const createDefaultCloudSyncForm = () => ({
   accessKeyId: "",
   secretAccessKey: "",
 });
-
 const normalizeCloudEndpoint = (value: string) => value.trim();
 const normalizeCloudBucket = (value: string) => value.trim();
 const normalizeCloudRegion = (value: string) => value.trim() || CLOUD_SYNC_DEFAULTS.region;
 const normalizeCloudPrefix = (value: string) => value.trim() || CLOUD_SYNC_DEFAULTS.prefix;
 const normalizeCloudAccessKeyId = (value: string) => value.trim();
 const normalizeCloudSecret = (value: string) => value.trim();
-
 const validateCloudSyncForm = (
   form: ReturnType<typeof createDefaultCloudSyncForm>,
-  options: { providerMode: CloudSyncProviderMode; hasStoredSecret: boolean },
+  options: {
+    providerMode: CloudSyncProviderMode;
+    hasStoredSecret: boolean;
+  },
 ) => {
   const errors: string[] = [];
   const warnings: string[] = [];
@@ -103,17 +98,14 @@ const validateCloudSyncForm = (
   const prefix = normalizeCloudPrefix(form.prefix);
   const accessKeyId = normalizeCloudAccessKeyId(form.accessKeyId);
   const secretAccessKey = normalizeCloudSecret(form.secretAccessKey);
-
   if (!endpoint) errors.push("endpointRequired");
   if (!bucket) errors.push("bucketRequired");
   if (!accessKeyId) errors.push("accessKeyRequired");
   if (!secretAccessKey && !options.hasStoredSecret) errors.push("secretRequired");
   if (options.providerMode === "custom" && !region) errors.push("regionRequired");
-
   if (options.providerMode === "r2" && /^[a-f0-9]{32}$/i.test(accessKeyId)) {
     warnings.push("r2AccessKeyLooksLikeAccountId");
   }
-
   if (
     options.providerMode === "r2" &&
     secretAccessKey &&
@@ -121,7 +113,6 @@ const validateCloudSyncForm = (
   ) {
     errors.push("r2SecretLooksLikeApiToken");
   }
-
   return {
     canSave: errors.length === 0,
     errors,
@@ -136,7 +127,6 @@ const validateCloudSyncForm = (
     },
   };
 };
-
 export default function DataSettings() {
   const { toast } = useToast();
   const languageStore = useLanguageStore();
@@ -144,7 +134,6 @@ export default function DataSettings() {
   const onboardingClient = createOnboardingClient();
   const databaseSecurityClient = createDatabaseSecurityClient();
   const browserClient = createBrowserClient();
-
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [isProviderImportDialogOpen, setIsProviderImportDialogOpen] = useState(false);
   const [importMode, setImportMode] = useState("increment");
@@ -159,21 +148,18 @@ export default function DataSettings() {
   const [cloudProviderMode, setCloudProviderMode] = useState<CloudSyncProviderMode>("r2");
   const [cloudPullMode, setCloudPullMode] = useState<"increment" | "overwrite">("increment");
   const [cloudForm, setCloudForm] = useState(() => createDefaultCloudSyncForm());
-
   const dir = languageStore.dir;
   const isBackupActive = syncStore.isBackingUp;
   const isImporting = syncStore.isImporting;
   const cloudConfig = syncStore.cloudConfig;
   const isCloudBusy = syncStore.isCloudBusy;
   const availableBackups = syncStore.backups ?? [];
-
-  const openExternalLink = useCallback((url: string) => {
+  const openExternalLink = (url: string) => {
     openRuntimeExternal(url).catch(() => {
       window.open(url, "_blank", "noopener,noreferrer");
     });
-  }, []);
-
-  const setCloudProvider = useCallback((mode: CloudSyncProviderMode) => {
+  };
+  const setCloudProvider = (mode: CloudSyncProviderMode) => {
     setCloudProviderMode(mode);
     if (mode === "r2") {
       setCloudForm((prev) => ({
@@ -182,60 +168,44 @@ export default function DataSettings() {
         prefix: prev.prefix.trim() || CLOUD_SYNC_DEFAULTS.prefix,
       }));
     }
-  }, []);
-
+  };
   const isRepairActionDisabled = isRepairing || isBackupActive || isImporting;
   const isResetActionDisabled = isResetting || isBackupActive || isImporting;
-  const hasStoredCloudSecret = useMemo(() => Boolean(cloudConfig?.hasSecret), [cloudConfig?.hasSecret]);
-  const cloudValidation = useMemo(
-    () => validateCloudSyncForm(cloudForm, { providerMode: cloudProviderMode, hasStoredSecret: hasStoredCloudSecret }),
-    [cloudForm, cloudProviderMode, hasStoredCloudSecret],
+  const hasStoredCloudSecret = Boolean(cloudConfig?.hasSecret);
+  const cloudValidation = validateCloudSyncForm(cloudForm, {
+    providerMode: cloudProviderMode,
+    hasStoredSecret: hasStoredCloudSecret,
+  });
+  const isCloudSecretWriteUnavailable =
+    Boolean(cloudForm.secretAccessKey.trim()) && cloudConfig?.safeStorageAvailable === false;
+  const isCloudSaveDisabled = Boolean(isCloudBusy) || !cloudValidation.canSave || isCloudSecretWriteUnavailable;
+  const hasUsableCloudConfig = Boolean(
+    cloudConfig?.endpoint?.trim() &&
+    cloudConfig?.bucket?.trim() &&
+    cloudConfig?.accessKeyId?.trim() &&
+    cloudConfig?.hasSecret,
   );
-  const isCloudSecretWriteUnavailable = useMemo(
-    () => Boolean(cloudForm.secretAccessKey.trim()) && cloudConfig?.safeStorageAvailable === false,
-    [cloudConfig?.safeStorageAvailable, cloudForm.secretAccessKey],
-  );
-  const isCloudSaveDisabled = useMemo(
-    () => Boolean(isCloudBusy) || !cloudValidation.canSave || isCloudSecretWriteUnavailable,
-    [isCloudBusy, cloudValidation.canSave, isCloudSecretWriteUnavailable],
-  );
-  const hasUsableCloudConfig = useMemo(
-    () =>
-      Boolean(
-        cloudConfig?.endpoint?.trim() &&
-        cloudConfig?.bucket?.trim() &&
-        cloudConfig?.accessKeyId?.trim() &&
-        cloudConfig?.hasSecret,
-      ),
-    [cloudConfig],
-  );
-  const isCloudOperationDisabled = useMemo(
-    () => Boolean(isCloudBusy) || !hasUsableCloudConfig,
-    [isCloudBusy, hasUsableCloudConfig],
-  );
-  const cloudSecretPlaceholder = useMemo(() => (hasStoredCloudSecret ? "Configured" : ""), [hasStoredCloudSecret]);
-  const cloudSecretStatusText = useMemo(() => {
+  const isCloudOperationDisabled = Boolean(isCloudBusy) || !hasUsableCloudConfig;
+  const cloudSecretPlaceholder = hasStoredCloudSecret ? "Configured" : "";
+  const cloudSecretStatusText = (() => {
     if (hasStoredCloudSecret && !cloudForm.secretAccessKey) {
       return "Secret is stored securely. Leave blank to keep the current secret.";
     }
     return "Enter a secret to save or replace the stored cloud credential.";
-  }, [hasStoredCloudSecret, cloudForm.secretAccessKey]);
-
+  })();
   const formatBackupLabel = (fileName: string, createdAt: number, size: number) => {
     const date = new Date(createdAt);
     return Number.isFinite(createdAt)
       ? `${date.toLocaleString()} (${formatBytes(size)})`
       : `${fileName} (${formatBytes(size)})`;
   };
-
-  const handleSyncEnabledChange = useCallback((value: boolean) => setSyncEnabled(value), []);
+  const handleSyncEnabledChange = (value: boolean) => setSyncEnabled(value);
 
   // The effective backup selection falls back to the most recent backup whenever the
   // stored selection no longer exists (deleted, list refreshed) or nothing is selected.
   const activeSelectedBackup =
     availableBackups.find((b) => b.fileName === selectedBackup)?.fileName ?? availableBackups[0]?.fileName ?? "";
-
-  const handleBackup = useCallback(async () => {
+  const handleBackup = async () => {
     try {
       const backupInfo = await startBackup();
       if (!backupInfo) return;
@@ -252,9 +222,8 @@ export default function DataSettings() {
         duration: 5000,
       });
     }
-  }, [toast]);
-
-  const persistCloudConfig = useCallback(async (): Promise<boolean> => {
+  };
+  const persistCloudConfig = async (): Promise<boolean> => {
     if (isCloudSaveDisabled) return false;
     await saveCloudConfig({
       endpoint: cloudValidation.normalized.endpoint,
@@ -264,17 +233,21 @@ export default function DataSettings() {
       accessKeyId: cloudValidation.normalized.accessKeyId,
       secretAccessKey: cloudValidation.normalized.secretAccessKey || undefined,
     });
-    setCloudForm((prev) => ({ ...prev, secretAccessKey: "" }));
+    setCloudForm((prev) => ({
+      ...prev,
+      secretAccessKey: "",
+    }));
     return true;
-  }, [cloudValidation.normalized, isCloudSaveDisabled]);
-
-  const handleSaveCloud = useCallback(async () => {
+  };
+  const handleSaveCloud = async () => {
     const saved = await persistCloudConfig();
     if (!saved) return;
-    toast({ title: "Cloud config saved", duration: 3000 });
-  }, [persistCloudConfig, toast]);
-
-  const handleTestCloud = useCallback(async () => {
+    toast({
+      title: "Cloud config saved",
+      duration: 3000,
+    });
+  };
+  const handleTestCloud = async () => {
     const result = await testCloud();
     if (!result) return;
     toast({
@@ -283,15 +256,13 @@ export default function DataSettings() {
       variant: result.success ? "default" : "destructive",
       duration: 4000,
     });
-  }, [toast]);
-
-  const handleSaveAndTestCloud = useCallback(async () => {
+  };
+  const handleSaveAndTestCloud = async () => {
     const saved = await persistCloudConfig();
     if (!saved) return;
     await handleTestCloud();
-  }, [handleTestCloud, persistCloudConfig]);
-
-  const handleUploadToCloud = useCallback(async () => {
+  };
+  const handleUploadToCloud = async () => {
     const result = await uploadToCloud();
     if (!result) return;
     toast({
@@ -300,9 +271,8 @@ export default function DataSettings() {
       variant: result.success ? "default" : "destructive",
       duration: 4000,
     });
-  }, [toast]);
-
-  const handlePullFromCloud = useCallback(async () => {
+  };
+  const handlePullFromCloud = async () => {
     const result = await pullFromCloud(cloudPullMode);
     if (!result) return;
     if (result.success) {
@@ -312,9 +282,8 @@ export default function DataSettings() {
         duration: 4000,
       });
     }
-  }, [cloudPullMode, toast]);
-
-  const handleImport = useCallback(async () => {
+  };
+  const handleImport = async () => {
     if (!activeSelectedBackup) return;
     const result = await importData(activeSelectedBackup, importMode as "increment" | "overwrite");
     if (result?.success) {
@@ -326,9 +295,8 @@ export default function DataSettings() {
     }
     setIsImportDialogOpen(false);
     setImportMode("increment");
-  }, [activeSelectedBackup, importMode, toast]);
-
-  const handleRefreshProviderDb = useCallback(async () => {
+  };
+  const handleRefreshProviderDb = async () => {
     if (isUpdatingModelConfig) return;
     setIsUpdatingModelConfig(true);
     try {
@@ -348,13 +316,16 @@ export default function DataSettings() {
         duration: 4000,
       });
     } catch {
-      toast({ title: "Update failed", variant: "destructive", duration: 4000 });
+      toast({
+        title: "Update failed",
+        variant: "destructive",
+        duration: 4000,
+      });
       setIsUpdatingModelConfig(false);
     }
     setIsUpdatingModelConfig(false);
-  }, [isUpdatingModelConfig, toast]);
-
-  const handleReset = useCallback(async () => {
+  };
+  const handleReset = async () => {
     if (isResetActionDisabled) return;
     setIsResetting(true);
     try {
@@ -365,21 +336,26 @@ export default function DataSettings() {
       console.error("Failed to reset data:", error);
     }
     setIsResetting(false);
-  }, [isResetActionDisabled, resetType]);
-
-  const handleClearSandboxData = useCallback(async () => {
+  };
+  const handleClearSandboxData = async () => {
     if (isClearingSandbox) return;
     setIsClearingSandbox(true);
     try {
       await browserClient.clearSandboxData();
-      toast({ title: "Sandbox data cleared", duration: 4000 });
+      toast({
+        title: "Sandbox data cleared",
+        duration: 4000,
+      });
     } catch {
-      toast({ title: "Failed to clear", variant: "destructive", duration: 4000 });
+      toast({
+        title: "Failed to clear",
+        variant: "destructive",
+        duration: 4000,
+      });
     }
     setIsClearingSandbox(false);
     setIsClearSandboxDialogOpen(false);
-  }, [isClearingSandbox, browserClient, toast]);
-
+  };
   useEffect(() => {
     void (async () => {
       await initializeSync();
@@ -405,7 +381,6 @@ export default function DataSettings() {
       });
     }
   }
-
   return (
     <SettingsPageShell
       data-testid="settings-data-page"
@@ -631,7 +606,12 @@ export default function DataSettings() {
                     value={cloudForm.endpoint}
                     className="h-8!"
                     placeholder="https://<account>.r2.cloudflarestorage.com"
-                    onChange={(e) => setCloudForm((p) => ({ ...p, endpoint: e.target.value }))}
+                    onChange={(e) =>
+                      setCloudForm((p) => ({
+                        ...p,
+                        endpoint: e.target.value,
+                      }))
+                    }
                   />
                   <p className="text-xs text-muted-foreground">
                     {cloudProviderMode === "r2"
@@ -644,7 +624,12 @@ export default function DataSettings() {
                   <Input
                     value={cloudForm.bucket}
                     className="h-8!"
-                    onChange={(e) => setCloudForm((p) => ({ ...p, bucket: e.target.value }))}
+                    onChange={(e) =>
+                      setCloudForm((p) => ({
+                        ...p,
+                        bucket: e.target.value,
+                      }))
+                    }
                   />
                 </div>
                 {cloudProviderMode === "custom" && (
@@ -654,7 +639,12 @@ export default function DataSettings() {
                       value={cloudForm.region}
                       className="h-8!"
                       placeholder="auto"
-                      onChange={(e) => setCloudForm((p) => ({ ...p, region: e.target.value }))}
+                      onChange={(e) =>
+                        setCloudForm((p) => ({
+                          ...p,
+                          region: e.target.value,
+                        }))
+                      }
                     />
                   </div>
                 )}
@@ -664,7 +654,12 @@ export default function DataSettings() {
                     value={cloudForm.accessKeyId}
                     className="h-8!"
                     autoComplete="off"
-                    onChange={(e) => setCloudForm((p) => ({ ...p, accessKeyId: e.target.value }))}
+                    onChange={(e) =>
+                      setCloudForm((p) => ({
+                        ...p,
+                        accessKeyId: e.target.value,
+                      }))
+                    }
                   />
                   {cloudValidation.warnings.includes("r2AccessKeyLooksLikeAccountId") && (
                     <p data-testid="cloud-access-key-warning" className="text-xs text-amber-600 dark:text-amber-400">
@@ -681,7 +676,12 @@ export default function DataSettings() {
                     autoComplete="off"
                     aria-invalid={cloudValidation.errors.includes("r2SecretLooksLikeApiToken") ? "true" : undefined}
                     placeholder={cloudSecretPlaceholder}
-                    onChange={(e) => setCloudForm((p) => ({ ...p, secretAccessKey: e.target.value }))}
+                    onChange={(e) =>
+                      setCloudForm((p) => ({
+                        ...p,
+                        secretAccessKey: e.target.value,
+                      }))
+                    }
                   />
                   {cloudValidation.errors.includes("r2SecretLooksLikeApiToken") ? (
                     <p data-testid="cloud-secret-token-error" className="text-xs text-destructive">
@@ -698,7 +698,12 @@ export default function DataSettings() {
                       value={cloudForm.prefix}
                       className="h-8!"
                       placeholder="argos-backups"
-                      onChange={(e) => setCloudForm((p) => ({ ...p, prefix: e.target.value }))}
+                      onChange={(e) =>
+                        setCloudForm((p) => ({
+                          ...p,
+                          prefix: e.target.value,
+                        }))
+                      }
                     />
                   </div>
                 )}
@@ -719,7 +724,12 @@ export default function DataSettings() {
                         value={cloudForm.region}
                         className="h-8!"
                         placeholder="auto"
-                        onChange={(e) => setCloudForm((p) => ({ ...p, region: e.target.value }))}
+                        onChange={(e) =>
+                          setCloudForm((p) => ({
+                            ...p,
+                            region: e.target.value,
+                          }))
+                        }
                       />
                       <p className="text-xs text-muted-foreground">
                         Usually keep `auto` for R2 unless your setup needs otherwise.
@@ -731,7 +741,12 @@ export default function DataSettings() {
                         value={cloudForm.prefix}
                         className="h-8!"
                         placeholder="argos-backups"
-                        onChange={(e) => setCloudForm((p) => ({ ...p, prefix: e.target.value }))}
+                        onChange={(e) =>
+                          setCloudForm((p) => ({
+                            ...p,
+                            prefix: e.target.value,
+                          }))
+                        }
                       />
                       <p className="text-xs text-muted-foreground">
                         Customize the cloud backup folder prefix if needed.
@@ -862,9 +877,15 @@ export default function DataSettings() {
                   setIsRepairing(true);
                   try {
                     const result = await databaseSecurityClient.repairSchema();
-                    toast({ title: "Repair completed", duration: 4000 });
+                    toast({
+                      title: "Repair completed",
+                      duration: 4000,
+                    });
                   } catch {
-                    toast({ title: "Repair failed", variant: "destructive" });
+                    toast({
+                      title: "Repair failed",
+                      variant: "destructive",
+                    });
                   }
                   setIsRepairing(false);
                 }}
@@ -954,7 +975,11 @@ export default function DataSettings() {
                           label: "Configuration",
                           desc: "Reset all settings to defaults",
                         },
-                        { value: "all", label: "All Data", desc: "Delete everything" },
+                        {
+                          value: "all",
+                          label: "All Data",
+                          desc: "Delete everything",
+                        },
                       ].map((opt) => (
                         <div
                           key={opt.value}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useAgentStore } from "#/stores/ui/agent";
 import { useSessionStore, type UISession } from "#/stores/ui/session";
@@ -47,11 +47,10 @@ import ThreadSidebarRow from "./ThreadSidebarRow";
  */
 
 const SETTLED_PAGE_SIZE = 10;
-
 export default function ThreadSidebarList() {
   const sessionStore = useSessionStore();
   const { workingSinceById, settledAtById, snoozedUntilById, settledShelfExpanded, tick } = useThreadSidebarStore();
-  const sessionClient = useMemo(() => createSessionClient(), []);
+  const sessionClient = createSessionClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [navIndex, setNavIndex] = useState(-1);
   const [settledPageCount, setSettledPageCount] = useState(1);
@@ -61,13 +60,12 @@ export default function ThreadSidebarList() {
 
   // Live tick for working durations / wake countdowns: only run while there is
   // something live to show (cheap no-op otherwise).
-  const hasLiveRows = useMemo(() => {
+  const hasLiveRows = (() => {
     const sessions = sessionStore.sessions;
     const anyWorking = sessions.some((s) => s.status === "working");
     const anySnoozed = Object.keys(snoozedUntilById).length > 0;
     return anyWorking || anySnoozed;
-  }, [sessionStore.sessions, snoozedUntilById]);
-
+  })();
   useEffect(() => {
     if (!hasLiveRows) return;
     const interval = window.setInterval(() => {
@@ -80,60 +78,41 @@ export default function ThreadSidebarList() {
   // Touch `tick` so the panel re-renders on store flips even if the section
   // identities didn't change.
   void tick;
-
-  const sections = useMemo(
-    () =>
-      partitionThreads(sessionStore.sessions, {
-        settledAtById,
-        snoozedUntilById,
-        now,
-      }),
-    [sessionStore.sessions, settledAtById, snoozedUntilById, now],
-  );
-
+  const sections = partitionThreads(sessionStore.sessions, {
+    settledAtById,
+    snoozedUntilById,
+    now,
+  });
   const searching = searchQuery.trim().length > 0;
-  const pinned = useMemo(
-    () => (searching ? sections.pinned.filter((s) => matchesTitle(s, searchQuery)) : sections.pinned),
-    [sections.pinned, searching, searchQuery],
-  );
-  const active = useMemo(
-    () => (searching ? sections.active.filter((s) => matchesTitle(s, searchQuery)) : sections.active),
-    [sections.active, searching, searchQuery],
-  );
-  const snoozed = useMemo(
-    () => (searching ? sections.snoozed.filter((s) => matchesTitle(s, searchQuery)) : sections.snoozed),
-    [sections.snoozed, searching, searchQuery],
-  );
-  const settled = useMemo(
-    () => (searching ? sections.settled.filter((s) => matchesTitle(s, searchQuery)) : sections.settled),
-    [sections.settled, searching, searchQuery],
-  );
+  const pinned = searching ? sections.pinned.filter((s) => matchesTitle(s, searchQuery)) : sections.pinned;
+  const active = searching ? sections.active.filter((s) => matchesTitle(s, searchQuery)) : sections.active;
+  const snoozed = searching ? sections.snoozed.filter((s) => matchesTitle(s, searchQuery)) : sections.snoozed;
+  const settled = searching ? sections.settled.filter((s) => matchesTitle(s, searchQuery)) : sections.settled;
 
   // Flat result order drives keyboard navigation while searching.
-  const flatResults = useMemo(() => [...pinned, ...active, ...snoozed, ...settled], [pinned, active, snoozed, settled]);
-  const navIndexById = useMemo(() => {
+  const flatResults = [...pinned, ...active, ...snoozed, ...settled];
+  const navIndexById = (() => {
     const map = new Map<string, number>();
     flatResults.forEach((session, index) => map.set(session.id, index));
     return map;
-  }, [flatResults]);
-
+  })();
   useEffect(() => {
     if (navIndex < 0) return;
-    listRef.current?.querySelector('[data-nav-selected="true"]')?.scrollIntoView({ block: "nearest" });
+    listRef.current?.querySelector('[data-nav-selected="true"]')?.scrollIntoView({
+      block: "nearest",
+    });
   }, [navIndex]);
-
   const visibleSettledCount = searching ? settled.length : settledPageCount * SETTLED_PAGE_SIZE;
   const visibleSettled = settled.slice(0, visibleSettledCount);
-
   const handleSelect = (session: UISession) => {
     markThreadOpened(session.id);
     void sessionStore.selectSession(session.id);
   };
-
   const handleNewChat = () => {
-    void sessionStore.startNewConversation({ refresh: true });
+    void sessionStore.startNewConversation({
+      refresh: true,
+    });
   };
-
   const handleRename = async (session: UISession, title: string) => {
     try {
       await sessionClient.renameSession(session.id, title);
@@ -141,7 +120,6 @@ export default function ThreadSidebarList() {
       console.warn("[threadSidebar] Failed to rename session:", renameError);
     }
   };
-
   const handleDelete = async (session: UISession) => {
     try {
       await sessionClient.deleteSession(session.id);
@@ -149,7 +127,6 @@ export default function ThreadSidebarList() {
       console.warn("[threadSidebar] Failed to delete session:", deleteError);
     }
   };
-
   const renderSection = (label: string, rows: UISession[], variant: "active" | "settled" | "snoozed") => {
     if (rows.length === 0) return null;
     return (
@@ -186,9 +163,7 @@ export default function ThreadSidebarList() {
       </section>
     );
   };
-
   const hasAnyRows = pinned.length + active.length + snoozed.length + settled.length > 0;
-
   return (
     <div className="thread-sidebar-list flex flex-1 flex-col overflow-hidden">
       {/* Search + New thread */}

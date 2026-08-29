@@ -1,7 +1,6 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "#shadcn/components/ui/card";
 import type { UsageStatsOutput } from "@argos/shared-contracts/routes";
-
 type NostalgiaRotatingStat = {
   id: "days" | "sessions" | "messages";
   value: string;
@@ -10,29 +9,21 @@ type NostalgiaDetailItem = {
   id: "days" | "sessions" | "messages" | "most-active-day";
   content: string;
 };
-
 const NOSTALGIA_ROTATION_INTERVAL = 4000;
-
 const COUNT_FORMAT = new Intl.NumberFormat("en");
-
 function formatCount(value: number): string {
   return COUNT_FORMAT.format(value);
 }
-
 interface UsageNostalgiaCardProps {
   dashboard: UsageStatsOutput | null;
 }
-
 export default function UsageNostalgiaCard({ dashboard }: UsageNostalgiaCardProps) {
   const [nostalgiaStatIndex, setNostalgiaStatIndex] = useState(0);
-
   const isPending = !dashboard;
-
-  const nostalgiaCard = useMemo(() => {
+  const nostalgiaCard = (() => {
     if (!dashboard || dashboard.summary.messageCount <= 0) {
       return null;
     }
-
     const summary = dashboard.summary;
     const formattedSessions = formatCount(summary.sessionCount);
     const formattedMessages = formatCount(summary.messageCount);
@@ -44,32 +35,49 @@ export default function UsageNostalgiaCard({ dashboard }: UsageNostalgiaCardProp
     const mostActiveDayText = mostActiveDay
       ? `${mostActiveDay.date} — ${formatCount(mostActiveDay.totalTokens)} tokens`
       : "N/A";
-
     const rotatingStats = [
-      { id: "days" as const, value: activeDaysText },
-      { id: "sessions" as const, value: `${formattedSessions} sessions` },
-      { id: "messages" as const, value: `${formattedMessages} messages` },
+      {
+        id: "days" as const,
+        value: activeDaysText,
+      },
+      {
+        id: "sessions" as const,
+        value: `${formattedSessions} sessions`,
+      },
+      {
+        id: "messages" as const,
+        value: `${formattedMessages} messages`,
+      },
     ];
-
     return {
       rotatingStats,
       details: [
-        { id: "days", content: activeDaysText },
-        { id: "sessions", content: `${formattedSessions} total sessions` },
-        { id: "messages", content: `${formattedMessages} total messages` },
-        { id: "most-active-day", content: mostActiveDayText },
+        {
+          id: "days",
+          content: activeDaysText,
+        },
+        {
+          id: "sessions",
+          content: `${formattedSessions} total sessions`,
+        },
+        {
+          id: "messages",
+          content: `${formattedMessages} total messages`,
+        },
+        {
+          id: "most-active-day",
+          content: mostActiveDayText,
+        },
       ] satisfies NostalgiaDetailItem[],
     };
-  }, [dashboard]);
-
-  const activeNostalgiaStat = useMemo<NostalgiaRotatingStat | null>(() => {
+  })();
+  const activeNostalgiaStat = (() => {
     const stats = nostalgiaCard?.rotatingStats ?? [];
     if (stats.length === 0) {
       return null;
     }
     return stats[nostalgiaStatIndex % stats.length];
-  }, [nostalgiaCard, nostalgiaStatIndex]);
-
+  })();
   useEffect(() => {
     const statCount = nostalgiaCard?.rotatingStats.length ?? 0;
     if (statCount <= 1) {
@@ -86,7 +94,6 @@ export default function UsageNostalgiaCard({ dashboard }: UsageNostalgiaCardProp
       window.clearInterval(timer);
     };
   }, [nostalgiaCard?.rotatingStats.length]);
-
   return (
     <Card
       data-testid="summary-card-nostalgia"

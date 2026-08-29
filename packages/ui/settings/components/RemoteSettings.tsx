@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { createConfigClient } from "#api/ConfigClient";
 import { useRemoteControlPresenter } from "#api/presenterBridge";
 import { useToast } from "#/components/use-toast";
@@ -7,9 +7,7 @@ import { CHANNELS, type ChannelKey } from "./remote/channelMeta";
 import { ChannelOverviewCard, type ChannelStatus } from "./remote/ChannelOverviewCard";
 import { ChannelConfigPanel, type ChannelConfigHandlers } from "./remote/ChannelConfigPanel";
 import "./remote/remote-channels.css";
-
 const configClient = createConfigClient();
-
 function deriveStatus(
   channel: ChannelKey,
   telegramSettings: TelegramRemoteSettings | null,
@@ -21,19 +19,21 @@ function deriveStatus(
   }
   return telegramSettings?.botToken ? "enabled" : "not-configured";
 }
-
 export default function RemoteSettings() {
   const { toast } = useToast();
   const remoteControlPresenter = useRemoteControlPresenter();
-
   const [isLoading, setIsLoading] = useState(true);
   const [activeChannel, setActiveChannel] = useState<ChannelKey>("telegram");
   const [telegramSettings, setTelegramSettings] = useState<TelegramRemoteSettings | null>(null);
   const [telegramPairing, setTelegramPairing] = useState<TelegramPairingSnapshot | null>(null);
-  const [agents, setAgents] = useState<{ id: string; name: string }[]>([]);
+  const [agents, setAgents] = useState<
+    {
+      id: string;
+      name: string;
+    }[]
+  >([]);
   const [saving, setSaving] = useState(false);
   const [pairBusy, setPairBusy] = useState(false);
-
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
@@ -47,7 +47,10 @@ export default function RemoteSettings() {
           setTelegramSettings(settings);
           setTelegramPairing(pairing);
           setAgents(
-            (agentList ?? []).map((agent: { id: string; name: string }) => ({ id: agent.id, name: agent.name })),
+            (agentList ?? []).map((agent: { id: string; name: string }) => ({
+              id: agent.id,
+              name: agent.name,
+            })),
           );
         }
       } catch {
@@ -60,19 +63,23 @@ export default function RemoteSettings() {
       cancelled = true;
     };
   }, [remoteControlPresenter]);
-
   const saveTelegram = async (next: TelegramRemoteSettings) => {
     setSaving(true);
     try {
       const saved = await remoteControlPresenter.saveTelegramSettings(next);
       setTelegramSettings(saved);
-      toast({ title: "Telegram settings saved" });
+      toast({
+        title: "Telegram settings saved",
+      });
     } catch (error) {
-      toast({ title: "Failed to save", description: String(error), variant: "destructive" });
+      toast({
+        title: "Failed to save",
+        description: String(error),
+        variant: "destructive",
+      });
     }
     setSaving(false);
   };
-
   const refreshTelegramPairing = async () => {
     try {
       const snapshot = await remoteControlPresenter.getTelegramPairingSnapshot();
@@ -81,77 +88,91 @@ export default function RemoteSettings() {
       // ignore
     }
   };
-
   const handleGeneratePairCode = async () => {
     setPairBusy(true);
     try {
       await remoteControlPresenter.createTelegramPairCode();
       await refreshTelegramPairing();
     } catch (error) {
-      toast({ title: "Failed to generate pair code", description: String(error), variant: "destructive" });
+      toast({
+        title: "Failed to generate pair code",
+        description: String(error),
+        variant: "destructive",
+      });
     }
     setPairBusy(false);
   };
-
   const handleClearPairCode = async () => {
     setPairBusy(true);
     try {
       await remoteControlPresenter.clearTelegramPairCode();
       await refreshTelegramPairing();
     } catch (error) {
-      toast({ title: "Failed to clear pair code", description: String(error), variant: "destructive" });
+      toast({
+        title: "Failed to clear pair code",
+        description: String(error),
+        variant: "destructive",
+      });
     }
     setPairBusy(false);
   };
-
   const handleCopyPairCode = async () => {
     const code = telegramPairing?.pairCode;
     if (!code) return;
     try {
       await navigator.clipboard.writeText(code);
-      toast({ title: "Pair code copied" });
+      toast({
+        title: "Pair code copied",
+      });
     } catch {
       // ignore
     }
   };
-
   const handleTelegramAgentChange = async (agentId: string) => {
     if (!telegramSettings) return;
-    const next = { ...telegramSettings, defaultAgentId: agentId };
+    const next = {
+      ...telegramSettings,
+      defaultAgentId: agentId,
+    };
     setTelegramSettings(next);
     await saveTelegram(next);
   };
-
   const handleTokenChange = (token: string) => {
-    setTelegramSettings((prev) => (prev ? { ...prev, botToken: token } : prev));
+    setTelegramSettings((prev) =>
+      prev
+        ? {
+            ...prev,
+            botToken: token,
+          }
+        : prev,
+    );
   };
-
   const handleToggleChannel = async (key: ChannelKey, enabled: boolean) => {
     if (key === "telegram" && telegramSettings) {
-      const next = { ...telegramSettings, remoteEnabled: enabled };
+      const next = {
+        ...telegramSettings,
+        remoteEnabled: enabled,
+      };
       setTelegramSettings(next);
       await saveTelegram(next);
       return;
     }
-    toast({ title: `${CHANNELS.find((c) => c.key === key)?.label} configuration is not yet available` });
+    toast({
+      title: `${CHANNELS.find((c) => c.key === key)?.label} configuration is not yet available`,
+    });
   };
-
   const handleSaveConfig = async (key: ChannelKey) => {
     if (key === "telegram" && telegramSettings) {
       await saveTelegram(telegramSettings);
       return;
     }
-    toast({ title: `${CHANNELS.find((c) => c.key === key)?.label} configuration is not yet available` });
+    toast({
+      title: `${CHANNELS.find((c) => c.key === key)?.label} configuration is not yet available`,
+    });
   };
-
-  const statuses = useMemo(
-    () =>
-      Object.fromEntries(
-        CHANNELS.map((channel) => [channel.key, deriveStatus(channel.key, telegramSettings, telegramPairing)]),
-      ) as Record<ChannelKey, ChannelStatus>,
-    [telegramSettings, telegramPairing],
-  );
-
+  const statuses = Object.fromEntries(
+    CHANNELS.map((channel) => [channel.key, deriveStatus(channel.key, telegramSettings, telegramPairing)]),
+  ) as Record<ChannelKey, ChannelStatus>;
   const configHandlers: ChannelConfigHandlers = {
     saving,
     pairBusy,
@@ -164,7 +185,6 @@ export default function RemoteSettings() {
     onClearPairCode: () => void handleClearPairCode(),
     onCopyPairCode: () => void handleCopyPairCode(),
   };
-
   if (isLoading) {
     return (
       <div data-testid="settings-remote-page" className="h-full w-full p-4 space-y-4 animate-pulse">
@@ -174,7 +194,6 @@ export default function RemoteSettings() {
       </div>
     );
   }
-
   return (
     <div data-testid="settings-remote-page" className="h-full w-full">
       <div className="h-full w-full overflow-y-auto">

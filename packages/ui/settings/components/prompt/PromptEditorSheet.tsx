@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Icon } from "@iconify/react";
 import { getRuntimePathForFile } from "#api/runtime";
 import { Button } from "#shadcn/components/ui/button";
@@ -21,7 +21,6 @@ import { nanoid } from "nanoid";
 import { getMimeTypeIcon } from "#/lib/utils";
 import type { FileItem } from "@argos/shared/presenter";
 import type { MessageFile } from "@argos/shared/chat";
-
 interface PromptParameter {
   name: string;
   description: string;
@@ -32,7 +31,6 @@ interface PromptParameter {
 interface EditablePromptParameter extends PromptParameter {
   id: string;
 }
-
 export interface PromptForm {
   id: string;
   name: string;
@@ -45,18 +43,15 @@ export interface PromptForm {
   createdAt?: number;
   updatedAt?: number;
 }
-
 interface EditablePromptForm extends PromptForm {
   parameters: EditablePromptParameter[];
 }
-
 interface PromptEditorSheetProps {
   open: boolean;
   prompt: PromptForm | null;
   onUpdateOpen: (open: boolean) => void;
   onSubmit: (value: PromptForm) => void;
 }
-
 const defaultForm: EditablePromptForm = {
   id: "",
   name: "",
@@ -69,32 +64,37 @@ const defaultForm: EditablePromptForm = {
   createdAt: undefined,
   updatedAt: undefined,
 };
-
 export default function PromptEditorSheet({ open, prompt, onUpdateOpen, onSubmit }: PromptEditorSheetProps) {
   const { toast } = useToast();
   const fileClient = createFileClient();
-
-  const [form, setForm] = useState<EditablePromptForm>({ ...defaultForm });
-
+  const [form, setForm] = useState<EditablePromptForm>({
+    ...defaultForm,
+  });
   const isEditing = Boolean(form.id);
-
-  const resetForm = useCallback(() => {
-    setForm({ ...defaultForm });
-  }, []);
-
-  const applyPrompt = useCallback((p: PromptForm | null) => {
+  const resetForm = () => {
+    setForm({
+      ...defaultForm,
+    });
+  };
+  const applyPrompt = (p: PromptForm | null) => {
     if (!p) {
-      setForm({ ...defaultForm });
+      setForm({
+        ...defaultForm,
+      });
       return;
     }
     setForm({
       ...p,
-      parameters: p.parameters?.map((param) => ({ ...param, id: nanoid(6) })) || [],
+      parameters:
+        p.parameters?.map((param) => ({
+          ...param,
+          id: nanoid(6),
+        })) || [],
       files: p.files ? [...p.files] : [],
       enabled: p.enabled ?? true,
       source: p.source ?? "local",
     });
-  }, []);
+  };
 
   // Sync the form with the requested prompt; reset when the sheet closes
   // (adjusted during render so the React Compiler can track it).
@@ -109,33 +109,43 @@ export default function PromptEditorSheet({ open, prompt, onUpdateOpen, onSubmit
       applyPrompt(prompt);
     }
   }
-
   const handleOpenChange = (value: boolean) => {
     onUpdateOpen(value);
     if (!value) resetForm();
   };
-
   const addParameter = () => {
     setForm((prev) => ({
       ...prev,
-      parameters: [...prev.parameters, { id: nanoid(6), name: "", description: "", required: true }],
+      parameters: [
+        ...prev.parameters,
+        {
+          id: nanoid(6),
+          name: "",
+          description: "",
+          required: true,
+        },
+      ],
     }));
   };
-
   const removeParameter = (index: number) => {
     setForm((prev) => ({
       ...prev,
       parameters: prev.parameters.filter((_, i) => i !== index),
     }));
   };
-
   const updateParameter = (index: number, field: keyof PromptParameter, value: string | boolean) => {
     setForm((prev) => ({
       ...prev,
-      parameters: prev.parameters.map((p, i) => (i === index ? { ...p, [field]: value } : p)),
+      parameters: prev.parameters.map((p, i) =>
+        i === index
+          ? {
+              ...p,
+              [field]: value,
+            }
+          : p,
+      ),
     }));
   };
-
   const uploadFile = () => {
     const input = document.createElement("input");
     input.type = "file";
@@ -163,23 +173,30 @@ export default function PromptEditorSheet({ open, prompt, onUpdateOpen, onSubmit
             });
           }),
         );
-        setForm((prev) => ({ ...prev, files: [...prev.files, ...newFiles] }));
-        toast({ title: "Upload successful", description: `${files.length} file(s) uploaded` });
+        setForm((prev) => ({
+          ...prev,
+          files: [...prev.files, ...newFiles],
+        }));
+        toast({
+          title: "Upload successful",
+          description: `${files.length} file(s) uploaded`,
+        });
       } catch (error) {
         console.error("Failed to upload prompt attachments:", error);
-        toast({ title: "Upload failed", variant: "destructive" });
+        toast({
+          title: "Upload failed",
+          variant: "destructive",
+        });
       }
     };
     input.click();
   };
-
   const removeFile = (index: number) => {
     setForm((prev) => ({
       ...prev,
       files: prev.files.filter((_, i) => i !== index),
     }));
   };
-
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return "0 Bytes";
     const k = 1024;
@@ -187,16 +204,16 @@ export default function PromptEditorSheet({ open, prompt, onUpdateOpen, onSubmit
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
   };
-
   const submit = () => {
     onSubmit({
       ...form,
       // Strip the transient list keys; the persisted shape stays PromptParameter[]
-      parameters: form.parameters.map(({ id: _id, ...param }) => ({ ...param })),
+      parameters: form.parameters.map(({ id: _id, ...param }) => ({
+        ...param,
+      })),
       files: [...form.files],
     });
   };
-
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent side="right" className="flex h-screen w-[75vw]! max-w-[95vw]! flex-col bg-background p-0">
@@ -223,7 +240,12 @@ export default function PromptEditorSheet({ open, prompt, onUpdateOpen, onSubmit
                     value={form.name}
                     placeholder="Prompt name"
                     className="mt-2"
-                    onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        name: e.target.value,
+                      }))
+                    }
                   />
                 </div>
                 <div>
@@ -232,7 +254,12 @@ export default function PromptEditorSheet({ open, prompt, onUpdateOpen, onSubmit
                     value={form.description}
                     placeholder="Prompt description"
                     className="mt-2"
-                    onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        description: e.target.value,
+                      }))
+                    }
                   />
                 </div>
               </div>
@@ -240,7 +267,12 @@ export default function PromptEditorSheet({ open, prompt, onUpdateOpen, onSubmit
                 <Checkbox
                   id="prompt-enabled"
                   checked={form.enabled}
-                  onCheckedChange={(value) => setForm((prev) => ({ ...prev, enabled: value === true }))}
+                  onCheckedChange={(value) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      enabled: value === true,
+                    }))
+                  }
                 />
                 <Label htmlFor="prompt-enabled" className="text-sm">
                   Enable this prompt
@@ -257,7 +289,12 @@ export default function PromptEditorSheet({ open, prompt, onUpdateOpen, onSubmit
                 value={form.content}
                 className="min-h-48 w-full resize-y font-mono"
                 placeholder="Enter your prompt content here..."
-                onChange={(e) => setForm((prev) => ({ ...prev, content: e.target.value }))}
+                onChange={(e) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    content: e.target.value,
+                  }))
+                }
               />
               <p className="mt-2 text-xs text-muted-foreground">Use {"{parameterName}"} for dynamic parameters.</p>
             </div>

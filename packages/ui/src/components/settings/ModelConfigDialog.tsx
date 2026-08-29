@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "#shadcn/components/ui/dialog";
 import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
@@ -23,7 +23,6 @@ import { useProviderStore } from "#/stores/providerStore";
 import OpenAIImageGenerationSettingsFields from "./OpenAIImageGenerationSettingsFields";
 import OpenAIVideoGenerationSettingsFields from "./OpenAIVideoGenerationSettingsFields";
 import TtsSettingsFields from "./TtsSettingsFields";
-
 interface ModelConfigDialogProps {
   open: boolean;
   modelId: string;
@@ -34,7 +33,6 @@ interface ModelConfigDialogProps {
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
 }
-
 const createDefaultConfig = (): ModelConfig => ({
   maxTokens: DEFAULT_MODEL_MAX_TOKENS,
   contextLength: DEFAULT_MODEL_CONTEXT_LENGTH,
@@ -54,7 +52,6 @@ const createDefaultConfig = (): ModelConfig => ({
   verbosity: "medium",
   samplingParams: undefined,
 });
-
 export default function ModelConfigDialog({
   open,
   modelId,
@@ -67,7 +64,6 @@ export default function ModelConfigDialog({
 }: ModelConfigDialogProps) {
   const modelConfigStore = useModelConfigStore();
   const providerStore = useProviderStore();
-
   const [config, setConfig] = useState<ModelConfig>(() => createDefaultConfig());
   const [topPDraft, setTopPDraft] = useState("");
   const [samplingParamsDraft, setSamplingParamsDraft] = useState("");
@@ -76,12 +72,10 @@ export default function ModelConfigDialog({
   const [modelIdField, setModelIdField] = useState(modelId ?? "");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showResetConfirm, setShowResetConfirm] = useState(false);
-
   const isCreateMode = mode === "create";
   const canEditModelIdentity = isCreateMode || isCustomModel;
   const identityDisplayName = modelNameField || modelName || "";
   const dialogTitle = isCreateMode ? "Create Model" : `Edit ${identityDisplayName}`;
-
   const providerIdLower = providerId?.toLowerCase() || "";
   const isOpenAICompatibleProvider = ![
     "anthropic",
@@ -93,17 +87,13 @@ export default function ModelConfigDialog({
     "acp",
     "voiceai",
   ].some((key) => providerIdLower.includes(key));
-
   const showTtsSettings = config.type === ModelType.TTS;
   const showTemperatureControl = true;
   const showTopPControl = true;
-
-  const loadConfig = useCallback(async () => {
+  const loadConfig = async () => {
     if (!providerId) return;
-
     setModelNameField(modelName ?? "");
     setModelIdField(modelId ?? "");
-
     if (isCreateMode) {
       setConfig(createDefaultConfig());
       setTopPDraft("");
@@ -111,12 +101,13 @@ export default function ModelConfigDialog({
       samplingParamsErrorRef.current = "";
       return;
     }
-
     if (!modelId) return;
-
     try {
       const modelConfig = await modelConfigStore.getModelConfig(modelId, providerId);
-      setConfig({ ...createDefaultConfig(), ...modelConfig });
+      setConfig({
+        ...createDefaultConfig(),
+        ...modelConfig,
+      });
       setTopPDraft(typeof modelConfig.topP === "number" ? String(modelConfig.topP) : "");
       setSamplingParamsDraft(
         modelConfig.samplingParams !== undefined ? JSON.stringify(modelConfig.samplingParams, null, 2) : "",
@@ -129,17 +120,14 @@ export default function ModelConfigDialog({
       setSamplingParamsDraft("");
       samplingParamsErrorRef.current = "";
     }
-  }, [modelId, modelName, providerId, isCreateMode, modelConfigStore]);
-
+  };
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
     (async () => {
       if (!providerId) return;
-
       setModelNameField(modelName ?? "");
       setModelIdField(modelId ?? "");
-
       if (isCreateMode) {
         setConfig(createDefaultConfig());
         setTopPDraft("");
@@ -147,13 +135,14 @@ export default function ModelConfigDialog({
         samplingParamsErrorRef.current = "";
         return;
       }
-
       if (!modelId) return;
-
       try {
         const modelConfig = await modelConfigStore.getModelConfig(modelId, providerId);
         if (cancelled) return;
-        setConfig({ ...createDefaultConfig(), ...modelConfig });
+        setConfig({
+          ...createDefaultConfig(),
+          ...modelConfig,
+        });
         setTopPDraft(typeof modelConfig.topP === "number" ? String(modelConfig.topP) : "");
         setSamplingParamsDraft(
           modelConfig.samplingParams !== undefined ? JSON.stringify(modelConfig.samplingParams, null, 2) : "",
@@ -172,21 +161,20 @@ export default function ModelConfigDialog({
       cancelled = true;
     };
   }, [open, providerId, modelName, modelId, isCreateMode, modelConfigStore]);
-
-  const updateConfig = useCallback((patch: Partial<ModelConfig>) => {
-    setConfig((prev) => ({ ...prev, ...patch }));
-  }, []);
-
-  const validateForm = useCallback(() => {
+  const updateConfig = (patch: Partial<ModelConfig>) => {
+    setConfig((prev) => ({
+      ...prev,
+      ...patch,
+    }));
+  };
+  const validateForm = () => {
     const newErrors: Record<string, string> = {};
-
     if (canEditModelIdentity) {
       const trimmedName = modelNameField.trim();
       const trimmedId = modelIdField.trim();
       if (!trimmedName) newErrors.modelName = "Model name is required";
       if (!trimmedId) newErrors.modelId = "Model ID is required";
     }
-
     if (config.maxTokens && (config.maxTokens < 1 || config.maxTokens > 1000000)) {
       newErrors.maxTokens = "Must be between 1 and 1,000,000";
     }
@@ -210,23 +198,19 @@ export default function ModelConfigDialog({
       }
     }
     samplingParamsErrorRef.current = newErrors.samplingParams ?? "";
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  }, [canEditModelIdentity, modelNameField, modelIdField, config, samplingParamsDraft]);
-
-  const parseSamplingParams = useCallback((): Record<string, unknown> | undefined => {
+  };
+  const parseSamplingParams = (): Record<string, unknown> | undefined => {
     if (!samplingParamsDraft.trim()) return undefined;
     const parsed = JSON.parse(samplingParamsDraft) as unknown;
     if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
       throw new Error("Sampling parameters must be a JSON object");
     }
     return parsed as Record<string, unknown>;
-  }, [samplingParamsDraft]);
-
-  const handleSave = useCallback(async () => {
+  };
+  const handleSave = async () => {
     if (!validateForm()) return;
-
     try {
       const finalTopP = topPDraft.trim() ? Number(topPDraft) : undefined;
       const parsedSamplingParams = parseSamplingParams();
@@ -238,38 +222,22 @@ export default function ModelConfigDialog({
         videoGeneration: config.videoGeneration ?? undefined,
         tts: config.tts ?? undefined,
       };
-
       if (isCreateMode) {
         await modelConfigStore.setModelConfig(modelIdField.trim(), providerId, payload);
         // Note: Previously called modelConfigStore.createCustomModel which no longer exists
       } else {
         await setModelConfig(modelId, providerId, payload);
       }
-
       onSaved();
       onOpenChange(false);
     } catch (error) {
       console.error("Failed to save model config:", error);
     }
-  }, [
-    validateForm,
-    config,
-    topPDraft,
-    parseSamplingParams,
-    isCreateMode,
-    providerId,
-    modelIdField,
-    modelId,
-    modelConfigStore,
-    onSaved,
-    onOpenChange,
-  ]);
-
-  const handleReset = useCallback(() => {
+  };
+  const handleReset = () => {
     setShowResetConfirm(true);
-  }, []);
-
-  const confirmReset = useCallback(async () => {
+  };
+  const confirmReset = async () => {
     try {
       await modelConfigStore.resetModelConfig(modelId, providerId);
       await loadConfig();
@@ -277,17 +245,15 @@ export default function ModelConfigDialog({
       console.error("Failed to reset model config:", error);
     }
     setShowResetConfirm(false);
-  }, [modelId, providerId, modelConfigStore, loadConfig]);
-
-  const clampTopPDraft = useCallback(() => {
+  };
+  const clampTopPDraft = () => {
     const raw = topPDraft.trim();
     if (!raw) return;
     const num = Number(raw);
     if (!Number.isFinite(num)) return;
     if (num < 0.1) setTopPDraft("0.1");
     else if (num > 1) setTopPDraft("1");
-  }, [topPDraft]);
-
+  };
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -347,7 +313,11 @@ export default function ModelConfigDialog({
                   max={1000000}
                   placeholder="Max tokens"
                   className={errors.maxTokens ? "border-destructive" : ""}
-                  onChange={(e) => updateConfig({ maxTokens: Number(e.target.value) })}
+                  onChange={(e) =>
+                    updateConfig({
+                      maxTokens: Number(e.target.value),
+                    })
+                  }
                 />
                 <p className="text-xs text-muted-foreground">Maximum number of output tokens</p>
                 {errors.maxTokens && <p className="text-xs text-destructive">{errors.maxTokens}</p>}
@@ -363,7 +333,11 @@ export default function ModelConfigDialog({
                   max={10000000}
                   placeholder="Context length"
                   className={errors.contextLength ? "border-destructive" : ""}
-                  onChange={(e) => updateConfig({ contextLength: Number(e.target.value) })}
+                  onChange={(e) =>
+                    updateConfig({
+                      contextLength: Number(e.target.value),
+                    })
+                  }
                 />
                 <p className="text-xs text-muted-foreground">Maximum context window size</p>
                 {errors.contextLength && <p className="text-xs text-destructive">{errors.contextLength}</p>}
@@ -380,14 +354,25 @@ export default function ModelConfigDialog({
                   max={MODEL_TIMEOUT_MAX_MS}
                   placeholder="Timeout"
                   className={errors.timeout ? "border-destructive" : ""}
-                  onChange={(e) => updateConfig({ timeout: Number(e.target.value) })}
+                  onChange={(e) =>
+                    updateConfig({
+                      timeout: Number(e.target.value),
+                    })
+                  }
                 />
                 <p className="text-xs text-muted-foreground">Request timeout in milliseconds</p>
                 {errors.timeout && <p className="text-xs text-destructive">{errors.timeout}</p>}
               </div>
 
               {showTtsSettings && (
-                <TtsSettingsFields modelValue={config.tts} onValueChange={(v) => updateConfig({ tts: v })} />
+                <TtsSettingsFields
+                  modelValue={config.tts}
+                  onValueChange={(v) =>
+                    updateConfig({
+                      tts: v,
+                    })
+                  }
+                />
               )}
 
               {showTemperatureControl && (
@@ -402,7 +387,11 @@ export default function ModelConfigDialog({
                     max={2}
                     placeholder="Temperature"
                     className={errors.temperature ? "border-destructive" : ""}
-                    onChange={(e) => updateConfig({ temperature: Number(e.target.value) })}
+                    onChange={(e) =>
+                      updateConfig({
+                        temperature: Number(e.target.value),
+                      })
+                    }
                   />
                   <p className="text-xs text-muted-foreground">Controls randomness (0-2)</p>
                   {errors.temperature && <p className="text-xs text-destructive">{errors.temperature}</p>}
@@ -449,7 +438,14 @@ export default function ModelConfigDialog({
 
               <div className="space-y-2">
                 <Label htmlFor="type">Model Type</Label>
-                <Select value={config.type} onValueChange={(value) => updateConfig({ type: value as ModelType })}>
+                <Select
+                  value={config.type}
+                  onValueChange={(value) =>
+                    updateConfig({
+                      type: value as ModelType,
+                    })
+                  }
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Model type" />
                   </SelectTrigger>
@@ -470,7 +466,11 @@ export default function ModelConfigDialog({
                   <Label htmlFor="apiEndpoint">API Endpoint</Label>
                   <Select
                     value={config.apiEndpoint}
-                    onValueChange={(value) => updateConfig({ apiEndpoint: value as ApiEndpointType })}
+                    onValueChange={(value) =>
+                      updateConfig({
+                        apiEndpoint: value as ApiEndpointType,
+                      })
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="API endpoint" />
@@ -491,7 +491,14 @@ export default function ModelConfigDialog({
                   <Label>Vision</Label>
                   <p className="text-xs text-muted-foreground">Enable vision capabilities</p>
                 </div>
-                <Switch checked={config.vision} onCheckedChange={(value) => updateConfig({ vision: value })} />
+                <Switch
+                  checked={config.vision}
+                  onCheckedChange={(value) =>
+                    updateConfig({
+                      vision: value,
+                    })
+                  }
+                />
               </div>
 
               <div className="flex items-center justify-between">
@@ -501,7 +508,11 @@ export default function ModelConfigDialog({
                 </div>
                 <Switch
                   checked={config.functionCall}
-                  onCheckedChange={(value) => updateConfig({ functionCall: value })}
+                  onCheckedChange={(value) =>
+                    updateConfig({
+                      functionCall: value,
+                    })
+                  }
                 />
               </div>
 
@@ -510,7 +521,14 @@ export default function ModelConfigDialog({
                   <Label>Reasoning</Label>
                   <p className="text-xs text-muted-foreground">Enable reasoning capabilities</p>
                 </div>
-                <Switch checked={config.reasoning} onCheckedChange={(value) => updateConfig({ reasoning: value })} />
+                <Switch
+                  checked={config.reasoning}
+                  onCheckedChange={(value) =>
+                    updateConfig({
+                      reasoning: value,
+                    })
+                  }
+                />
               </div>
 
               {config.reasoning && (
@@ -518,7 +536,11 @@ export default function ModelConfigDialog({
                   <Label htmlFor="reasoningEffort">Reasoning Effort</Label>
                   <Select
                     value={config.reasoningEffort}
-                    onValueChange={(value) => updateConfig({ reasoningEffort: value as any })}
+                    onValueChange={(value) =>
+                      updateConfig({
+                        reasoningEffort: value as any,
+                      })
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Reasoning effort" />

@@ -1,9 +1,8 @@
-import { type FC, useMemo } from "react";
+import { type FC } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import type { ToolInteractionResponse } from "@argos/shared/types/agent-interface";
 import type { DisplayAssistantMessageBlock } from "#/components/chat/messageListItems";
-
 type PendingInteractionView = {
   messageId: string;
   toolCallId: string;
@@ -12,30 +11,23 @@ type PendingInteractionView = {
   toolArgs: string;
   block: DisplayAssistantMessageBlock;
 };
-
 interface ChatToolInteractionOverlayProps {
   interaction: PendingInteractionView;
   processing?: boolean;
   embedded?: boolean;
   onRespond: (response: ToolInteractionResponse) => void;
 }
-
 const ChatToolInteractionOverlay: FC<ChatToolInteractionOverlayProps> = ({
   interaction,
   processing = false,
   embedded = false,
   onRespond,
 }) => {
-  const isQuestion = useMemo(() => interaction.actionType === "question_request", [interaction.actionType]);
-  const isPermission = useMemo(() => interaction.actionType === "tool_call_permission", [interaction.actionType]);
-  const isSkillDraft = useMemo(
-    () => interaction.block.extra?.skillDraftAction === "confirm",
-    [interaction.block.extra?.skillDraftAction],
-  );
-
-  const headerIcon = useMemo(() => (isQuestion ? "lucide:message-circle-question" : "lucide:shield"), [isQuestion]);
-
-  const headerText = useMemo(() => {
+  const isQuestion = interaction.actionType === "question_request";
+  const isPermission = interaction.actionType === "tool_call_permission";
+  const isSkillDraft = interaction.block.extra?.skillDraftAction === "confirm";
+  const headerIcon = isQuestion ? "lucide:message-circle-question" : "lucide:shield";
+  const headerText = (() => {
     if (isQuestion) {
       const raw = interaction.block.extra?.questionHeader;
       if (typeof raw === "string" && raw.trim()) {
@@ -44,9 +36,8 @@ const ChatToolInteractionOverlay: FC<ChatToolInteractionOverlayProps> = ({
       return "Question";
     }
     return "Permission Request";
-  }, [isQuestion, interaction.block.extra?.questionHeader]);
-
-  const bodyText = useMemo(() => {
+  })();
+  const bodyText = (() => {
     if (isQuestion) {
       const raw = interaction.block.extra?.questionText;
       if (typeof raw === "string" && raw.trim()) {
@@ -55,14 +46,12 @@ const ChatToolInteractionOverlay: FC<ChatToolInteractionOverlayProps> = ({
       return interaction.block.content || "";
     }
     return interaction.block.content || "";
-  }, [isQuestion, interaction.block.extra?.questionText, interaction.block.content]);
-
-  const skillDraftPreview = useMemo(() => {
+  })();
+  const skillDraftPreview = (() => {
     const raw = interaction.block.extra?.skillDraftPreview;
     return typeof raw === "string" ? raw : "";
-  }, [interaction.block.extra?.skillDraftPreview]);
-
-  const formattedToolArgs = useMemo(() => {
+  })();
+  const formattedToolArgs = (() => {
     const raw = interaction.toolArgs || "";
     if (!raw.trim()) return "";
     try {
@@ -70,11 +59,13 @@ const ChatToolInteractionOverlay: FC<ChatToolInteractionOverlayProps> = ({
     } catch {
       return raw;
     }
-  }, [interaction.toolArgs]);
-
-  type QuestionOptionView = { label: string; rawLabel: string; description?: string };
-
-  const questionOptions = useMemo(() => {
+  })();
+  type QuestionOptionView = {
+    label: string;
+    rawLabel: string;
+    description?: string;
+  };
+  const questionOptions = (() => {
     const raw = interaction.block.extra?.questionOptions;
     let items: unknown[] = [];
     if (Array.isArray(raw)) {
@@ -90,38 +81,45 @@ const ChatToolInteractionOverlay: FC<ChatToolInteractionOverlayProps> = ({
     return items
       .map((item: unknown): QuestionOptionView | null => {
         if (!item || typeof item !== "object") return null;
-        const candidate = item as { label?: unknown; description?: unknown };
+        const candidate = item as {
+          label?: unknown;
+          description?: unknown;
+        };
         if (typeof candidate.label !== "string") return null;
         const label = candidate.label.trim();
         if (!label) return null;
         if (typeof candidate.description === "string" && candidate.description.trim()) {
-          return { label, rawLabel: label, description: candidate.description.trim() };
+          return {
+            label,
+            rawLabel: label,
+            description: candidate.description.trim(),
+          };
         }
-        return { label, rawLabel: label };
+        return {
+          label,
+          rawLabel: label,
+        };
       })
       .filter((item): item is QuestionOptionView => Boolean(item));
-  }, [interaction.block.extra?.questionOptions]);
-
-  const allowOther = useMemo(
-    () => interaction.block.extra?.questionCustom !== false,
-    [interaction.block.extra?.questionCustom],
-  );
-
+  })();
+  const allowOther = interaction.block.extra?.questionCustom !== false;
   const onPermission = (granted: boolean) => {
-    onRespond({ kind: "permission", granted });
+    onRespond({
+      kind: "permission",
+      granted,
+    });
   };
-
   const onQuestionOption = (option: QuestionOptionView) => {
     onRespond({
       kind: "question_option",
       optionLabel: isSkillDraft ? option.rawLabel : option.label,
     });
   };
-
   const onQuestionOther = () => {
-    onRespond({ kind: "question_other" });
+    onRespond({
+      kind: "question_other",
+    });
   };
-
   return (
     <div
       className={[
@@ -209,5 +207,4 @@ const ChatToolInteractionOverlay: FC<ChatToolInteractionOverlayProps> = ({
     </div>
   );
 };
-
 export default ChatToolInteractionOverlay;

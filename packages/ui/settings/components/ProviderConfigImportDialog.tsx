@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Icon } from "@iconify/react";
 import {
   Dialog,
@@ -26,15 +26,12 @@ import type {
   ProviderImportSourceId,
   ProviderImportSourceScan,
 } from "@argos/shared/providerImport";
-
 type WizardStep = "scan" | "providers" | "applying" | "done";
-
 interface ProviderConfigImportDialogProps {
   open: boolean;
   onOpenChange: (value: boolean) => void;
   onImportComplete?: (result: ProviderImportApplyResult) => void;
 }
-
 function apiTypeLabel(value: string): string {
   const labels: Record<string, string> = {
     "openai-completions": "OpenAI Completions",
@@ -47,12 +44,10 @@ function apiTypeLabel(value: string): string {
   };
   return labels[value] ?? value;
 }
-
 const toCustomApiType = (value: string): ProviderImportCustomApiType =>
   PROVIDER_IMPORT_CUSTOM_API_TYPES.includes(value as ProviderImportCustomApiType)
     ? (value as ProviderImportCustomApiType)
     : "openai-completions";
-
 const providerTargetKey = (provider: ProviderImportProviderPreview): string => {
   if (provider.targetKind === "unsupported" || !provider.targetProviderId) return "";
   if (provider.targetKind === "custom") {
@@ -60,14 +55,12 @@ const providerTargetKey = (provider: ProviderImportProviderPreview): string => {
   }
   return `${provider.targetKind}:${provider.targetProviderId}`;
 };
-
 export default function ProviderConfigImportDialog({
   open,
   onOpenChange,
   onImportComplete,
 }: ProviderConfigImportDialogProps) {
   const providerClient = createProviderClient();
-
   const [step, setStep] = useState<WizardStep>("scan");
   const [scanResult, setScanResult] = useState<ProviderImportScanResult | null>(null);
   const [applyResult, setApplyResult] = useState<ProviderImportApplyResult | null>(null);
@@ -80,82 +73,93 @@ export default function ProviderConfigImportDialog({
   const [selectedProviderApiTypes, setSelectedProviderApiTypes] = useState<Record<string, ProviderImportCustomApiType>>(
     {},
   );
-
-  const customApiTypeOptions = useMemo(
-    () => PROVIDER_IMPORT_CUSTOM_API_TYPES.map((value) => ({ value, label: apiTypeLabel(value) })),
-    [],
-  );
-
-  const orderedSources = useMemo<ProviderImportSourceScan[]>(() => {
+  const customApiTypeOptions = PROVIDER_IMPORT_CUSTOM_API_TYPES.map((value) => ({
+    value,
+    label: apiTypeLabel(value),
+  }));
+  const orderedSources = (() => {
     if (!scanResult) return [];
     const sourceById = new Map(scanResult.sources.map((s) => [s.id, s]));
     return scanResult.sourceOrder.flatMap((sourceId) => {
       const source = sourceById.get(sourceId);
       return source ? [source] : [];
     });
-  }, [scanResult]);
-
-  const visibleSources = useMemo<ProviderImportSourceScan[]>(
-    () => orderedSources.filter((s) => s.status !== "not_found" && s.status !== "unsupported_platform"),
-    [orderedSources],
-  );
-
-  const selectableSourceCount = useMemo(() => visibleSources.filter((s) => s.selectable).length, [visibleSources]);
-
-  const selectedSourceIds = useMemo(
-    () => visibleSources.flatMap((s) => (s.selectable && selectedSources.has(s.id) ? [s.id] : [])),
-    [visibleSources, selectedSources],
-  );
-
-  const currentSource = useMemo(() => {
+  })();
+  const visibleSources = orderedSources.filter((s) => s.status !== "not_found" && s.status !== "unsupported_platform");
+  const selectableSourceCount = visibleSources.filter((s) => s.selectable).length;
+  const selectedSourceIds = visibleSources.flatMap((s) => (s.selectable && selectedSources.has(s.id) ? [s.id] : []));
+  const currentSource = (() => {
     const sourceId = selectedSourceIds[currentSourceIndex];
     return orderedSources.find((s) => s.id === sourceId) ?? null;
-  }, [selectedSourceIds, currentSourceIndex, orderedSources]);
-
-  const currentSourceProviders = useMemo(
-    () => (currentSource && scanResult ? scanResult.providers.filter((p) => p.sourceId === currentSource.id) : []),
-    [currentSource, scanResult],
-  );
-
-  const selectedProviderCount = useMemo(
-    () =>
-      selectedSourceIds.reduce((count, sourceId) => {
-        return count + (selectedProvidersBySource[sourceId]?.length ?? 0);
-      }, 0),
-    [selectedSourceIds, selectedProvidersBySource],
-  );
-
+  })();
+  const currentSourceProviders =
+    currentSource && scanResult ? scanResult.providers.filter((p) => p.sourceId === currentSource.id) : [];
+  const selectedProviderCount = selectedSourceIds.reduce((count, sourceId) => {
+    return count + (selectedProvidersBySource[sourceId]?.length ?? 0);
+  }, 0);
   const canContinueFromScan = !isScanning && selectedSourceIds.length > 0;
   const canContinueFromProviders =
     step === "providers" && (currentSourceIndex < selectedSourceIds.length - 1 || selectedProviderCount > 0);
-
   const providerActionLabel = currentSourceIndex < selectedSourceIds.length - 1 ? "Next" : "Import";
-
-  const activeStepKey = useMemo(() => {
+  const activeStepKey = (() => {
     if (step === "providers") return `source-${currentSource?.id ?? "unknown"}`;
     return step;
-  }, [step, currentSource]);
-
-  const visibleSteps = useMemo(() => {
+  })();
+  const visibleSteps = (() => {
     const sources = selectedSourceIds.map((sourceId) => {
       const source = orderedSources.find((item) => item.id === sourceId);
-      return { key: `source-${sourceId}`, label: source?.name ?? sourceId };
+      return {
+        key: `source-${sourceId}`,
+        label: source?.name ?? sourceId,
+      };
     });
-    return [{ key: "scan", label: "Scan" }, ...sources, { key: "done", label: "Done" }];
-  }, [selectedSourceIds, orderedSources]);
-
-  const summaryMetrics = useMemo(() => {
+    return [
+      {
+        key: "scan",
+        label: "Scan",
+      },
+      ...sources,
+      {
+        key: "done",
+        label: "Done",
+      },
+    ];
+  })();
+  const summaryMetrics = (() => {
     if (!applyResult) return [];
     return [
-      { key: "imported", label: "Imported", value: applyResult.summary.imported },
-      { key: "created", label: "Created", value: applyResult.summary.created },
-      { key: "updated", label: "Updated", value: applyResult.summary.updated },
-      { key: "overwritten", label: "Overwritten", value: applyResult.summary.overwritten },
-      { key: "skipped", label: "Skipped", value: applyResult.summary.skipped },
-      { key: "models", label: "Models", value: applyResult.summary.models },
+      {
+        key: "imported",
+        label: "Imported",
+        value: applyResult.summary.imported,
+      },
+      {
+        key: "created",
+        label: "Created",
+        value: applyResult.summary.created,
+      },
+      {
+        key: "updated",
+        label: "Updated",
+        value: applyResult.summary.updated,
+      },
+      {
+        key: "overwritten",
+        label: "Overwritten",
+        value: applyResult.summary.overwritten,
+      },
+      {
+        key: "skipped",
+        label: "Skipped",
+        value: applyResult.summary.skipped,
+      },
+      {
+        key: "models",
+        label: "Models",
+        value: applyResult.summary.models,
+      },
     ];
-  }, [applyResult]);
-
+  })();
   const runScan = async () => {
     setIsScanning(true);
     setScanError("");
@@ -183,7 +187,6 @@ export default function ProviderConfigImportDialog({
     }
     setIsScanning(false);
   };
-
   const initialize = async () => {
     setStep("scan");
     setApplyResult(null);
@@ -192,17 +195,14 @@ export default function ProviderConfigImportDialog({
     setSelectedProviderApiTypes({});
     await runScan();
   };
-
   const initializeRef = useRef(initialize);
   useEffect(() => {
     initializeRef.current = initialize;
   }, [initialize]);
-
   useEffect(() => {
     if (!open) return;
     void Promise.resolve().then(() => initializeRef.current());
   }, [open]);
-
   const toggleSource = (sourceId: ProviderImportSourceId) => {
     setSelectedSources((prev) => {
       const next = new Set(prev);
@@ -211,7 +211,6 @@ export default function ProviderConfigImportDialog({
       return next;
     });
   };
-
   const toggleProvider = (providerId: string) => {
     const sourceId = currentSource?.id;
     if (!sourceId) return;
@@ -225,15 +224,16 @@ export default function ProviderConfigImportDialog({
         if (!isProviderSelectable(provider)) return prev;
         selected.add(providerId);
       }
-      return { ...prev, [sourceId]: [...selected] };
+      return {
+        ...prev,
+        [sourceId]: [...selected],
+      };
     });
   };
-
   const isProviderSelected = (providerId: string): boolean => {
     const sourceId = currentSource?.id;
     return Boolean(sourceId && selectedProvidersBySource[sourceId]?.includes(providerId));
   };
-
   const selectAllCurrentProviders = () => {
     const sourceId = currentSource?.id;
     if (!sourceId) return;
@@ -242,18 +242,18 @@ export default function ProviderConfigImportDialog({
       [sourceId]: currentSourceProviders.flatMap((p) => (isProviderSelectable(p) ? [p.id] : [])),
     }));
   };
-
   const clearCurrentProviders = () => {
     const sourceId = currentSource?.id;
     if (!sourceId) return;
-    setSelectedProvidersBySource((prev) => ({ ...prev, [sourceId]: [] }));
+    setSelectedProvidersBySource((prev) => ({
+      ...prev,
+      [sourceId]: [],
+    }));
   };
-
   const goToProviders = () => {
     setCurrentSourceIndex(0);
     setStep("providers");
   };
-
   const goBack = () => {
     if (step !== "providers") return;
     if (currentSourceIndex === 0) {
@@ -262,14 +262,12 @@ export default function ProviderConfigImportDialog({
     }
     setCurrentSourceIndex((prev) => prev - 1);
   };
-
   const goNextProviderStep = async () => {
     if (currentSourceIndex < selectedSourceIds.length - 1) {
       setCurrentSourceIndex((prev) => prev + 1);
       return;
     }
     if (!scanResult || selectedProviderCount === 0) return;
-
     setStep("applying");
     setApplyError("");
     try {
@@ -289,7 +287,6 @@ export default function ProviderConfigImportDialog({
       setStep("providers");
     }
   };
-
   const buildProviderOptions = (providerIds: string[]): ProviderImportSelection["providerOptions"] => {
     if (!scanResult) return undefined;
     const selectedIds = new Set(providerIds);
@@ -302,7 +299,6 @@ export default function ProviderConfigImportDialog({
     }
     return Object.keys(options).length > 0 ? options : undefined;
   };
-
   const hasRequiredPreviewCredentials = (provider: ProviderImportProviderPreview, apiTypeArg?: string): boolean => {
     const apiType = apiTypeArg ?? (selectedProviderApiTypes[provider.id] || toCustomApiType(provider.targetApiType));
     if (provider.targetKind !== "custom") {
@@ -311,17 +307,14 @@ export default function ProviderConfigImportDialog({
     if (apiType === "ollama") return Boolean(provider.baseUrl.trim());
     return Boolean(provider.apiKeyMasked.trim()) && Boolean(provider.baseUrl.trim());
   };
-
   const canEditProviderApiType = (provider: ProviderImportProviderPreview): boolean =>
     provider.targetKind === "custom" && Boolean(provider.baseUrl.trim());
-
   const isProviderSelectable = (provider: ProviderImportProviderPreview): boolean => {
     if (provider.targetKind === "custom") {
       return canEditProviderApiType(provider) && hasRequiredPreviewCredentials(provider);
     }
     return provider.selectable;
   };
-
   const warningTexts = (provider: ProviderImportProviderPreview): string[] => {
     const warnings = provider.warnings.filter((w) => w !== "missing_api_key" || provider.targetKind !== "custom");
     if (provider.targetKind === "custom" && !hasRequiredPreviewCredentials(provider)) {
@@ -333,16 +326,14 @@ export default function ProviderConfigImportDialog({
     };
     return warnings.map((w) => warningLabels[w] ?? w);
   };
-
-  const selectedProviderOrder = useMemo(() => {
+  const selectedProviderOrder = (() => {
     if (!scanResult) return [];
     return selectedSourceIds.flatMap((sourceId) => {
       const selected = new Set(selectedProvidersBySource[sourceId] ?? []);
       return scanResult!.providers.filter((p) => p.sourceId === sourceId && selected.has(p.id));
     });
-  }, [scanResult, selectedSourceIds, selectedProvidersBySource]);
-
-  const selectedProviderConflict = useMemo(() => {
+  })();
+  const selectedProviderConflict = (() => {
     const lastByTarget = new Map<string, ProviderImportProviderPreview>();
     const firstByTarget = new Map<string, ProviderImportProviderPreview>();
     for (const provider of selectedProviderOrder) {
@@ -351,9 +342,11 @@ export default function ProviderConfigImportDialog({
       if (!firstByTarget.has(key)) firstByTarget.set(key, provider);
       lastByTarget.set(key, provider);
     }
-    return { firstByTarget, lastByTarget };
-  }, [selectedProviderOrder]);
-
+    return {
+      firstByTarget,
+      lastByTarget,
+    };
+  })();
   const selectionConflictText = (provider: ProviderImportProviderPreview): string => {
     if (!selectedProvidersBySource[provider.sourceId]?.includes(provider.id)) return "";
     const key = providerTargetKey(provider);
@@ -364,7 +357,6 @@ export default function ProviderConfigImportDialog({
     if (last.id === provider.id) return "This will override a previous selection.";
     return "This will be overwritten by a later selection.";
   };
-
   const resultStatusIcon = (status: ProviderImportApplyResultItem["status"]): string => {
     switch (status) {
       case "created":
@@ -377,7 +369,6 @@ export default function ProviderConfigImportDialog({
         return "lucide:circle-slash";
     }
   };
-
   const targetKindLabel = (targetKind: ProviderImportProviderPreview["targetKind"]): string => {
     const labels: Record<string, string> = {
       builtin: "Built-in",
@@ -386,7 +377,6 @@ export default function ProviderConfigImportDialog({
     };
     return labels[targetKind] ?? targetKind;
   };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex h-[88vh] max-h-[88vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl">
@@ -453,9 +443,7 @@ export default function ProviderConfigImportDialog({
                     {visibleSources.map((source) => (
                       <div
                         key={source.id}
-                        className={`flex items-start gap-3 border-b px-4 py-3 last:border-b-0 ${
-                          source.selectable ? "bg-background" : "bg-muted/20 text-muted-foreground"
-                        }`}
+                        className={`flex items-start gap-3 border-b px-4 py-3 last:border-b-0 ${source.selectable ? "bg-background" : "bg-muted/20 text-muted-foreground"}`}
                       >
                         <div className="min-w-0 flex-1">
                           <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
@@ -527,12 +515,7 @@ export default function ProviderConfigImportDialog({
                     {currentSourceProviders.map((provider) => (
                       <div
                         key={provider.id}
-                        className={`rounded-lg border p-4 ${cn(
-                          !isProviderSelectable(provider) && !canEditProviderApiType(provider)
-                            ? "bg-muted/20 opacity-75"
-                            : "bg-background",
-                          isProviderSelected(provider.id) ? "border-accent-400" : "",
-                        )}`}
+                        className={`rounded-lg border p-4 ${cn(!isProviderSelectable(provider) && !canEditProviderApiType(provider) ? "bg-muted/20 opacity-75" : "bg-background", isProviderSelected(provider.id) ? "border-accent-400" : "")}`}
                       >
                         <div className="flex gap-3">
                           <Checkbox

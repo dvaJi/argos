@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
@@ -17,7 +17,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "#shadcn/components/ui/t
 import { useMcpStore, mcpStore as mcpStoreInstance } from "#/stores/mcp";
 import { useToast } from "#/components/use-toast";
 import ragflowPng from "#/assets/images/ragflow.png";
-
 interface RagflowConfig {
   description: string;
   apiKey: string;
@@ -25,15 +24,12 @@ interface RagflowConfig {
   endpoint: string;
   enabled?: boolean;
 }
-
 interface EditingConfig extends Omit<RagflowConfig, "datasetIds"> {
   datasetIdsStr: string;
 }
-
 const RagflowKnowledgeSettings = () => {
   const mcpStore = useMcpStore();
   const { toast } = useToast();
-
   const [isConfigPanelOpen, setIsConfigPanelOpen] = useState(false);
   const [isConfigDialogOpen, setIsConfigDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -46,20 +42,14 @@ const RagflowKnowledgeSettings = () => {
     enabled: true,
   });
   const editingIndexRef = useRef(-1);
-
-  const isValid = useMemo(
-    () =>
-      editingConfig.apiKey.trim() !== "" &&
-      editingConfig.datasetIdsStr.trim() !== "" &&
-      editingConfig.description.trim() !== "",
-    [editingConfig],
-  );
-
-  const isMcpEnabled = useMemo(() => mcpStore.serverStatuses["ragflowKnowledge"] || false, [mcpStore.serverStatuses]);
+  const isValid =
+    editingConfig.apiKey.trim() !== "" &&
+    editingConfig.datasetIdsStr.trim() !== "" &&
+    editingConfig.description.trim() !== "";
+  const isMcpEnabled = mcpStore.serverStatuses["ragflowKnowledge"] || false;
   const configReady = mcpStore.config.ready;
   const mcpEnabled = mcpStore.mcpEnabled;
   const { toggleServer } = mcpStore;
-
   const openAddConfig = () => {
     setIsEditing(false);
     editingIndexRef.current = -1;
@@ -72,20 +62,20 @@ const RagflowKnowledgeSettings = () => {
     });
     setIsConfigDialogOpen(true);
   };
-
   const editConfig = (index: number) => {
     const config = configs[index];
     setIsEditing(true);
     editingIndexRef.current = index;
-    setEditingConfig({ ...config, datasetIdsStr: config.datasetIds.join(",") });
+    setEditingConfig({
+      ...config,
+      datasetIdsStr: config.datasetIds.join(","),
+    });
     setIsConfigDialogOpen(true);
   };
-
   const closeDialog = () => {
     setIsConfigDialogOpen(false);
     editingIndexRef.current = -1;
   };
-
   const saveConfig = async () => {
     if (!isValid) return;
     const datasetIds = editingConfig.datasetIdsStr
@@ -107,28 +97,36 @@ const RagflowKnowledgeSettings = () => {
     await updateToMcp();
     closeDialog();
   };
-
   const removeConfig = async (index: number) => {
     setConfigs((prev) => prev.filter((_, i) => i !== index));
     await updateToMcp();
   };
-
   const toggleConfigEnabled = async (index: number, enabled: boolean) => {
-    setConfigs((prev) => prev.map((config, i) => (i === index ? { ...config, enabled } : config)));
+    setConfigs((prev) =>
+      prev.map((config, i) =>
+        i === index
+          ? {
+              ...config,
+              enabled,
+            }
+          : config,
+      ),
+    );
     await updateToMcp();
   };
-
   const updateToMcp = async () => {
     try {
-      await mcpStore.updateServer("ragflowKnowledge", { env: { configs } });
+      await mcpStore.updateServer("ragflowKnowledge", {
+        env: {
+          configs,
+        },
+      });
     } catch {}
   };
-
   const toggleMcpServer = async () => {
     if (!mcpStore.mcpEnabled) return;
     await mcpStore.toggleServer("ragflowKnowledge");
   };
-
   useEffect(() => {
     if (!configReady) return;
     let cancelled = false;
@@ -147,11 +145,9 @@ const RagflowKnowledgeSettings = () => {
       cancelled = true;
     };
   }, [configReady]);
-
   useEffect(() => {
     if (!mcpEnabled && isMcpEnabled) void toggleServer("ragflowKnowledge");
   }, [mcpEnabled, isMcpEnabled, toggleServer]);
-
   return (
     <div className="border rounded-lg overflow-hidden">
       <div
@@ -240,14 +236,24 @@ const RagflowKnowledgeSettings = () => {
               <Label className="text-xs text-muted-foreground">Description</Label>
               <Input
                 value={editingConfig.description}
-                onChange={(e) => setEditingConfig((p) => ({ ...p, description: e.target.value }))}
+                onChange={(e) =>
+                  setEditingConfig((p) => ({
+                    ...p,
+                    description: e.target.value,
+                  }))
+                }
               />
             </div>
             <div className="space-y-2">
               <Label className="text-xs text-muted-foreground">API Key</Label>
               <Input
                 value={editingConfig.apiKey}
-                onChange={(e) => setEditingConfig((p) => ({ ...p, apiKey: e.target.value }))}
+                onChange={(e) =>
+                  setEditingConfig((p) => ({
+                    ...p,
+                    apiKey: e.target.value,
+                  }))
+                }
                 type="password"
               />
             </div>
@@ -255,7 +261,12 @@ const RagflowKnowledgeSettings = () => {
               <Label className="text-xs text-muted-foreground">Dataset IDs</Label>
               <Input
                 value={editingConfig.datasetIdsStr}
-                onChange={(e) => setEditingConfig((p) => ({ ...p, datasetIdsStr: e.target.value }))}
+                onChange={(e) =>
+                  setEditingConfig((p) => ({
+                    ...p,
+                    datasetIdsStr: e.target.value,
+                  }))
+                }
                 placeholder="Comma-separated"
               />
             </div>
@@ -263,7 +274,12 @@ const RagflowKnowledgeSettings = () => {
               <Label className="text-xs text-muted-foreground">Endpoint</Label>
               <Input
                 value={editingConfig.endpoint}
-                onChange={(e) => setEditingConfig((p) => ({ ...p, endpoint: e.target.value }))}
+                onChange={(e) =>
+                  setEditingConfig((p) => ({
+                    ...p,
+                    endpoint: e.target.value,
+                  }))
+                }
               />
             </div>
           </div>
@@ -280,5 +296,4 @@ const RagflowKnowledgeSettings = () => {
     </div>
   );
 };
-
 export default RagflowKnowledgeSettings;

@@ -7,6 +7,7 @@ export const streamStateStore = new Store({
   currentStreamSessionId: null as string | null,
   currentStreamMessageId: null as string | null,
   streamRevision: 0,
+  streamStartedAt: 0,
 });
 
 export const setStream = (sessionId: string, blocks: AssistantMessageBlock[], messageId?: string): void => {
@@ -16,6 +17,7 @@ export const setStream = (sessionId: string, blocks: AssistantMessageBlock[], me
     currentStreamSessionId: sessionId,
     currentStreamMessageId: messageId ?? null,
     streamingBlocks: blocks,
+    streamStartedAt: prev.streamStartedAt || Date.now(),
     streamRevision: prev.streamRevision + 1,
   }));
 };
@@ -27,6 +29,7 @@ export const clearStreamingState = (): void => {
     streamingBlocks: [],
     currentStreamSessionId: null,
     currentStreamMessageId: null,
+    streamStartedAt: 0,
     streamRevision: prev.streamRevision + 1,
   }));
 };

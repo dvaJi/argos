@@ -1,4 +1,4 @@
-import { type FC, type FormEvent, useState, useMemo } from "react";
+import { type FC, type FormEvent, useState } from "react";
 import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
 import { Label } from "#shadcn/components/ui/label";
@@ -13,10 +13,8 @@ import { X } from "lucide-react";
 import { createDeviceClient } from "#api/DeviceClient";
 import { nanoid } from "nanoid";
 import { Checkbox } from "#shadcn/components/ui/checkbox";
-
 type MCPServerTypeOption = "sse" | "stdio" | "inmemory" | "http";
 const VALID_MCP_TYPES: MCPServerTypeOption[] = ["stdio", "sse", "http", "inmemory"];
-
 interface McpServerFormProps {
   serverName?: string;
   initialConfig?: MCPServerConfig;
@@ -24,7 +22,6 @@ interface McpServerFormProps {
   defaultJsonConfig?: string;
   onSubmit: (serverName: string, config: MCPServerConfig) => void;
 }
-
 const placeholder = `MCP config example:
 {
   "mcpServers": {
@@ -34,15 +31,12 @@ const placeholder = `MCP config example:
     }
   }
 }`;
-
 const customHeadersPlaceholder = `Authorization=Bearer your_token
 HTTP-Referer=argos.aipurrjects.xyz`;
-
 const formatJsonHeaders = (headers: Record<string, string>): string =>
   Object.entries(headers)
     .map(([key, value]) => `${key}=${value}`)
     .join("\n");
-
 const validateKeyValueHeaders = (text: string): boolean => {
   if (!text.trim()) return true;
   for (const line of text.split("\n")) {
@@ -53,7 +47,6 @@ const validateKeyValueHeaders = (text: string): boolean => {
   }
   return true;
 };
-
 const maskSensitiveValue = (value: string): string =>
   value.replace(/=(.+)/g, (_, val) => {
     const trimmedVal = val.trim();
@@ -61,9 +54,11 @@ const maskSensitiveValue = (value: string): string =>
     if (trimmedVal.length <= 12) return "=" + trimmedVal.substring(0, 1) + "*".repeat(6);
     return "=" + trimmedVal.substring(0, 2) + "*".repeat(8) + trimmedVal.substring(trimmedVal.length - 2);
   });
-
-const createArgsRows = (values: string[]) => values.map((value) => ({ id: nanoid(), value }));
-
+const createArgsRows = (values: string[]) =>
+  values.map((value) => ({
+    id: nanoid(),
+    value,
+  }));
 const McpServerForm: FC<McpServerFormProps> = ({
   serverName: serverNameProp,
   initialConfig,
@@ -74,7 +69,6 @@ const McpServerForm: FC<McpServerFormProps> = ({
   const { toast } = useToast();
   const deviceClient = createDeviceClient();
   const initialArgs = Array.isArray(initialConfig?.args) ? initialConfig.args : [];
-
   const [name, setName] = useState(serverNameProp || "");
   const [command, setCommand] = useState(initialConfig?.command || "npx");
   const [env, setEnv] = useState(() => JSON.stringify(initialConfig?.env || {}, null, 2));
@@ -98,7 +92,12 @@ const McpServerForm: FC<McpServerFormProps> = ({
   );
   const [currentStep, setCurrentStep] = useState(editMode ? "detailed" : "simple");
   const [jsonConfig, setJsonConfig] = useState("");
-  const [argsRows, setArgsRows] = useState<Array<{ id: string; value: string }>>(() => createArgsRows(initialArgs));
+  const [argsRows, setArgsRows] = useState<
+    Array<{
+      id: string;
+      value: string;
+    }>
+  >(() => createArgsRows(initialArgs));
   const [foldersList, setFoldersList] = useState<string[]>(() => [...initialArgs]);
   // Mirror the incoming `defaultJsonConfig` prop into the editable jsonConfig
   // state (prev-compare during render — no effect needed).
@@ -109,24 +108,16 @@ const McpServerForm: FC<McpServerFormProps> = ({
       setJsonConfig(defaultJsonConfig);
     }
   }
-
-  const isInMemoryType = useMemo(() => type === "inmemory", [type]);
-  const isBuildInFileSystem = useMemo(() => isInMemoryType && name === "buildInFileSystem", [isInMemoryType, name]);
-  const isHttpTransportType = useMemo(() => type === "http", [type]);
-  const isRemoteType = useMemo(() => type === "sse" || isHttpTransportType, [type, isHttpTransportType]);
-  const isFieldReadOnly = useMemo(() => editMode && isInMemoryType, [editMode, isInMemoryType]);
-  const showBaseUrl = useMemo(() => isRemoteType, [isRemoteType]);
-  const showCommandFields = useMemo(() => type === "stdio", [type]);
-  const showArgsInput = useMemo(
-    () => showCommandFields || (isInMemoryType && !isBuildInFileSystem),
-    [showCommandFields, isInMemoryType, isBuildInFileSystem],
-  );
-  const showFolderSelector = useMemo(() => isBuildInFileSystem, [isBuildInFileSystem]);
-  const showNpmRegistryInput = useMemo(
-    () => type === "stdio" && ["npx", "node"].includes(command.toLowerCase()),
-    [type, command],
-  );
-
+  const isInMemoryType = type === "inmemory";
+  const isBuildInFileSystem = isInMemoryType && name === "buildInFileSystem";
+  const isHttpTransportType = type === "http";
+  const isRemoteType = type === "sse" || isHttpTransportType;
+  const isFieldReadOnly = editMode && isInMemoryType;
+  const showBaseUrl = isRemoteType;
+  const showCommandFields = type === "stdio";
+  const showArgsInput = showCommandFields || (isInMemoryType && !isBuildInFileSystem);
+  const showFolderSelector = isBuildInFileSystem;
+  const showNpmRegistryInput = type === "stdio" && ["npx", "node"].includes(command.toLowerCase());
   const parseKeyValueHeaders = (text: string): Record<string, string> => {
     const headers: Record<string, string> = {};
     if (!text) return headers;
@@ -142,10 +133,15 @@ const McpServerForm: FC<McpServerFormProps> = ({
     }
     return headers;
   };
-
-  const addArgsRow = () => setArgsRows((prev) => [...prev, { id: nanoid(), value: "" }]);
+  const addArgsRow = () =>
+    setArgsRows((prev) => [
+      ...prev,
+      {
+        id: nanoid(),
+        value: "",
+      },
+    ]);
   const removeArgsRow = (id: string) => setArgsRows((prev) => prev.filter((row) => row.id !== id));
-
   const addFolder = async () => {
     try {
       const result = await deviceClient.selectDirectory();
@@ -157,19 +153,21 @@ const McpServerForm: FC<McpServerFormProps> = ({
       }
     } catch (error) {
       console.error("Folder select error:", error);
-      toast({ title: "Select Folder Error", description: String(error), variant: "destructive" });
+      toast({
+        title: "Select Folder Error",
+        description: String(error),
+        variant: "destructive",
+      });
     }
   };
-
   const removeFolder = (index: number) => setFoldersList((prev) => prev.filter((_, i) => i !== index));
-
-  const isNameValid = useMemo(() => name.trim().length > 0, [name]);
-  const isCommandValid = useMemo(() => {
+  const isNameValid = name.trim().length > 0;
+  const isCommandValid = (() => {
     if (isRemoteType) return true;
     if (type === "stdio" || isInMemoryType) return command.trim().length > 0;
     return true;
-  }, [isRemoteType, type, isInMemoryType, command]);
-  const isEnvValid = useMemo(() => {
+  })();
+  const isEnvValid = (() => {
     try {
       if (!env.trim()) return true;
       JSON.parse(env);
@@ -177,16 +175,15 @@ const McpServerForm: FC<McpServerFormProps> = ({
     } catch {
       return false;
     }
-  }, [env]);
-  const isBaseUrlValid = useMemo(() => !isRemoteType || baseUrl.trim().length > 0, [isRemoteType, baseUrl]);
-  const isCustomHeadersFormatValid = useMemo(() => validateKeyValueHeaders(customHeaders), [customHeaders]);
-  const isFormValid = useMemo(() => {
+  })();
+  const isBaseUrlValid = !isRemoteType || baseUrl.trim().length > 0;
+  const isCustomHeadersFormatValid = validateKeyValueHeaders(customHeaders);
+  const isFormValid = (() => {
     if (!isNameValid) return false;
     if (isRemoteType) return isNameValid && isBaseUrlValid && isCustomHeadersFormatValid;
     return isNameValid && isCommandValid && isEnvValid;
-  }, [isNameValid, isRemoteType, isBaseUrlValid, isCustomHeadersFormatValid, isCommandValid, isEnvValid]);
-
-  const customHeadersDisplayValue = useMemo(() => {
+  })();
+  const customHeadersDisplayValue = (() => {
     if (customHeadersFocused || !customHeaders.trim()) {
       return customHeaders;
     }
@@ -198,8 +195,7 @@ const McpServerForm: FC<McpServerFormProps> = ({
         return maskSensitiveValue(line);
       })
       .join("\n");
-  }, [customHeaders, customHeadersFocused]);
-
+  })();
   const parseJsonConfig = () => {
     const reportParseError = (error: unknown) => {
       console.error("Parse error:", error);
@@ -244,16 +240,17 @@ const McpServerForm: FC<McpServerFormProps> = ({
         serverConfig.autoApprove?.includes("write") || serverConfig.autoApprove?.includes("all") || false,
       );
       setCurrentStep("detailed");
-      toast({ title: "Parse Success", description: "Configuration imported" });
+      toast({
+        title: "Parse Success",
+        description: "Configuration imported",
+      });
     } catch (error) {
       reportParseError(error);
     }
   };
-
   const handleSubmit = (e?: FormEvent) => {
     e?.preventDefault();
     if (!isFormValid) return;
-
     const autoApprove: string[] = [];
     if (autoApproveAll) {
       autoApprove.push("all");
@@ -261,7 +258,6 @@ const McpServerForm: FC<McpServerFormProps> = ({
       if (autoApproveRead) autoApprove.push("read");
       if (autoApproveWrite) autoApprove.push("write");
     }
-
     const baseConfig = {
       descriptions: descriptions.trim(),
       icons: icons.trim(),
@@ -269,15 +265,17 @@ const McpServerForm: FC<McpServerFormProps> = ({
       type,
       enabled: initialConfig?.enabled ?? false,
     };
-
     let parsedEnv = {};
     try {
       if ((type === "stdio" || isInMemoryType) && env.trim()) parsedEnv = JSON.parse(env);
     } catch (error) {
-      toast({ title: "JSON Parse Error", description: String(error), variant: "destructive" });
+      toast({
+        title: "JSON Parse Error",
+        description: String(error),
+        variant: "destructive",
+      });
       return;
     }
-
     let parsedCustomHeaders = {};
     try {
       if (isRemoteType && customHeaders.trim()) parsedCustomHeaders = parseKeyValueHeaders(customHeaders);
@@ -289,7 +287,6 @@ const McpServerForm: FC<McpServerFormProps> = ({
       });
       return;
     }
-
     let serverConfig: MCPServerConfig;
     if (isRemoteType) {
       serverConfig = {
@@ -315,20 +312,16 @@ const McpServerForm: FC<McpServerFormProps> = ({
         baseUrl: baseUrl.trim(),
       };
     }
-
     if (serverConfig.customHeaders) {
       setCustomHeaders(formatJsonHeaders(serverConfig.customHeaders));
     }
-
     if (showNpmRegistryInput && npmRegistry.trim()) {
       serverConfig.customNpmRegistry = npmRegistry.trim();
     } else {
       serverConfig.customNpmRegistry = "";
     }
-
     onSubmit(name.trim(), serverConfig);
   };
-
   if (currentStep === "simple") {
     return (
       <form className="space-y-4 h-full flex flex-col">
@@ -360,7 +353,6 @@ const McpServerForm: FC<McpServerFormProps> = ({
       </form>
     );
   }
-
   return (
     <form className="space-y-2 h-full flex flex-col" onSubmit={handleSubmit}>
       <ScrollArea className="h-0 grow">
@@ -492,7 +484,16 @@ const McpServerForm: FC<McpServerFormProps> = ({
                       value={row.value}
                       onChange={(e) => {
                         const val = e.target.value;
-                        setArgsRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, value: val } : r)));
+                        setArgsRows((prev) =>
+                          prev.map((r) =>
+                            r.id === row.id
+                              ? {
+                                  ...r,
+                                  value: val,
+                                }
+                              : r,
+                          ),
+                        );
                       }}
                       className="col-span-11"
                       placeholder="Argument value"
@@ -636,7 +637,10 @@ const McpServerForm: FC<McpServerFormProps> = ({
                   >
                     <div
                       className="p-3 text-sm font-mono whitespace-pre-wrap text-muted-foreground select-none overflow-hidden break-all"
-                      style={{ lineHeight: 1.4, wordBreak: "break-all" }}
+                      style={{
+                        lineHeight: 1.4,
+                        wordBreak: "break-all",
+                      }}
                     >
                       {customHeadersDisplayValue}
                     </div>
@@ -660,5 +664,4 @@ const McpServerForm: FC<McpServerFormProps> = ({
     </form>
   );
 };
-
 export default McpServerForm;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useStore } from "@tanstack/react-store";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
@@ -16,7 +16,6 @@ import {
   getFormattedCodeFontFamily,
 } from "#/stores/uiSettingsStore";
 import { languageStore } from "#/stores/language";
-
 const FALLBACK_FONTS = [
   "Geist",
   "Inter",
@@ -35,60 +34,43 @@ const FALLBACK_FONTS = [
   "Consolas",
   "Courier New",
 ];
-
 const PREVIEW_FALLBACK = "ui-sans-serif, system-ui, sans-serif";
-
 function buildFontPreview(font: string): string {
   const normalized = (font || "").trim();
   if (!normalized) return PREVIEW_FALLBACK;
   const wrapped = /\s/.test(normalized) && !normalized.includes(",") ? `"${normalized}"` : normalized;
   return `${wrapped}, ${PREVIEW_FALLBACK}`;
 }
-
 export default function FontSettingsSection() {
   const fontFamily = useStore(uiSettingsStore, (s) => s.fontFamily);
   const codeFontFamily = useStore(uiSettingsStore, (s) => s.codeFontFamily);
   const systemFonts = useStore(uiSettingsStore, (s) => s.systemFonts);
   const isLoadingFonts = useStore(uiSettingsStore, (s) => s.isLoadingFonts);
-
   const [textPopoverOpen, setTextPopoverOpen] = useState(false);
   const [codePopoverOpen, setCodePopoverOpen] = useState(false);
   const [textQuery, setTextQuery] = useState("");
   const [codeQuery, setCodeQuery] = useState("");
   const [isResetting, setIsResetting] = useState(false);
-
-  const availableFonts = useMemo(
-    () => (systemFonts.length > 0 ? systemFonts : FALLBACK_FONTS).toSorted((a, b) => a.localeCompare(b)),
-    [systemFonts],
+  const availableFonts = (systemFonts.length > 0 ? systemFonts : FALLBACK_FONTS).toSorted((a, b) => a.localeCompare(b));
+  const filteredTextFonts = availableFonts.filter((font) =>
+    font.toLowerCase().includes((textQuery || "").toLowerCase()),
   );
-
-  const filteredTextFonts = useMemo(
-    () => availableFonts.filter((font) => font.toLowerCase().includes((textQuery || "").toLowerCase())),
-    [availableFonts, textQuery],
+  const filteredCodeFonts = availableFonts.filter((font) =>
+    font.toLowerCase().includes((codeQuery || "").toLowerCase()),
   );
-
-  const filteredCodeFonts = useMemo(
-    () => availableFonts.filter((font) => font.toLowerCase().includes((codeQuery || "").toLowerCase())),
-    [availableFonts, codeQuery],
-  );
-
   const defaultLabel = "Default";
   const textFontLabel = fontFamily || defaultLabel;
   const codeFontLabel = codeFontFamily || defaultLabel;
-
   const textPreviewFont = getFormattedFontFamily();
   const codePreviewFont = getFormattedCodeFontFamily();
-
   const selectTextFont = async (font: string) => {
     await setFontFamily(font);
     setTextPopoverOpen(false);
   };
-
   const selectCodeFont = async (font: string) => {
     await setCodeFontFamily(font);
     setCodePopoverOpen(false);
   };
-
   const handleReset = async () => {
     setIsResetting(true);
     try {
@@ -99,11 +81,9 @@ export default function FontSettingsSection() {
       throw error;
     }
   };
-
   useEffect(() => {
     void fetchSystemFonts();
   }, []);
-
   const renderFontPicker = (
     popoverOpen: boolean,
     setPopoverOpen: (v: boolean) => void,
@@ -117,13 +97,26 @@ export default function FontSettingsSection() {
   ) => (
     <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
       <PopoverTrigger
-        render={<Button variant="outline" className="w-full justify-between h-9" style={{ fontFamily: previewFont }} />}
+        render={
+          <Button
+            variant="outline"
+            className="w-full justify-between h-9"
+            style={{
+              fontFamily: previewFont,
+            }}
+          />
+        }
       >
         <span className="truncate">{label}</span>
         <Icon icon="lucide:chevrons-up-down" className="h-4 w-4 text-muted-foreground/70" />
       </PopoverTrigger>
       <PopoverContent className="w-[320px] p-0" align="start">
-        <div className="p-2" style={{ fontFamily: PREVIEW_FALLBACK }}>
+        <div
+          className="p-2"
+          style={{
+            fontFamily: PREVIEW_FALLBACK,
+          }}
+        >
           <div className="flex items-center gap-2 mb-2">
             <Icon icon="lucide:search" className="h-4 w-4 text-muted-foreground" />
             <Input
@@ -131,7 +124,9 @@ export default function FontSettingsSection() {
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search fonts..."
               className="h-8"
-              style={{ fontFamily: PREVIEW_FALLBACK }}
+              style={{
+                fontFamily: PREVIEW_FALLBACK,
+              }}
             />
           </div>
           <ScrollArea className="h-64">
@@ -139,7 +134,9 @@ export default function FontSettingsSection() {
               <button
                 type="button"
                 className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm hover:bg-muted text-left transition${currentFont === "" ? " border border-accent-400 bg-accent-400/10" : ""}`}
-                style={{ fontFamily: PREVIEW_FALLBACK }}
+                style={{
+                  fontFamily: PREVIEW_FALLBACK,
+                }}
                 onClick={() => onSelect("")}
               >
                 <span className="truncate">{defaultLabel}</span>
@@ -150,7 +147,9 @@ export default function FontSettingsSection() {
                   key={font}
                   type="button"
                   className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm hover:bg-muted text-left transition${currentFont === font ? " border border-accent-400 bg-accent-400/10" : ""}`}
-                  style={{ fontFamily: buildFontPreview(font) }}
+                  style={{
+                    fontFamily: buildFontPreview(font),
+                  }}
                   onClick={() => onSelect(font)}
                 >
                   <span className="truncate">{font}</span>
@@ -166,7 +165,6 @@ export default function FontSettingsSection() {
       </PopoverContent>
     </Popover>
   );
-
   return (
     <div className="flex flex-col gap-3 px-2 py-2">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -214,7 +212,12 @@ export default function FontSettingsSection() {
               )}
             </div>
           </div>
-          <p className="text-[11px] text-muted-foreground leading-relaxed" style={{ fontFamily: textPreviewFont }}>
+          <p
+            className="text-[11px] text-muted-foreground leading-relaxed"
+            style={{
+              fontFamily: textPreviewFont,
+            }}
+          >
             Font used for the main application interface and chat messages.
           </p>
         </div>
@@ -238,7 +241,12 @@ export default function FontSettingsSection() {
               )}
             </div>
           </div>
-          <p className="text-[11px] text-muted-foreground leading-relaxed" style={{ fontFamily: codePreviewFont }}>
+          <p
+            className="text-[11px] text-muted-foreground leading-relaxed"
+            style={{
+              fontFamily: codePreviewFont,
+            }}
+          >
             Font used for code blocks and monospace content.
           </p>
         </div>

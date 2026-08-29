@@ -1,8 +1,6 @@
-import { useMemo } from "react";
 import { Label } from "#shadcn/components/ui/label";
 import type { LLM_PROVIDER, RENDERER_MODEL_META } from "@argos/shared/presenter";
 import ProviderModelList from "./ProviderModelList";
-
 interface ProviderModelManagerProps {
   provider: LLM_PROVIDER;
   enabledModels: RENDERER_MODEL_META[];
@@ -15,7 +13,6 @@ interface ProviderModelManagerProps {
   onConfigChanged?: () => void;
   onCustomModelAdded?: () => void;
 }
-
 export default function ProviderModelManager({
   provider,
   enabledModels,
@@ -27,13 +24,18 @@ export default function ProviderModelManager({
   onCustomModelAdded,
   onConfigChanged,
 }: ProviderModelManagerProps) {
-  const providerModelGroups = useMemo(
-    () => [{ providerId: provider.id, models: providerModels }],
-    [provider.id, providerModels],
-  );
-
-  const providerOptions = useMemo(() => [{ id: provider.id, name: provider.name }], [provider.id, provider.name]);
-
+  const providerModelGroups = [
+    {
+      providerId: provider.id,
+      models: providerModels,
+    },
+  ];
+  const providerOptions = [
+    {
+      id: provider.id,
+      name: provider.name,
+    },
+  ];
   return (
     <div className="w-full relative">
       <div className="flex w-full justify-between items-center sticky top-0 z-30 backdrop-blur">

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Label } from "#shadcn/components/ui/label";
@@ -26,7 +26,6 @@ import {
   setDefaultSystemPromptId,
 } from "#/stores/systemPromptStore";
 import SystemPromptEditorSheet from "./SystemPromptEditorSheet";
-
 interface SystemPromptItem {
   id: string;
   name: string;
@@ -35,70 +34,78 @@ interface SystemPromptItem {
   createdAt?: number;
   updatedAt?: number;
 }
-
 const EMPTY_SYSTEM_PROMPT_ID = "empty";
-
 const DEFAULT_SYSTEM_PROMPT_CONTENT = `You are Argos, a highly capable AI assistant. Your goal is to fully complete the user's requested task before handing the conversation back to them. Keep working autonomously until the task is fully resolved.
 Be thorough in gathering information. Before replying, make sure you have all the details necessary to provide a complete solution. Use additional tools or ask clarifying questions when needed, but if you can find the answer on your own, avoid asking the user for help.
 When using tools, briefly describe your intended steps first—for example, which tool you'll use and for what purpose.`;
-
 export default function SystemPromptSettingsSection() {
   const { toast } = useToast();
   const systemPromptStore = useSystemPromptStore();
-
   const [systemPrompts, setSystemPrompts] = useState<SystemPromptItem[]>([]);
   const [selectedSystemPromptId, setSelectedSystemPromptId] = useState("");
   const [currentSystemPrompt, setCurrentSystemPrompt] = useState<SystemPromptItem | null>(null);
   const [systemPromptEditorOpen, setSystemPromptEditorOpen] = useState(false);
   const [editingSystemPrompt, setEditingSystemPrompt] = useState<SystemPromptItem | null>(null);
-
+  // Liveness flag flipped by the fetch effect; post-await state writes are
+  // skipped once the effect is torn down so unmounted fetches never write state.
+  const promptsLiveRef = useRef(false);
   const isEmptyPromptSelected = selectedSystemPromptId === EMPTY_SYSTEM_PROMPT_ID;
-
-  const selectableSystemPrompts = useMemo(
-    () => [{ id: EMPTY_SYSTEM_PROMPT_ID, name: "None (Empty)", content: "" }, ...systemPrompts],
-    [systemPrompts],
-  );
-
-  const updateCurrentSystemPrompt = useCallback(() => {
+  const selectableSystemPrompts = [
+    {
+      id: EMPTY_SYSTEM_PROMPT_ID,
+      name: "None (Empty)",
+      content: "",
+    },
+    ...systemPrompts,
+  ];
+  const updateCurrentSystemPrompt = () => {
     if (isEmptyPromptSelected) {
       setCurrentSystemPrompt(null);
       return;
     }
     setCurrentSystemPrompt(systemPrompts.find((p) => p.id === selectedSystemPromptId) || null);
-  }, [isEmptyPromptSelected, systemPrompts, selectedSystemPromptId]);
-
-  const fetchSystemPrompts = useCallback(async () => {
+  };
+  const fetchSystemPrompts = async () => {
     try {
       await loadSystemPrompts();
+      if (!promptsLiveRef.current) return;
       const latest = systemPromptStoreInstance.state;
       setSystemPrompts([...latest.prompts]);
       setSelectedSystemPromptId(latest.defaultPromptId);
     } catch (error) {
       console.error("Failed to load system prompts:", error);
     }
-  }, []);
-
-  const handleSystemPromptChange = useCallback(
-    async (promptId: string) => {
-      try {
-        await setDefaultSystemPromptId(promptId);
-        setSelectedSystemPromptId(promptId);
-        if (promptId === EMPTY_SYSTEM_PROMPT_ID) {
-          setSystemPrompts((prev) => prev.map((p) => ({ ...p, isDefault: false })));
-          setCurrentSystemPrompt(null);
-          return;
-        }
-        setSystemPrompts((prev) => prev.map((p) => ({ ...p, isDefault: p.id === promptId })));
-        updateCurrentSystemPrompt();
-      } catch (error) {
-        console.error("Failed to change default system prompt:", error);
-        toast({ title: "Failed to save", variant: "destructive" });
+  };
+  const handleSystemPromptChange = async (promptId: string) => {
+    try {
+      await setDefaultSystemPromptId(promptId);
+      setSelectedSystemPromptId(promptId);
+      if (promptId === EMPTY_SYSTEM_PROMPT_ID) {
+        setSystemPrompts((prev) =>
+          prev.map((p) => ({
+            ...p,
+            isDefault: false,
+          })),
+        );
+        setCurrentSystemPrompt(null);
+        return;
       }
-    },
-    [toast, updateCurrentSystemPrompt],
-  );
-
-  const saveCurrentSystemPrompt = useCallback(async () => {
+      setSystemPrompts((prev) =>
+        prev.map((p) => ({
+          ...p,
+          isDefault: p.id === promptId,
+        })),
+      );
+      updateCurrentSystemPrompt();
+    } catch (error) {
+      console.error("Failed to change default system prompt:", error);
+      toast({
+        title: "Failed to save",
+        variant: "destructive",
+      });
+    }
+  };
+  const saveCurrentSystemPrompt = async () => {
     if (!currentSystemPrompt) return;
     try {
       await updateSystemPrompt(currentSystemPrompt.id, {
@@ -107,89 +114,124 @@ export default function SystemPromptSettingsSection() {
       });
       setSystemPrompts((prev) =>
         prev.map((p) =>
-          p.id === currentSystemPrompt.id ? { ...p, content: currentSystemPrompt.content, updatedAt: Date.now() } : p,
+          p.id === currentSystemPrompt.id
+            ? {
+                ...p,
+                content: currentSystemPrompt.content,
+                updatedAt: Date.now(),
+              }
+            : p,
         ),
       );
-      toast({ title: "System prompt updated" });
+      toast({
+        title: "System prompt updated",
+      });
     } catch (error) {
       console.error("Failed to save system prompt:", error);
-      toast({ title: "Failed to save", variant: "destructive" });
+      toast({
+        title: "Failed to save",
+        variant: "destructive",
+      });
     }
-  }, [currentSystemPrompt, toast]);
-
-  const resetDefaultSystemPrompt = useCallback(async () => {
+  };
+  const resetDefaultSystemPrompt = async () => {
     try {
       await updateSystemPrompt("default", {
         content: DEFAULT_SYSTEM_PROMPT_CONTENT,
         updatedAt: Date.now(),
       });
       if (currentSystemPrompt?.id === "default") {
-        setCurrentSystemPrompt((prev) => (prev ? { ...prev, content: DEFAULT_SYSTEM_PROMPT_CONTENT } : null));
+        setCurrentSystemPrompt((prev) =>
+          prev
+            ? {
+                ...prev,
+                content: DEFAULT_SYSTEM_PROMPT_CONTENT,
+              }
+            : null,
+        );
       }
       setSystemPrompts((prev) =>
         prev.map((p) =>
-          p.id === "default" ? { ...p, content: DEFAULT_SYSTEM_PROMPT_CONTENT, updatedAt: Date.now() } : p,
+          p.id === "default"
+            ? {
+                ...p,
+                content: DEFAULT_SYSTEM_PROMPT_CONTENT,
+                updatedAt: Date.now(),
+              }
+            : p,
         ),
       );
-      toast({ title: "Reset to default" });
+      toast({
+        title: "Reset to default",
+      });
     } catch (error) {
       console.error("Failed to reset system prompt:", error);
-      toast({ title: "Failed to reset", variant: "destructive" });
+      toast({
+        title: "Failed to reset",
+        variant: "destructive",
+      });
     }
-  }, [currentSystemPrompt, toast]);
-
-  const handleDeleteSystemPrompt = useCallback(
-    async (promptId: string) => {
-      try {
-        await deleteSystemPrompt(promptId);
-        await fetchSystemPrompts();
-        toast({ title: "System prompt deleted" });
-      } catch (error) {
-        console.error("Failed to delete system prompt:", error);
-        toast({ title: "Failed to delete", variant: "destructive" });
+  };
+  const handleDeleteSystemPrompt = async (promptId: string) => {
+    try {
+      await deleteSystemPrompt(promptId);
+      await fetchSystemPrompts();
+      toast({
+        title: "System prompt deleted",
+      });
+    } catch (error) {
+      console.error("Failed to delete system prompt:", error);
+      toast({
+        title: "Failed to delete",
+        variant: "destructive",
+      });
+    }
+  };
+  const handleSaveSystemPrompt = async ({ id, name, content }: { id?: string; name: string; content: string }) => {
+    const timestamp = Date.now();
+    try {
+      if (id) {
+        await updateSystemPrompt(id, {
+          name,
+          content,
+          updatedAt: timestamp,
+        });
+      } else {
+        const newId = timestamp.toString();
+        await addSystemPrompt({
+          id: newId,
+          name,
+          content,
+          isDefault: false,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        });
+        await setDefaultSystemPromptId(newId);
       }
-    },
-    [fetchSystemPrompts, toast],
-  );
-
-  const handleSaveSystemPrompt = useCallback(
-    async ({ id, name, content }: { id?: string; name: string; content: string }) => {
-      const timestamp = Date.now();
-      try {
-        if (id) {
-          await updateSystemPrompt(id, { name, content, updatedAt: timestamp });
-        } else {
-          const newId = timestamp.toString();
-          await addSystemPrompt({
-            id: newId,
-            name,
-            content,
-            isDefault: false,
-            createdAt: timestamp,
-            updatedAt: timestamp,
-          });
-          await setDefaultSystemPromptId(newId);
-        }
-        await fetchSystemPrompts();
-        setSystemPromptEditorOpen(false);
-        setEditingSystemPrompt(null);
-        toast({ title: id ? "System prompt updated" : "System prompt added and switched" });
-      } catch (error) {
-        console.error("Failed to save system prompt:", error);
-        toast({ title: "Failed to save", variant: "destructive" });
-      }
-    },
-    [fetchSystemPrompts, toast],
-  );
-
+      await fetchSystemPrompts();
+      setSystemPromptEditorOpen(false);
+      setEditingSystemPrompt(null);
+      toast({
+        title: id ? "System prompt updated" : "System prompt added and switched",
+      });
+    } catch (error) {
+      console.error("Failed to save system prompt:", error);
+      toast({
+        title: "Failed to save",
+        variant: "destructive",
+      });
+    }
+  };
   useEffect(() => {
+    promptsLiveRef.current = true;
     void Promise.resolve().then(() => fetchSystemPrompts());
+    return () => {
+      promptsLiveRef.current = false;
+    };
   }, [fetchSystemPrompts]);
-
   useEffect(() => {
     void Promise.resolve().then(() => updateCurrentSystemPrompt());
   }, [updateCurrentSystemPrompt]);
-
   return (
     <div className="space-y-3">
       <div className="flex flex-row items-center gap-2">
@@ -240,7 +282,16 @@ export default function SystemPromptSettingsSection() {
             value={currentSystemPrompt.content}
             className="h-48 w-full"
             placeholder="Enter prompt content..."
-            onChange={(e) => setCurrentSystemPrompt((prev) => (prev ? { ...prev, content: e.target.value } : null))}
+            onChange={(e) =>
+              setCurrentSystemPrompt((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      content: e.target.value,
+                    }
+                  : null,
+              )
+            }
             onBlur={() => void saveCurrentSystemPrompt()}
           />
           <div className="flex items-center gap-2">

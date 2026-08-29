@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useRef, useState, useMemo, useCallback } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import type { Rectangle } from "electron";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
@@ -8,42 +8,34 @@ import { BrowserPlaceholder } from "./BrowserPlaceholder";
 import type { YoBrowserStatus } from "@argos/shared/types/browser";
 import { useSidepanelStore } from "#/stores/ui/sidepanel";
 import { useSessionStore } from "#/stores/ui/session";
-
 interface BrowserPanelProps {
   sessionId: string | null;
 }
-
 const STABLE_RECT_SAMPLE_MS = 48;
 const STABLE_RECT_TIMEOUT_MS = 1500;
-
 const roundBounds = (bounds: Rectangle): Rectangle => ({
   x: Math.round(bounds.x),
   y: Math.round(bounds.y),
   width: Math.round(bounds.width),
   height: Math.round(bounds.height),
 });
-
 const areBoundsEqual = (left: Rectangle | null, right: Rectangle): boolean =>
   left !== null &&
   left.x === right.x &&
   left.y === right.y &&
   left.width === right.width &&
   left.height === right.height;
-
 const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
-
 const normalizeUrl = (value: string) => {
   const trimmed = value.trim();
   if (!trimmed) return "";
   if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed)) return trimmed;
   return `https://${trimmed}`;
 };
-
 export function BrowserPanel({ sessionId }: BrowserPanelProps) {
   const sidepanelStore = useSidepanelStore();
   const sessionStore = useSessionStore();
-  const browserClient = useMemo(() => createBrowserClient(), []);
-
+  const browserClient = createBrowserClient();
   const containerRef = useRef<HTMLDivElement>(null);
   const [browserStatus, setBrowserStatus] = useState<YoBrowserStatus>({
     initialized: false,
@@ -57,35 +49,24 @@ export function BrowserPanel({ sessionId }: BrowserPanelProps) {
   const [canGoBack, setCanGoBack] = useState(false);
   const [canGoForward, setCanGoForward] = useState(false);
   const [showPlaceholder, setShowPlaceholder] = useState(true);
-
   const lastSyncedBounds = useRef<Rectangle | null>(null);
   const pendingBrowserDestroySessionIds = useRef(new Set<string>());
   const visibilityRunId = useRef(0);
   const stopOpenRequestedListener = useRef<(() => void) | null>(null);
   const stopStatusChangedListener = useRef<(() => void) | null>(null);
   const pendingBoundsSyncFrame = useRef<number | null>(null);
-
-  const currentSessionId = useMemo(() => sessionId?.trim() || "", [sessionId]);
-  const isBrowserPanelVisible = useMemo(
-    () => sidepanelStore.open && sidepanelStore.activeTab === "browser",
-    [sidepanelStore.open, sidepanelStore.activeTab],
-  );
-
-  const getSessionUiStatus = useCallback(
-    (sid: string) => sessionStore.sessions.find((s) => s.id === sid)?.status ?? null,
-    [sessionStore.sessions],
-  );
-
-  const callBrowserAction = useCallback(async <T,>(action: string, run: () => Promise<T>): Promise<T | null> => {
+  const currentSessionId = sessionId?.trim() || "";
+  const isBrowserPanelVisible = sidepanelStore.open && sidepanelStore.activeTab === "browser";
+  const getSessionUiStatus = (sid: string) => sessionStore.sessions.find((s) => s.id === sid)?.status ?? null;
+  const callBrowserAction = async <T,>(action: string, run: () => Promise<T>): Promise<T | null> => {
     try {
       return await run();
     } catch (error) {
       console.error(`[BrowserPanel] ${action} failed`, error);
       return null;
     }
-  }, []);
-
-  const resetBrowserState = useCallback(() => {
+  };
+  const resetBrowserState = () => {
     setBrowserStatus({
       initialized: false,
       page: null,
@@ -99,9 +80,8 @@ export function BrowserPanel({ sessionId }: BrowserPanelProps) {
     setCanGoBack(false);
     setCanGoForward(false);
     setShowPlaceholder(true);
-  }, []);
-
-  const applyBrowserStatus = useCallback((status: YoBrowserStatus) => {
+  };
+  const applyBrowserStatus = (status: YoBrowserStatus) => {
     setBrowserStatus(status);
     const url = status.page?.url || "about:blank";
     setUrlInput(url);
@@ -109,65 +89,55 @@ export function BrowserPanel({ sessionId }: BrowserPanelProps) {
     setCanGoBack(status.canGoBack);
     setCanGoForward(status.canGoForward);
     setShowPlaceholder(!status.initialized || url === "about:blank");
-  }, []);
-
-  const captureContainerBounds = useCallback((): Rectangle | null => {
+  };
+  const captureContainerBounds = (): Rectangle | null => {
     if (!containerRef.current) return null;
     const rect = containerRef.current.getBoundingClientRect();
-    return { x: rect.left, y: rect.top, width: rect.width, height: rect.height };
-  }, []);
-
-  const canSyncVisibleBounds = useCallback(
-    () => Boolean(currentSessionId && browserStatus.initialized && isBrowserPanelVisible),
-    [currentSessionId, browserStatus.initialized, isBrowserPanelVisible],
-  );
-
-  const waitForStableRect = useCallback(
-    async (runId: number): Promise<Rectangle | null> => {
-      let previousKey = "";
-      let stableCount = 0;
-      const deadline = Date.now() + STABLE_RECT_TIMEOUT_MS;
-
-      while (runId === visibilityRunId.current && isBrowserPanelVisible) {
-        const rect = captureContainerBounds();
-        if (rect && rect.width > 0 && rect.height > 0) {
-          const key = `${Math.round(rect.x)}:${Math.round(rect.y)}:${Math.round(rect.width)}:${Math.round(rect.height)}`;
-          stableCount = key === previousKey ? stableCount + 1 : 1;
-          previousKey = key;
-          if (stableCount >= 2) return rect;
-        } else {
-          previousKey = "";
-          stableCount = 0;
-        }
-        if (Date.now() >= deadline) {
-          console.warn("[BrowserPanel] stable rect wait timed out");
-          return null;
-        }
-        await wait(STABLE_RECT_SAMPLE_MS);
+    return {
+      x: rect.left,
+      y: rect.top,
+      width: rect.width,
+      height: rect.height,
+    };
+  };
+  const canSyncVisibleBounds = () => Boolean(currentSessionId && browserStatus.initialized && isBrowserPanelVisible);
+  const waitForStableRect = async (runId: number): Promise<Rectangle | null> => {
+    let previousKey = "";
+    let stableCount = 0;
+    const deadline = Date.now() + STABLE_RECT_TIMEOUT_MS;
+    while (runId === visibilityRunId.current && isBrowserPanelVisible) {
+      const rect = captureContainerBounds();
+      if (rect && rect.width > 0 && rect.height > 0) {
+        const key = `${Math.round(rect.x)}:${Math.round(rect.y)}:${Math.round(rect.width)}:${Math.round(rect.height)}`;
+        stableCount = key === previousKey ? stableCount + 1 : 1;
+        previousKey = key;
+        if (stableCount >= 2) return rect;
+      } else {
+        previousKey = "";
+        stableCount = 0;
       }
-      return null;
-    },
-    [isBrowserPanelVisible, captureContainerBounds],
-  );
-
-  const loadState = useCallback(
-    async (sid: string = currentSessionId) => {
-      if (!sid) {
-        resetBrowserState();
-        return;
+      if (Date.now() >= deadline) {
+        console.warn("[BrowserPanel] stable rect wait timed out");
+        return null;
       }
-      const status = await callBrowserAction("getStatus", () => browserClient.getStatus(sid));
-      if (sid !== currentSessionId) return;
-      if (!status) {
-        resetBrowserState();
-        return;
-      }
-      applyBrowserStatus(status);
-    },
-    [currentSessionId, browserClient, callBrowserAction, resetBrowserState, applyBrowserStatus],
-  );
-
-  const syncVisibleBounds = useCallback(async () => {
+      await wait(STABLE_RECT_SAMPLE_MS);
+    }
+    return null;
+  };
+  const loadState = async (sid: string = currentSessionId) => {
+    if (!sid) {
+      resetBrowserState();
+      return;
+    }
+    const status = await callBrowserAction("getStatus", () => browserClient.getStatus(sid));
+    if (sid !== currentSessionId) return;
+    if (!status) {
+      resetBrowserState();
+      return;
+    }
+    applyBrowserStatus(status);
+  };
+  const syncVisibleBounds = async () => {
     if (!canSyncVisibleBounds()) return;
     const sid = currentSessionId;
     const capturedBounds = captureContainerBounds();
@@ -178,37 +148,36 @@ export function BrowserPanel({ sessionId }: BrowserPanelProps) {
     await callBrowserAction("updateCurrentWindowBounds", () =>
       browserClient.updateCurrentWindowBounds(sid, rect, true),
     );
-  }, [canSyncVisibleBounds, currentSessionId, captureContainerBounds, browserClient, callBrowserAction]);
-
-  const scheduleVisibleBoundsSync = useCallback(() => {
+  };
+  const scheduleVisibleBoundsSync = () => {
     if (!canSyncVisibleBounds() || pendingBoundsSyncFrame.current !== null) return;
     pendingBoundsSyncFrame.current = window.requestAnimationFrame(() => {
       pendingBoundsSyncFrame.current = null;
       void syncVisibleBounds();
     });
-  }, [canSyncVisibleBounds, syncVisibleBounds]);
-
-  const cancelScheduledBoundsSync = useCallback(() => {
+  };
+  const cancelScheduledBoundsSync = () => {
     if (pendingBoundsSyncFrame.current === null) return;
     window.cancelAnimationFrame(pendingBoundsSyncFrame.current);
     pendingBoundsSyncFrame.current = null;
-  }, []);
-
-  const hideEmbedded = useCallback(
-    async (sid: string = currentSessionId) => {
-      visibilityRunId.current += 1;
-      cancelScheduledBoundsSync();
-      if (!sid) return;
-      const hiddenBounds = lastSyncedBounds.current ?? captureContainerBounds() ?? { x: 0, y: 0, width: 0, height: 0 };
-      await callBrowserAction("updateCurrentWindowBounds(hidden)", () =>
-        browserClient.updateCurrentWindowBounds(sid, hiddenBounds, false),
-      );
-      await callBrowserAction("detach", () => browserClient.detach(sid));
-    },
-    [currentSessionId, cancelScheduledBoundsSync, captureContainerBounds, browserClient, callBrowserAction],
-  );
-
-  const ensureVisibleAttachment = useCallback(async () => {
+  };
+  const hideEmbedded = async (sid: string = currentSessionId) => {
+    visibilityRunId.current += 1;
+    cancelScheduledBoundsSync();
+    if (!sid) return;
+    const hiddenBounds = lastSyncedBounds.current ??
+      captureContainerBounds() ?? {
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0,
+      };
+    await callBrowserAction("updateCurrentWindowBounds(hidden)", () =>
+      browserClient.updateCurrentWindowBounds(sid, hiddenBounds, false),
+    );
+    await callBrowserAction("detach", () => browserClient.detach(sid));
+  };
+  const ensureVisibleAttachment = async () => {
     if (!currentSessionId || !browserStatus.initialized || !isBrowserPanelVisible) return;
     const runId = ++visibilityRunId.current;
     await new Promise((r) => setTimeout(r, 0));
@@ -224,73 +193,49 @@ export function BrowserPanel({ sessionId }: BrowserPanelProps) {
       browserClient.updateCurrentWindowBounds(currentSessionId, visibleBounds, true),
     );
     await loadState(currentSessionId);
-  }, [
-    currentSessionId,
-    browserStatus.initialized,
-    isBrowserPanelVisible,
-    waitForStableRect,
-    browserClient,
-    callBrowserAction,
-    loadState,
-  ]);
-
-  const handleStatusChanged = useCallback(
-    async (payload: { sessionId: string; status: YoBrowserStatus | null }) => {
-      if (payload.sessionId !== currentSessionId) return;
-      await loadState(currentSessionId);
-    },
-    [currentSessionId, loadState],
-  );
-
-  const handleOpenRequested = useCallback(
-    async (payload: { sessionId: string; url: string }) => {
-      if (payload.sessionId !== currentSessionId) return;
-      if (payload.url) setUrlInput(payload.url);
-      await loadState(currentSessionId);
-      if (isBrowserPanelVisible) await ensureVisibleAttachment();
-    },
-    [currentSessionId, loadState, isBrowserPanelVisible, ensureVisibleAttachment],
-  );
-
-  const flushPendingSessionDestroys = useCallback(async () => {
+  };
+  const handleStatusChanged = async (payload: { sessionId: string; status: YoBrowserStatus | null }) => {
+    if (payload.sessionId !== currentSessionId) return;
+    await loadState(currentSessionId);
+  };
+  const handleOpenRequested = async (payload: { sessionId: string; url: string }) => {
+    if (payload.sessionId !== currentSessionId) return;
+    if (payload.url) setUrlInput(payload.url);
+    await loadState(currentSessionId);
+    if (isBrowserPanelVisible) await ensureVisibleAttachment();
+  };
+  const flushPendingSessionDestroys = async () => {
     for (const sid of Array.from(pendingBrowserDestroySessionIds.current)) {
       if (getSessionUiStatus(sid) === "working") continue;
       pendingBrowserDestroySessionIds.current.delete(sid);
       await callBrowserAction("destroy", () => browserClient.destroy(sid));
     }
-  }, [getSessionUiStatus, browserClient, callBrowserAction]);
-
-  const navigate = useCallback(
-    async (e: FormEvent) => {
-      e.preventDefault();
-      if (!currentSessionId) return;
-      const nextUrl = normalizeUrl(urlInput);
-      if (!nextUrl) return;
-      const result = await callBrowserAction("loadUrl", () => browserClient.loadUrl(currentSessionId, nextUrl));
-      if (result === null) return;
-      applyBrowserStatus(result);
-      await loadState(currentSessionId);
-    },
-    [currentSessionId, urlInput, browserClient, callBrowserAction, applyBrowserStatus, loadState],
-  );
-
-  const goBack = useCallback(async () => {
+  };
+  const navigate = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!currentSessionId) return;
+    const nextUrl = normalizeUrl(urlInput);
+    if (!nextUrl) return;
+    const result = await callBrowserAction("loadUrl", () => browserClient.loadUrl(currentSessionId, nextUrl));
+    if (result === null) return;
+    applyBrowserStatus(result);
+    await loadState(currentSessionId);
+  };
+  const goBack = async () => {
     if (!currentSessionId || !browserStatus.initialized) return;
     await callBrowserAction("goBack", () => browserClient.goBack(currentSessionId));
     await loadState(currentSessionId);
-  }, [currentSessionId, browserStatus.initialized, browserClient, callBrowserAction, loadState]);
-
-  const goForward = useCallback(async () => {
+  };
+  const goForward = async () => {
     if (!currentSessionId || !browserStatus.initialized) return;
     await callBrowserAction("goForward", () => browserClient.goForward(currentSessionId));
     await loadState(currentSessionId);
-  }, [currentSessionId, browserStatus.initialized, browserClient, callBrowserAction, loadState]);
-
-  const reloadPage = useCallback(async () => {
+  };
+  const reloadPage = async () => {
     if (!currentSessionId || !browserStatus.initialized) return;
     await callBrowserAction("reload", () => browserClient.reload(currentSessionId));
     await loadState(currentSessionId);
-  }, [currentSessionId, browserStatus.initialized, browserClient, callBrowserAction, loadState]);
+  };
 
   // Latest-value refs so the lifecycle effects below can keep their original,
   // narrow trigger conditions while always invoking the freshest callbacks.
@@ -330,14 +275,12 @@ export function BrowserPanel({ sessionId }: BrowserPanelProps) {
     currentSessionId,
     isBrowserPanelVisible,
   ]);
-
   useEffect(() => {
     if (!containerRef.current) return;
     const observer = new ResizeObserver(() => scheduleVisibleBoundsSync());
     observer.observe(containerRef.current);
     return () => observer.disconnect();
   }, [scheduleVisibleBoundsSync]);
-
   useEffect(() => {
     if (isBrowserPanelVisible) {
       void loadStateRef.current(currentSessionIdRef.current);
@@ -346,7 +289,6 @@ export function BrowserPanel({ sessionId }: BrowserPanelProps) {
       void hideEmbeddedRef.current(currentSessionIdRef.current);
     }
   }, [isBrowserPanelVisible]);
-
   useEffect(() => {
     if (sessionId) {
       void loadStateRef.current(sessionId);
@@ -355,12 +297,10 @@ export function BrowserPanel({ sessionId }: BrowserPanelProps) {
       resetBrowserStateRef.current();
     }
   }, [sessionId]);
-
   useEffect(() => {
     void flushPendingSessionDestroys();
     if (currentSessionId) void loadStateRef.current(currentSessionId);
   }, [flushPendingSessionDestroys, currentSessionId]);
-
   useEffect(() => {
     const onResize = () => scheduleVisibleBoundsSyncRef.current();
     window.addEventListener("resize", onResize);
@@ -370,10 +310,8 @@ export function BrowserPanel({ sessionId }: BrowserPanelProps) {
     stopStatusChangedListener.current = browserClient.onStatusChanged((payload) =>
       handleStatusChangedRef.current(payload),
     );
-
     if (currentSessionIdRef.current) void loadStateRef.current(currentSessionIdRef.current);
     if (isBrowserPanelVisibleRef.current) void ensureVisibleAttachmentRef.current();
-
     return () => {
       window.removeEventListener("resize", onResize);
       cancelScheduledBoundsSyncRef.current();
@@ -384,7 +322,6 @@ export function BrowserPanel({ sessionId }: BrowserPanelProps) {
       stopStatusChangedListener.current = null;
     };
   }, [browserClient]);
-
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col bg-background">
       <div className="flex h-11 items-center gap-2 border-b px-3">

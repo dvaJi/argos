@@ -3,13 +3,10 @@
 {
   "$schema": "https://www.react.doctor/schemas/doctor-config.schema.json",
   "rules": {
-    // POLICY (2026-08): the build does NOT run the React Compiler yet, so manual
-    // memoization is currently the only memoization and must stay. This rule
-    // pushes toward compiler-first caching and is re-enabled in the PR that
-    // flips on build-time compilation (`@vitejs/plugin-react` compiler: true),
-    // where removing manual memoization can actually be measured.
-    "react-doctor/react-compiler-no-manual-memoization": "off",
-    "react-doctor/no-usememo-simple-expression": "off",
+    // BUILD-TIME COMPILER LIVE (verified: compiler-runtime chunk in dist).
+    // Manual memoization removal pass tracked in #78; rules re-enabled.
+    "react-doctor/react-compiler-no-manual-memoization": "error",
+    "react-doctor/no-usememo-simple-expression": "error",
     // POLICY (2026-08): `no-adjust-state-on-prop-change` conflicts with the
     // compiler-endorsed "adjust state during render" pattern (prev-compare)
     // used to reset drafts — oxlint's compiler rules approve these sites.

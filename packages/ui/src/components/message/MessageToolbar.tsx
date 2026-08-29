@@ -1,9 +1,8 @@
-import { type FC, useState, useMemo, useRef, useCallback } from "react";
+import { type FC, useState, useMemo, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "#shadcn/components/ui/tooltip";
 import { useUiSettingsStore } from "#/stores/uiSettingsStore";
-
 interface MessageToolbarProps {
   usage: {
     context_usage: number;
@@ -36,7 +35,6 @@ interface MessageToolbarProps {
   onCopyImageFromTop?: () => void;
   onTrace?: () => void;
 }
-
 export const MessageToolbar: FC<MessageToolbarProps> = ({
   usage,
   loading,
@@ -63,34 +61,29 @@ export const MessageToolbar: FC<MessageToolbarProps> = ({
 }) => {
   const uiSettings = useUiSettingsStore();
   const traceDebugEnabled = uiSettings.traceDebugEnabled;
-
   const [showCopyTip, setShowCopyTip] = useState(false);
   const [showCopyImageTip, setShowCopyImageTip] = useState(false);
   const [showCopyFromTopTip, setShowCopyFromTopTip] = useState(false);
   const copyImagePressTimer = useRef<number | null>(null);
   const LONG_PRESS_DURATION = 800;
-
   const hasTokensPerSecond = usage.tokens_per_second > 0;
   const hasVariants = (totalVariants || 0) > 1;
   const allowTrace = showTrace ?? false;
   const isReadOnly = isReadOnlyProp === true;
-
-  const handleCopy = useCallback(() => {
+  const handleCopy = () => {
     onCopy?.();
     setShowCopyTip(true);
     setTimeout(() => setShowCopyTip(false), 2000);
-  }, [onCopy]);
-
-  const handleCopyImageStart = useCallback(() => {
+  };
+  const handleCopyImageStart = () => {
     copyImagePressTimer.current = window.setTimeout(() => {
       onCopyImageFromTop?.();
       setShowCopyFromTopTip(true);
       setTimeout(() => setShowCopyFromTopTip(false), 2000);
       copyImagePressTimer.current = null;
     }, LONG_PRESS_DURATION);
-  }, [onCopyImageFromTop]);
-
-  const handleCopyImageEnd = useCallback(() => {
+  };
+  const handleCopyImageEnd = () => {
     if (copyImagePressTimer.current) {
       window.clearTimeout(copyImagePressTimer.current);
       copyImagePressTimer.current = null;
@@ -98,22 +91,17 @@ export const MessageToolbar: FC<MessageToolbarProps> = ({
       setShowCopyImageTip(true);
       setTimeout(() => setShowCopyImageTip(false), 2000);
     }
-  }, [onCopyImage]);
-
-  const handleCopyImageCancel = useCallback(() => {
+  };
+  const handleCopyImageCancel = () => {
     if (copyImagePressTimer.current) {
       window.clearTimeout(copyImagePressTimer.current);
       copyImagePressTimer.current = null;
     }
-  }, []);
-
+  };
   if (isCapturingImage) return null;
-
   return (
     <div
-      className={`w-full h-7 text-xs text-muted-foreground items-center justify-between flex flex-row opacity-0 group-hover:opacity-100 transition-opacity duration-[var(--dc-motion-fast)] ease-[var(--dc-ease-out-soft)] ${
-        isAssistant ? "" : "flex-row-reverse"
-      }`}
+      className={`w-full h-7 text-xs text-muted-foreground items-center justify-between flex flex-row opacity-0 group-hover:opacity-100 transition-opacity duration-[var(--dc-motion-fast)] ease-[var(--dc-ease-out-soft)] ${isAssistant ? "" : "flex-row-reverse"}`}
     >
       <span className={loading ? "hidden" : "flex flex-row gap-3"}>
         {isEditMode ? (

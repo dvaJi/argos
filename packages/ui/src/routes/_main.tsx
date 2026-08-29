@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { createFileRoute, Outlet, useRouter } from "@tanstack/react-router";
 import { useStore } from "@tanstack/react-store";
 import { ErrorBoundary } from "../components/ErrorBoundary";
@@ -41,18 +41,13 @@ import {
 } from "../lib/onboardingResume";
 import type { GuidedOnboardingStepId } from "@argos/shared-contracts/routes";
 import type { DatabaseRepairSuggestedPayload } from "@argos/shared/presenter";
-
 const DEV_WELCOME_OVERRIDE_KEY = "__argos_dev_force_welcome";
-
 const CHAT_GUIDED_ONBOARDING_STEP_IDS = new Set<GuidedOnboardingStepId>(["switch-agent", "switch-model", "first-chat"]);
-
 const configClient = createConfigClient();
 const onboardingClient = createOnboardingClient();
 const windowClient = createWindowClient();
-
 function isDevWelcomeOverrideEnabled(): boolean {
   if (!import.meta.env.DEV) return false;
-
   try {
     return window.sessionStorage.getItem(DEV_WELCOME_OVERRIDE_KEY) === "1";
   } catch {
@@ -62,34 +57,33 @@ function isDevWelcomeOverrideEnabled(): boolean {
 
 /** Hides artifacts whenever the active session changes (module-scope: opaque to the React Compiler). */
 function hideArtifactsForSession(_activeSessionId: string | null) {
-  artifactStore.setState((s) => ({ ...s, visible: false }));
+  artifactStore.setState((s) => ({
+    ...s,
+    visible: false,
+  }));
 }
-
 function MainLayout() {
   const routerInstance = useRouter();
   useAcpAgentUpdateNotifications();
-
   const draftState = useStore(draftStore);
   const sessionState = useStore(sessionStore);
-
   const [isStartupRouteReady, setIsStartupRouteReady] = useState(false);
-  const errorQueue = useRef<Array<{ id: string; title: string; message: string; type: string }>>([]);
+  const errorQueue = useRef<
+    Array<{
+      id: string;
+      title: string;
+      message: string;
+      type: string;
+    }>
+  >([]);
   const currentErrorId = useRef<string | null>(null);
   const errorDisplayTimer = useRef<number | null>(null);
   const processingStartDeeplinkToken = useRef<number | null>(null);
   const processedStartDeeplinkToken = useRef<number | null>(null);
-
-  const displayError = useCallback(function displayError(error: {
-    id: string;
-    title: string;
-    message: string;
-    type: string;
-  }) {
+  const displayError = function displayError(error: { id: string; title: string; message: string; type: string }) {
     currentErrorId.current = error.id;
-
     const handleErrorClosed = () => {
       currentErrorId.current = null;
-
       if (errorQueue.current.length > 0) {
         const nextError = errorQueue.current.shift();
         if (nextError) {
@@ -100,7 +94,6 @@ function MainLayout() {
         errorDisplayTimer.current = null;
       }
     };
-
     const { dismiss } = toast({
       title: error.title,
       description: error.message,
@@ -111,229 +104,206 @@ function MainLayout() {
         }
       },
     });
-
     if (errorDisplayTimer.current) {
       clearTimeout(errorDisplayTimer.current);
     }
-
     errorDisplayTimer.current = window.setTimeout(() => {
       dismiss();
       handleErrorClosed();
     }, 3000);
-  }, []);
-
-  const showErrorToast = useCallback(
-    (error: { id: string; title: string; message: string; type: string }) => {
-      const existingErrorIndex = errorQueue.current.findIndex((e) => e.id === error.id);
-
-      if (existingErrorIndex === -1) {
-        if (currentErrorId.current) {
-          if (errorQueue.current.length > 5) {
-            errorQueue.current.shift();
-          }
-          errorQueue.current.push(error);
-        } else {
-          displayError(error);
+  };
+  const showErrorToast = (error: { id: string; title: string; message: string; type: string }) => {
+    const existingErrorIndex = errorQueue.current.findIndex((e) => e.id === error.id);
+    if (existingErrorIndex === -1) {
+      if (currentErrorId.current) {
+        if (errorQueue.current.length > 5) {
+          errorQueue.current.shift();
         }
+        errorQueue.current.push(error);
+      } else {
+        displayError(error);
       }
-    },
-    [displayError],
-  );
-
-  const activatePendingStartDeeplink = useCallback(
-    async (pendingStartDeeplink: StartDeeplinkPayload | null | undefined): Promise<void> => {
-      if (!pendingStartDeeplink || !isStartupRouteReady) {
+    }
+  };
+  const activatePendingStartDeeplink = async (
+    pendingStartDeeplink: StartDeeplinkPayload | null | undefined,
+  ): Promise<void> => {
+    if (!pendingStartDeeplink || !isStartupRouteReady) {
+      return;
+    }
+    const token = pendingStartDeeplink.token;
+    if (processingStartDeeplinkToken.current === token || processedStartDeeplinkToken.current === token) {
+      return;
+    }
+    processingStartDeeplinkToken.current = token;
+    const clearProcessingToken = () => {
+      if (processingStartDeeplinkToken.current === token) {
+        processingStartDeeplinkToken.current = null;
+      }
+    };
+    try {
+      const initComplete = Boolean(await configClient.getSetting("init_complete"));
+      if (!initComplete) {
+        clearProcessingToken();
         return;
       }
-
-      const token = pendingStartDeeplink.token;
-      if (processingStartDeeplinkToken.current === token || processedStartDeeplinkToken.current === token) {
-        return;
+      await routerInstance.load();
+      if (routerInstance.state.location.pathname !== "/chat") {
+        await routerInstance.navigate({
+          to: "/chat",
+        });
       }
-
-      processingStartDeeplinkToken.current = token;
-
-      const clearProcessingToken = () => {
-        if (processingStartDeeplinkToken.current === token) {
-          processingStartDeeplinkToken.current = null;
-        }
-      };
-
-      try {
-        const initComplete = Boolean(await configClient.getSetting("init_complete"));
-        if (!initComplete) {
-          clearProcessingToken();
-          return;
-        }
-
-        await routerInstance.load();
-        if (routerInstance.state.location.pathname !== "/chat") {
-          await routerInstance.navigate({ to: "/chat" });
-        }
-
-        agentStore.setState((s) => ({ ...s, selectedAgent: "argos" }));
-        if (sessionStore.state.activeSessionId) {
-          await closeSession();
-          processedStartDeeplinkToken.current = token;
-          clearProcessingToken();
-          return;
-        }
-
-        goToNewThread({ refresh: true });
+      agentStore.setState((s) => ({
+        ...s,
+        selectedAgent: "argos",
+      }));
+      if (sessionStore.state.activeSessionId) {
+        await closeSession();
         processedStartDeeplinkToken.current = token;
         clearProcessingToken();
-      } catch (error) {
-        clearProcessingToken();
-        throw error;
-      }
-    },
-    [isStartupRouteReady, routerInstance],
-  );
-
-  const handleStartDeeplink = useCallback(
-    (_event: unknown, payload?: Omit<StartDeeplinkPayload, "token">) => {
-      if (!payload?.msg) {
         return;
       }
-
-      const nextDeeplink: StartDeeplinkPayload = {
-        token: 0,
-        msg: payload.msg,
-        modelId: payload.modelId ?? null,
-        systemPrompt: payload.systemPrompt ?? "",
-        mentions: Array.isArray(payload.mentions) ? payload.mentions : [],
-        autoSend: Boolean(payload.autoSend),
-      };
-      draftStore.setState((s) => ({ ...s, pendingStartDeeplink: nextDeeplink }));
-      void activatePendingStartDeeplink(nextDeeplink);
-    },
-    [activatePendingStartDeeplink],
-  );
-
-  const handleDatabaseRepairSuggested = useCallback((payload: unknown) => {
+      goToNewThread({
+        refresh: true,
+      });
+      processedStartDeeplinkToken.current = token;
+      clearProcessingToken();
+    } catch (error) {
+      clearProcessingToken();
+      throw error;
+    }
+  };
+  const handleStartDeeplink = (_event: unknown, payload?: Omit<StartDeeplinkPayload, "token">) => {
+    if (!payload?.msg) {
+      return;
+    }
+    const nextDeeplink: StartDeeplinkPayload = {
+      token: 0,
+      msg: payload.msg,
+      modelId: payload.modelId ?? null,
+      systemPrompt: payload.systemPrompt ?? "",
+      mentions: Array.isArray(payload.mentions) ? payload.mentions : [],
+      autoSend: Boolean(payload.autoSend),
+    };
+    draftStore.setState((s) => ({
+      ...s,
+      pendingStartDeeplink: nextDeeplink,
+    }));
+    void activatePendingStartDeeplink(nextDeeplink);
+  };
+  const handleDatabaseRepairSuggested = (payload: unknown) => {
     const repairPayload = payload as DatabaseRepairSuggestedPayload | undefined;
     if (!repairPayload) {
       return;
     }
-
     toast({
       title: repairPayload.title,
       description: `${repairPayload.message} - ${repairPayload.reason}`,
     });
-  }, []);
-
-  const handleStartGuidedOnboardingDev = useCallback(async () => {
+  };
+  const handleStartGuidedOnboardingDev = async () => {
     if (!import.meta.env.DEV) {
       return;
     }
-
     try {
       clearGuidedOnboardingResumeIntent();
       await onboardingClient.start({
         force: true,
         stepId: "select-provider",
       });
-
       if (routerInstance.state.location.pathname !== "/welcome") {
-        await routerInstance.navigate({ to: "/welcome", replace: true });
+        await routerInstance.navigate({
+          to: "/welcome",
+          replace: true,
+        });
       }
     } catch (error) {
       console.warn("[App] Failed to start guided onboarding from dev trigger:", error);
     }
-  }, [routerInstance]);
-
-  const routeToGuidedOnboardingStep = useCallback(
-    async (stepId: GuidedOnboardingStepId | null) => {
-      if (stepId && CHAT_GUIDED_ONBOARDING_STEP_IDS.has(stepId)) {
-        if (routerInstance.state.location.pathname !== "/chat") {
-          await routerInstance.navigate({ to: "/chat", replace: true });
-        }
-
-        goToNewThread({ refresh: true });
-        return;
+  };
+  const routeToGuidedOnboardingStep = async (stepId: GuidedOnboardingStepId | null) => {
+    if (stepId && CHAT_GUIDED_ONBOARDING_STEP_IDS.has(stepId)) {
+      if (routerInstance.state.location.pathname !== "/chat") {
+        await routerInstance.navigate({
+          to: "/chat",
+          replace: true,
+        });
       }
-
-      if (routerInstance.state.location.pathname !== "/welcome") {
-        await routerInstance.navigate({ to: "/welcome", replace: true });
-      }
-    },
-    [routerInstance],
-  );
-
-  const handleResumeGuidedOnboarding = useCallback(
-    async (trigger: GuidedOnboardingResumeTrigger) => {
-      const resumeIntent = readGuidedOnboardingResumeIntent();
-      if (!resumeIntent || resumeIntent.trigger !== trigger) {
-        return;
-      }
-
-      try {
-        const onboardingState = await onboardingClient.getState();
-
-        if (onboardingState.status !== "active") {
-          clearGuidedOnboardingResumeIntent();
-          if (onboardingState.status === "completed") {
-            if (routerInstance.state.location.pathname !== "/chat") {
-              await routerInstance.navigate({ to: "/chat", replace: true });
-            }
-
-            goToNewThread({ refresh: true });
-          }
-          return;
-        }
-
+      goToNewThread({
+        refresh: true,
+      });
+      return;
+    }
+    if (routerInstance.state.location.pathname !== "/welcome") {
+      await routerInstance.navigate({
+        to: "/welcome",
+        replace: true,
+      });
+    }
+  };
+  const handleResumeGuidedOnboarding = async (trigger: GuidedOnboardingResumeTrigger) => {
+    const resumeIntent = readGuidedOnboardingResumeIntent();
+    if (!resumeIntent || resumeIntent.trigger !== trigger) {
+      return;
+    }
+    try {
+      const onboardingState = await onboardingClient.getState();
+      if (onboardingState.status !== "active") {
         clearGuidedOnboardingResumeIntent();
-        await routeToGuidedOnboardingStep(onboardingState.currentStepId);
-      } catch (error) {
-        console.warn("[App] Failed to resume guided onboarding:", error);
-      }
-    },
-    [routerInstance, routeToGuidedOnboardingStep],
-  );
-
-  const handleGuidedOnboardingResumeRequested = useCallback(
-    (event: Event) => {
-      const detail = (event as CustomEvent<GuidedOnboardingResumeRequestDetail>).detail;
-      if (!detail?.trigger) {
+        if (onboardingState.status === "completed") {
+          if (routerInstance.state.location.pathname !== "/chat") {
+            await routerInstance.navigate({
+              to: "/chat",
+              replace: true,
+            });
+          }
+          goToNewThread({
+            refresh: true,
+          });
+        }
         return;
       }
-
-      void handleResumeGuidedOnboarding(detail.trigger);
-    },
-    [handleResumeGuidedOnboarding],
-  );
-
+      clearGuidedOnboardingResumeIntent();
+      await routeToGuidedOnboardingStep(onboardingState.currentStepId);
+    } catch (error) {
+      console.warn("[App] Failed to resume guided onboarding:", error);
+    }
+  };
+  const handleGuidedOnboardingResumeRequested = (event: Event) => {
+    const detail = (event as CustomEvent<GuidedOnboardingResumeRequestDetail>).detail;
+    if (!detail?.trigger) {
+      return;
+    }
+    void handleResumeGuidedOnboarding(detail.trigger);
+  };
   const { setup: setupMcpDeeplink } = useMcpInstallDeeplinkHandler();
-
-  const handleZoomIn = useCallback(() => {
+  const handleZoomIn = () => {
     uiSettingsStore.setState((s) => ({
       ...s,
       fontSizeLevel: s.fontSizeLevel + 1,
     }));
-  }, []);
-
-  const handleZoomOut = useCallback(() => {
+  };
+  const handleZoomOut = () => {
     uiSettingsStore.setState((s) => ({
       ...s,
       fontSizeLevel: s.fontSizeLevel - 1,
     }));
-  }, []);
-
-  const handleZoomResume = useCallback(() => {
+  };
+  const handleZoomResume = () => {
     uiSettingsStore.setState((s) => ({
       ...s,
       fontSizeLevel: 1,
     }));
-  }, []);
-
-  const handleCreateNewConversation = useCallback(async () => {
+  };
+  const handleCreateNewConversation = async () => {
     try {
-      await startNewConversation({ refresh: true });
+      await startNewConversation({
+        refresh: true,
+      });
     } catch (error) {
       console.error("Failed to create new conversation:", error);
     }
-  }, []);
-
+  };
   useAppIpcRuntime({
     handleStartDeeplink: (event, payload) => {
       handleStartDeeplink(event, payload as Omit<StartDeeplinkPayload, "token"> | undefined);
@@ -359,11 +329,13 @@ function MainLayout() {
       if (currentRoute() !== "chat" || !chatSessionId()) {
         return;
       }
-
       toggleWorkspace(chatSessionId());
     },
     openSpotlight: () => {
-      spotlightStore.setState((s) => ({ ...s, isOpen: true }));
+      spotlightStore.setState((s) => ({
+        ...s,
+        isOpen: true,
+      }));
     },
     handleDataResetComplete: () => {
       toast({
@@ -375,16 +347,19 @@ function MainLayout() {
     },
     handleSystemNotificationClick: (msg) => {
       let sessionId: string | null = null;
-
       if (typeof msg === "string" && msg.startsWith("chat/")) {
         const parts = msg.split("/");
         if (parts.length === 3) {
           sessionId = parts[1];
         }
       } else if (msg && typeof msg === "object" && "threadId" in msg) {
-        sessionId = (msg as { threadId?: string }).threadId ?? null;
+        sessionId =
+          (
+            msg as {
+              threadId?: string;
+            }
+          ).threadId ?? null;
       }
-
       if (sessionId) {
         void selectSession(sessionId);
       }
@@ -396,46 +371,44 @@ function MainLayout() {
       return pathname;
     },
   });
-
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
         await routerInstance.load();
-
         const currentRoute = routerInstance.state.location;
         const currentPath = currentRoute.pathname;
         const isWelcomeRoute = currentPath === "/welcome";
-
         console.info(`[App] ensureStartupWelcomeState path=${currentPath} isWelcome=${isWelcomeRoute}`);
-
         if (isDevWelcomeOverrideEnabled()) {
           if (!isWelcomeRoute) {
             console.info("[App] dev override → navigating to /welcome");
-            await routerInstance.navigate({ to: "/welcome", replace: true });
+            await routerInstance.navigate({
+              to: "/welcome",
+              replace: true,
+            });
           }
           if (!cancelled) setIsStartupRouteReady(true);
           return;
         }
-
         const initComplete = Boolean(await configClient.getSetting("init_complete"));
         let onboardingState: Awaited<ReturnType<typeof onboardingClient.getState>> | null = null;
-
         try {
           onboardingState = await onboardingClient.getState();
         } catch (error) {
           console.warn("[App] Failed to load onboarding state during startup:", error);
         }
-
         if (onboardingState?.status === "completed") {
           if (isWelcomeRoute) {
             console.info("[App] onboarding complete → navigating to /chat");
-            await routerInstance.navigate({ to: "/chat", replace: true });
+            await routerInstance.navigate({
+              to: "/chat",
+              replace: true,
+            });
           }
           if (!cancelled) setIsStartupRouteReady(true);
           return;
         }
-
         if (!initComplete || onboardingState?.status === "active") {
           if (!initComplete && onboardingState?.status !== "active") {
             try {
@@ -444,20 +417,24 @@ function MainLayout() {
               console.warn("[App] Failed to start onboarding during startup:", error);
             }
           }
-
           if (!isWelcomeRoute) {
             console.info(
               `[App] initComplete=${initComplete} onboarding=${onboardingState?.status} → navigating to /welcome`,
             );
-            await routerInstance.navigate({ to: "/welcome", replace: true });
+            await routerInstance.navigate({
+              to: "/welcome",
+              replace: true,
+            });
           }
           if (!cancelled) setIsStartupRouteReady(true);
           return;
         }
-
         if (isWelcomeRoute) {
           console.info("[App] init complete but still on /welcome → navigating to /chat");
-          await routerInstance.navigate({ to: "/chat", replace: true });
+          await routerInstance.navigate({
+            to: "/chat",
+            replace: true,
+          });
         }
         if (!cancelled) setIsStartupRouteReady(true);
       } catch (error) {
@@ -469,37 +446,30 @@ function MainLayout() {
       cancelled = true;
     };
   }, [routerInstance]);
-
   const { pendingStartDeeplink } = draftState;
   useEffect(() => {
     if (!isStartupRouteReady) return;
     void activatePendingStartDeeplink(pendingStartDeeplink);
   }, [isStartupRouteReady, activatePendingStartDeeplink, pendingStartDeeplink]);
-
   const guidedOnboardingResumeHandlerRef = useRef(handleGuidedOnboardingResumeRequested);
   useEffect(() => {
     guidedOnboardingResumeHandlerRef.current = handleGuidedOnboardingResumeRequested;
   }, [handleGuidedOnboardingResumeRequested]);
-
   const setupMcpDeeplinkRef = useRef(setupMcpDeeplink);
   useEffect(() => {
     setupMcpDeeplinkRef.current = setupMcpDeeplink;
   }, [setupMcpDeeplink]);
-
   useEffect(() => {
     const handleEscKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         void windowClient.closeFloatingCurrent();
       }
     };
-
     const handleResumeRequested = (event: Event) => {
       guidedOnboardingResumeHandlerRef.current(event);
     };
-
     window.addEventListener("keydown", handleEscKey);
     window.addEventListener(GUIDED_ONBOARDING_RESUME_REQUESTED_EVENT, handleResumeRequested);
-
     void ensureIconsLoaded();
     void initAppStores();
     void ensureProvidersInitialized();
@@ -516,45 +486,44 @@ function MainLayout() {
         void retryHydrateStores();
       }
     });
-
     return () => {
       if (errorDisplayTimer.current) {
         clearTimeout(errorDisplayTimer.current);
         errorDisplayTimer.current = null;
       }
-
       unsubscribeConnection();
       window.removeEventListener("keydown", handleEscKey);
       window.removeEventListener(GUIDED_ONBOARDING_RESUME_REQUESTED_EVENT, handleResumeRequested);
       cleanupMcpDeeplinkListeners();
     };
   }, []);
-
   const { activeSessionId } = sessionState;
   useEffect(() => {
     hideArtifactsForSession(activeSessionId);
   }, [activeSessionId]);
-
   useEffect(() => {
     const handleSettingsNavigate = (
       _event: unknown,
-      payload?: { routeName?: string; params?: Record<string, string>; section?: string },
+      payload?: {
+        routeName?: string;
+        params?: Record<string, string>;
+        section?: string;
+      },
     ) => {
       const routeName = payload?.routeName;
       if (!routeName) return;
       const settingsPath = `/settings/${routeName.replace("settings-", "")}`;
-      void routerInstance.navigate({ to: settingsPath as any });
+      void routerInstance.navigate({
+        to: settingsPath as any,
+      });
     };
-
     const ipcRenderer = window?.electron?.ipcRenderer;
     if (!ipcRenderer) return;
-
     ipcRenderer.on(SETTINGS_EVENTS.NAVIGATE, handleSettingsNavigate);
     return () => {
       ipcRenderer.removeListener?.(SETTINGS_EVENTS.NAVIGATE, handleSettingsNavigate);
     };
   }, [routerInstance]);
-
   return (
     <>
       <AppBar />
@@ -581,7 +550,6 @@ function MainLayout() {
     </>
   );
 }
-
 export const Route = createFileRoute("/_main")({
   component: MainLayout,
 });

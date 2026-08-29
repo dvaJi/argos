@@ -1,4 +1,4 @@
-import { type FC, useEffect, useMemo, useRef, memo } from "react";
+import { type FC, useEffect, useRef } from "react";
 import { useBlockContent, type ProcessedPart } from "#/composables/useArtifacts";
 import { completeArtifact, syncArtifact } from "#/stores/artifact";
 import { ArtifactThinking } from "../artifacts/ArtifactThinking";
@@ -6,59 +6,58 @@ import { ArtifactPreview } from "../artifacts/ArtifactPreview";
 import { ToolCallPreview } from "../artifacts/ToolCallPreview";
 import { MarkdownRenderer } from "#/components/markdown/MarkdownRenderer";
 import type { DisplayAssistantMessageBlock } from "#/components/chat/messageListItems";
-
 interface MessageBlockContentProps {
   block: DisplayAssistantMessageBlock;
   messageId: string;
   threadId: string;
 }
-
 const MessageBlockContentBase: FC<MessageBlockContentProps> = ({ block, messageId, threadId }) => {
-  const propsRef = useRef({ block, messageId, threadId });
+  const propsRef = useRef({
+    block,
+    messageId,
+    threadId,
+  });
   useEffect(() => {
-    propsRef.current = { block, messageId, threadId };
+    propsRef.current = {
+      block,
+      messageId,
+      threadId,
+    };
   }, [block, messageId, threadId]);
-
-  const { processedContent } = useBlockContent({ block });
-
-  const shouldSmoothStream = useMemo(() => block.status === "pending" || block.status === "loading", [block.status]);
-
-  const linkContext = useMemo(() => ({ source: "chat" as const, sessionId: threadId }), [threadId]);
-
+  const { processedContent } = useBlockContent({
+    block,
+  });
+  const shouldSmoothStream = block.status === "pending" || block.status === "loading";
+  const linkContext = {
+    source: "chat" as const,
+    sessionId: threadId,
+  };
   const lastArtifactSnapshot = useRef<string>("");
-
-  const artifactSnapshot = useMemo(
-    () =>
-      processedContent
-        .filter(
-          (
-            part,
-          ): part is ProcessedPart & {
-            type: "artifact";
-            artifact: NonNullable<ProcessedPart["artifact"]>;
-          } => part.type === "artifact" && Boolean(part.artifact),
-        )
-        .map((part) => {
-          const artifact = part.artifact;
-          return [
-            artifact.identifier,
-            artifact.title,
-            artifact.type,
-            artifact.language || "",
-            part.loading ? "1" : "0",
-            part.content,
-          ].join("::");
-        })
-        .join("\n__artifact__\n"),
-    [processedContent],
-  );
-
+  const artifactSnapshot = processedContent
+    .filter(
+      (
+        part,
+      ): part is ProcessedPart & {
+        type: "artifact";
+        artifact: NonNullable<ProcessedPart["artifact"]>;
+      } => part.type === "artifact" && Boolean(part.artifact),
+    )
+    .map((part) => {
+      const artifact = part.artifact;
+      return [
+        artifact.identifier,
+        artifact.title,
+        artifact.type,
+        artifact.language || "",
+        part.loading ? "1" : "0",
+        part.content,
+      ].join("::");
+    })
+    .join("\n__artifact__\n");
   useEffect(() => {
     if (artifactSnapshot === lastArtifactSnapshot.current) return;
     lastArtifactSnapshot.current = artifactSnapshot;
-
     const currentProps = propsRef.current;
-
     for (const part of processedContent) {
       const artifact = part.type === "artifact" && part.artifact;
       if (!artifact) continue;
@@ -74,7 +73,6 @@ const MessageBlockContentBase: FC<MessageBlockContentProps> = ({ block, messageI
           content,
           status,
         } as const;
-
         if (loading) {
           syncArtifact(nextArtifact, currentProps.messageId, currentProps.threadId);
         } else {
@@ -96,7 +94,6 @@ const MessageBlockContentBase: FC<MessageBlockContentProps> = ({ block, messageI
       }
     }
   }, [artifactSnapshot, processedContent]);
-
   return (
     <>
       {processedContent.map((part, index) => {
@@ -112,16 +109,17 @@ const MessageBlockContentBase: FC<MessageBlockContentProps> = ({ block, messageI
             />
           );
         }
-
         if (part.type === "thinking" && part.loading) {
           return <ArtifactThinking key={index} />;
         }
-
         if (part.type === "artifact" && part.artifact) {
           return (
             <div key={index} className="my-1">
               <ArtifactPreview
-                block={{ content: part.content, artifact: part.artifact }}
+                block={{
+                  content: part.content,
+                  artifact: part.artifact,
+                }}
                 messageId={messageId}
                 threadId={threadId}
                 loading={part.loading}
@@ -129,7 +127,6 @@ const MessageBlockContentBase: FC<MessageBlockContentProps> = ({ block, messageI
             </div>
           );
         }
-
         if (part.type === "tool_call" && part.tool_call) {
           return (
             <div key={index} className="my-1">
@@ -137,11 +134,9 @@ const MessageBlockContentBase: FC<MessageBlockContentProps> = ({ block, messageI
             </div>
           );
         }
-
         return null;
       })}
     </>
   );
 };
-
-export const MessageBlockContent = memo(MessageBlockContentBase);
+export const MessageBlockContent = MessageBlockContentBase;

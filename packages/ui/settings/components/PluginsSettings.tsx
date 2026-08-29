@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "#shadcn/components/ui/dialog";
@@ -10,15 +10,12 @@ import type {
   PluginRuntimeState,
 } from "@argos/shared/types/plugin";
 import SettingsPageShell from "./control-center/SettingsPageShell";
-
 const pluginClient = createPluginClient();
-
 type OpenPluginSettings = {
   pluginId: string;
   title: string;
   url: string;
 };
-
 type PluginSettingsFrameRequest = {
   source: "argos-plugin-settings-frame";
   requestId: string;
@@ -26,7 +23,6 @@ type PluginSettingsFrameRequest = {
   method: "getStatus" | "enable" | "disable" | "invokeAction";
   args?: unknown[];
 };
-
 function getSettingsUrl(result: PluginActionResult): string | null {
   if (!result.data || Array.isArray(result.data) || typeof result.data !== "object") return null;
   const settingsUrl = result.data.settingsUrl;
@@ -39,7 +35,6 @@ function getSettingsUrl(result: PluginActionResult): string | null {
     return null;
   }
 }
-
 function isPluginSettingsFrameRequest(value: unknown): value is PluginSettingsFrameRequest {
   if (!value || typeof value !== "object") return false;
   const request = value as Partial<PluginSettingsFrameRequest>;
@@ -50,7 +45,6 @@ function isPluginSettingsFrameRequest(value: unknown): value is PluginSettingsFr
     typeof request.method === "string"
   );
 }
-
 function formatRuntimeState(state?: PluginRuntimeState): string {
   if (!state) return "-";
   const labels: Record<PluginRuntimeState, string> = {
@@ -61,13 +55,11 @@ function formatRuntimeState(state?: PluginRuntimeState): string {
   };
   return labels[state] ?? state;
 }
-
 function getPluginMcpErrors(plugin: PluginListItem): string[] {
   return (plugin.mcpServers ?? []).flatMap((server) =>
     server.lastError ? [`${server.serverId}: ${server.lastError}`] : [],
   );
 }
-
 export default function PluginsSettings() {
   const [plugins, setPlugins] = useState<PluginListItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -75,81 +67,80 @@ export default function PluginsSettings() {
   const [pendingPluginId, setPendingPluginId] = useState<string | null>(null);
   const [openPluginSettings, setOpenPluginSettings] = useState<OpenPluginSettings | null>(null);
   const settingsFrameRef = useRef<HTMLIFrameElement>(null);
-
-  const loadPlugins = useCallback(async () => {
+  // Liveness flag flipped by the load effect; post-await state writes are skipped
+  // once the effect is torn down so unmounted loads never write state.
+  const pluginsLiveRef = useRef(false);
+  const loadPlugins = async () => {
     setLoading(true);
     setErrorMessage("");
     try {
       const result = await pluginClient.listPlugins();
+      if (!pluginsLiveRef.current) return;
       setPlugins(result);
     } catch (error) {
+      if (!pluginsLiveRef.current) return;
       setErrorMessage(error instanceof Error ? error.message : "Failed to load plugins");
     }
+    if (!pluginsLiveRef.current) return;
     setLoading(false);
-  }, []);
-
-  const runPluginAction = useCallback(
-    async (pluginId: string, action: () => Promise<PluginActionResult>) => {
-      setPendingPluginId(pluginId);
-      setErrorMessage("");
-      try {
-        const result = await action();
-        if (!result.ok) {
-          setErrorMessage(result.error || "Action failed");
-        } else {
-          await loadPlugins();
-        }
-      } catch (error) {
-        setErrorMessage(error instanceof Error ? error.message : "Action failed");
+  };
+  const runPluginAction = async (pluginId: string, action: () => Promise<PluginActionResult>) => {
+    setPendingPluginId(pluginId);
+    setErrorMessage("");
+    try {
+      const result = await action();
+      if (!result.ok) {
+        setErrorMessage(result.error || "Action failed");
+      } else {
+        await loadPlugins();
       }
-      setPendingPluginId(null);
-    },
-    [loadPlugins],
-  );
-
-  const enablePlugin = useCallback(
-    (pluginId: string) => runPluginAction(pluginId, () => pluginClient.enablePlugin(pluginId)),
-    [runPluginAction],
-  );
-
-  const disablePlugin = useCallback(
-    (pluginId: string) => runPluginAction(pluginId, () => pluginClient.disablePlugin(pluginId)),
-    [runPluginAction],
-  );
-
-  const openSettings = useCallback(async (plugin: PluginListItem) => {
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Action failed");
+    }
+    setPendingPluginId(null);
+  };
+  const enablePlugin = (pluginId: string) => runPluginAction(pluginId, () => pluginClient.enablePlugin(pluginId));
+  const disablePlugin = (pluginId: string) => runPluginAction(pluginId, () => pluginClient.disablePlugin(pluginId));
+  const openSettings = async (plugin: PluginListItem) => {
     setPendingPluginId(plugin.id);
     setErrorMessage("");
     try {
-      const result = await pluginClient.invokeAction({ pluginId: plugin.id, actionId: "settings.open" });
+      const result = await pluginClient.invokeAction({
+        pluginId: plugin.id,
+        actionId: "settings.open",
+      });
       if (!result.ok) {
         setErrorMessage(result.error || "Failed to open plugin settings");
       } else {
         const url = getSettingsUrl(result);
         if (url) {
-          setOpenPluginSettings({ pluginId: plugin.id, title: plugin.settings?.title || plugin.name, url });
+          setOpenPluginSettings({
+            pluginId: plugin.id,
+            title: plugin.settings?.title || plugin.name,
+            url,
+          });
         }
       }
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Failed to open plugin settings");
     }
     setPendingPluginId(null);
-  }, []);
-
+  };
   useEffect(() => {
+    pluginsLiveRef.current = true;
     void Promise.resolve().then(() => loadPlugins());
+    return () => {
+      pluginsLiveRef.current = false;
+    };
   }, [loadPlugins]);
-
   useEffect(() => {
     if (!openPluginSettings) return;
-
     const handleMessage = (event: MessageEvent) => {
       if (event.source !== settingsFrameRef.current?.contentWindow || !isPluginSettingsFrameRequest(event.data)) {
         return;
       }
       const request = event.data;
       if (request.pluginId !== openPluginSettings.pluginId) return;
-
       void (async () => {
         try {
           let value: unknown;
@@ -190,7 +181,12 @@ export default function PluginsSettings() {
             });
           }
           settingsFrameRef.current?.contentWindow?.postMessage(
-            { source: "argos-plugin-settings-host", requestId: request.requestId, ok: true, value },
+            {
+              source: "argos-plugin-settings-host",
+              requestId: request.requestId,
+              ok: true,
+              value,
+            },
             "*",
           );
         } catch (error) {
@@ -206,11 +202,9 @@ export default function PluginsSettings() {
         }
       })();
     };
-
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
   }, [loadPlugins, openPluginSettings]);
-
   return (
     <SettingsPageShell
       title="Plugins"
@@ -264,9 +258,7 @@ export default function PluginsSettings() {
                 </div>
               </div>
               <span
-                className={`shrink-0 rounded border px-2 py-1 text-xs ${
-                  plugin.enabled ? "border-emerald-500/40 text-emerald-600" : "border-border text-muted-foreground"
-                }`}
+                className={`shrink-0 rounded border px-2 py-1 text-xs ${plugin.enabled ? "border-emerald-500/40 text-emerald-600" : "border-border text-muted-foreground"}`}
               >
                 {plugin.enabled ? "Enabled" : "Disabled"}
               </span>

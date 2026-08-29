@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
@@ -14,34 +14,31 @@ import {
 } from "#shadcn/components/ui/dialog";
 import { useModelStore } from "#/stores/modelStore";
 import { useProviderStore } from "#/stores/providerStore";
-
 interface ModelCheckDialogProps {
   open: boolean;
   providerId: string;
   onOpenChange: (value: boolean) => void;
 }
-
 export default function ModelCheckDialog({ open, providerId, onOpenChange }: ModelCheckDialogProps) {
   const modelStore = useModelStore();
   const providerStore = useProviderStore();
-
   const [isOpen, setIsOpen] = useState(open);
   const [isChecking, setIsChecking] = useState(false);
   const [selectedModelId, setSelectedModelId] = useState("");
-  const [result, setResult] = useState<{ isOk: boolean; errorMsg: string | null } | null>(null);
-
-  const availableModels = useMemo(() => {
+  const [result, setResult] = useState<{
+    isOk: boolean;
+    errorMsg: string | null;
+  } | null>(null);
+  const availableModels = (() => {
     const providerModels = modelStore.allProviderModels.find((p) => p.providerId === providerId);
     return providerModels?.models || [];
-  }, [modelStore.allProviderModels, providerId]);
-
-  const hasModels = useMemo(() => availableModels.length > 0, [availableModels]);
-
-  const resetDialog = useCallback(() => {
+  })();
+  const hasModels = availableModels.length > 0;
+  const resetDialog = () => {
     setSelectedModelId("");
     setResult(null);
     setIsChecking(false);
-  }, []);
+  };
 
   // Mirror the parent-driven `open` prop into the local isOpen state using a
   // prev-compare adjustment during render (no effect-triggered cascade).
@@ -60,26 +57,18 @@ export default function ModelCheckDialog({ open, providerId, onOpenChange }: Mod
   useEffect(() => {
     onOpenChangeRef.current = onOpenChange;
   }, [onOpenChange]);
-
   useEffect(() => {
     onOpenChangeRef.current(isOpen);
   }, [isOpen]);
-
-  const handleOpenChange = useCallback(
-    (value: boolean) => {
-      setIsOpen(value);
-      if (!value) resetDialog();
-    },
-    [resetDialog],
-  );
-
-  const closeDialog = useCallback(() => {
+  const handleOpenChange = (value: boolean) => {
+    setIsOpen(value);
+    if (!value) resetDialog();
+  };
+  const closeDialog = () => {
     setIsOpen(false);
-  }, []);
-
-  const handleCheck = useCallback(async () => {
+  };
+  const handleCheck = async () => {
     if (!selectedModelId) return;
-
     try {
       setIsChecking(true);
       setResult(null);
@@ -92,8 +81,7 @@ export default function ModelCheckDialog({ open, providerId, onOpenChange }: Mod
       });
     }
     setIsChecking(false);
-  }, [selectedModelId, providerId, providerStore]);
-
+  };
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent

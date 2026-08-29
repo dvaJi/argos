@@ -1,4 +1,4 @@
-import { type DragEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type DragEvent, useEffect, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
@@ -14,7 +14,6 @@ import { useMessageStore, getMessages } from "#/stores/ui/message";
 import { useSidepanelStore, getSessionState, type WorkspaceArtifactContext } from "#/stores/ui/sidepanel";
 import { useSessionStore } from "#/stores/ui/session";
 import type { WorkspaceNavSection } from "@argos/shared/presenter";
-
 interface WorkspacePanelProps {
   sessionId: string;
   workspacePath: string | null;
@@ -23,7 +22,6 @@ interface WorkspacePanelProps {
   onToggleFullscreen: () => void;
   onInsertFileReference: (filePath: string) => void;
 }
-
 type ArtifactItem = WorkspaceArtifactContext & {
   key: string;
   identifier: string;
@@ -34,9 +32,7 @@ type ArtifactItem = WorkspaceArtifactContext & {
   status: "loading" | "loaded";
   createdAt: number;
 };
-
 const NAV_COLLAPSED_WIDTH = 38;
-
 const getArtifactIcon = (type: string) => {
   switch (type) {
     case "application/vnd.ant.code":
@@ -55,7 +51,6 @@ const getArtifactIcon = (type: string) => {
       return "lucide:file";
   }
 };
-
 export function WorkspacePanel({
   sessionId,
   workspacePath,
@@ -68,26 +63,24 @@ export function WorkspacePanel({
   const messageStore = useMessageStore();
   const sidepanelStore = useSidepanelStore();
   const sessionStore = useSessionStore();
-  const workspaceClient = useMemo(() => createWorkspaceClient(), []);
-  const projectClient = useMemo(() => createProjectClient(), []);
-  const fileClient = useMemo(() => createFileClient(), []);
+  const workspaceClient = createWorkspaceClient();
+  const projectClient = createProjectClient();
+  const fileClient = createFileClient();
 
   // Read reactively from the store (NOT memoized by sessionId) so selection /
   // section state changes propagate to useWorkspaceSync immediately.
   const sessionState = getSessionState(sessionId);
   const navCollapsed = sidepanelStore.navCollapsed;
-
   const { selectedFilePreview, selectedGitDiff, loadingFilePreview, loadingGitDiff } = useWorkspaceSync({
-    sessionId: useMemo(() => sessionId, [sessionId]),
-    workspacePath: useMemo(() => workspacePath, [workspacePath]),
-    active: useMemo(() => sidepanelStore.open, [sidepanelStore.open]),
-    sessionState: useMemo(() => sessionState, [sessionState]),
+    sessionId: sessionId,
+    workspacePath: workspacePath,
+    active: sidepanelStore.open,
+    sessionState: sessionState,
     workspaceClient,
     sidepanelStore,
   });
-
   const messages = getMessages();
-  const artifactItems = useMemo<ArtifactItem[]>(() => {
+  const artifactItems = (() => {
     const items: ArtifactItem[] = [];
     for (const message of messages) {
       if (message.sessionId !== sessionId || message.role !== "assistant") continue;
@@ -110,9 +103,8 @@ export function WorkspacePanel({
       }
     }
     return items.sort((a, b) => b.createdAt - a.createdAt);
-  }, [messages, sessionId, messageStore]);
-
-  const selectedArtifact = useMemo(() => {
+  })();
+  const selectedArtifact = (() => {
     const context = sessionState.selectedArtifactContext;
     if (!context) return null;
     if (
@@ -138,8 +130,7 @@ export function WorkspacePanel({
       content: matched.content,
       status: matched.status,
     };
-  }, [sessionState, artifactStore, artifactItems]);
-
+  })();
   useEffect(() => {
     const context = sessionState.selectedArtifactContext;
     if (!context) return;
@@ -165,29 +156,26 @@ export function WorkspacePanel({
     sessionId,
     sidepanelStore,
   ]);
-
   const [isNavResizing, setIsNavResizing] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-
   const navWidth = sidepanelStore.getNavWidth();
-  const expandedNavWidth = useMemo(() => `${navWidth}px`, [navWidth]);
-  const navStyle = useMemo(
-    () => ({ width: navCollapsed ? `${NAV_COLLAPSED_WIDTH}px` : expandedNavWidth }),
-    [navCollapsed, expandedNavWidth],
-  );
-
-  const navResizeStartRef = useRef<{ startX: number; startWidth: number } | null>(null);
+  const expandedNavWidth = `${navWidth}px`;
+  const navStyle = {
+    width: navCollapsed ? `${NAV_COLLAPSED_WIDTH}px` : expandedNavWidth,
+  };
+  const navResizeStartRef = useRef<{
+    startX: number;
+    startWidth: number;
+  } | null>(null);
   const pendingNavWidth = useRef<number | null>(null);
   const navResizeFrame = useRef<number | null>(null);
-
-  const applyPendingNavResize = useCallback(() => {
+  const applyPendingNavResize = () => {
     navResizeFrame.current = null;
     if (pendingNavWidth.current === null) return;
     sidepanelStore.setNavWidth(pendingNavWidth.current);
     pendingNavWidth.current = null;
-  }, [sidepanelStore]);
-
-  const stopNavResize = useCallback(() => {
+  };
+  const stopNavResize = () => {
     if (navResizeFrame.current !== null) {
       window.cancelAnimationFrame(navResizeFrame.current);
       navResizeFrame.current = null;
@@ -196,23 +184,20 @@ export function WorkspacePanel({
       sidepanelStore.setNavWidth(pendingNavWidth.current);
       pendingNavWidth.current = null;
     }
-  }, [sidepanelStore]);
-
-  const startNavResize = useCallback(
-    (event: ReactMouseEvent) => {
-      event.preventDefault();
-      stopNavResize();
-      navResizeStartRef.current = { startX: event.clientX, startWidth: sidepanelStore.getNavWidth() };
-      setIsNavResizing(true);
-    },
-    [stopNavResize, sidepanelStore],
-  );
-
+  };
+  const startNavResize = (event: ReactMouseEvent) => {
+    event.preventDefault();
+    stopNavResize();
+    navResizeStartRef.current = {
+      startX: event.clientX,
+      startWidth: sidepanelStore.getNavWidth(),
+    };
+    setIsNavResizing(true);
+  };
   useEffect(() => {
     if (!isNavResizing) return;
     const start = navResizeStartRef.current;
     if (!start) return;
-
     const onMouseMove = (moveEvent: MouseEvent) => {
       pendingNavWidth.current = start.startWidth + (moveEvent.clientX - start.startX);
       if (navResizeFrame.current === null) {
@@ -222,9 +207,12 @@ export function WorkspacePanel({
     const onMouseUp = () => {
       setIsNavResizing(false);
     };
-
-    window.addEventListener("mousemove", onMouseMove, { passive: true });
-    window.addEventListener("mouseup", onMouseUp, { once: true });
+    window.addEventListener("mousemove", onMouseMove, {
+      passive: true,
+    });
+    window.addEventListener("mouseup", onMouseUp, {
+      once: true,
+    });
     return () => {
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("mouseup", onMouseUp);
@@ -232,61 +220,50 @@ export function WorkspacePanel({
       setIsNavResizing(false);
     };
   }, [isNavResizing, applyPendingNavResize, stopNavResize]);
-
   const stopNavResizeRef = useRef(stopNavResize);
   useEffect(() => {
     stopNavResizeRef.current = stopNavResize;
   }, [stopNavResize]);
-
   useEffect(() => {
     return () => stopNavResizeRef.current();
   }, []);
-
-  const handleArtifactSelect = useCallback(
-    (item: ArtifactItem) => {
-      artifactStore.showArtifact(
-        {
-          id: item.artifactId,
-          type: item.type,
-          title: item.title,
-          language: item.language,
-          content: item.content,
-          status: item.status,
-        },
-        item.messageId,
-        item.threadId,
-        { force: true, open: false, viewMode: "preview" },
-      );
-    },
-    [artifactStore],
-  );
-
-  const isArtifactSelected = useCallback(
-    (item: ArtifactItem) => {
-      const context = sessionState.selectedArtifactContext;
-      return (
-        context?.threadId === item.threadId &&
-        context?.messageId === item.messageId &&
-        context?.artifactId === item.artifactId
-      );
-    },
-    [sessionState],
-  );
-
-  const handleSectionClick = useCallback(
-    (section: WorkspaceNavSection) => {
-      if (navCollapsed) {
-        sidepanelStore.setNavCollapsed(false);
-        const state = sidepanelStore.getSessionState(sessionId);
-        state.sections[section] = true;
-        return;
-      }
-      sidepanelStore.toggleSection(sessionId, section);
-    },
-    [navCollapsed, sidepanelStore, sessionId],
-  );
-
-  const selectFolder = useCallback(async () => {
+  const handleArtifactSelect = (item: ArtifactItem) => {
+    artifactStore.showArtifact(
+      {
+        id: item.artifactId,
+        type: item.type,
+        title: item.title,
+        language: item.language,
+        content: item.content,
+        status: item.status,
+      },
+      item.messageId,
+      item.threadId,
+      {
+        force: true,
+        open: false,
+        viewMode: "preview",
+      },
+    );
+  };
+  const isArtifactSelected = (item: ArtifactItem) => {
+    const context = sessionState.selectedArtifactContext;
+    return (
+      context?.threadId === item.threadId &&
+      context?.messageId === item.messageId &&
+      context?.artifactId === item.artifactId
+    );
+  };
+  const handleSectionClick = (section: WorkspaceNavSection) => {
+    if (navCollapsed) {
+      sidepanelStore.setNavCollapsed(false);
+      const state = sidepanelStore.getSessionState(sessionId);
+      state.sections[section] = true;
+      return;
+    }
+    sidepanelStore.toggleSection(sessionId, section);
+  };
+  const selectFolder = async () => {
     try {
       const selectedPath = await projectClient.selectDirectory();
       if (selectedPath) {
@@ -296,15 +273,13 @@ export function WorkspacePanel({
     } catch (e) {
       console.error("Failed to select folder:", e);
     }
-  }, [projectClient, sessionStore, sessionId, onUpdateWorkspacePath]);
-
-  const handleDragOver = useCallback((event: DragEvent) => {
+  };
+  const handleDragOver = (event: DragEvent) => {
     event.preventDefault();
     if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
     if (event.dataTransfer?.types.includes("Files")) setIsDragging(true);
-  }, []);
-
-  const handleDragLeave = useCallback((event: DragEvent) => {
+  };
+  const handleDragLeave = (event: DragEvent) => {
     const relatedTarget = event.relatedTarget as EventTarget | null;
     if (
       !relatedTarget ||
@@ -313,40 +288,41 @@ export function WorkspacePanel({
     ) {
       setIsDragging(false);
     }
-  }, []);
-
-  const handleDrop = useCallback(
-    async (event: DragEvent) => {
-      event.preventDefault();
-      setIsDragging(false);
-      const file = event.dataTransfer?.files?.[0];
-      if (!file) return;
-      const filePath =
-        fileClient.getPathForFile(file).trim() || ((file as File & { path?: string }).path?.trim() ?? null);
-      if (!filePath) return;
-      try {
-        const isDirectory = await fileClient.isDirectory(filePath);
-        if (!isDirectory) return;
-        await sessionStore.setSessionProjectDir(sessionId, filePath);
-        onUpdateWorkspacePath?.(filePath);
-      } catch (e) {
-        console.error("[WorkspacePanel] Failed to set workspace from drop:", e);
-      }
-    },
-    [fileClient, sessionStore, sessionId, onUpdateWorkspacePath],
-  );
-
+  };
+  const handleDrop = async (event: DragEvent) => {
+    event.preventDefault();
+    setIsDragging(false);
+    const file = event.dataTransfer?.files?.[0];
+    if (!file) return;
+    const filePath =
+      fileClient.getPathForFile(file).trim() ||
+      ((
+        file as File & {
+          path?: string;
+        }
+      ).path?.trim() ??
+        null);
+    if (!filePath) return;
+    try {
+      const isDirectory = await fileClient.isDirectory(filePath);
+      if (!isDirectory) return;
+      await sessionStore.setSessionProjectDir(sessionId, filePath);
+      onUpdateWorkspacePath?.(filePath);
+    } catch (e) {
+      console.error("[WorkspacePanel] Failed to set workspace from drop:", e);
+    }
+  };
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 overflow-hidden">
       <aside
-        className={`workspace-nav relative flex h-full min-h-0 shrink-0 flex-col overflow-hidden border-r bg-muted/20 ${
-          isNavResizing ? "workspace-nav--resizing" : ""
-        }`}
+        className={`workspace-nav relative flex h-full min-h-0 shrink-0 flex-col overflow-hidden border-r bg-muted/20 ${isNavResizing ? "workspace-nav--resizing" : ""}`}
         style={navStyle}
       >
         <div
           className="flex h-full min-h-0 shrink-0 flex-col"
-          style={{ width: navCollapsed ? `${NAV_COLLAPSED_WIDTH}px` : expandedNavWidth }}
+          style={{
+            width: navCollapsed ? `${NAV_COLLAPSED_WIDTH}px` : expandedNavWidth,
+          }}
         >
           <button
             className="flex w-full shrink-0 items-center gap-2 px-3 py-2 text-muted-foreground transition-colors hover:text-foreground"
@@ -379,9 +355,7 @@ export function WorkspacePanel({
                 <div className="flex min-h-0 flex-1 flex-col pb-2">
                   {!workspacePath ? (
                     <div
-                      className={`mx-2 rounded-lg border border-dashed border-muted-foreground/30 px-3 py-4 text-center ${
-                        isDragging ? "border-primary bg-primary/5" : ""
-                      }`}
+                      className={`mx-2 rounded-lg border border-dashed border-muted-foreground/30 px-3 py-4 text-center ${isDragging ? "border-primary bg-primary/5" : ""}`}
                       onDragEnter={(e) => {
                         e.preventDefault();
                         setIsDragging(true);
@@ -431,11 +405,7 @@ export function WorkspacePanel({
                     {artifactItems.map((item) => (
                       <button
                         key={item.key}
-                        className={`flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors ${
-                          isArtifactSelected(item)
-                            ? "bg-accent text-accent-foreground"
-                            : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
-                        }`}
+                        className={`flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors ${isArtifactSelected(item) ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"}`}
                         type="button"
                         onClick={() => handleArtifactSelect(item)}
                       >

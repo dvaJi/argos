@@ -1,11 +1,10 @@
-import { type FC, memo, useCallback, useMemo, useState } from "react";
+import { type FC, useState } from "react";
 import { useSelector } from "@tanstack/react-store";
 import { Icon } from "@iconify/react";
 import type { DisplayAssistantMessageBlock } from "#/components/chat/messageListItems";
 import { MessageBlockContent } from "./MessageBlockContent";
 import { formatActivityDuration } from "./messageActivityGroups";
 import { uiSettingsStore } from "#/stores/uiSettingsStore";
-
 interface MessageTurnFoldProps {
   blocks: DisplayAssistantMessageBlock[];
   messageId: string;
@@ -13,9 +12,12 @@ interface MessageTurnFoldProps {
   durationMs: number;
   onToggleCollapse?: (isCollapsed: boolean) => void;
 }
-
-const DURATION_LABELS = { day: "d", hour: "h", minute: "m", second: "s" } as const;
-
+const DURATION_LABELS = {
+  day: "d",
+  hour: "h",
+  minute: "m",
+  second: "s",
+} as const;
 const BODY_CLASSES =
   "mt-1 ms-6 border-s border-border/45 ps-3 font-mono text-[11px] leading-relaxed wrap-break-word whitespace-pre-wrap text-muted-foreground";
 
@@ -24,16 +26,13 @@ const BODY_CLASSES =
 // ---------------------------------------------------------------------------
 
 const capitalize = (value: string): string => (value.length > 0 ? value[0].toUpperCase() + value.slice(1) : value);
-
 const truncateText = (value: string, max = 72): string =>
   value.length > max ? `${value.slice(0, max - 1).trimEnd()}…` : value;
-
 const basename = (value: string): string => {
   const normalized = value.replace(/\\/g, "/");
   const index = normalized.lastIndexOf("/");
   return index >= 0 ? normalized.slice(index + 1) : normalized;
 };
-
 const parseToolParams = (raw?: string): Record<string, unknown> => {
   if (!raw) return {};
   try {
@@ -45,7 +44,6 @@ const parseToolParams = (raw?: string): Record<string, unknown> => {
     return {};
   }
 };
-
 const firstString = (params: Record<string, unknown>, keys: string[]): string => {
   for (const key of keys) {
     const value = params[key];
@@ -53,14 +51,12 @@ const firstString = (params: Record<string, unknown>, keys: string[]): string =>
   }
   return "";
 };
-
 const COMMAND_TOOL_RE = /(bash|shell|terminal|run_command|powershell|exec)/i;
 const READ_TOOL_RE = /(read|view|list|image|fetch|grep|search_files|get_file)/i;
 const WRITE_TOOL_RE = /(write|edit|patch|replace|remove|delete|create|move|copy|rename|mkdir)/i;
 
 /** t3code-style fold row kinds — used for icons and per-kind heading counts. */
 type FoldRowKind = "reasoning" | "command" | "read" | "write" | "tool";
-
 const toolRowKind = (block: DisplayAssistantMessageBlock): FoldRowKind => {
   const name = block.tool_call?.name?.trim() || "tool";
   const params = parseToolParams(block.tool_call?.params);
@@ -76,10 +72,8 @@ const toolRowKind = (block: DisplayAssistantMessageBlock): FoldRowKind => {
   }
   return "tool";
 };
-
 const isReasoningBlock = (block: DisplayAssistantMessageBlock): boolean =>
   block.type === "reasoning_content" || block.type === "artifact-thinking";
-
 interface FoldGroup {
   /** One work unit between narrative blocks: tool calls of any kind plus the
    *  reasoning stream, collapsed into a single row. */
@@ -98,11 +92,26 @@ interface FoldGroup {
  */
 const collapseFoldBlocks = (
   blocks: DisplayAssistantMessageBlock[],
-): Array<FoldGroup | { kind: "content"; block: DisplayAssistantMessageBlock }> => {
-  const items: Array<FoldGroup | { kind: "content"; block: DisplayAssistantMessageBlock }> = [];
+): Array<
+  | FoldGroup
+  | {
+      kind: "content";
+      block: DisplayAssistantMessageBlock;
+    }
+> => {
+  const items: Array<
+    | FoldGroup
+    | {
+        kind: "content";
+        block: DisplayAssistantMessageBlock;
+      }
+  > = [];
   for (const block of blocks) {
     if (block.type === "content") {
-      items.push({ kind: "content", block });
+      items.push({
+        kind: "content",
+        block,
+      });
       continue;
     }
     if (block.type !== "tool_call" && !isReasoningBlock(block)) {
@@ -115,12 +124,14 @@ const collapseFoldBlocks = (
       last.blocks.push(block);
     } else {
       // Start (or restart after a content boundary) an activity group.
-      items.push({ kind: "activity", blocks: [block] });
+      items.push({
+        kind: "activity",
+        blocks: [block],
+      });
     }
   }
   return items;
 };
-
 interface ToolRowMeta {
   icon: string;
   heading: string;
@@ -134,30 +145,42 @@ const FOLD_KIND_ICON: Record<FoldRowKind, string> = {
   tool: "hugeicons:wrench-01",
   reasoning: "hugeicons:brain-01",
 };
-
 const pluralize = (count: number, singular: string, plural?: string): string =>
   count === 1 ? singular : (plural ?? `${singular}s`);
-
 const toolRowMeta = (block: DisplayAssistantMessageBlock): ToolRowMeta => {
   const name = block.tool_call?.name?.trim() || "tool";
   const params = parseToolParams(block.tool_call?.params);
   const command = firstString(params, ["command", "cmd"]);
   const file = basename(firstString(params, ["path", "filePath", "file", "filename", "target"]));
-
   if (COMMAND_TOOL_RE.test(name) || (command && /(run|exec|shell)/i.test(name))) {
-    return { icon: "hugeicons:command-line", heading: command ? `Ran ${truncateText(command, 48)}` : "Ran command" };
+    return {
+      icon: "hugeicons:command-line",
+      heading: command ? `Ran ${truncateText(command, 48)}` : "Ran command",
+    };
   }
   if (READ_TOOL_RE.test(name)) {
-    return { icon: "hugeicons:eye", heading: file ? `Read ${file}` : capitalize(name.replace(/[_-]+/g, " ")) };
+    return {
+      icon: "hugeicons:eye",
+      heading: file ? `Read ${file}` : capitalize(name.replace(/[_-]+/g, " ")),
+    };
   }
   if (WRITE_TOOL_RE.test(name)) {
     const verb = /(remove|delete)/i.test(name) ? "Removed" : /(create|write|mkdir)/i.test(name) ? "Created" : "Edited";
-    return { icon: "hugeicons:pencil-edit-01", heading: file ? `${verb} ${file}` : `${verb} file` };
+    return {
+      icon: "hugeicons:pencil-edit-01",
+      heading: file ? `${verb} ${file}` : `${verb} file`,
+    };
   }
   if (block.tool_call?.server_name) {
-    return { icon: "hugeicons:wrench-01", heading: `Called ${truncateText(name)}` };
+    return {
+      icon: "hugeicons:wrench-01",
+      heading: `Called ${truncateText(name)}`,
+    };
   }
-  return { icon: "hugeicons:settings-01", heading: `Called ${truncateText(name)}` };
+  return {
+    icon: "hugeicons:settings-01",
+    heading: `Called ${truncateText(name)}`,
+  };
 };
 
 /** Sums the reasoning time across a group's thinking blocks. */
@@ -189,7 +212,6 @@ const groupHeading = (group: FoldGroup): string => {
   if (toolBlocks.length === 0 && hasReasoning) {
     return thoughtLabel(reasoningMs);
   }
-
   let commands = 0;
   let reads = 0;
   let writes = 0;
@@ -218,7 +240,6 @@ const groupHeading = (group: FoldGroup): string => {
         break;
     }
   }
-
   const parts: string[] = [];
   if (commands > 0) parts.push(`Ran ${commands} ${pluralize(commands, "command")}`);
   if (writes > 0) parts.push(`${firstWriteVerb ?? "Edited"} ${writes} ${pluralize(writes, "file")}`);
@@ -252,7 +273,6 @@ const groupIcon = (group: FoldGroup): string => {
   });
   return FOLD_KIND_ICON[leaderKind];
 };
-
 const groupBodyParts = (group: FoldGroup): string[] => {
   return group.blocks.flatMap((block) => {
     if (isReasoningBlock(block)) {
@@ -276,7 +296,6 @@ interface FoldContentRowProps {
   messageId: string;
   threadId: string;
 }
-
 const previewText = (block: DisplayAssistantMessageBlock): string => {
   const text = typeof block.content === "string" ? block.content.trim() : "";
   if (!text) return "";
@@ -284,7 +303,6 @@ const previewText = (block: DisplayAssistantMessageBlock): string => {
   const compact = firstLine.replace(/\s+/g, " ").trim();
   return compact.length > 120 ? `${compact.slice(0, 119).trimEnd()}…` : compact;
 };
-
 const FoldContentRowBase: FC<FoldContentRowProps> = ({ block, messageId, threadId }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const preview = previewText(block);
@@ -293,7 +311,6 @@ const FoldContentRowBase: FC<FoldContentRowProps> = ({ block, messageId, threadI
   if (!preview) {
     return <MessageBlockContent block={block} messageId={messageId} threadId={threadId} />;
   }
-
   return (
     <div className="flex w-full min-w-0 flex-col">
       <button
@@ -304,9 +321,7 @@ const FoldContentRowBase: FC<FoldContentRowProps> = ({ block, messageId, threadI
       >
         <Icon
           icon="hugeicons:arrow-right-01"
-          className={`h-3 w-3 shrink-0 text-muted-foreground/60 transition-transform duration-(--dc-motion-fast) ease-(--dc-ease-out-soft) motion-reduce:transition-none ${
-            isExpanded ? "rotate-90" : "rotate-0"
-          }`}
+          className={`h-3 w-3 shrink-0 text-muted-foreground/60 transition-transform duration-(--dc-motion-fast) ease-(--dc-ease-out-soft) motion-reduce:transition-none ${isExpanded ? "rotate-90" : "rotate-0"}`}
         />
         <span className="min-w-0 truncate font-medium text-foreground/82">{preview}</span>
       </button>
@@ -314,8 +329,7 @@ const FoldContentRowBase: FC<FoldContentRowProps> = ({ block, messageId, threadI
     </div>
   );
 };
-
-const FoldContentRow = memo(FoldContentRowBase);
+const FoldContentRow = FoldContentRowBase;
 
 // ---------------------------------------------------------------------------
 // Fold group row
@@ -324,14 +338,12 @@ const FoldContentRow = memo(FoldContentRowBase);
 interface FoldGroupRowProps {
   group: FoldGroup;
 }
-
 const FoldGroupRowBase: FC<FoldGroupRowProps> = ({ group }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const icon = groupIcon(group);
   const heading = groupHeading(group);
   const bodyParts = groupBodyParts(group).filter((part) => part.length > 0);
   const isFailure = group.blocks.some((block) => block.status === "error" || block.status === "denied");
-
   return (
     <div className="flex w-full min-w-0 flex-col">
       <button
@@ -360,8 +372,7 @@ const FoldGroupRowBase: FC<FoldGroupRowProps> = ({ group }) => {
     </div>
   );
 };
-
-const FoldGroupRow = memo(FoldGroupRowBase);
+const FoldGroupRow = FoldGroupRowBase;
 
 // ---------------------------------------------------------------------------
 // Turn fold
@@ -376,14 +387,27 @@ const FoldGroupRow = memo(FoldGroupRowBase);
 const blockKey = (block: DisplayAssistantMessageBlock): string =>
   block.id ??
   block.tool_call?.id ??
-  `${block.type}:${block.timestamp ?? "no-ts"}:${block.tool_call?.name ?? "anonymous"}:${
-    Array.isArray(block.content) ? block.content.join("").length : (block.content?.length ?? 0)
-  }`;
-
+  `${block.type}:${block.timestamp ?? "no-ts"}:${block.tool_call?.name ?? "anonymous"}:${Array.isArray(block.content) ? block.content.join("").length : (block.content?.length ?? 0)}`;
 const buildGroupItems = (
   blocks: DisplayAssistantMessageBlock[],
-): Array<{ key: string; item: FoldGroup | { kind: "content"; block: DisplayAssistantMessageBlock } }> => {
-  const items: Array<{ key: string; item: FoldGroup | { kind: "content"; block: DisplayAssistantMessageBlock } }> = [];
+): Array<{
+  key: string;
+  item:
+    | FoldGroup
+    | {
+        kind: "content";
+        block: DisplayAssistantMessageBlock;
+      };
+}> => {
+  const items: Array<{
+    key: string;
+    item:
+      | FoldGroup
+      | {
+          kind: "content";
+          block: DisplayAssistantMessageBlock;
+        };
+  }> = [];
   // Dedup fallback keys within this fold only, so identical id-less blocks in
   // different messages keep stable, independent identities.
   const seen = new Map<string, number>();
@@ -393,10 +417,12 @@ const buildGroupItems = (
     seen.set(base, duplicateCount + 1);
     return duplicateCount === 0 ? base : `${base}#${duplicateCount}`;
   };
-
   for (const groupItem of collapseFoldBlocks(blocks)) {
     if (groupItem.kind === "content") {
-      items.push({ key: keyForBlock(groupItem.block), item: groupItem });
+      items.push({
+        key: keyForBlock(groupItem.block),
+        item: groupItem,
+      });
       continue;
     }
     // A group spans N blocks — anchor its key on the first block so the row
@@ -409,7 +435,6 @@ const buildGroupItems = (
   }
   return items;
 };
-
 const MessageTurnFoldBase: FC<MessageTurnFoldProps> = ({
   blocks,
   messageId,
@@ -419,22 +444,16 @@ const MessageTurnFoldBase: FC<MessageTurnFoldProps> = ({
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const hideReasoningOnFinishedTurn = useSelector(uiSettingsStore, (s) => s.hideReasoningOnFinishedTurn);
-
   const durationText = formatActivityDuration(durationMs, DURATION_LABELS);
   const label = durationMs >= 1000 ? `Worked for ${durationText}` : "Worked";
   // Thinking is only shown while the turn is live; once settled the fold can
   // drop it entirely (setting) so the summary stays clean.
-  const groupItems = useMemo(
-    () => buildGroupItems(hideReasoningOnFinishedTurn ? blocks.filter((b) => !isReasoningBlock(b)) : blocks),
-    [blocks, hideReasoningOnFinishedTurn],
-  );
-
-  const toggleExpanded = useCallback(() => {
+  const groupItems = buildGroupItems(hideReasoningOnFinishedTurn ? blocks.filter((b) => !isReasoningBlock(b)) : blocks);
+  const toggleExpanded = () => {
     const next = !isExpanded;
     setIsExpanded(next);
     onToggleCollapse?.(!next);
-  }, [isExpanded, onToggleCollapse]);
-
+  };
   return (
     <div className="flex w-full flex-col" data-testid="turn-fold">
       <button
@@ -453,9 +472,7 @@ const MessageTurnFoldBase: FC<MessageTurnFoldProps> = ({
       </button>
 
       <div
-        className={`grid w-full overflow-hidden transition-[grid-template-rows,opacity] duration-(--dc-motion-default) ease-(--dc-ease-out-express) motion-reduce:transition-none ${
-          isExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] pointer-events-none opacity-0"
-        }`}
+        className={`grid w-full overflow-hidden transition-[grid-template-rows,opacity] duration-(--dc-motion-default) ease-(--dc-ease-out-express) motion-reduce:transition-none ${isExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] pointer-events-none opacity-0"}`}
         aria-hidden={!isExpanded}
         inert={isExpanded ? undefined : true}
       >
@@ -474,5 +491,4 @@ const MessageTurnFoldBase: FC<MessageTurnFoldProps> = ({
     </div>
   );
 };
-
-export const MessageTurnFold = memo(MessageTurnFoldBase);
+export const MessageTurnFold = MessageTurnFoldBase;

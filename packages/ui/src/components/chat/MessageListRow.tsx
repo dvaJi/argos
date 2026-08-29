@@ -1,4 +1,4 @@
-import { type FC, useEffect, useRef, useCallback, memo } from "react";
+import { type FC, useEffect, useRef } from "react";
 import MessageItemAssistant from "#/components/message/MessageItemAssistant";
 import MessageItemUser from "#/components/message/MessageItemUser";
 import {
@@ -7,7 +7,6 @@ import {
   type DisplayUserMessage,
   type MessageListItem,
 } from "./messageListItems";
-
 interface MessageListRowProps {
   item: MessageListItem;
   isGenerating?: boolean;
@@ -24,11 +23,13 @@ interface MessageListRowProps {
     messageId: string,
     parentId: string | undefined,
     fromTop: boolean,
-    modelInfo: { model_name: string; model_provider: string },
+    modelInfo: {
+      model_name: string;
+      model_provider: string;
+    },
   ) => void;
   onMeasure: (payload: { messageId: string; height: number }) => void;
 }
-
 const MessageListRowBase: FC<MessageListRowProps> = ({
   item,
   isGenerating = false,
@@ -48,11 +49,9 @@ const MessageListRowBase: FC<MessageListRowProps> = ({
   let measureFrameRef = useRef<number | null>(null);
   let lastMeasuredHeightRef = useRef(0);
   let hasBeenVisibleRef = useRef(typeof IntersectionObserver === "undefined");
-
-  const emitMeasuredHeight = useCallback(() => {
+  const emitMeasuredHeight = () => {
     if (!hasBeenVisibleRef.current) return;
     if (measureFrameRef.current !== null) return;
-
     measureFrameRef.current = window.requestAnimationFrame(() => {
       measureFrameRef.current = null;
       const messageId = item.id;
@@ -60,14 +59,15 @@ const MessageListRowBase: FC<MessageListRowProps> = ({
       const height = rowRef.current?.offsetHeight ?? 0;
       if (height <= 0 || Math.abs(height - lastMeasuredHeightRef.current) < 1) return;
       lastMeasuredHeightRef.current = height;
-      onMeasure({ messageId, height });
+      onMeasure({
+        messageId,
+        height,
+      });
     });
-  }, [item.id, onMeasure]);
-
+  };
   useEffect(() => {
     const el = rowRef.current;
     if (!el) return;
-
     let io: IntersectionObserver | null = null;
     if (typeof IntersectionObserver !== "undefined") {
       io = new IntersectionObserver(
@@ -77,19 +77,19 @@ const MessageListRowBase: FC<MessageListRowProps> = ({
           emitMeasuredHeight();
           io?.disconnect();
         },
-        { rootMargin: "200px 0px" },
+        {
+          rootMargin: "200px 0px",
+        },
       );
       io.observe(el);
     } else {
       emitMeasuredHeight();
     }
-
     let ro: ResizeObserver | null = null;
     if (typeof ResizeObserver !== "undefined") {
       ro = new ResizeObserver(emitMeasuredHeight);
       ro.observe(el);
     }
-
     return () => {
       io?.disconnect();
       ro?.disconnect();
@@ -99,15 +99,12 @@ const MessageListRowBase: FC<MessageListRowProps> = ({
       }
     };
   }, [emitMeasuredHeight]);
-
   useEffect(() => {
     lastMeasuredHeightRef.current = 0;
     emitMeasuredHeight();
   }, [emitMeasuredHeight]);
-
   const getCompactionCopy = (status?: "compacting" | "compacted"): string =>
     status === "compacting" ? "Compacting..." : "Context compacted";
-
   return (
     <div ref={rowRef} className="message-list-row" data-message-id={item.id} data-message-role={item.role}>
       {isCompactionMessageItem(item) ? (
@@ -151,8 +148,6 @@ const MessageListRowBase: FC<MessageListRowProps> = ({
     </div>
   );
 };
-
-const MessageListRow = memo(MessageListRowBase);
+const MessageListRow = MessageListRowBase;
 MessageListRow.displayName = "MessageListRow";
-
 export default MessageListRow;

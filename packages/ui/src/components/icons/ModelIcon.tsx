@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useStore } from "@tanstack/react-store";
 import { providerStore } from "#/stores/providerStore";
 import { agentStore } from "#/stores/ui/agent";
@@ -77,7 +77,6 @@ import o3fanColorIcon from "#/assets/llm-icons/o3-fan.png";
 import voiceAiColorIcon from "#/assets/llm-icons/voiceai.svg";
 import novitaAiIcon from "#/assets/llm-icons/novitaai.svg";
 import astraflowIcon from "#/assets/llm-icons/astraflow.png";
-
 const icons: Record<string, string> = {
   kimi: moonshotColorIcon,
   "kimi-cli": moonshotColorIcon,
@@ -173,9 +172,7 @@ const icons: Record<string, string> = {
   "astraflow-cn": astraflowIcon,
   default: defaultIcon,
 };
-
 const iconKeys = Object.keys(icons);
-
 const monoIconUrls = new Set([
   openaiColorIcon,
   dimcodeColorIcon,
@@ -201,57 +198,44 @@ const monoIconUrls = new Set([
   novitaAiIcon,
   opencodeIcon,
 ]);
-
 interface ModelIconProps {
   modelId: string;
   customClass?: string;
   isDark?: boolean;
 }
-
 export default function ModelIcon({ modelId, customClass = "w-4 h-4", isDark = false }: ModelIconProps) {
   const providers = useStore(providerStore, (s) => s.providers);
   const agents = useStore(agentStore, (s) => s.agents);
   const [iconLoadFailed, setIconLoadFailed] = useState(false);
-
-  const provider = useMemo(() => {
+  const provider = (() => {
     if (!modelId) return undefined;
     return providers.find((item) => item.id === modelId);
-  }, [providers, modelId]);
-
-  const iconKey = useMemo(() => {
+  })();
+  const iconKey = (() => {
     const modelIdLower = modelId.toLowerCase();
     const matchedIcon = iconKeys.find((key) => modelIdLower.includes(key));
     if (matchedIcon) return matchedIcon;
-
     const apiType = provider?.apiType?.toLowerCase();
     if (apiType) {
       const apiMatchedIcon = iconKeys.find((key) => apiType.includes(key));
       if (apiMatchedIcon) return apiMatchedIcon;
     }
-
     return "default";
-  }, [modelId, provider]);
-
-  const dynamicAgentIcon = useMemo(() => {
+  })();
+  const dynamicAgentIcon = (() => {
     if (!modelId) return "";
     return agents.find((agent) => agent.id === modelId)?.icon ?? "";
-  }, [agents, modelId]);
-
-  const useDynamicAcpRegistryIcon = useMemo(() => {
+  })();
+  const useDynamicAcpRegistryIcon = (() => {
     const icon = dynamicAgentIcon.trim();
     return icon.startsWith("https://cdn.agentclientprotocol.com/registry/") && icon.endsWith(".svg");
-  }, [dynamicAgentIcon]);
-
-  const invert = useMemo(() => {
+  })();
+  const invert = (() => {
     if (dynamicAgentIcon && !iconLoadFailed) return false;
     if (!isDark) return false;
     return monoIconUrls.has(icons[iconKey]);
-  }, [dynamicAgentIcon, iconLoadFailed, isDark, iconKey]);
-
-  const resolvedIconSrc = useMemo(
-    () => (dynamicAgentIcon && !iconLoadFailed ? dynamicAgentIcon : icons[iconKey]),
-    [dynamicAgentIcon, iconLoadFailed, iconKey],
-  );
+  })();
+  const resolvedIconSrc = dynamicAgentIcon && !iconLoadFailed ? dynamicAgentIcon : icons[iconKey];
 
   // Reset the load-failed flag whenever the resolved icon identity changes
   // (render-phase adjustment, replacing a setState-in-effect).
@@ -262,13 +246,11 @@ export default function ModelIcon({ modelId, customClass = "w-4 h-4", isDark = f
     setSyncedAgentIcon(dynamicAgentIcon);
     setIconLoadFailed(false);
   }
-
   const handleIconError = () => {
     if (dynamicAgentIcon) {
       setIconLoadFailed(true);
     }
   };
-
   if (useDynamicAcpRegistryIcon) {
     return (
       <AcpAgentIcon
@@ -280,13 +262,18 @@ export default function ModelIcon({ modelId, customClass = "w-4 h-4", isDark = f
       />
     );
   }
-
   return (
     <img
       src={resolvedIconSrc}
       alt={iconKey}
       className={`${customClass} ${invert ? "invert opacity-50" : ""}`}
-      style={invert ? { filter: "invert(1)" } : undefined}
+      style={
+        invert
+          ? {
+              filter: "invert(1)",
+            }
+          : undefined
+      }
       onError={handleIconError}
     />
   );

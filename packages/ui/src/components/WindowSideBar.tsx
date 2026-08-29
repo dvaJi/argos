@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Icon } from "@iconify/react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "#shadcn/components/ui/tooltip";
@@ -22,13 +22,13 @@ import ThreadSidebarList from "./threads/ThreadSidebarList";
 import { useSidebarStore } from "#/stores/ui/sidebar";
 import { useThreadSidebarStore } from "#/stores/ui/threadSidebar";
 import { useThemeStore } from "#/stores/theme";
-
 type PinFeedbackMode = "pinning" | "unpinning";
 type ShortcutPlatform = "mac" | "other";
-
-const PIN_FEEDBACK_DURATION_MS: Record<PinFeedbackMode, number> = { pinning: 560, unpinning: 460 };
+const PIN_FEEDBACK_DURATION_MS: Record<PinFeedbackMode, number> = {
+  pinning: 560,
+  unpinning: 460,
+};
 const getPinFeedbackMode = (nextPinned: boolean): PinFeedbackMode => (nextPinned ? "pinning" : "unpinning");
-
 const deviceClient = createDeviceClient();
 
 /**
@@ -54,7 +54,6 @@ export default function WindowSideBar() {
   const spotlightStore = useSpotlightStore();
   const themeStore = useThemeStore();
   const threadSidebar = useThreadSidebarStore();
-
   const collapsed = sidebarStore.collapsed;
   const [sessionSearchQuery, setSessionSearchQuery] = useState("");
   const [isPinnedSectionCollapsed, setIsPinnedSectionCollapsed] = useState(false);
@@ -68,13 +67,11 @@ export default function WindowSideBar() {
     navigator.platform.toLowerCase().includes("mac") ? "mac" : "other",
   );
   const [showShortcutBadges, setShowShortcutBadges] = useState(false);
-
   const sessionListRef = useRef<HTMLDivElement | null>(null);
   const pinFeedbackTimerRef = useRef<number | null>(null);
   const sessionListScrollFrameRef = useRef<number | null>(null);
   const shortcutBadgeTimerRef = useRef<number | null>(null);
-
-  const themeIcon = useMemo(() => {
+  const themeIcon = (() => {
     switch (themeStore.themeMode) {
       case "light":
         return "line-md:moon-to-sunny-outline-transition";
@@ -83,9 +80,8 @@ export default function WindowSideBar() {
       default:
         return "line-md:monitor";
     }
-  }, [themeStore.themeMode]);
-
-  const themeModeLabel = useMemo(() => {
+  })();
+  const themeModeLabel = (() => {
     switch (themeStore.themeMode) {
       case "light":
         return "Light";
@@ -94,119 +90,95 @@ export default function WindowSideBar() {
       default:
         return "System";
     }
-  }, [themeStore.themeMode]);
+  })();
 
   // The original (non-thread) sidebar still scopes by selected agent.
-  const sidebarSelectedAgentId = useMemo(() => {
+  const sidebarSelectedAgentId = (() => {
     const hasActive = getHasActiveSession();
     const activeAgentId = sessionStore.activeSessionSummary?.agentId?.trim();
     if (hasActive && activeAgentId) return activeAgentId;
     const explicit = typeof agentStore.selectedAgentId === "string" ? agentStore.selectedAgentId.trim() : "";
     return explicit || null;
-  }, [agentStore.selectedAgentId, sessionStore.activeSessionSummary]);
-
-  const selectedAgentName = useMemo(() => {
+  })();
+  const selectedAgentName = (() => {
     if (sidebarSelectedAgentId === null) return "All Agents";
     return agentStore.enabledAgents.find((agent) => agent.id === sidebarSelectedAgentId)?.name ?? "All Agents";
-  }, [sidebarSelectedAgentId, agentStore.enabledAgents]);
-
+  })();
   const normalizedSearchQuery = sessionSearchQuery.trim().toLowerCase();
-  const matchesSessionSearch = useCallback(
-    (session: UISession) => {
-      if (!normalizedSearchQuery) return true;
-      return session.title.toLowerCase().includes(normalizedSearchQuery);
-    },
-    [normalizedSearchQuery],
-  );
-
-  const pinnedSessions = useMemo(
-    () => sessionStore.getPinnedSessions(sidebarSelectedAgentId).filter(matchesSessionSearch),
-    [sessionStore, sidebarSelectedAgentId, matchesSessionSearch],
-  );
-
-  const filteredGroups = useMemo(
-    () =>
-      sessionStore.getFilteredGroups(sidebarSelectedAgentId).flatMap((group: SessionGroup) => {
-        const sessions = group.sessions.filter(matchesSessionSearch);
-        return sessions.length > 0 ? [{ ...group, sessions }] : [];
-      }),
-    [sessionStore, sidebarSelectedAgentId, matchesSessionSearch],
-  );
-
-  const getGroupIdentifier = useCallback((group: SessionGroup) => group.id, []);
+  const matchesSessionSearch = (session: UISession) => {
+    if (!normalizedSearchQuery) return true;
+    return session.title.toLowerCase().includes(normalizedSearchQuery);
+  };
+  const pinnedSessions = sessionStore.getPinnedSessions(sidebarSelectedAgentId).filter(matchesSessionSearch);
+  const filteredGroups = sessionStore.getFilteredGroups(sidebarSelectedAgentId).flatMap((group: SessionGroup) => {
+    const sessions = group.sessions.filter(matchesSessionSearch);
+    return sessions.length > 0
+      ? [
+          {
+            ...group,
+            sessions,
+          },
+        ]
+      : [];
+  });
+  const getGroupIdentifier = (group: SessionGroup) => group.id;
   const getGroupLabel = (group: SessionGroup) => group.labelKey ?? group.label;
-  const isGroupCollapsed = useCallback(
-    (group: SessionGroup) => collapsedGroupIds.has(getGroupIdentifier(group)),
-    [collapsedGroupIds, getGroupIdentifier],
-  );
-
-  const handleSessionClick = useCallback(
-    (session: { id: string }) => {
-      void sessionStore.selectSession(session.id);
-    },
-    [sessionStore],
-  );
-
-  const handleNewChat = useCallback(() => {
-    void sessionStore.startNewConversation({ refresh: true });
-  }, [sessionStore]);
-
-  const openSettings = useCallback(() => {
-    void navigate({ to: "/settings/overview" });
-  }, [navigate]);
-
-  const openUsage = useCallback(() => {
-    void navigate({ to: "/usage" });
-  }, [navigate]);
-
-  const togglePinnedSection = useCallback(() => {
+  const isGroupCollapsed = (group: SessionGroup) => collapsedGroupIds.has(getGroupIdentifier(group));
+  const handleSessionClick = (session: { id: string }) => {
+    void sessionStore.selectSession(session.id);
+  };
+  const handleNewChat = () => {
+    void sessionStore.startNewConversation({
+      refresh: true,
+    });
+  };
+  const openSettings = () => {
+    void navigate({
+      to: "/settings/overview",
+    });
+  };
+  const openUsage = () => {
+    void navigate({
+      to: "/usage",
+    });
+  };
+  const togglePinnedSection = () => {
     setIsPinnedSectionCollapsed((prev) => !prev);
-  }, []);
-
-  const toggleGroup = useCallback(
-    (group: SessionGroup) => {
-      const groupId = getGroupIdentifier(group);
-      setCollapsedGroupIds((prev) => {
-        const next = new Set(prev);
-        if (next.has(groupId)) next.delete(groupId);
-        else next.add(groupId);
-        return next;
-      });
-    },
-    [getGroupIdentifier],
-  );
-
-  const handleTogglePin = useCallback(
-    async (session: UISession) => {
-      const nextPinned = !session.isPinned;
-      await sessionStore.toggleSessionPinned(session.id, nextPinned);
-      if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
-      setPinFeedbackSessionId(session.id);
-      const mode = getPinFeedbackMode(nextPinned);
-      setPinFeedbackMode(mode);
-      if (pinFeedbackTimerRef.current) window.clearTimeout(pinFeedbackTimerRef.current);
-      pinFeedbackTimerRef.current = window.setTimeout(() => {
-        setPinFeedbackSessionId(null);
-        setPinFeedbackMode(null);
-        pinFeedbackTimerRef.current = null;
-      }, PIN_FEEDBACK_DURATION_MS[mode]);
-    },
-    [sessionStore],
-  );
-
-  const openDeleteDialog = useCallback((session: UISession) => {
+  };
+  const toggleGroup = (group: SessionGroup) => {
+    const groupId = getGroupIdentifier(group);
+    setCollapsedGroupIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
+      return next;
+    });
+  };
+  const handleTogglePin = async (session: UISession) => {
+    const nextPinned = !session.isPinned;
+    await sessionStore.toggleSessionPinned(session.id, nextPinned);
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    setPinFeedbackSessionId(session.id);
+    const mode = getPinFeedbackMode(nextPinned);
+    setPinFeedbackMode(mode);
+    if (pinFeedbackTimerRef.current) window.clearTimeout(pinFeedbackTimerRef.current);
+    pinFeedbackTimerRef.current = window.setTimeout(() => {
+      setPinFeedbackSessionId(null);
+      setPinFeedbackMode(null);
+      pinFeedbackTimerRef.current = null;
+    }, PIN_FEEDBACK_DURATION_MS[mode]);
+  };
+  const openDeleteDialog = (session: UISession) => {
     setDeleteTargetSession(session);
-  }, []);
-
-  const handleDeleteConfirm = useCallback(async () => {
+  };
+  const handleDeleteConfirm = async () => {
     if (!deleteTargetSession) return;
     try {
       await sessionStore.deleteSession(deleteTargetSession.id);
     } catch {}
     setDeleteTargetSession(null);
-  }, [deleteTargetSession, sessionStore]);
-
-  const handleSessionListScroll = useCallback(() => {
+  };
+  const handleSessionListScroll = () => {
     if (sessionListScrollFrameRef.current !== null) return;
     sessionListScrollFrameRef.current = window.requestAnimationFrame(() => {
       sessionListScrollFrameRef.current = null;
@@ -215,19 +187,14 @@ export default function WindowSideBar() {
       const distanceToBottom = listElement.scrollHeight - listElement.scrollTop - listElement.clientHeight;
       if (distanceToBottom <= 96) void sessionStore.loadNextPage();
     });
-  }, [sessionStore]);
-
-  const getShortcutBadgeLabelForSession = useCallback(
-    (sessionId: string, sessions: UISession[]) => {
-      const index = sessions.findIndex((s) => s.id === sessionId);
-      if (index < 0 || index >= 10) return null;
-      const digit = index === 9 ? "0" : String(index + 1);
-      return shortcutPlatform === "mac" ? `⌘${digit}` : `Alt+${digit}`;
-    },
-    [shortcutPlatform],
-  );
-
-  const visibleShortcutSessions = useMemo(() => {
+  };
+  const getShortcutBadgeLabelForSession = (sessionId: string, sessions: UISession[]) => {
+    const index = sessions.findIndex((s) => s.id === sessionId);
+    if (index < 0 || index >= 10) return null;
+    const digit = index === 9 ? "0" : String(index + 1);
+    return shortcutPlatform === "mac" ? `⌘${digit}` : `Alt+${digit}`;
+  };
+  const visibleShortcutSessions = (() => {
     if (collapsed) return [];
     const sessionsList: UISession[] = [];
     if (!isPinnedSectionCollapsed) sessionsList.push(...pinnedSessions);
@@ -235,8 +202,7 @@ export default function WindowSideBar() {
       if (!isGroupCollapsed(group)) sessionsList.push(...group.sessions);
     }
     return sessionsList.filter((session) => session.id !== pinFlightSessionId).slice(0, 10);
-  }, [collapsed, isPinnedSectionCollapsed, pinnedSessions, filteredGroups, isGroupCollapsed, pinFlightSessionId]);
-
+  })();
   useEffect(() => {
     const handleKeydown = (event: KeyboardEvent) => {
       const modKey = shortcutPlatform === "mac" ? "Meta" : "Alt";
@@ -277,25 +243,21 @@ export default function WindowSideBar() {
       window.removeEventListener("blur", handleBlur);
     };
   }, [shortcutPlatform, collapsed, visibleShortcutSessions, sessionStore]);
-
   useEffect(() => {
     void deviceClient.getDeviceInfo().then((info) => {
       setShortcutPlatform(info.platform === "darwin" ? "mac" : "other");
     });
   }, []);
-
   useEffect(() => {
     return () => {
       if (sessionListScrollFrameRef.current) window.cancelAnimationFrame(sessionListScrollFrameRef.current);
       if (pinFeedbackTimerRef.current) window.clearTimeout(pinFeedbackTimerRef.current);
     };
   }, []);
-
   const getShortcutBadge = (sessionId: string) =>
     showShortcutBadges ? getShortcutBadgeLabelForSession(sessionId, visibleShortcutSessions) : null;
   const hasShortcutBadge = (sessionId: string) =>
     showShortcutBadges && visibleShortcutSessions.some((s) => s.id === sessionId);
-
   const renderBottomUtilityBar = () => (
     <div
       data-testid="window-sidebar-bottom-bar"
@@ -310,11 +272,7 @@ export default function WindowSideBar() {
             render={
               <button
                 type="button"
-                className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors duration-150 ${
-                  spotlightStore.open
-                    ? "bg-accent/60 text-foreground"
-                    : "text-muted-foreground hover:bg-accent/40 hover:text-foreground"
-                }`}
+                className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors duration-150 ${spotlightStore.open ? "bg-accent/60 text-foreground" : "text-muted-foreground hover:bg-accent/40 hover:text-foreground"}`}
                 title="Search"
                 onClick={() => spotlightStore.toggleSpotlight()}
               />
@@ -395,20 +353,15 @@ export default function WindowSideBar() {
       </Tooltip>
     </div>
   );
-
   return (
     <>
       <div
         data-testid="window-sidebar"
-        className={`window-sidebar-shell flex flex-col h-full shrink-0 overflow-hidden bg-sidebar window-drag-region${
-          collapsed ? " w-12" : " w-[288px]"
-        }`}
+        className={`window-sidebar-shell flex flex-col h-full shrink-0 overflow-hidden bg-sidebar window-drag-region${collapsed ? " w-12" : " w-[288px]"}`}
       >
         <div
           data-testid="window-sidebar-session-column"
-          className={`window-sidebar-session-column window-no-drag-region flex flex-1 flex-col min-w-0 transition-[opacity,transform] duration-[var(--dc-motion-default)] ease-[var(--dc-ease-out-express)]${
-            collapsed ? " pointer-events-none translate-x-1.5 opacity-0" : " translate-x-0 opacity-100"
-          }`}
+          className={`window-sidebar-session-column window-no-drag-region flex flex-1 flex-col min-w-0 transition-[opacity,transform] duration-[var(--dc-motion-default)] ease-[var(--dc-ease-out-express)]${collapsed ? " pointer-events-none translate-x-1.5 opacity-0" : " translate-x-0 opacity-100"}`}
           aria-hidden={collapsed ? true : undefined}
           inert={collapsed ? true : undefined}
         >
@@ -429,11 +382,7 @@ export default function WindowSideBar() {
                     <TooltipTrigger
                       render={
                         <button
-                          className={`flex items-center justify-center w-7 h-7 rounded-md transition-colors duration-150${
-                            sessionStore.groupMode === "project"
-                              ? " text-foreground bg-accent/80"
-                              : " text-muted-foreground hover:text-foreground hover:bg-accent/50"
-                          }`}
+                          className={`flex items-center justify-center w-7 h-7 rounded-md transition-colors duration-150${sessionStore.groupMode === "project" ? " text-foreground bg-accent/80" : " text-muted-foreground hover:text-foreground hover:bg-accent/50"}`}
                           onClick={() => sessionStore.toggleGroupMode()}
                         />
                       }
@@ -494,7 +443,9 @@ export default function WindowSideBar() {
 
               {!sessionStore.hasLoadedInitialPage && sessionStore.loading && (
                 <div className="flex flex-col gap-2 px-3 pb-3" data-testid="window-sidebar-loading-first-page">
-                  {Array.from({ length: 6 }).map((_, i) => (
+                  {Array.from({
+                    length: 6,
+                  }).map((_, i) => (
                     <div key={`session-skeleton-${i}`} className="h-10 rounded-lg bg-muted/50 animate-pulse" />
                   ))}
                 </div>

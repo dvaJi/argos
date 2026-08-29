@@ -1,7 +1,12 @@
-import { useCallback, useEffect, useRef } from "react";
-
+import { useEffect, useRef } from "react";
 interface MermaidArtifactProps {
-  block: { artifact: { type: string; title: string }; content: string };
+  block: {
+    artifact: {
+      type: string;
+      title: string;
+    };
+    content: string;
+  };
   isPreview: boolean;
   className?: string;
 }
@@ -13,7 +18,6 @@ const loadMermaid = () => {
   mermaidModulePromise ??= import("mermaid").then((module) => module.default);
   return mermaidModulePromise;
 };
-
 const sanitizeMermaidContent = (content: string): string => {
   if (!content || typeof content !== "string") return "";
   let sanitized = content;
@@ -35,11 +39,8 @@ const sanitizeMermaidContent = (content: string): string => {
   }
   return sanitized;
 };
-
 type MermaidTheme = "default" | "base" | "dark" | "forest" | "neutral" | "null";
-
 const getTheme = (): MermaidTheme => (document.documentElement.classList.contains("dark") ? "dark" : "default");
-
 const initMermaid = async (theme: MermaidTheme) => {
   const mermaid = await loadMermaid();
   mermaid.initialize({
@@ -50,18 +51,18 @@ const initMermaid = async (theme: MermaidTheme) => {
   });
   return mermaid;
 };
-
 export function MermaidArtifact({ block, isPreview, className }: MermaidArtifactProps) {
   const mermaidRef = useRef<HTMLDivElement>(null);
   const themeObserverRef = useRef<MutationObserver | null>(null);
-
-  const renderDiagram = useCallback(async () => {
+  const renderDiagram = async () => {
     if (!mermaidRef.current || !block.content) return;
     try {
       const mermaid = await initMermaid(getTheme());
       const sanitizedContent = sanitizeMermaidContent(block.content);
       mermaidRef.current.textContent = sanitizedContent;
-      await mermaid.run({ nodes: [mermaidRef.current] });
+      await mermaid.run({
+        nodes: [mermaidRef.current],
+      });
     } catch (error) {
       console.error("Failed to render mermaid diagram:", error);
       if (mermaidRef.current) {
@@ -73,21 +74,17 @@ export function MermaidArtifact({ block, isPreview, className }: MermaidArtifact
         mermaidRef.current.appendChild(errorDiv);
       }
     }
-  }, [block.content]);
-
+  };
   const renderDiagramRef = useRef(renderDiagram);
   useEffect(() => {
     renderDiagramRef.current = renderDiagram;
   }, [renderDiagram]);
-
   useEffect(() => {
     void initMermaid(getTheme());
-
     const applyThemeChange = () => {
       // renderDiagram re-initializes mermaid with the current theme before rendering.
       if (isPreview) renderDiagramRef.current();
     };
-
     themeObserverRef.current = new MutationObserver((mutations) => {
       for (const mutation of mutations) {
         if (mutation.type === "attributes" && mutation.attributeName === "class") {
@@ -96,20 +93,18 @@ export function MermaidArtifact({ block, isPreview, className }: MermaidArtifact
         }
       }
     });
-    themeObserverRef.current.observe(document.documentElement, { attributes: true });
-
+    themeObserverRef.current.observe(document.documentElement, {
+      attributes: true,
+    });
     if (isPreview) renderDiagramRef.current();
-
     return () => {
       themeObserverRef.current?.disconnect();
       themeObserverRef.current = null;
     };
   }, [isPreview]);
-
   useEffect(() => {
     if (isPreview) renderDiagram();
   }, [isPreview, renderDiagram]);
-
   if (isPreview) {
     return (
       <div
@@ -124,7 +119,6 @@ export function MermaidArtifact({ block, isPreview, className }: MermaidArtifact
       </div>
     );
   }
-
   return (
     <div className={`h-full min-h-0 p-4 ${className ?? ""}`}>
       <pre className="m-0 h-full min-h-0 overflow-auto rounded-lg bg-muted p-4">

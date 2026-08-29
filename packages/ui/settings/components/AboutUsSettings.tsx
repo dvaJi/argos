@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Icon } from "@iconify/react";
 import { openRuntimeExternal, onIpcChannel } from "#api/runtime";
 import { Button } from "#shadcn/components/ui/button";
@@ -21,46 +21,42 @@ import { createWindowClient } from "#api/WindowClient";
 import { SETTINGS_EVENTS } from "#/events";
 import SettingsPageShell from "./control-center/SettingsPageShell";
 import logoImg from "#/assets/logo.png";
-
 const configClient = createConfigClient();
 const deviceClient = createDeviceClient();
 const windowClient = createWindowClient();
-
 export default function AboutUsSettings() {
   const { toast } = useToast();
   const themeStore = useThemeStore();
   const languageStore = useLanguageStore();
   const upgrade = useUpgradeStore();
-
   const [appVersion, setAppVersion] = useState("");
   const [updateChannel, setUpdateChannel] = useState("stable");
   const [isDisclaimerOpen, setIsDisclaimerOpen] = useState(false);
   const showMockUpdateControls = import.meta.env.DEV;
-
   const formattedUpdateVersion = upgrade.updateInfo?.version
     ? upgrade.updateInfo.version.startsWith("v")
       ? upgrade.updateInfo.version
       : `v${upgrade.updateInfo.version}`
     : "";
-
-  const openExternalLink = useCallback((url: string) => {
+  const openExternalLink = (url: string) => {
     void openRuntimeExternal(url).catch(() => {
       window.open(url, "_blank", "noopener,noreferrer");
     });
-  }, []);
-
-  const showUpToDateToast = useCallback(() => {
-    toast({ title: "Already up to date", description: "You are running the latest version." });
-  }, [toast]);
-
-  const showUpdateErrorToast = useCallback(
-    (message: string) => {
-      toast({ title: "Operation failed", description: message, variant: "destructive" });
-    },
-    [toast],
-  );
-
-  const handlePrimaryAction = useCallback(async () => {
+  };
+  const showUpToDateToast = () => {
+    toast({
+      title: "Already up to date",
+      description: "You are running the latest version.",
+    });
+  };
+  const showUpdateErrorToast = (message: string) => {
+    toast({
+      title: "Operation failed",
+      description: message,
+      variant: "destructive",
+    });
+  };
+  const handlePrimaryAction = async () => {
     if (upgrade.isChecking() || upgrade.isDownloading() || upgrade.isRestarting) return;
     if (upgrade.getUpdateState() === "available" || upgrade.isReadyToInstall()) {
       await upgrade.handleUpdate("auto");
@@ -69,14 +65,12 @@ export default function AboutUsSettings() {
     const status = await upgrade.checkUpdate(false);
     if (status === "not-available") showUpToDateToast();
     else if (status === "error" && upgrade.updateError) showUpdateErrorToast(upgrade.updateError);
-  }, [upgrade, showUpToDateToast, showUpdateErrorToast]);
-
-  const handleExternalCheckUpdate = useCallback(async () => {
+  };
+  const handleExternalCheckUpdate = async () => {
     if (upgrade.isChecking() || upgrade.isDownloading() || upgrade.isRestarting) return;
     if (upgrade.getUpdateState() === "available" || upgrade.isReadyToInstall()) return;
     await handlePrimaryAction();
-  }, [upgrade, handlePrimaryAction]);
-
+  };
   useEffect(() => {
     const handler = () => void handleExternalCheckUpdate();
     const unsubscribe = onIpcChannel(SETTINGS_EVENTS.CHECK_FOR_UPDATES, handler);
@@ -93,7 +87,6 @@ export default function AboutUsSettings() {
       unsubscribe();
     };
   }, [upgrade, handleExternalCheckUpdate]);
-
   return (
     <>
       <SettingsPageShell title="About" eyebrow="System" data-testid="settings-about-page">
@@ -180,7 +173,9 @@ export default function AboutUsSettings() {
               {upgrade.updateInfo?.releaseNotes && (
                 <div
                   className="prose prose-sm dark:prose-invert mt-3 max-h-40 overflow-y-auto pr-2 text-sm text-muted-foreground"
-                  dangerouslySetInnerHTML={{ __html: upgrade.updateInfo.releaseNotes }}
+                  dangerouslySetInnerHTML={{
+                    __html: upgrade.updateInfo.releaseNotes,
+                  }}
                 />
               )}
             </div>
@@ -306,7 +301,9 @@ export default function AboutUsSettings() {
             <DialogDescription>
               <div
                 className="prose prose-sm dark:prose-invert max-h-[300px] max-w-none overflow-y-auto"
-                dangerouslySetInnerHTML={{ __html: "Please use this software responsibly." }}
+                dangerouslySetInnerHTML={{
+                  __html: "Please use this software responsibly.",
+                }}
               />
             </DialogDescription>
           </DialogHeader>

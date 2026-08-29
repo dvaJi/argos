@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useStore } from "@tanstack/react-store";
 import { useNavigate } from "@tanstack/react-router";
 import { Icon } from "@iconify/react";
@@ -25,39 +25,63 @@ import type {
   GuidedOnboardingStepId,
   GuidedOnboardingStepState,
 } from "@argos/shared-contracts/routes";
-
 const configClient = createConfigClient();
 const onboardingClient = createOnboardingClient();
-
 const providers = [
-  { id: "claude", name: "Claude" },
-  { id: "openai", name: "OpenAI" },
-  { id: "deepseek", name: "DeepSeek" },
-  { id: "gemini", name: "Gemini" },
-  { id: "ollama", name: "Ollama" },
-  { id: "openrouter", name: "OpenRouter" },
+  {
+    id: "claude",
+    name: "Claude",
+  },
+  {
+    id: "openai",
+    name: "OpenAI",
+  },
+  {
+    id: "deepseek",
+    name: "DeepSeek",
+  },
+  {
+    id: "gemini",
+    name: "Gemini",
+  },
+  {
+    id: "ollama",
+    name: "Ollama",
+  },
+  {
+    id: "openrouter",
+    name: "OpenRouter",
+  },
 ];
-
 type SettingsRouteName = GuidedOnboardingSettingsRouteName | "settings-acp" | "settings-database";
 type SettingsWindowState = Window & {
   __argosSettingsPendingSection?: string | null;
 };
-
 const SETTINGS_SECTION_EVENT = "argos:settings-section";
-
 function stepStatusIcon(status: GuidedOnboardingStepState["status"], isCurrent: boolean) {
   if (status === "completed") {
-    return { icon: "lucide:circle-check", className: "text-accent-500" };
+    return {
+      icon: "lucide:circle-check",
+      className: "text-accent-500",
+    };
   }
   if (status === "skipped") {
-    return { icon: "lucide:circle-minus", className: "text-muted-foreground/50" };
+    return {
+      icon: "lucide:circle-minus",
+      className: "text-muted-foreground/50",
+    };
   }
   if (isCurrent || status === "in_progress") {
-    return { icon: "lucide:circle-dot", className: "text-accent-500" };
+    return {
+      icon: "lucide:circle-dot",
+      className: "text-accent-500",
+    };
   }
-  return { icon: "lucide:circle", className: "text-muted-foreground/40" };
+  return {
+    icon: "lucide:circle",
+    className: "text-muted-foreground/40",
+  };
 }
-
 const GUIDED_STEP_TITLES: Record<GuidedOnboardingStepId, string> = {
   "select-provider": "Select a provider",
   "provider-api-key": "Add an API key",
@@ -68,95 +92,113 @@ const GUIDED_STEP_TITLES: Record<GuidedOnboardingStepId, string> = {
   "switch-model": "Switch models mid-chat",
   "first-chat": "Send your first message",
 };
-
 function guideStepTitle(stepId: GuidedOnboardingStepId): string {
   return GUIDED_STEP_TITLES[stepId] ?? stepId;
 }
-
 export function WelcomePage() {
   const navigate = useNavigate();
   const theme = useStore(themeStore);
-
   const [onboardingState, setOnboardingState] = useState<GuidedOnboardingState | null>(null);
-
-  const guideSteps = useMemo(() => onboardingState?.steps ?? [], [onboardingState]);
-
-  const currentGuideStepId = useMemo<GuidedOnboardingStepId>(() => {
+  const guideSteps = onboardingState?.steps ?? [];
+  const currentGuideStepId = (() => {
     if (onboardingState?.currentStepId) {
       return onboardingState.currentStepId;
     }
     return onboardingState?.steps?.find((step) => step.status === "pending")?.id ?? "select-provider";
-  }, [onboardingState]);
-
-  const completedStepCount = useMemo(
-    () => guideSteps.filter((step) => step.status === "completed" || step.status === "skipped").length,
-    [guideSteps],
-  );
-
+  })();
+  const completedStepCount = guideSteps.filter(
+    (step) => step.status === "completed" || step.status === "skipped",
+  ).length;
   const primaryGuideActionLabel = isGuidedOnboardingChatStepId(currentGuideStepId) ? "Go to chat" : "Continue";
-
   const showGuide = Boolean(onboardingState && onboardingState.status !== "completed");
-
   const persistGuideResumeIntent = (
     trigger: GuidedOnboardingResumeTrigger,
     stepId: GuidedOnboardingStepId = currentGuideStepId,
   ) => {
     if (onboardingState?.status !== "active") return;
-    persistGuidedOnboardingResumeIntent({ stepId, trigger });
+    persistGuidedOnboardingResumeIntent({
+      stepId,
+      trigger,
+    });
   };
-
   const syncOnboardingStep = async (stepId?: GuidedOnboardingStepId) => {
     if (!stepId) return;
     try {
-      setOnboardingState(await onboardingClient.start({ stepId }));
+      setOnboardingState(
+        await onboardingClient.start({
+          stepId,
+        }),
+      );
     } catch (error) {
       console.error(`Failed to start onboarding step ${stepId}:`, error);
     }
   };
-
   const goToChat = async (stepId?: GuidedOnboardingStepId) => {
     await syncOnboardingStep(stepId);
     goToNewThreadAction();
-    await navigate({ to: "/chat", replace: true });
+    await navigate({
+      to: "/chat",
+      replace: true,
+    });
   };
-
   const openSettings = async (routeName: SettingsRouteName, stepId?: GuidedOnboardingStepId, section?: string) => {
     await syncOnboardingStep(stepId);
-
     if (isBrowserMode()) {
       const path = resolveSettingsNavigationPath(routeName);
-      await navigate({ to: `/settings${path}` as any, replace: false });
-
+      await navigate({
+        to: `/settings${path}` as any,
+        replace: false,
+      });
       if (section) {
         (window as SettingsWindowState).__argosSettingsPendingSection = section;
         await new Promise((resolve) => setTimeout(resolve, 0));
         window.dispatchEvent(
           new CustomEvent(SETTINGS_SECTION_EVENT, {
-            detail: { section },
+            detail: {
+              section,
+            },
           }),
         );
       }
       return;
     }
-
-    await configClient.openSettings({ routeName, section });
+    await configClient.openSettings({
+      routeName,
+      section,
+    });
   };
-
   const resolveGuideAction = (
     stepId: GuidedOnboardingStepId,
   ):
-    | { kind: "chat"; stepId: GuidedOnboardingStepId }
-    | { kind: "settings"; routeName: SettingsRouteName; stepId: GuidedOnboardingStepId } => {
+    | {
+        kind: "chat";
+        stepId: GuidedOnboardingStepId;
+      }
+    | {
+        kind: "settings";
+        routeName: SettingsRouteName;
+        stepId: GuidedOnboardingStepId;
+      } => {
     const target = resolveGuidedOnboardingStepTarget(stepId);
     if (target?.surface === "chat") {
-      return { kind: "chat", stepId: target.stepId };
+      return {
+        kind: "chat",
+        stepId: target.stepId,
+      };
     }
     if (target?.surface === "settings" && target.routeName) {
-      return { kind: "settings", routeName: target.routeName, stepId: target.stepId };
+      return {
+        kind: "settings",
+        routeName: target.routeName,
+        stepId: target.stepId,
+      };
     }
-    return { kind: "settings", routeName: "settings-provider", stepId: "select-provider" };
+    return {
+      kind: "settings",
+      routeName: "settings-provider",
+      stepId: "select-provider",
+    };
   };
-
   const resumeGuideStep = async (stepId: GuidedOnboardingStepId) => {
     const action = resolveGuideAction(stepId);
     if (action.kind === "chat") {
@@ -166,26 +208,31 @@ export function WelcomePage() {
     persistGuideResumeIntent("window-focus", action.stepId);
     await openSettings(action.routeName, action.stepId);
   };
-
   const handlePrimaryGuideAction = async () => {
     await resumeGuideStep(currentGuideStepId);
   };
-
   const handleExperiencedGuideAction = async () => {
     try {
-      setOnboardingState(await onboardingClient.complete({ force: true }));
-      goToNewThreadAction({ refresh: true });
-      await navigate({ to: "/chat", replace: true });
+      setOnboardingState(
+        await onboardingClient.complete({
+          force: true,
+        }),
+      );
+      goToNewThreadAction({
+        refresh: true,
+      });
+      await navigate({
+        to: "/chat",
+        replace: true,
+      });
     } catch (error) {
       console.error("Failed to skip guided onboarding:", error);
     }
   };
-
   const onAddProvider = async () => {
     persistGuideResumeIntent("window-focus", "select-provider");
     await openSettings("settings-provider", "select-provider");
   };
-
   const onImportProviders = async () => {
     let stepId: GuidedOnboardingStepId = "select-provider";
     if (onboardingState?.status === "active") {
@@ -197,11 +244,9 @@ export function WelcomePage() {
     persistGuideResumeIntent("window-focus", stepId);
     await openSettings("settings-database", stepId, "provider-import");
   };
-
   const onSetupAcp = async () => {
     await openSettings("settings-acp");
   };
-
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -221,7 +266,6 @@ export function WelcomePage() {
       cancelled = true;
     };
   }, []);
-
   return (
     <div className="window-drag-region relative flex h-full w-full flex-col overflow-y-auto">
       {showGuide && (
@@ -252,7 +296,9 @@ export function WelcomePage() {
             data-testid="welcome-guide-card"
             aria-label="Setup progress"
             className={`w-full overflow-hidden rounded-xl border border-border/70 bg-card/60 ${ENTRANCE_CLASS}`}
-            style={{ animationDelay: "60ms" }}
+            style={{
+              animationDelay: "60ms",
+            }}
           >
             <div className="flex items-center justify-between gap-3 px-4 pt-3.5">
               <div className="min-w-0">
@@ -282,7 +328,9 @@ export function WelcomePage() {
               >
                 <div
                   className="h-full rounded-full bg-accent-500 transition-[width] duration-300 ease-out"
-                  style={{ width: `${guideSteps.length > 0 ? (completedStepCount / guideSteps.length) * 100 : 0}%` }}
+                  style={{
+                    width: `${guideSteps.length > 0 ? (completedStepCount / guideSteps.length) * 100 : 0}%`,
+                  }}
                 />
               </div>
             </div>
@@ -332,7 +380,12 @@ export function WelcomePage() {
           </section>
         )}
 
-        <div className={`w-full ${ENTRANCE_CLASS}`} style={{ animationDelay: showGuide ? "120ms" : "60ms" }}>
+        <div
+          className={`w-full ${ENTRANCE_CLASS}`}
+          style={{
+            animationDelay: showGuide ? "120ms" : "60ms",
+          }}
+        >
           <div className="flex items-center justify-between gap-3 px-1">
             <p className="text-xs font-medium text-muted-foreground">Add a provider</p>
             <button
@@ -362,7 +415,9 @@ export function WelcomePage() {
 
         <div
           className={`w-full border-t border-border/60 pt-4 ${ENTRANCE_CLASS}`}
-          style={{ animationDelay: showGuide ? "180ms" : "120ms" }}
+          style={{
+            animationDelay: showGuide ? "180ms" : "120ms",
+          }}
         >
           <button
             type="button"

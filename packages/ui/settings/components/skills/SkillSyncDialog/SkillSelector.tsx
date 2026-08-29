@@ -1,17 +1,15 @@
-import { type FC, useState, useMemo, useEffect, useCallback } from "react";
+import { type FC, useState, useEffect } from "react";
 import { Button } from "#shadcn/components/ui/button";
 import { Badge } from "#shadcn/components/ui/badge";
 import { Checkbox } from "#shadcn/components/ui/checkbox";
 import { ScrollArea } from "#shadcn/components/ui/scroll-area";
 import type { ExternalSkillInfo } from "@argos/shared/types/skillSync";
-
 interface SkillSelectorProps {
   skills: ExternalSkillInfo[];
   selectedSkills: string[];
   conflicts: string[];
   onSelectedSkillsChange: (value: string[]) => void;
 }
-
 const SkillSelector: FC<SkillSelectorProps> = ({ skills, selectedSkills, conflicts, onSelectedSkillsChange }) => {
   const [skillCheckedState, setSkillCheckedState] = useState<Record<string, boolean>>({});
 
@@ -29,23 +27,17 @@ const SkillSelector: FC<SkillSelectorProps> = ({ skills, selectedSkills, conflic
     }
     setSkillCheckedState(newState);
   }
-
-  const updateSkillChecked = useCallback(
-    (skillName: string, checked: boolean) => {
-      setSkillCheckedState((prev) => ({ ...prev, [skillName]: checked }));
-      const newSelected = checked
-        ? [...selectedSkills.filter((n) => n !== skillName), skillName]
-        : selectedSkills.filter((n) => n !== skillName);
-      onSelectedSkillsChange(newSelected);
-    },
-    [selectedSkills, onSelectedSkillsChange],
-  );
-
-  const allSelected = useMemo(
-    () => skills.length > 0 && selectedSkills.length === skills.length,
-    [skills, selectedSkills],
-  );
-
+  const updateSkillChecked = (skillName: string, checked: boolean) => {
+    setSkillCheckedState((prev) => ({
+      ...prev,
+      [skillName]: checked,
+    }));
+    const newSelected = checked
+      ? [...selectedSkills.filter((n) => n !== skillName), skillName]
+      : selectedSkills.filter((n) => n !== skillName);
+    onSelectedSkillsChange(newSelected);
+  };
+  const allSelected = skills.length > 0 && selectedSkills.length === skills.length;
   const toggleAll = () => {
     const newState: Record<string, boolean> = {};
     const selectAll = !allSelected;
@@ -55,9 +47,7 @@ const SkillSelector: FC<SkillSelectorProps> = ({ skills, selectedSkills, conflic
     setSkillCheckedState(newState);
     onSelectedSkillsChange(selectAll ? skills.map((s) => s.name) : []);
   };
-
   const hasConflict = (name: string): boolean => conflicts.includes(name);
-
   const formatDate = (date: Date): string => {
     return new Date(date).toLocaleDateString("en-US", {
       month: "short",
@@ -65,7 +55,6 @@ const SkillSelector: FC<SkillSelectorProps> = ({ skills, selectedSkills, conflic
       year: "numeric",
     });
   };
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -110,5 +99,4 @@ const SkillSelector: FC<SkillSelectorProps> = ({ skills, selectedSkills, conflic
     </div>
   );
 };
-
 export default SkillSelector;

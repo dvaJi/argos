@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Badge } from "#shadcn/components/ui/badge";
@@ -24,10 +24,8 @@ import SettingsPageShell from "./control-center/SettingsPageShell";
 import SettingsSectionCard from "./control-center/SettingsSectionCard";
 import StatusMetricCard from "./control-center/StatusMetricCard";
 import DashboardSettings from "./DashboardSettings";
-
 type SettingsRouteName = SettingsNavigationItem["routeName"];
 const settingsItems = getSettingsNavigationItems(getRuntimePlatform());
-
 const categoryLabels: Record<string, string> = {
   provider: resolveTitle("settings.overview.categories.provider"),
   model: resolveTitle("settings.overview.categories.model"),
@@ -41,84 +39,61 @@ const categoryLabels: Record<string, string> = {
   data: resolveTitle("settings.overview.categories.data"),
   system: resolveTitle("settings.overview.categories.system"),
 };
-
 const ACTIVITY_TIMESTAMP_FORMAT = new Intl.DateTimeFormat(undefined, {
   dateStyle: "medium",
   timeStyle: "short",
 });
-
 export default function SettingsOverview() {
   const router = useRouter();
-  const settingsClient = useMemo(() => createSettingsClient(), []);
+  const settingsClient = createSettingsClient();
   const providerStore = useProviderStore();
   const modelStore = useModelStore();
   const mcpStore = useMcpStore();
   const syncStore = useSyncStore();
   const agentStore = useAgentStore();
-
   const [activities, setActivities] = useState<SettingsActivityRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const usageDashboardRef = useRef<HTMLDivElement>(null);
-
-  const settingsItemLabels = useMemo(
-    () =>
-      settingsItems.map((item) => ({
-        ...item,
-        title: resolveTitle(item.titleKey),
-      })),
-    [],
-  );
-
-  const enabledProvidersCount = useMemo(
-    () => providerStore.providers.filter((p) => p.id !== "acp" && p.enable).length,
-    [providerStore.providers],
-  );
-  const enabledModelsCount = useMemo(
-    () => modelStore.enabledModels.reduce((count, group) => count + group.models.length, 0),
-    [modelStore.enabledModels],
-  );
+  const settingsItemLabels = settingsItems.map((item) => ({
+    ...item,
+    title: resolveTitle(item.titleKey),
+  }));
+  const enabledProvidersCount = providerStore.providers.filter((p) => p.id !== "acp" && p.enable).length;
+  const enabledModelsCount = modelStore.enabledModels.reduce((count, group) => count + group.models.length, 0);
   const mcpEnabled = mcpStore.mcpEnabled;
-  const runningMcpCount = useMemo(() => mcpStore.serverList.filter((s) => s.isRunning).length, [mcpStore.serverList]);
-  const enabledArgosAgentsCount = useMemo(
-    () => agentStore.enabledAgents.filter((a) => (a.agentType ?? a.type) === "argos").length,
-    [agentStore.enabledAgents],
-  );
-
-  const quickTasks = useMemo(
-    () => [
-      {
-        key: "api-key",
-        label: resolveTitle("settings.overview.quickTasks.addApiKey"),
-        routeName: "settings-provider" as SettingsRouteName,
-        icon: "lucide:key-round",
-        done: providerStore.providers.some((p) => p.id !== "acp" && p.apiKey),
-      },
-      {
-        key: "enable-model",
-        label: resolveTitle("settings.overview.quickTasks.enableModel"),
-        routeName: "settings-provider" as SettingsRouteName,
-        icon: "lucide:box",
-        done: enabledModelsCount > 0,
-      },
-      {
-        key: "start-mcp",
-        label: resolveTitle("settings.overview.quickTasks.startMcpServer"),
-        routeName: "settings-mcp" as SettingsRouteName,
-        icon: "lucide:server",
-        done: runningMcpCount > 0,
-      },
-      {
-        key: "backup",
-        label: resolveTitle("settings.overview.quickTasks.backupNow"),
-        routeName: "settings-database" as SettingsRouteName,
-        icon: "lucide:database-backup",
-        done: Boolean(syncStore.lastSyncTime),
-      },
-    ],
-    [providerStore.providers, enabledModelsCount, runningMcpCount, syncStore.lastSyncTime],
-  );
-
-  const searchResults = useMemo(() => {
+  const runningMcpCount = mcpStore.serverList.filter((s) => s.isRunning).length;
+  const enabledArgosAgentsCount = agentStore.enabledAgents.filter((a) => (a.agentType ?? a.type) === "argos").length;
+  const quickTasks = [
+    {
+      key: "api-key",
+      label: resolveTitle("settings.overview.quickTasks.addApiKey"),
+      routeName: "settings-provider" as SettingsRouteName,
+      icon: "lucide:key-round",
+      done: providerStore.providers.some((p) => p.id !== "acp" && p.apiKey),
+    },
+    {
+      key: "enable-model",
+      label: resolveTitle("settings.overview.quickTasks.enableModel"),
+      routeName: "settings-provider" as SettingsRouteName,
+      icon: "lucide:box",
+      done: enabledModelsCount > 0,
+    },
+    {
+      key: "start-mcp",
+      label: resolveTitle("settings.overview.quickTasks.startMcpServer"),
+      routeName: "settings-mcp" as SettingsRouteName,
+      icon: "lucide:server",
+      done: runningMcpCount > 0,
+    },
+    {
+      key: "backup",
+      label: resolveTitle("settings.overview.quickTasks.backupNow"),
+      routeName: "settings-database" as SettingsRouteName,
+      icon: "lucide:database-backup",
+      done: Boolean(syncStore.lastSyncTime),
+    },
+  ];
+  const searchResults = (() => {
     const query = searchQuery.trim().toLowerCase();
     if (!query) return [];
     return settingsItemLabels
@@ -127,39 +102,26 @@ export default function SettingsOverview() {
         return title.includes(query) || item.keywords.some((keyword) => keyword.toLowerCase().includes(query));
       })
       .slice(0, 8);
-  }, [searchQuery, settingsItemLabels]);
-
-  const openRoute = useCallback(
-    (routeName: SettingsRouteName) => {
-      console.log("Navigating to route:", routeName);
-      void router.navigate({ to: `/settings${resolveSettingsNavigationPath(routeName)}` });
-    },
-    [router],
-  );
-
-  const openActivity = useCallback(
-    (activity: SettingsActivityRecord) => {
-      if (!activity.routeName) return;
-      void router.navigate({
-        to: `/settings${resolveSettingsNavigationPath(
-          activity.routeName as any,
-          activity.routeParams as Record<string, string> | undefined,
-        )}`,
-      });
-    },
-    [router],
-  );
-
+  })();
+  const openRoute = (routeName: SettingsRouteName) => {
+    console.log("Navigating to route:", routeName);
+    void router.navigate({
+      to: `/settings${resolveSettingsNavigationPath(routeName)}`,
+    });
+  };
+  const openActivity = (activity: SettingsActivityRecord) => {
+    if (!activity.routeName) return;
+    void router.navigate({
+      to: `/settings${resolveSettingsNavigationPath(activity.routeName as any, activity.routeParams as Record<string, string> | undefined)}`,
+    });
+  };
   const openFirstSearchResult = () => {
     const first = searchResults[0];
     if (first) openRoute(first.routeName);
   };
-
   const getActivityCategoryLabel = (category: SettingsActivityRecord["category"]) =>
     categoryLabels[category] ?? category;
-
   const formatDate = (timestamp: number) => ACTIVITY_TIMESTAMP_FORMAT.format(new Date(timestamp));
-
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -183,7 +145,6 @@ export default function SettingsOverview() {
       cancelled = true;
     };
   }, [settingsClient]);
-
   return (
     <SettingsPageShell
       data-testid="settings-overview-page"

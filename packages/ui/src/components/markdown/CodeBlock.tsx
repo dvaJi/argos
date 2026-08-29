@@ -1,7 +1,6 @@
-import { useCallback, useMemo, useState, Fragment, type ReactNode } from "react";
+import { useState, Fragment, type ReactNode } from "react";
 import { Icon } from "@iconify/react";
 import { highlighter } from "./highlight";
-
 export interface CodeBlockNodeData {
   type?: "code_block";
   language?: string;
@@ -11,7 +10,6 @@ export interface CodeBlockNodeData {
   originalCode?: string;
   updatedCode?: string;
 }
-
 interface CodeBlockProps {
   node: CodeBlockNodeData;
   isDark?: boolean;
@@ -33,15 +31,17 @@ interface CodeBlockProps {
     artifactType: string;
     artifactTitle: string;
     language: string;
-    node: { code: string };
+    node: {
+      code: string;
+    };
   }) => void;
 }
-
 const HEADER_BUTTON_CLASSES =
   "flex h-[22px] w-[22px] items-center justify-center rounded-md text-muted-foreground transition-colors duration-(--dc-motion-fast) ease-(--dc-ease-out-soft) hover:bg-foreground/10 hover:text-foreground";
-
 function HighlightedCode({ code, lang }: { code: string; lang: string }) {
-  const { tokens } = useMemo(() => highlighter.tokenize(code, { lang }), [code, lang]);
+  const { tokens } = highlighter.tokenize(code, {
+    lang,
+  });
   return (
     <>
       {tokens.map((token, index) =>
@@ -56,12 +56,10 @@ function HighlightedCode({ code, lang }: { code: string; lang: string }) {
     </>
   );
 }
-
 export function CodeBlock({ node, showHeader = true, showCopyButton = true, className, children }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
   const [wrapped, setWrapped] = useState(false);
-
-  const handleCopy = useCallback(() => {
+  const handleCopy = () => {
     navigator.clipboard
       .writeText(node.code)
       .then(() => {
@@ -69,10 +67,8 @@ export function CodeBlock({ node, showHeader = true, showCopyButton = true, clas
         setTimeout(() => setCopied(false), 2000);
       })
       .catch(() => {});
-  }, [node.code]);
-
+  };
   const lang = node.language || "";
-
   return (
     <div
       className={`not-prose my-[0.65rem] overflow-hidden rounded-xl border border-border bg-muted/75 ${className ?? ""}`}

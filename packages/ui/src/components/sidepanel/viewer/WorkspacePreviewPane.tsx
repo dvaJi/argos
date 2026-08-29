@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { Icon } from "@iconify/react";
 import type { ArtifactState } from "#/stores/artifact";
 import type { WorkspaceFilePreview } from "@argos/shared/presenter";
@@ -9,24 +8,24 @@ import { SvgArtifact } from "#/components/artifacts/SvgArtifact";
 import { MermaidArtifact } from "#/components/artifacts/MermaidArtifact";
 import { ReactArtifact } from "#/components/artifacts/ReactArtifact";
 import type { MarkdownLinkContext } from "#/components/markdown/linkTypes";
-
 interface WorkspacePreviewPaneProps {
   sessionId?: string;
   previewKind: WorkspacePreviewKind;
   artifact?: ArtifactState | null;
   filePreview?: WorkspaceFilePreview | null;
 }
-
 export function WorkspacePreviewPane({ sessionId, previewKind, artifact, filePreview }: WorkspacePreviewPaneProps) {
-  const artifactBlock = useMemo(() => {
+  const artifactBlock = (() => {
     if (!artifact) return null;
     return {
       content: artifact.content,
-      artifact: { type: artifact.type, title: artifact.title },
+      artifact: {
+        type: artifact.type,
+        title: artifact.title,
+      },
     };
-  }, [artifact]);
-
-  const fileBlock = useMemo(() => {
+  })();
+  const fileBlock = (() => {
     if (!filePreview) return null;
     const artifactType =
       filePreview.kind === "markdown"
@@ -38,34 +37,39 @@ export function WorkspacePreviewPane({ sessionId, previewKind, artifact, filePre
             : filePreview.mimeType;
     return {
       content: filePreview.content,
-      artifact: { type: artifactType, title: filePreview.name },
+      artifact: {
+        type: artifactType,
+        title: filePreview.name,
+      },
     };
-  }, [filePreview]);
-
-  const resolvedBlock = useMemo(() => artifactBlock ?? fileBlock, [artifactBlock, fileBlock]);
-  const resolvedContent = useMemo(() => artifact?.content ?? filePreview?.content ?? "", [artifact, filePreview]);
-  const previewSourceId = useMemo(() => artifact?.id ?? filePreview?.path, [artifact, filePreview]);
-  const markdownLinkContext = useMemo<MarkdownLinkContext>(() => {
+  })();
+  const resolvedBlock = artifactBlock ?? fileBlock;
+  const resolvedContent = artifact?.content ?? filePreview?.content ?? "";
+  const previewSourceId = artifact?.id ?? filePreview?.path;
+  const markdownLinkContext = ((): MarkdownLinkContext => {
     if (filePreview) {
-      return { source: "workspace", sessionId, sourceFilePath: filePreview.path };
+      return {
+        source: "workspace",
+        sessionId,
+        sourceFilePath: filePreview.path,
+      };
     }
-    return { source: "artifact", sessionId };
-  }, [filePreview, sessionId]);
-
-  const resolvedTitle = useMemo(() => artifact?.title ?? filePreview?.name ?? "Preview", [artifact, filePreview]);
-  const imageSrc = useMemo(() => filePreview?.content || filePreview?.thumbnail || "", [filePreview]);
-
-  const documentPreviewUrl = useMemo(() => {
+    return {
+      source: "artifact",
+      sessionId,
+    };
+  })();
+  const resolvedTitle = artifact?.title ?? filePreview?.name ?? "Preview";
+  const imageSrc = filePreview?.content || filePreview?.thumbnail || "";
+  const documentPreviewUrl = (() => {
     if (!filePreview?.previewUrl) return null;
     if (!["html", "pdf", "svg"].includes(previewKind)) return null;
     return filePreview.previewUrl;
-  }, [filePreview, previewKind]);
-
-  const documentPreviewSandbox = useMemo(() => {
+  })();
+  const documentPreviewSandbox = (() => {
     if (previewKind === "html" || previewKind === "svg") return "allow-scripts allow-same-origin";
     return undefined;
-  }, [previewKind]);
-
+  })();
   if (previewKind === "markdown") {
     return (
       <div className="min-h-0 w-full flex-1 overflow-auto" data-testid="workspace-preview-markdown">
@@ -80,7 +84,6 @@ export function WorkspacePreviewPane({ sessionId, previewKind, artifact, filePre
       </div>
     );
   }
-
   if (previewKind === "image") {
     return (
       <div className="min-h-0 w-full flex-1 overflow-auto bg-muted/20" data-testid="workspace-preview-image">
@@ -96,7 +99,6 @@ export function WorkspacePreviewPane({ sessionId, previewKind, artifact, filePre
       </div>
     );
   }
-
   if (documentPreviewUrl) {
     return (
       <div className="min-h-0 w-full flex-1 overflow-hidden" data-testid={`workspace-preview-${previewKind}`}>
@@ -109,7 +111,6 @@ export function WorkspacePreviewPane({ sessionId, previewKind, artifact, filePre
       </div>
     );
   }
-
   if (previewKind === "html" && artifactBlock) {
     return (
       <div className="min-h-0 w-full flex-1 overflow-hidden" data-testid="workspace-preview-html-artifact">
@@ -117,7 +118,6 @@ export function WorkspacePreviewPane({ sessionId, previewKind, artifact, filePre
       </div>
     );
   }
-
   if (previewKind === "svg" && resolvedBlock) {
     return (
       <div className="min-h-0 w-full flex-1 overflow-hidden" data-testid="workspace-preview-svg">
@@ -125,7 +125,6 @@ export function WorkspacePreviewPane({ sessionId, previewKind, artifact, filePre
       </div>
     );
   }
-
   if (previewKind === "mermaid" && artifactBlock) {
     return (
       <div className="min-h-0 w-full flex-1 overflow-hidden" data-testid="workspace-preview-mermaid">
@@ -133,7 +132,6 @@ export function WorkspacePreviewPane({ sessionId, previewKind, artifact, filePre
       </div>
     );
   }
-
   if (previewKind === "react" && artifactBlock) {
     return (
       <div className="min-h-0 w-full flex-1 overflow-hidden" data-testid="workspace-preview-react">
@@ -141,7 +139,6 @@ export function WorkspacePreviewPane({ sessionId, previewKind, artifact, filePre
       </div>
     );
   }
-
   return (
     <div className="min-h-0 w-full flex-1 overflow-auto px-4 py-3" data-testid="workspace-preview-raw">
       <pre className="whitespace-pre-wrap break-words text-sm leading-6">{resolvedContent}</pre>

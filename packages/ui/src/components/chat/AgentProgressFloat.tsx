@@ -1,8 +1,7 @@
-import { type FC, useMemo } from "react";
+import { type FC } from "react";
 import { Icon } from "@iconify/react";
 import type { AgentPlanItem, AgentPlanStepStatus } from "@argos/shared/types/agent-plan";
 import type { AgentPlanViewSnapshot } from "#/stores/ui/agentPlan";
-
 interface AgentProgressFloatProps {
   snapshot: AgentPlanViewSnapshot | null;
   collapsed: boolean;
@@ -10,25 +9,21 @@ interface AgentProgressFloatProps {
   onToggleCollapse: () => void;
   onDismiss: () => void;
 }
-
 const getStatusIcon = (status: AgentPlanStepStatus): string => {
   if (status === "completed") return "lucide:circle-check";
   if (status === "in_progress") return "lucide:loader-circle";
   return "lucide:circle";
 };
-
 const getStatusIconClass = (status: AgentPlanStepStatus): string => {
   if (status === "completed") return "text-emerald-600 dark:text-emerald-400";
   if (status === "in_progress") return "animate-spin text-primary";
   return "text-muted-foreground";
 };
-
 const getStatusBadgeClass = (status: AgentPlanStepStatus): string => {
   if (status === "completed") return "border-emerald-500/20 bg-emerald-500/10";
   if (status === "in_progress") return "border-primary/25 bg-primary/10";
   return "border-border/70";
 };
-
 const AgentProgressFloat: FC<AgentProgressFloatProps> = ({
   snapshot,
   collapsed,
@@ -36,15 +31,9 @@ const AgentProgressFloat: FC<AgentProgressFloatProps> = ({
   onToggleCollapse,
   onDismiss,
 }) => {
-  const entries = useMemo<AgentPlanItem[]>(
-    () => (snapshot?.plan ?? []).filter((entry) => entry.step.trim().length > 0),
-    [snapshot?.plan],
-  );
-
-  const completedCount = useMemo(() => entries.filter((entry) => entry.status === "completed").length, [entries]);
-
+  const entries = (snapshot?.plan ?? []).filter((entry) => entry.step.trim().length > 0);
+  const completedCount = entries.filter((entry) => entry.status === "completed").length;
   if (!snapshot || entries.length === 0) return null;
-
   return (
     <div
       className={[
@@ -137,5 +126,4 @@ const AgentProgressFloat: FC<AgentProgressFloatProps> = ({
     </div>
   );
 };
-
 export default AgentProgressFloat;
