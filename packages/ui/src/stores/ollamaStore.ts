@@ -216,9 +216,7 @@ const isOllamaModelLocal = (providerId: string, modelName: string): boolean => {
 export const initialize = async () => {
   setupOllamaEventListeners();
   const ollamaProviders = providerStore.state.providers.filter((p) => p.apiType === "ollama" && p.enable);
-  for (const provider of ollamaProviders) {
-    await ensureProviderReady(provider.id);
-  }
+  await Promise.all(ollamaProviders.map((provider) => ensureProviderReady(provider.id)));
 };
 
 export const ensureProviderReady = async (providerId: string) => {

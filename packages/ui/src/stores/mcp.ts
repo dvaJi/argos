@@ -247,9 +247,9 @@ const startEnabledServers = async () => {
 };
 
 const updateAllServerStatuses = async () => {
-  for (const serverName of Object.keys(mcpStore.state.config.mcpServers)) {
-    await updateServerStatus(serverName, true);
-  }
+  await Promise.all(
+    Object.keys(mcpStore.state.config.mcpServers).map((serverName) => updateServerStatus(serverName, true)),
+  );
   await new Promise((resolve) => setTimeout(resolve, 100));
   await Promise.all([loadTools(), loadClients()]);
 };
