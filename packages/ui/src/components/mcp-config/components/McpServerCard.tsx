@@ -97,7 +97,7 @@ const McpServerCard: FC<McpServerCardProps> = ({
 
   return (
     <div
-      className="bg-card flex flex-col shadow-sm border rounded-lg overflow-hidden transition-all duration-200 hover:shadow-md group cursor-pointer"
+      className="bg-card flex flex-col shadow-sm border rounded-lg overflow-hidden transition-shadow duration-200 hover:shadow-md group cursor-pointer"
       onClick={onClick}
       role={onClick ? "button" : undefined}
       tabIndex={onClick ? 0 : undefined}

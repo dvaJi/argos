@@ -16,8 +16,10 @@ const getDefaultPrompt = () => {
 };
 
 export const loadSystemPrompts = async () => {
-  const prompts = await configClient.getSystemPrompts();
-  const defaultPromptId = await configClient.getDefaultSystemPromptId();
+  const [prompts, defaultPromptId] = await Promise.all([
+    configClient.getSystemPrompts(),
+    configClient.getDefaultSystemPromptId(),
+  ]);
   systemPromptStore.setState((s) => ({ ...s, prompts, defaultPromptId }));
 };
 

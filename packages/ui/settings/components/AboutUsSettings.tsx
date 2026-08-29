@@ -82,8 +82,7 @@ export default function AboutUsSettings() {
     const unsubscribe = onIpcChannel(SETTINGS_EVENTS.CHECK_FOR_UPDATES, handler);
     let cancelled = false;
     void (async () => {
-      const version = await deviceClient.getAppVersion();
-      const channel = await configClient.getUpdateChannel();
+      const [version, channel] = await Promise.all([deviceClient.getAppVersion(), configClient.getUpdateChannel()]);
       if (cancelled) return;
       setAppVersion(version);
       setUpdateChannel(channel);
@@ -148,7 +147,9 @@ export default function AboutUsSettings() {
           </div>
 
           <div className="mt-4 flex items-center gap-4">
-            <label className="text-sm font-medium">Update channel:</label>
+            <label htmlFor="update-channel-select" className="text-sm font-medium">
+              Update channel:
+            </label>
             <div className="min-w-32 max-w-48">
               <Select
                 value={updateChannel}
@@ -162,7 +163,7 @@ export default function AboutUsSettings() {
                   }
                 }}
               >
-                <SelectTrigger>
+                <SelectTrigger id="update-channel-select">
                   <SelectValue placeholder="Update Channel" />
                 </SelectTrigger>
                 <SelectContent>

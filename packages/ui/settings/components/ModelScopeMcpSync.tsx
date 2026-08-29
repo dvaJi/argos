@@ -63,6 +63,7 @@ export default function ModelScopeMcpSync({ provider }: ModelScopeMcpSyncProps) 
           <select
             value={syncOptions.page_size}
             onChange={(e) => setSyncOptions((prev) => ({ ...prev, page_size: Number(e.target.value) }))}
+            aria-label="Per page"
             className="w-16 h-6 text-xs px-1 border rounded bg-background border-border focus:outline-none focus:ring-1 focus:ring-primary/50"
           >
             <option value="10">10</option>
@@ -76,6 +77,7 @@ export default function ModelScopeMcpSync({ provider }: ModelScopeMcpSyncProps) 
             onChange={(e) => setSyncOptions((prev) => ({ ...prev, page_number: Number(e.target.value) }))}
             type="number"
             min={1}
+            aria-label="Page number"
             className="w-16 h-6 text-xs px-1 border rounded bg-background border-border focus:outline-none focus:ring-1 focus:ring-primary/50"
           />
           <Button onClick={handleSync} disabled={isSyncing} size="sm" className="h-6 px-2 text-xs ml-auto">

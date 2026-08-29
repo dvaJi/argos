@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback, useEffectEvent } from "react";
 import { Icon } from "@iconify/react";
 import { Outlet, useRouter, useRouterState } from "@tanstack/react-router";
 import { Toaster } from "sonner";
@@ -304,6 +304,11 @@ export default function SettingsApp() {
     [displayError],
   );
 
+  // Effect Events keep the startup listeners subscribed for the window lifetime
+  // while still seeing the latest toast callbacks.
+  const onShowError = useEffectEvent(showErrorToast);
+  const onDatabaseRepairSuggestedToast = useEffectEvent(showDatabaseRepairSuggestedToast);
+
   const applyProviderInstallPreview = useCallback(
     async (preview: ProviderInstallPreview) => {
       console.log(
@@ -552,10 +557,10 @@ export default function SettingsApp() {
     startupWorkloadStateRef.current.connect();
 
     const handleShowError = (_event: unknown, error: { id: string; title: string; message: string; type: string }) => {
-      showErrorToast(error);
+      onShowError(error);
     };
     const handleDatabaseRepairSuggested = (_event: unknown, payload: unknown) => {
-      showDatabaseRepairSuggestedToast(payload as DatabaseRepairSuggestedPayload);
+      onDatabaseRepairSuggestedToast(payload as DatabaseRepairSuggestedPayload);
     };
 
     const notificationScope = createIpcSubscriptionScope();
@@ -621,7 +626,7 @@ export default function SettingsApp() {
       window.removeEventListener("focus", handleWindowFocus);
       teardownMcpDeeplink();
     };
-  }, [routerInstance, logSettingsStartup, showErrorToast, showDatabaseRepairSuggestedToast]);
+  }, [routerInstance, logSettingsStartup]);
 
   const modelCheckOpen = modelCheckState.isDialogOpen;
 

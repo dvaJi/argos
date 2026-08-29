@@ -34,13 +34,17 @@ export const MessageBlockError: FC<MessageBlockErrorProps> = ({ block }) => {
 
   return (
     <div className="cursor-default select-none">
-      <div className="text-xs text-red-500 flex flex-row items-center group" onClick={() => setIsExpanded(!isExpanded)}>
+      <button
+        type="button"
+        className="w-full text-xs text-red-500 flex flex-row items-center group text-left"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
         Request failed
         <Icon
           className={`hidden group-hover:block ml-2 transition-all${isExpanded ? " rotate-90" : ""}`}
           icon="lucide:chevron-right"
         />
-      </div>
+      </button>
       {isExpanded && (
         <div className="text-xs max-w-full break-all whitespace-pre-wrap leading-7 text-red-400">
           {block.content || ""}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Badge } from "#shadcn/components/ui/badge";
@@ -66,7 +66,6 @@ export function MemoryManagerPanel({
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<MemoryItem[]>([]);
-  const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
 
@@ -122,7 +121,6 @@ export function MemoryManagerPanel({
 
   const runSearch = useCallback(
     async (targetAgentId: string, query: string, requestId: number) => {
-      setSearching(true);
       setSearchError(null);
       try {
         const results = await memoryClient.search(targetAgentId, query);
@@ -132,9 +130,6 @@ export function MemoryManagerPanel({
         if (requestId !== searchRequestIdRef.current || agentIdRef.current !== targetAgentId) return;
         setSearchResults([]);
         setSearchError(e instanceof Error ? e.message : "Search failed.");
-      }
-      if (requestId === searchRequestIdRef.current && agentIdRef.current === targetAgentId) {
-        setSearching(false);
       }
     },
     [memoryClient],
@@ -173,6 +168,8 @@ export function MemoryManagerPanel({
     void refresh();
   }, [agentId, refresh]);
 
+  const onRunSearch = useEffectEvent(runSearch);
+
   useEffect(() => {
     const query = searchQuery.trim();
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
@@ -185,12 +182,12 @@ export function MemoryManagerPanel({
     }
     const targetAgentId = agentIdRef.current;
     searchTimerRef.current = setTimeout(() => {
-      void runSearch(targetAgentId, query, requestId);
+      void onRunSearch(targetAgentId, query, requestId);
     }, 200);
     return () => {
       if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     };
-  }, [searchQuery, runSearch]);
+  }, [searchQuery]);
 
   const notifyAddOutcome = useCallback(
     (result: MemoryAddResult) => {

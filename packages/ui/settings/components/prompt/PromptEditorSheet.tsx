@@ -28,6 +28,11 @@ interface PromptParameter {
   required: boolean;
 }
 
+/** PromptParameter plus a transient list key; stripped before submit. */
+interface EditablePromptParameter extends PromptParameter {
+  id: string;
+}
+
 export interface PromptForm {
   id: string;
   name: string;
@@ -41,6 +46,10 @@ export interface PromptForm {
   updatedAt?: number;
 }
 
+interface EditablePromptForm extends PromptForm {
+  parameters: EditablePromptParameter[];
+}
+
 interface PromptEditorSheetProps {
   open: boolean;
   prompt: PromptForm | null;
@@ -48,7 +57,7 @@ interface PromptEditorSheetProps {
   onSubmit: (value: PromptForm) => void;
 }
 
-const defaultForm: PromptForm = {
+const defaultForm: EditablePromptForm = {
   id: "",
   name: "",
   description: "",
@@ -65,7 +74,7 @@ export default function PromptEditorSheet({ open, prompt, onUpdateOpen, onSubmit
   const { toast } = useToast();
   const fileClient = createFileClient();
 
-  const [form, setForm] = useState<PromptForm>({ ...defaultForm });
+  const [form, setForm] = useState<EditablePromptForm>({ ...defaultForm });
 
   const isEditing = Boolean(form.id);
 
@@ -80,7 +89,7 @@ export default function PromptEditorSheet({ open, prompt, onUpdateOpen, onSubmit
     }
     setForm({
       ...p,
-      parameters: p.parameters?.map((param) => ({ ...param })) || [],
+      parameters: p.parameters?.map((param) => ({ ...param, id: nanoid(6) })) || [],
       files: p.files ? [...p.files] : [],
       enabled: p.enabled ?? true,
       source: p.source ?? "local",
@@ -109,7 +118,7 @@ export default function PromptEditorSheet({ open, prompt, onUpdateOpen, onSubmit
   const addParameter = () => {
     setForm((prev) => ({
       ...prev,
-      parameters: [...prev.parameters, { name: "", description: "", required: true }],
+      parameters: [...prev.parameters, { id: nanoid(6), name: "", description: "", required: true }],
     }));
   };
 
@@ -182,7 +191,8 @@ export default function PromptEditorSheet({ open, prompt, onUpdateOpen, onSubmit
   const submit = () => {
     onSubmit({
       ...form,
-      parameters: [...form.parameters],
+      // Strip the transient list keys; the persisted shape stays PromptParameter[]
+      parameters: form.parameters.map(({ id: _id, ...param }) => ({ ...param })),
       files: [...form.files],
     });
   };
@@ -267,13 +277,13 @@ export default function PromptEditorSheet({ open, prompt, onUpdateOpen, onSubmit
                 <div className="space-y-4">
                   {form.parameters.map((param, index) => (
                     <div
-                      key={index}
+                      key={param.id}
                       className="relative rounded-lg border bg-muted/30 p-4 transition-colors hover:bg-muted/50"
                     >
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="absolute right-3 top-3 h-7 w-7 border border-border/50 bg-background/80 text-muted-foreground transition-all duration-200 hover:border-destructive hover:bg-destructive hover:text-destructive-foreground"
+                        className="absolute right-3 top-3 h-7 w-7 border border-border/50 bg-background/80 text-muted-foreground transition-colors duration-200 hover:border-destructive hover:bg-destructive hover:text-destructive-foreground"
                         title="Delete"
                         onClick={() => removeParameter(index)}
                       >
@@ -326,8 +336,16 @@ export default function PromptEditorSheet({ open, prompt, onUpdateOpen, onSubmit
               </div>
               <div className="space-y-4">
                 <div
-                  className="group cursor-pointer rounded-lg border-2 border-dashed border-muted p-4 transition-all hover:border-primary/50 hover:bg-muted/20"
+                  className="group cursor-pointer rounded-lg border-2 border-dashed border-muted p-4 transition-colors hover:border-primary/50 hover:bg-muted/20"
                   onClick={uploadFile}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      uploadFile();
+                    }
+                  }}
                 >
                   <div className="flex items-center gap-3">
                     <div className="shrink-0 rounded-lg bg-primary/10 p-2 transition-colors group-hover:bg-primary/20">
@@ -351,7 +369,7 @@ export default function PromptEditorSheet({ open, prompt, onUpdateOpen, onSubmit
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="absolute right-2 top-2 h-6 w-6 border border-border/50 bg-background/80 text-muted-foreground opacity-0 transition-all duration-200 hover:border-destructive hover:bg-destructive hover:text-destructive-foreground group-hover:opacity-100"
+                            className="absolute right-2 top-2 h-6 w-6 border border-border/50 bg-background/80 text-muted-foreground opacity-0 transition-opacity duration-200 hover:border-destructive hover:bg-destructive hover:text-destructive-foreground group-hover:opacity-100"
                             title="Delete"
                             onClick={() => removeFile(index)}
                           >

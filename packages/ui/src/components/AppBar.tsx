@@ -102,7 +102,7 @@ export default function AppBar() {
 
         {(showCustomWindowButtons || isBrowser) && (
           <Button
-            className="window-no-drag-region shrink-0 w-12 bg-transparent shadow-none rounded-none hover:bg-card/80 text-xs font-medium text-foreground flex items-center justify-center transition-all duration-200 group"
+            className="window-no-drag-region shrink-0 w-12 bg-transparent shadow-none rounded-none hover:bg-card/80 text-xs font-medium text-foreground flex items-center justify-center transition-colors duration-200 group"
             title="Minimize"
             onClick={minimizeWindow}
           >
@@ -113,7 +113,7 @@ export default function AppBar() {
         )}
         {(showCustomWindowButtons || isBrowser) && (
           <Button
-            className="window-no-drag-region shrink-0 w-12 bg-transparent shadow-none rounded-none hover:bg-card/80 text-xs font-medium text-foreground flex items-center justify-center transition-all duration-200 group"
+            className="window-no-drag-region shrink-0 w-12 bg-transparent shadow-none rounded-none hover:bg-card/80 text-xs font-medium text-foreground flex items-center justify-center transition-colors duration-200 group"
             title={isMaximized ? "Restore" : "Maximize"}
             onClick={toggleMaximize}
           >
@@ -131,7 +131,7 @@ export default function AppBar() {
         )}
         {(showCustomWindowButtons || isBrowser) && (
           <Button
-            className="window-no-drag-region shrink-0 w-12 bg-transparent shadow-none rounded-none hover:bg-red-700/80 hover:text-white text-xs font-medium text-foreground flex items-center justify-center transition-all duration-200 group"
+            className="window-no-drag-region shrink-0 w-12 bg-transparent shadow-none rounded-none hover:bg-red-700/80 hover:text-white text-xs font-medium text-foreground flex items-center justify-center transition-colors duration-200 group"
             title="Close"
             onClick={closeWindow}
           >

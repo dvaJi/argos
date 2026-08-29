@@ -208,12 +208,8 @@ const MessageItemUser: FC<MessageItemUserProps> = ({ message, isReadOnly = false
         >
           {message.content.files.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
-              {message.content.files.map((file, index) => (
-                <ChatAttachmentItem
-                  key={file.path || `${file.name}-${index}`}
-                  file={file}
-                  onClick={() => previewFile(file.path)}
-                />
+              {message.content.files.map((file) => (
+                <ChatAttachmentItem key={file.path || file.name} file={file} onClick={() => previewFile(file.path)} />
               ))}
             </div>
           )}
@@ -224,6 +220,7 @@ const MessageItemUser: FC<MessageItemUserProps> = ({ message, isReadOnly = false
                 ref={editTextareaRef}
                 value={editedText}
                 onChange={(e) => setEditedText(e.target.value)}
+                aria-label="Edit message"
                 className="text-sm bg-muted dark:bg-muted rounded-lg p-2 border flex flex-col gap-1.5 resize-none overflow-y-auto overscroll-contain min-w-[40vw] w-full max-h-[60vh]"
                 rows={1}
                 onInput={autoResize}

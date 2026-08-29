@@ -72,7 +72,7 @@ export const MessageBlockPlan: FC<MessageBlockPlanProps> = ({ block }) => {
       {totalCount > 0 && (
         <div className="mt-2 h-1.5 w-full rounded-full bg-muted">
           <div
-            className="h-1.5 rounded-full bg-primary transition-all duration-300"
+            className="h-1.5 rounded-full bg-primary transition-[width] duration-300"
             style={{ width: `${progressPercent}%` }}
           />
         </div>

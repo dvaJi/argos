@@ -118,7 +118,7 @@ function NewThreadPage() {
 
   const [message, setMessage] = useState("");
   const [attachedFiles, setAttachedFiles] = useState<MessageFile[]>([]);
-  const [pendingSkills, setPendingSkills] = useState<string[]>([]);
+  const pendingSkillsRef = useRef<string[]>([]);
   const [guideRootEl, setGuideRootEl] = useState<HTMLDivElement | null>(null);
   const [guideTargets, setGuideTargets] = useState<{
     agent: HTMLDivElement | null;
@@ -420,7 +420,7 @@ function NewThreadPage() {
           return;
         }
 
-        const pendingSkillsSnapshot = composerRef.current?.getPendingSkillsSnapshot() ?? pendingSkills;
+        const pendingSkillsSnapshot = composerRef.current?.getPendingSkillsSnapshot() ?? pendingSkillsRef.current;
         const dedupedPendingSkills = Array.from(new Set(pendingSkillsSnapshot));
 
         await createSession({
@@ -453,7 +453,6 @@ function NewThreadPage() {
       isAcpSelectedAgent,
       acpDraftSessionId,
       resolveModel,
-      pendingSkills,
       projectState,
       draftState,
       agentState,
@@ -512,7 +511,7 @@ function NewThreadPage() {
   );
 
   const onPendingSkillsChange = useCallback((skills: string[]) => {
-    setPendingSkills([...skills]);
+    pendingSkillsRef.current = [...skills];
   }, []);
 
   const clearSelectedProject = useCallback(() => {

@@ -64,7 +64,7 @@ const SkillEditorForm = memo(function SkillEditorForm({ skill, onSaved, onClose 
 
   const [editName] = useState(skill.name);
   const [editDescription, setEditDescription] = useState(skill.description);
-  const [editAllowedTools, setEditAllowedTools] = useState(skill.allowedTools?.join(", ") || "");
+  const [editAllowedTools, setEditAllowedTools] = useState(() => skill.allowedTools?.join(", ") || "");
   const [editContent, setEditContent] = useState("");
   const [pythonRuntime, setPythonRuntime] = useState<SkillRuntimePreference>("auto");
   const [nodeRuntime, setNodeRuntime] = useState<SkillRuntimePreference>("auto");
@@ -142,7 +142,9 @@ const SkillEditorForm = memo(function SkillEditorForm({ skill, onSaved, onClose 
     setSaving(true);
     try {
       const skillContent = buildSkillContent();
-      const env = Object.fromEntries(envRows.map((r) => [r.key.trim(), r.value]).filter(([k]) => k.length > 0));
+      const env = Object.fromEntries(
+        envRows.flatMap((r) => (r.key.trim().length > 0 ? [[r.key.trim(), r.value] as [string, string]] : [])),
+      );
       const extension: SkillExtensionConfig = {
         version: 1,
         env,

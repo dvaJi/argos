@@ -156,6 +156,7 @@ export default function AgentTransferDialog({
                   <label className="flex cursor-pointer gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/40">
                     <input
                       type="radio"
+                      name="agent-delete-action"
                       className="mt-1"
                       checked={action === "move"}
                       onChange={() => setAction("move")}
@@ -170,6 +171,7 @@ export default function AgentTransferDialog({
                   <label className="flex cursor-pointer gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/40">
                     <input
                       type="radio"
+                      name="agent-delete-action"
                       className="mt-1"
                       checked={action === "delete"}
                       onChange={() => setAction("delete")}

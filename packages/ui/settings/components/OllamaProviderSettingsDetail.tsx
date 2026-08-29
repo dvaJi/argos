@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Label } from "#shadcn/components/ui/label";
 import { Input } from "#shadcn/components/ui/input";
 import { Button } from "#shadcn/components/ui/button";
@@ -47,7 +47,7 @@ export default function OllamaProviderSettingsDetail({
   const [checkResult, setCheckResult] = useState(false);
   const [showDeleteProviderDialog, setShowDeleteProviderDialog] = useState(false);
   const [pullModelCatalog, setPullModelCatalog] = useState<MODEL_META[]>([]);
-  const [isPullModelCatalogLoading, setIsPullModelCatalogLoading] = useState(false);
+  const isPullModelCatalogLoadingRef = useRef(false);
 
   const defaultBaseUrl = "http://127.0.0.1:11434";
   const hasDefaultBaseUrl = defaultBaseUrl.length > 0;
@@ -183,8 +183,8 @@ export default function OllamaProviderSettingsDetail({
 
     return pullModelCatalog
       .map((model) => model.id || model.name)
-      .filter((modelName): modelName is string => Boolean(modelName))
-      .filter((modelName) => {
+      .filter((modelName): modelName is string => {
+        if (!modelName) return false;
         if (seenModelNames.has(modelName)) return false;
         seenModelNames.add(modelName);
         return !localModelNames.has(modelName) && !pullingModelNames.has(modelName);
@@ -287,15 +287,15 @@ export default function OllamaProviderSettingsDetail({
   }
 
   const loadPullModelCatalog = async () => {
-    if (isPullModelCatalogLoading) return;
-    setIsPullModelCatalogLoading(true);
+    if (isPullModelCatalogLoadingRef.current) return;
+    isPullModelCatalogLoadingRef.current = true;
     try {
       const models = await modelClient.getDbProviderModels(provider.id);
       setPullModelCatalog(models);
     } catch {
       setPullModelCatalog([]);
     }
-    setIsPullModelCatalogLoading(false);
+    isPullModelCatalogLoadingRef.current = false;
   };
 
   const refreshModels = async () => {

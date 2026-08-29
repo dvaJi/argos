@@ -6,7 +6,7 @@ export type AgentPlanViewSnapshot = ArgosEventPayload<"chat.plan.updated">;
 
 function loadCollapsedFromStorage(): Record<string, boolean> {
   try {
-    const raw = localStorage.getItem("agent-plan-collapsed");
+    const raw = localStorage.getItem("agent-plan-collapsed:v1") ?? localStorage.getItem("agent-plan-collapsed");
     return raw ? JSON.parse(raw) : {};
   } catch {
     return {};
@@ -15,7 +15,7 @@ function loadCollapsedFromStorage(): Record<string, boolean> {
 
 function persistCollapsed(value: Record<string, boolean>): void {
   try {
-    localStorage.setItem("agent-plan-collapsed", JSON.stringify(value));
+    localStorage.setItem("agent-plan-collapsed:v1", JSON.stringify(value));
   } catch {}
 }
 

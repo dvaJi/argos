@@ -203,6 +203,14 @@ export default function SkillInstallDialog({ open, onOpenChange, onInstalled }: 
               <div
                 className="border-2 border-dashed rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer"
                 onClick={selectFolder}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    selectFolder();
+                  }
+                }}
               >
                 <Icon
                   icon={installing ? "lucide:loader-2" : "lucide:folder-open"}
@@ -217,6 +225,14 @@ export default function SkillInstallDialog({ open, onOpenChange, onInstalled }: 
               <div
                 className="border-2 border-dashed rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer"
                 onClick={selectZip}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    selectZip();
+                  }
+                }}
               >
                 <Icon
                   icon={installing ? "lucide:loader-2" : "lucide:file-archive"}

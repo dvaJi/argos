@@ -70,13 +70,28 @@ function redirectToApp(scheme: string, params: Record<string, string | null | un
 
 /** Minimal HTML shown if the browser does not follow the protocol redirect. */
 function fallbackPage(target: string): string {
+  // `target` is built from query parameters (state, error, …) and must be
+  // escaped for the HTML attribute context and `</script>`-safe for the
+  // inline script context.
+  const href = escapeHtml(target);
+  const scriptTarget = JSON.stringify(target).replace(/</g, "\\u003c");
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Returning to Argos…</title>
 <style>body{font-family:system-ui,sans-serif;background:#0b1020;color:#e2e8f0;display:grid;place-items:center;min-height:100vh;margin:0}
 .box{text-align:center;max-width:420px;padding:2rem}
 a{color:#22d3ee;font-weight:600}</style></head>
 <body><div class="box"><h2>Returning to Argos…</h2>
-<p>If you are not redirected automatically, <a href="${target}">click here to continue</a>.</p></div>
-<script>location.href=${JSON.stringify(target)}</script></body></html>`;
+<p>If you are not redirected automatically, <a href="${href}">click here to continue</a>.</p></div>
+<script>location.href=${scriptTarget}</script></body></html>`;
+}
+
+/** Escape a value for safe interpolation into HTML text/attribute context. */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 /** Plain status page for non-redirect errors. */
@@ -84,7 +99,7 @@ function renderStatus(message: string, status: number): Response {
   return new Response(
     `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Argos — Authorization</title>
 <style>body{font-family:system-ui,sans-serif;background:#0b1020;color:#e2e8f0;display:grid;place-items:center;min-height:100vh;margin:0}</style>
-</head><body><p>${message}</p></body></html>`,
+</head><body><p>${escapeHtml(message)}</p></body></html>`,
     { status, headers: { "Content-Type": "text/html; charset=utf-8" } },
   );
 }

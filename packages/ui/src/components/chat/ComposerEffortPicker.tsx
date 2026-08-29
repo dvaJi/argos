@@ -160,6 +160,8 @@ const ComposerEffortPicker = () => {
     [hasActiveSession, activeSession?.id, sessionClient],
   );
 
+  const availableEffortSet = new Set(availableEfforts);
+
   const picker = (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -178,7 +180,7 @@ const ComposerEffortPicker = () => {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-64 p-2">
         <div className="px-2 py-1 text-xs font-semibold text-muted-foreground">Reasoning</div>
-        {T3_EFFORT_OPTIONS.filter((opt) => availableEfforts.length === 0 || availableEfforts.includes(opt.value)).map(
+        {T3_EFFORT_OPTIONS.filter((opt) => availableEfforts.length === 0 || availableEffortSet.has(opt.value)).map(
           (opt) => {
             const isActive =
               generationReasoningEffort === opt.value || (!generationReasoningEffort && opt.value === "medium");

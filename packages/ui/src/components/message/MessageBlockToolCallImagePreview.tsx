@@ -1,4 +1,4 @@
-import { type FC, useState, useEffect, useMemo, useCallback } from "react";
+import { type FC, useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "#shadcn/components/ui/dialog";
@@ -27,7 +27,7 @@ const resolveImageSrc = (preview: ToolCallImagePreview): string => {
 export const MessageBlockToolCallImagePreview: FC<MessageBlockToolCallImagePreviewProps> = ({ previews }) => {
   const { saveImage } = useImageActions();
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
+  const failedImagesRef = useRef<Set<string>>(new Set());
 
   const selectedPreview = useMemo(
     () => (selectedIndex === null ? null : (previews[selectedIndex] ?? null)),
@@ -46,7 +46,7 @@ export const MessageBlockToolCallImagePreview: FC<MessageBlockToolCallImagePrevi
 
   const openPreview = (index: number) => {
     const preview = previews[index];
-    if (!preview || failedImages.has(preview.id || String(index))) return;
+    if (!preview || failedImagesRef.current.has(preview.id || String(index))) return;
     setSelectedIndex(index);
   };
 
@@ -55,11 +55,7 @@ export const MessageBlockToolCallImagePreview: FC<MessageBlockToolCallImagePrevi
   };
 
   const handleImageError = (id: string) => {
-    setFailedImages((prev) => {
-      const next = new Set(prev);
-      next.add(id);
-      return next;
-    });
+    failedImagesRef.current.add(id);
   };
 
   const handleSaveSelectedPreview = () => {
@@ -79,7 +75,7 @@ export const MessageBlockToolCallImagePreview: FC<MessageBlockToolCallImagePrevi
       <div className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-2">
         {previews.map((preview, index) => (
           <ImageActionContextMenu
-            key={preview.id || index}
+            key={preview.id}
             source={resolveImageSrc(preview)}
             mimeType={preview.mimeType === "argos/image-url" ? undefined : preview.mimeType}
           >

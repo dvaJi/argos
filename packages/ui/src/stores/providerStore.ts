@@ -53,7 +53,7 @@ const ensureOrderIncludesProviders = (order: string[], list: LLM_PROVIDER[]) => 
 };
 
 const sortProviders = (providerList: LLM_PROVIDER[], useAscendingTime: boolean) => {
-  return [...providerList].sort((a, b) => {
+  return providerList.toSorted((a, b) => {
     const order = providerStore.state.providerOrder;
     const timestamps = providerStore.state.providerTimestamps;
     const aOrderIndex = order.indexOf(a.id);
@@ -88,7 +88,7 @@ export const getSortedProvidersFrom = (
   providerTimestamps: Record<string, number>,
 ): LLM_PROVIDER[] => {
   const sort = (providerList: LLM_PROVIDER[], useAscendingTime: boolean): LLM_PROVIDER[] => {
-    return [...providerList].sort((a, b) => {
+    return providerList.toSorted((a, b) => {
       const aOrderIndex = providerOrder.indexOf(a.id);
       const bOrderIndex = providerOrder.indexOf(b.id);
       if (aOrderIndex !== -1 && bOrderIndex !== -1) {
@@ -242,7 +242,8 @@ const updateProvidersOrder = async (newProviders: LLM_PROVIDER[]) => {
     const disabledList = newProviders.filter((provider) => !provider.enable);
     const newOrder = [...enabledList.map((p) => p.id), ...disabledList.map((p) => p.id)];
     const allIds = providerStore.state.providers.map((provider) => provider.id);
-    const missingIds = allIds.filter((id) => !newOrder.includes(id));
+    const newOrderIdSet = new Set(newOrder);
+    const missingIds = allIds.filter((id) => !newOrderIdSet.has(id));
     providerStore.setState((prev) => ({
       ...prev,
       providerOrder: [...newOrder, ...missingIds],
@@ -278,7 +279,8 @@ const optimizeProviderOrder = async (providerId: string, enable: boolean) => {
     const newOrder = enable
       ? [...enabledOrder, providerId, ...disabledOrder]
       : [...enabledOrder, providerId, ...disabledOrder];
-    const missingIds = availableProviders.map((p) => p.id).filter((id) => !newOrder.includes(id));
+    const newOrderSet = new Set(newOrder);
+    const missingIds = availableProviders.flatMap((p) => (newOrderSet.has(p.id) ? [] : [p.id]));
     providerStore.setState((prev) => ({
       ...prev,
       providerOrder: [...newOrder, ...missingIds],

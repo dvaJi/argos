@@ -193,6 +193,8 @@ export default function ScheduledTasksSettings() {
     };
   }, [client, configClient, toast]);
 
+  const openTaskIdSet = new Set(openTaskIds);
+
   return (
     <SettingsPageShell
       data-testid="settings-scheduled-tasks-page"
@@ -270,13 +272,13 @@ export default function ScheduledTasksSettings() {
                 {settings.tasks.map((task, index) => (
                   <Collapsible
                     key={task.id}
-                    open={openTaskIds.includes(task.id)}
+                    open={openTaskIdSet.has(task.id)}
                     onOpenChange={(open) => {
                       setOpenTaskIds((prev) => (open ? [...prev, task.id] : prev.filter((id) => id !== task.id)));
                     }}
                   >
                     <div
-                      className={`border-b last:border-b-0 transition-colors ${openTaskIds.includes(task.id) ? "bg-muted/30" : "hover:bg-muted/20"}`}
+                      className={`border-b last:border-b-0 transition-colors ${openTaskIdSet.has(task.id) ? "bg-muted/30" : "hover:bg-muted/20"}`}
                     >
                       <div className="flex items-center gap-2 px-3 py-2 sm:gap-3 sm:px-4">
                         <CollapsibleTrigger
@@ -289,7 +291,7 @@ export default function ScheduledTasksSettings() {
                         >
                           <Icon
                             icon="lucide:chevron-right"
-                            className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 ${openTaskIds.includes(task.id) ? "rotate-90" : ""}`}
+                            className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 ${openTaskIdSet.has(task.id) ? "rotate-90" : ""}`}
                           />
                           <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-[11px] font-semibold text-primary">
                             {index + 1}
@@ -601,8 +603,14 @@ export default function ScheduledTasksSettings() {
 
                                 {task.action.kind === "notify" && (
                                   <div className="space-y-1.5">
-                                    <Label className="text-xs text-muted-foreground">Body</Label>
+                                    <Label
+                                      htmlFor={`task-notify-body-${task.id}`}
+                                      className="text-xs text-muted-foreground"
+                                    >
+                                      Body
+                                    </Label>
                                     <textarea
+                                      id={`task-notify-body-${task.id}`}
                                       value={(task.action as NotifyAction).body}
                                       className="min-h-20 w-full rounded-md border bg-background p-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                       rows={3}
@@ -628,8 +636,14 @@ export default function ScheduledTasksSettings() {
                                 {task.action.kind === "prompt" && (
                                   <>
                                     <div className="space-y-1.5">
-                                      <Label className="text-xs text-muted-foreground">Message</Label>
+                                      <Label
+                                        htmlFor={`task-prompt-message-${task.id}`}
+                                        className="text-xs text-muted-foreground"
+                                      >
+                                        Message
+                                      </Label>
                                       <textarea
+                                        id={`task-prompt-message-${task.id}`}
                                         value={(task.action as PromptAction).message}
                                         className="min-h-24 w-full rounded-md border bg-background p-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                         rows={3}
@@ -761,8 +775,14 @@ export default function ScheduledTasksSettings() {
                                       </div>
                                     </div>
                                     <div className="space-y-1.5">
-                                      <Label className="text-xs text-muted-foreground">System Prompt</Label>
+                                      <Label
+                                        htmlFor={`task-system-prompt-${task.id}`}
+                                        className="text-xs text-muted-foreground"
+                                      >
+                                        System Prompt
+                                      </Label>
                                       <textarea
+                                        id={`task-system-prompt-${task.id}`}
                                         value={(task.action as PromptAction).systemPrompt ?? ""}
                                         className="min-h-20 w-full rounded-md border bg-background p-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                         rows={2}

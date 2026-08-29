@@ -57,7 +57,8 @@ export const MessageContent: FC<MessageContentProps> = ({ content, onMentionClic
 
         if (block.type === "mention") {
           return (
-            <span
+            <button
+              type="button"
               key={index}
               className="cursor-pointer px-1.5 py-0.5 text-xs rounded-md bg-blue-200/80 dark:bg-secondary text-foreground inline-flex items-center gap-1 max-w-64 align-sub truncate"
               title={getMentionTitle(block)}
@@ -65,7 +66,7 @@ export const MessageContent: FC<MessageContentProps> = ({ content, onMentionClic
             >
               <Icon icon={getMentionIcon(block.category)} className="w-3 h-3 shrink-0" />
               <span className="truncate">{getMentionLabel(block)}</span>
-            </span>
+            </button>
           );
         }
 

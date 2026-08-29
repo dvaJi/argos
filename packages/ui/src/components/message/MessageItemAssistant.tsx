@@ -296,22 +296,19 @@ const MessageItemAssistant = forwardRef<MessageItemAssistantRef, MessageItemAssi
     } else if (action === "copy") {
       deviceClient.copyText(
         currentContent
-          .filter((block) => {
+          .flatMap((block) => {
             if (
               (block.type === "reasoning_content" || block.type === "artifact-thinking") &&
               !uiSettingsStore.copyWithCotEnabled
             )
-              return false;
-            return true;
-          })
-          .map((block) => {
+              return [];
             const trimmedContent = (block.content ?? "").trim();
             if (
               (block.type === "reasoning_content" || block.type === "artifact-thinking") &&
               uiSettingsStore.copyWithCotEnabled
             )
-              return `<think">\n${trimmedContent}\n</think">`;
-            return trimmedContent;
+              return [`<think">\n${trimmedContent}\n</think">`];
+            return [trimmedContent];
           })
           .join("\n")
           .trim(),

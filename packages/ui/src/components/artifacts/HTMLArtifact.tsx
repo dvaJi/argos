@@ -72,6 +72,7 @@ export function HTMLArtifact({ block, isPreview, viewportSize = "desktop", class
           className={viewportClasses}
           style={viewportStyles}
           sandbox="allow-scripts allow-same-origin"
+          title="Artifact preview"
           data-testid="html-artifact-iframe"
         />
       </div>

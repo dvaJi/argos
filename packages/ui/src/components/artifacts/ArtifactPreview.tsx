@@ -208,6 +208,14 @@ export function ArtifactPreview({ block, messageId, threadId, loading }: Artifac
       <div
         className="flex w-96 max-w-full break-all shadow-sm my-2 items-center gap-2 rounded-lg border bg-card text-card-foreground hover:bg-accent/50 cursor-pointer"
         onClick={handleClick}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            handleClick();
+          }
+        }}
       >
         <div className="shrink-0 w-14 h-14 rounded-lg rounded-r-none inline-flex flex-row justify-center items-center bg-muted border-r">
           <Icon icon={getArtifactIcon(block.artifact?.type)} className="w-5 h-5 text-muted-foreground" />

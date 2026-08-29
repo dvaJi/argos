@@ -174,6 +174,7 @@ export default function SpotlightOverlay() {
 
   return createPortal(
     <div
+      role="presentation"
       className="window-no-drag-region fixed inset-0 z-[90] flex items-start justify-center px-4 pt-16"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) spotlightStore.closeSpotlight();
@@ -187,6 +188,7 @@ export default function SpotlightOverlay() {
             value={spotlightStore.query}
             className="h-9 w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
             placeholder="Search conversations, settings..."
+            aria-label="Search conversations, settings"
             onChange={(e) => spotlightStore.setQuery(e.target.value)}
             onKeyDown={handleKeydown as unknown as React.KeyboardEventHandler<HTMLInputElement>}
           />

@@ -1,0 +1,23 @@
+// React Doctor configuration.
+// https://react.doctor/docs — managed via `npx react-doctor@latest rules …`
+{
+  "$schema": "https://www.react.doctor/schemas/doctor-config.schema.json",
+  "rules": {
+    // POLICY (2026-08): the build does NOT run the React Compiler yet, so manual
+    // memoization is currently the only memoization and must stay. This rule
+    // pushes toward compiler-first caching and is re-enabled in the PR that
+    // flips on build-time compilation (`@vitejs/plugin-react` compiler: true),
+    // where removing manual memoization can actually be measured.
+    "react-doctor/react-compiler-no-manual-memoization": "off",
+    "react-doctor/no-usememo-simple-expression": "off",
+    // POLICY (2026-08): `no-adjust-state-on-prop-change` conflicts with the
+    // compiler-endorsed "adjust state during render" pattern (prev-compare)
+    // used to reset drafts — oxlint's compiler rules approve these sites.
+    "react-doctor/no-adjust-state-on-prop-change": "off",
+    // POLICY (2026-08): oxlint's React Compiler rules (enabled as errors in .oxlintrc.json)
+    // are the authority for effect dependencies in this repo; the classic
+    // exhaustive-deps rule disagrees with compiler-approved latest-ref and
+    // stabilized-deps patterns fixed in PR #75. Revisit per finding.
+    "react-doctor/exhaustive-deps": "off",
+  },
+}

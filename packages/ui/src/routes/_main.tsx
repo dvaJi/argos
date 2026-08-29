@@ -398,6 +398,7 @@ function MainLayout() {
   });
 
   useEffect(() => {
+    let cancelled = false;
     void (async () => {
       try {
         await routerInstance.load();
@@ -413,7 +414,7 @@ function MainLayout() {
             console.info("[App] dev override → navigating to /welcome");
             await routerInstance.navigate({ to: "/welcome", replace: true });
           }
-          setIsStartupRouteReady(true);
+          if (!cancelled) setIsStartupRouteReady(true);
           return;
         }
 
@@ -431,7 +432,7 @@ function MainLayout() {
             console.info("[App] onboarding complete → navigating to /chat");
             await routerInstance.navigate({ to: "/chat", replace: true });
           }
-          setIsStartupRouteReady(true);
+          if (!cancelled) setIsStartupRouteReady(true);
           return;
         }
 
@@ -450,7 +451,7 @@ function MainLayout() {
             );
             await routerInstance.navigate({ to: "/welcome", replace: true });
           }
-          setIsStartupRouteReady(true);
+          if (!cancelled) setIsStartupRouteReady(true);
           return;
         }
 
@@ -458,12 +459,15 @@ function MainLayout() {
           console.info("[App] init complete but still on /welcome → navigating to /chat");
           await routerInstance.navigate({ to: "/chat", replace: true });
         }
-        setIsStartupRouteReady(true);
+        if (!cancelled) setIsStartupRouteReady(true);
       } catch (error) {
-        setIsStartupRouteReady(true);
+        if (!cancelled) setIsStartupRouteReady(true);
         throw error;
       }
     })();
+    return () => {
+      cancelled = true;
+    };
   }, [routerInstance]);
 
   const { pendingStartDeeplink } = draftState;

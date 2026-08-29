@@ -48,14 +48,14 @@ export default function AcpDebugDialog({ open, onOpenChange, agentId, agentName 
   const [events, setEvents] = useState<AcpDebugEventEntry[]>([]);
   const [processReady, setProcessReady] = useState(false);
   const [customMethod, setCustomMethod] = useState("");
-  const [debugSessionId, setDebugSessionId] = useState(createDebugSessionId());
+  const [debugSessionId, setDebugSessionId] = useState(() => createDebugSessionId());
   const seenIds = useRef(new Set<string>());
 
   const requiresCustomMethod = useMemo(
     () => ["extMethod", "extNotification"].includes(selectedMethod),
     [selectedMethod],
   );
-  const sortedEvents = useMemo(() => [...events].sort((a, b) => b.timestamp - a.timestamp), [events]);
+  const sortedEvents = useMemo(() => events.toSorted((a, b) => b.timestamp - a.timestamp), [events]);
 
   const appendEvents = (items: AcpDebugEventEntry[]) => {
     const newItems = items.filter((e) => !seenIds.current.has(e.id));

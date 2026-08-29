@@ -199,22 +199,35 @@ export default function AcpDiagnostics({
   const handledAutoCheckRequest = useRef(0);
   const selectedWorkdir = workdirInput.trim() || undefined;
 
+  // Request sequence so a stale diagnostics response can never overwrite the
+  // state owned by a newer refresh (agent/workdir changed mid-flight).
+  const diagnosticsRequestSeqRef = useRef(0);
   const refreshDiagnostics = useCallback(async () => {
+    const requestSeq = ++diagnosticsRequestSeqRef.current;
     try {
       const next = await providerClient.getAcpAgentDiagnostics(agentId, selectedWorkdir ?? null);
+      if (requestSeq !== diagnosticsRequestSeqRef.current) return next;
       setDiagnostics(next);
       return next;
     } catch {
-      setDiagnostics(null);
+      if (requestSeq === diagnosticsRequestSeqRef.current) setDiagnostics(null);
       return null;
     }
   }, [agentId, providerClient, selectedWorkdir]);
 
   useEffect(() => {
+    let cancelled = false;
     void providerClient
       .getAcpAgentDiagnostics(agentId, workdir ?? null)
-      .then(setDiagnostics)
-      .catch(() => setDiagnostics(null));
+      .then((next) => {
+        if (!cancelled) setDiagnostics(next);
+      })
+      .catch(() => {
+        if (!cancelled) setDiagnostics(null);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [agentId, providerClient, workdir]);
 
   const runAction = useCallback(

@@ -79,6 +79,8 @@ const componentMap: Record<string, RouteComponent> = {
 };
 
 const settingsRoutes = settingsRouteItems
+  // `.flatMap` here widens the route union and breaks TanStack Router's strict
+  // route typing — the `.map().filter(Boolean)` shape is load-bearing.
   .map((item) => {
     if (item.routeName === "settings-dashboard") {
       return createRoute({

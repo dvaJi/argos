@@ -44,12 +44,13 @@ export const resolvePreferredChatModel = (input: {
   modelGroups: ChatSelectableModelGroup[];
   selections: Array<ChatModelSelection | null | undefined>;
 }): ResolvedChatModel | null => {
+  const groupsByProviderId = new Map(input.modelGroups.map((group) => [group.providerId, group]));
   for (const selection of input.selections) {
     if (!selection?.providerId || !selection.modelId) {
       continue;
     }
 
-    const group = input.modelGroups.find((entry) => entry.providerId === selection.providerId);
+    const group = groupsByProviderId.get(selection.providerId);
     const model = group?.models.find((entry) => entry.id === selection.modelId);
     if (group && model) {
       return { providerId: group.providerId, model };
@@ -64,12 +65,13 @@ export const resolveSamplingChatModel = (input: {
   requiresVision: boolean;
   selections: Array<ChatModelSelection | null | undefined>;
 }): ResolvedChatModel | null => {
+  const groupsByProviderId = new Map(input.modelGroups.map((group) => [group.providerId, group]));
   for (const selection of input.selections) {
     if (!selection?.providerId) {
       continue;
     }
 
-    const group = input.modelGroups.find((entry) => entry.providerId === selection.providerId);
+    const group = groupsByProviderId.get(selection.providerId);
     const models = getEligibleModels(group, input.requiresVision);
     if (models.length === 0) {
       continue;

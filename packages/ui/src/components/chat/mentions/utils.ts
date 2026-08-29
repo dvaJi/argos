@@ -136,7 +136,7 @@ export const flattenPromptResultToText = (value: unknown): string => {
 };
 
 export const sortSlashSuggestionItems = (items: SlashSuggestionItem[]): SlashSuggestionItem[] => {
-  return [...items].sort((a, b) => {
+  return items.toSorted((a, b) => {
     if (SLASH_CATEGORY_RANK[a.category] !== SLASH_CATEGORY_RANK[b.category]) {
       return SLASH_CATEGORY_RANK[a.category] - SLASH_CATEGORY_RANK[b.category];
     }

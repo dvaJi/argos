@@ -257,6 +257,7 @@ export function ChatSidePanel({ sessionId, workspacePath }: ChatSidePanelProps) 
               data-testid="chat-side-panel-resize-handle"
               className="absolute inset-y-0 left-0 w-1 -translate-x-1/2 cursor-col-resize"
               type="button"
+              aria-label="Resize panel"
               onMouseDown={startResize}
             />
           )}

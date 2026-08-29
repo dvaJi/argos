@@ -60,7 +60,7 @@ const AgentProgressFloat: FC<AgentProgressFloatProps> = ({
       <div className="relative flex items-center gap-1.5 px-3 pb-2.5 pt-2.5">
         <button
           type="button"
-          className="agent-progress-trigger group flex min-w-0 flex-1 items-center gap-2.5 rounded-2xl px-2 py-1.5 text-left transition-all duration-200 hover:bg-foreground/[0.035] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/50"
+          className="agent-progress-trigger group flex min-w-0 flex-1 items-center gap-2.5 rounded-2xl px-2 py-1.5 text-left transition duration-200 hover:bg-foreground/[0.035] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/50"
           data-testid="agent-progress-float-trigger"
           aria-expanded={!collapsed}
           aria-label="Plan"

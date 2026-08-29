@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
@@ -45,7 +45,7 @@ const RagflowKnowledgeSettings = () => {
     endpoint: "http://localhost",
     enabled: true,
   });
-  const [editingIndex, setEditingIndex] = useState(-1);
+  const editingIndexRef = useRef(-1);
 
   const isValid = useMemo(
     () =>
@@ -62,7 +62,7 @@ const RagflowKnowledgeSettings = () => {
 
   const openAddConfig = () => {
     setIsEditing(false);
-    setEditingIndex(-1);
+    editingIndexRef.current = -1;
     setEditingConfig({
       description: "",
       apiKey: "",
@@ -76,14 +76,14 @@ const RagflowKnowledgeSettings = () => {
   const editConfig = (index: number) => {
     const config = configs[index];
     setIsEditing(true);
-    setEditingIndex(index);
+    editingIndexRef.current = index;
     setEditingConfig({ ...config, datasetIdsStr: config.datasetIds.join(",") });
     setIsConfigDialogOpen(true);
   };
 
   const closeDialog = () => {
     setIsConfigDialogOpen(false);
-    setEditingIndex(-1);
+    editingIndexRef.current = -1;
   };
 
   const saveConfig = async () => {
@@ -99,8 +99,8 @@ const RagflowKnowledgeSettings = () => {
       endpoint: editingConfig.endpoint,
       enabled: editingConfig.enabled,
     };
-    if (isEditing && editingIndex !== -1) {
-      setConfigs((prev) => prev.map((prevConfig, index) => (index === editingIndex ? config : prevConfig)));
+    if (isEditing && editingIndexRef.current !== -1) {
+      setConfigs((prev) => prev.map((prevConfig, index) => (index === editingIndexRef.current ? config : prevConfig)));
     } else {
       setConfigs((prev) => [...prev, config]);
     }
@@ -185,13 +185,24 @@ const RagflowKnowledgeSettings = () => {
         <CollapsibleContent>
           <div className="p-4 border-t space-y-4">
             {configs.map((config, index) => (
-              <div key={index} className="p-3 border rounded-md relative">
+              <div
+                key={`${config.endpoint}:${config.datasetIds.join(",")}:${config.description}`}
+                className="p-3 border rounded-md relative"
+              >
                 <div className="absolute top-2 right-2 flex gap-2">
                   <Switch checked={config.enabled === true} onCheckedChange={(v) => toggleConfigEnabled(index, v)} />
-                  <button className="text-muted-foreground hover:text-primary" onClick={() => editConfig(index)}>
+                  <button
+                    className="text-muted-foreground hover:text-primary"
+                    aria-label="Edit RAGFlow config"
+                    onClick={() => editConfig(index)}
+                  >
                     <Icon icon="lucide:edit" className="h-4 w-4" />
                   </button>
-                  <button className="text-muted-foreground hover:text-destructive" onClick={() => removeConfig(index)}>
+                  <button
+                    className="text-muted-foreground hover:text-destructive"
+                    aria-label="Remove RAGFlow config"
+                    onClick={() => removeConfig(index)}
+                  >
                     <Icon icon="lucide:trash-2" className="h-4 w-4" />
                   </button>
                 </div>

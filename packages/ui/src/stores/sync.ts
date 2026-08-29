@@ -30,7 +30,7 @@ const syncStore = new Store({
   backupsLoading: false,
 });
 
-const getSortedBackups = () => [...syncStore.state.backups].sort((a, b) => b.createdAt - a.createdAt);
+const getSortedBackups = () => syncStore.state.backups.toSorted((a, b) => b.createdAt - a.createdAt);
 
 const refreshBackups = async () => {
   syncStore.setState((s) => ({ ...s, backupsLoading: true }));
@@ -209,9 +209,11 @@ const setupSyncSettingsListener = () => {
 };
 
 export const initializeSync = async () => {
-  const syncEnabled = await configClient.getSyncEnabled();
-  const syncFolderPath = await configClient.getSyncFolderPath();
-  const status = await syncClient.getBackupStatus();
+  const [syncEnabled, syncFolderPath, status] = await Promise.all([
+    configClient.getSyncEnabled(),
+    configClient.getSyncFolderPath(),
+    syncClient.getBackupStatus(),
+  ]);
 
   syncStore.setState((s) => ({
     ...s,

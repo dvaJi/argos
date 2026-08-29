@@ -43,9 +43,9 @@ const AgentMcpSelector: FC<AgentMcpSelectorProps> = ({ onUpdateSelections }) => 
         configClient.getAcpSharedMcpSelections(),
       ]);
 
-      const filtered = Object.entries(servers ?? {})
-        .filter(([, config]) => !isPluginOwnedServerConfig(config))
-        .map(([name, config]) => ({ name, config }));
+      const filtered = Object.entries(servers ?? {}).flatMap(([name, config]) =>
+        isPluginOwnedServerConfig(config) ? [] : [{ name, config }],
+      );
 
       setAvailableServers(filtered);
 

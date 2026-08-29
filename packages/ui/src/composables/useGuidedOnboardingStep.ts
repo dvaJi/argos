@@ -8,8 +8,9 @@ import type {
   GuidedOnboardingStepStatus,
 } from "@argos/shared-contracts/routes";
 
+const onboardingClient = createOnboardingClient();
+
 export function useGuidedOnboardingStep(stepId: GuidedOnboardingStepId) {
-  const onboardingClientRef = useRef(createOnboardingClient());
   const [onboardingState, setOnboardingState] = useState<GuidedOnboardingState | null>(null);
   const [dismissed, setDismissed] = useState(false);
 
@@ -53,7 +54,7 @@ export function useGuidedOnboardingStep(stepId: GuidedOnboardingStepId) {
   const recoverStateFromBackend = useCallback(
     async (context: string): Promise<GuidedOnboardingState | null> => {
       try {
-        const refreshed = await onboardingClientRef.current.getState();
+        const refreshed = await onboardingClient.getState();
         setOnboardingState(refreshed);
         return refreshed;
       } catch (error) {
@@ -68,7 +69,7 @@ export function useGuidedOnboardingStep(stepId: GuidedOnboardingStepId) {
     async (state: GuidedOnboardingState | null) => {
       if (state?.status === "active" && (state.currentStepId === null || state.currentStepId === undefined)) {
         try {
-          const result = await onboardingClientRef.current.complete();
+          const result = await onboardingClient.complete();
           setOnboardingState(result);
           return result;
         } catch (error) {
@@ -88,7 +89,7 @@ export function useGuidedOnboardingStep(stepId: GuidedOnboardingStepId) {
   const setStepStatus = useCallback(
     async (status: Extract<GuidedOnboardingStepStatus, "completed" | "skipped">) => {
       try {
-        const result = await onboardingClientRef.current.setStepStatus({ stepId, status });
+        const result = await onboardingClient.setStepStatus({ stepId, status });
         setOnboardingState(result);
         setDismissed(false);
         notifySiblingGuides();
@@ -104,7 +105,7 @@ export function useGuidedOnboardingStep(stepId: GuidedOnboardingStepId) {
   const activateStep = useCallback(
     async (targetStepId: GuidedOnboardingStepId) => {
       try {
-        const result = await onboardingClientRef.current.start({ stepId: targetStepId });
+        const result = await onboardingClient.start({ stepId: targetStepId });
         setOnboardingState(result);
         setDismissed(false);
         notifySiblingGuides();
@@ -133,7 +134,7 @@ export function useGuidedOnboardingStep(stepId: GuidedOnboardingStepId) {
 
   const forceComplete = useCallback(async () => {
     try {
-      const result = await onboardingClientRef.current.complete({ force: true });
+      const result = await onboardingClient.complete({ force: true });
       setOnboardingState(result);
       setDismissed(false);
       notifySiblingGuides();
@@ -155,7 +156,7 @@ export function useGuidedOnboardingStep(stepId: GuidedOnboardingStepId) {
 
   const syncState = useCallback(async () => {
     try {
-      const result = await onboardingClientRef.current.getState();
+      const result = await onboardingClient.getState();
       setOnboardingState(result);
     } catch (error) {
       console.warn(`[GuidedOnboarding] Failed to sync step ${stepId}:`, error);
@@ -170,7 +171,10 @@ export function useGuidedOnboardingStep(stepId: GuidedOnboardingStepId) {
   }, [currentStepId]);
 
   useEffect(() => {
-    void syncState();
+    void onboardingClient
+      .getState()
+      .then((result) => setOnboardingState(result))
+      .catch((error) => console.warn(`[GuidedOnboarding] Failed to sync step ${stepId}:`, error));
     const handleResumeRequested = () => {
       void syncState();
     };
@@ -178,7 +182,7 @@ export function useGuidedOnboardingStep(stepId: GuidedOnboardingStepId) {
     return () => {
       window.removeEventListener(GUIDED_ONBOARDING_RESUME_REQUESTED_EVENT, handleResumeRequested as EventListener);
     };
-  }, [syncState]);
+  }, [stepId, syncState]);
 
   return {
     onboardingState,

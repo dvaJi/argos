@@ -266,7 +266,10 @@ const openRequest = (payload: McpSamplingRequestPayload) => {
       selectedModel: null,
     }));
 
+    if (!mcpSamplingStore.state.request || mcpSamplingStore.state.request.requestId !== payload.requestId) return;
+
     const ready = await ensureModelsReady();
+    // A newer request may have replaced this one while models were loading.
     if (!mcpSamplingStore.state.request || mcpSamplingStore.state.request.requestId !== payload.requestId) return;
     if (!ready) return;
 

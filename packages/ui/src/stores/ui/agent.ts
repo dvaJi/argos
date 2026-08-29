@@ -178,9 +178,9 @@ async function refreshAgentsByIds(agentType: "argos" | "acp", agentIds: string[]
 
 function removeMissingAcpAgents(nextAgentIds: string[]): void {
   const nextAgentIdSet = new Set(nextAgentIds);
-  const removedAgentIds = agentStore.state.agents
-    .filter((agent) => resolveAgentType(agent) === "acp" && !nextAgentIdSet.has(agent.id))
-    .map((agent) => agent.id);
+  const removedAgentIds = agentStore.state.agents.flatMap((agent) =>
+    resolveAgentType(agent) === "acp" && !nextAgentIdSet.has(agent.id) ? [agent.id] : [],
+  );
   removeAgentsByIds(removedAgentIds);
 }
 

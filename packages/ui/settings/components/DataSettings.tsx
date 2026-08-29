@@ -156,10 +156,9 @@ export default function DataSettings() {
   const [isClearingSandbox, setIsClearingSandbox] = useState(false);
   const [isClearSandboxDialogOpen, setIsClearSandboxDialogOpen] = useState(false);
   const [isRepairing, setIsRepairing] = useState(false);
-  const [lastRepairReport, setLastRepairReport] = useState<DatabaseRepairReport | null>(null);
   const [cloudProviderMode, setCloudProviderMode] = useState<CloudSyncProviderMode>("r2");
   const [cloudPullMode, setCloudPullMode] = useState<"increment" | "overwrite">("increment");
-  const [cloudForm, setCloudForm] = useState(createDefaultCloudSyncForm());
+  const [cloudForm, setCloudForm] = useState(() => createDefaultCloudSyncForm());
 
   const dir = languageStore.dir;
   const isBackupActive = syncStore.isBackingUp;
@@ -863,7 +862,6 @@ export default function DataSettings() {
                   setIsRepairing(true);
                   try {
                     const result = await databaseSecurityClient.repairSchema();
-                    setLastRepairReport(result || null);
                     toast({ title: "Repair completed", duration: 4000 });
                   } catch {
                     toast({ title: "Repair failed", variant: "destructive" });

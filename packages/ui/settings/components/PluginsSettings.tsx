@@ -63,9 +63,9 @@ function formatRuntimeState(state?: PluginRuntimeState): string {
 }
 
 function getPluginMcpErrors(plugin: PluginListItem): string[] {
-  return (plugin.mcpServers ?? [])
-    .filter((server) => Boolean(server.lastError))
-    .map((server) => `${server.serverId}: ${server.lastError}`);
+  return (plugin.mcpServers ?? []).flatMap((server) =>
+    server.lastError ? [`${server.serverId}: ${server.lastError}`] : [],
+  );
 }
 
 export default function PluginsSettings() {

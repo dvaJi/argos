@@ -75,8 +75,8 @@ export function MarkdownRenderer({
   const sessionClient = useMemo(() => createSessionClient(), []);
   const referenceNodeRef = useRef<HTMLElement | null>(null);
 
-  const fallbackMessageId = useMemo(() => `artifact-msg-${nanoid()}`, []);
-  const fallbackThreadId = useMemo(() => `artifact-thread-${nanoid()}`, []);
+  const [fallbackMessageId] = useState(() => `artifact-msg-${nanoid()}`);
+  const [fallbackThreadId] = useState(() => `artifact-thread-${nanoid()}`);
 
   const effectiveMessageId = messageId ?? fallbackMessageId;
   const effectiveThreadId = threadId ?? fallbackThreadId;
@@ -267,13 +267,23 @@ export function MarkdownRenderer({
               ref={(el) => {
                 referenceNodeRef.current = el;
               }}
-              className="cursor-pointer text-blue-600 dark:text-blue-400 hover:opacity-80"
-              onClick={(e) => handleReferenceClick(id, e.nativeEvent)}
-              onMouseEnter={() => handleReferenceHover(id, referenceNodeRef.current)}
-              onMouseLeave={() => hideReference()}
               {...rest}
             >
-              {children}
+              <button
+                type="button"
+                className="cursor-pointer text-blue-600 dark:text-blue-400 hover:opacity-80"
+                onClick={(e) => handleReferenceClick(id, e.nativeEvent)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    handleReferenceClick(id);
+                  }
+                }}
+                onMouseEnter={() => handleReferenceHover(id, referenceNodeRef.current)}
+                onMouseLeave={() => hideReference()}
+              >
+                {children}
+              </button>
             </sup>
           );
         }

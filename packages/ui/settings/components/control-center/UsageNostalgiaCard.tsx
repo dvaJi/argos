@@ -13,8 +13,10 @@ type NostalgiaDetailItem = {
 
 const NOSTALGIA_ROTATION_INTERVAL = 4000;
 
+const COUNT_FORMAT = new Intl.NumberFormat("en");
+
 function formatCount(value: number): string {
-  return new Intl.NumberFormat("en").format(value);
+  return COUNT_FORMAT.format(value);
 }
 
 interface UsageNostalgiaCardProps {

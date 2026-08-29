@@ -37,8 +37,9 @@ export default function SkillFolderTreeNode({ node, depth }: SkillFolderTreeNode
 
   return (
     <div>
-      <div
-        className="flex items-center gap-1.5 py-0.5 px-1 rounded hover:bg-muted/50 cursor-default"
+      <button
+        type="button"
+        className="flex w-full items-center gap-1.5 py-0.5 px-1 rounded text-left hover:bg-muted/50 cursor-default"
         style={{ paddingLeft: `${depth * 12 + 4}px` }}
         onClick={toggleExpand}
       >
@@ -57,7 +58,7 @@ export default function SkillFolderTreeNode({ node, depth }: SkillFolderTreeNode
           </>
         )}
         <span className="truncate text-sm">{node.name}</span>
-      </div>
+      </button>
       {node.type === "directory" && expanded && node.children && (
         <div>
           {node.children.map((child) => (

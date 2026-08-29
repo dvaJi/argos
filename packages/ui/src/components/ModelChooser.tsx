@@ -40,22 +40,20 @@ export default function ModelChooser({
   const providers = useMemo(() => {
     const enabledModels = modelStore.enabledModels;
     const currentMode = chatMode.currentMode;
+    const typeSet = type && type.length > 0 ? new Set<ModelType>(type) : undefined;
 
     return sortedProviders
-      .filter((provider) => provider.enable)
       .map((provider) => {
+        if (!provider.enable) return null;
         if (currentMode === "acp agent" && provider.id !== "acp") return null;
         if (currentMode !== "acp agent" && provider.id === "acp") return null;
 
         const enabledProvider = enabledModels.find((entry) => entry.providerId === provider.id);
         if (!enabledProvider || enabledProvider.models.length === 0) return null;
 
-        const models =
-          !type || type.length === 0
-            ? enabledProvider.models
-            : enabledProvider.models.filter(
-                (model) => model.type !== undefined && type.includes(model.type as ModelType),
-              );
+        const models = !typeSet
+          ? enabledProvider.models
+          : enabledProvider.models.filter((model) => model.type !== undefined && typeSet.has(model.type as ModelType));
 
         const eligibleModels = requiresVision ? models.filter((model) => model.vision) : models;
         if (!eligibleModels || eligibleModels.length === 0) return null;
@@ -67,12 +65,10 @@ export default function ModelChooser({
 
   const filteredProviders = useMemo(() => {
     if (!keyword) return providers;
-    return providers
-      .map((provider) => ({
-        ...provider,
-        models: provider.models.filter((model) => model.name.toLowerCase().includes(keyword.toLowerCase())),
-      }))
-      .filter((provider) => provider.models.length > 0);
+    return providers.flatMap((provider) => {
+      const models = provider.models.filter((model) => model.name.toLowerCase().includes(keyword.toLowerCase()));
+      return models.length > 0 ? [{ ...provider, models }] : [];
+    });
   }, [providers, keyword]);
 
   const isSelected = useCallback(

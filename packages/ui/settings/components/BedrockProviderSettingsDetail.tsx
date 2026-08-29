@@ -47,7 +47,7 @@ export default function BedrockProviderSettingsDetail({
     if (!providerData) {
       return [];
     }
-    return [...providerData.models].sort(
+    return providerData.models.toSorted(
       (a, b) => a.group.localeCompare(b.group) || a.providerId.localeCompare(b.providerId),
     );
   }, [modelStore.allProviderModels, provider.id]);

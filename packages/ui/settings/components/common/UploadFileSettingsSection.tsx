@@ -85,12 +85,13 @@ export default function UploadFileSettingsSection() {
 
         <div className="relative">
           {!isEditing ? (
-            <div
+            <button
+              type="button"
               onClick={startEditing}
               className="min-w-16 h-8 flex items-center justify-center text-sm font-semibold hover:bg-accent rounded px-2 cursor-pointer"
             >
               {fileMaxSize}
-            </div>
+            </button>
           ) : (
             <Input
               ref={inputRef}

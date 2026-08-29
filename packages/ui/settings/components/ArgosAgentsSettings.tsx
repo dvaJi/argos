@@ -177,7 +177,14 @@ const normalizeOptionalStringList = (values?: string[] | null): string[] | undef
   if (values === undefined || values === null) {
     return undefined;
   }
-  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
+  return Array.from(
+    new Set(
+      values.flatMap((value) => {
+        const t = value.trim();
+        return t ? [t] : [];
+      }),
+    ),
+  );
 };
 
 const buildFormFromAgent = (agent: Agent | null): AgentConfigForm => {
@@ -388,7 +395,7 @@ export default function ArgosAgentsSettings() {
       const prompts = await configClient.getSystemPrompts();
       setSystemPromptTemplates(
         Array.isArray(prompts)
-          ? [...prompts].sort(
+          ? prompts.toSorted(
               (left, right) =>
                 Number(Boolean(right.isDefault)) - Number(Boolean(left.isDefault)) ||
                 left.name.localeCompare(right.name),
@@ -588,8 +595,8 @@ export default function ArgosAgentsSettings() {
   const availableSubagentTargetAgents = useMemo(
     () =>
       allAgents
-        .filter((agent) => agent.id !== selectedAgent?.id)
         .filter((agent) => {
+          if (agent.id === selectedAgent?.id) return false;
           if (agent.type === "argos") return true;
           if (agent.type !== "acp") return false;
           return agent.source !== "registry" || agent.installState?.status === "installed";
@@ -647,7 +654,7 @@ export default function ArgosAgentsSettings() {
       .map(([name, items]) => ({
         name,
         label: getGroupLabel(name),
-        tools: [...items].sort((left, right) => left.function.name.localeCompare(right.function.name)),
+        tools: items.toSorted((left, right) => left.function.name.localeCompare(right.function.name)),
       }))
       .sort((left, right) => {
         const leftIndex = GROUP_ORDER.indexOf(left.name as (typeof GROUP_ORDER)[number]);
@@ -1840,17 +1847,6 @@ export default function ArgosAgentsSettings() {
           {loadingSystemPrompts
             ? "Loading..."
             : systemPromptTemplates.map((prompt) => `${prompt.name} ${prompt.content ?? ""}`).join(" ")}
-        </div>
-      )}
-
-      {systemPromptDialogOpen && (
-        <div className="sr-only" aria-hidden="true">
-          {systemPromptTemplates.map((prompt) => (
-            <button key={prompt.id} type="button" onClick={() => applySystemPromptTemplate(prompt)}>
-              {prompt.name}
-              {prompt.content}
-            </button>
-          ))}
         </div>
       )}
 

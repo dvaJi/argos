@@ -102,7 +102,7 @@ const getModelKey = (model: RENDERER_MODEL_META) => `${model.providerId}:${model
 const statusSortWeight = (model: RENDERER_MODEL_META) => (model.enabled ? 0 : 1);
 
 const buildStatusSortOrder = (models: RENDERER_MODEL_META[]) => {
-  const orderedModels = [...models].sort((left, right) => {
+  const orderedModels = models.toSorted((left, right) => {
     const statusDifference = statusSortWeight(left) - statusSortWeight(right);
     if (statusDifference !== 0) return statusDifference;
     return modelNameCollator.compare(left.name, right.name);
@@ -151,7 +151,7 @@ const matchesAdvancedFilters = (
 };
 
 const sortModels = (models: RENDERER_MODEL_META[], filterSort: ModelSortKey, statusSortOrder: Record<string, number>) =>
-  [...models].sort((left, right) => {
+  models.toSorted((left, right) => {
     if (filterSort === "name") {
       return modelNameCollator.compare(left.name, right.name);
     }
@@ -279,6 +279,8 @@ export default function ProviderModelList({
 
   const currentSortLabel = filterSort === "status" ? "Status" : "Name";
   const activeAdvancedFilterCount = selectedCapabilities.length + selectedTypes.length;
+  const selectedCapabilitySet = new Set(selectedCapabilities);
+  const selectedTypeSet = new Set(selectedTypes);
 
   const activeFilterTokens = useMemo<FilterToken[]>(() => {
     const tokens: FilterToken[] = [];
@@ -297,18 +299,16 @@ export default function ProviderModelList({
 
   const filteredProviderModels = useMemo(
     () =>
-      providerModelsProp
-        .map((p) => ({
-          providerId: p.providerId,
-          models: filterAndSortModels(p.models, {
-            filterSort,
-            statusSortOrder,
-            normalizedSearchQuery,
-            selectedCapabilities,
-            selectedTypes,
-          }),
-        }))
-        .filter((p) => p.models.length > 0),
+      providerModelsProp.flatMap((p) => {
+        const models = filterAndSortModels(p.models, {
+          filterSort,
+          statusSortOrder,
+          normalizedSearchQuery,
+          selectedCapabilities,
+          selectedTypes,
+        });
+        return models.length > 0 ? [{ providerId: p.providerId, models }] : [];
+      }),
     [providerModelsProp, filterSort, normalizedSearchQuery, selectedCapabilities, selectedTypes, statusSortOrder],
   );
 
@@ -475,7 +475,7 @@ export default function ProviderModelList({
                           data-testid={`model-capability-filter-${option.value}`}
                           size="sm"
                           className="justify-between px-3 text-xs"
-                          variant={selectedCapabilities.includes(option.value) ? "default" : "outline"}
+                          variant={selectedCapabilitySet.has(option.value) ? "default" : "outline"}
                           onClick={() => toggleCapabilityFilter(option.value)}
                         >
                           <span className="flex min-w-0 items-center gap-1.5">
@@ -499,7 +499,7 @@ export default function ProviderModelList({
                           data-testid={`model-type-filter-${option.value}`}
                           size="sm"
                           className="justify-between px-3 text-xs"
-                          variant={selectedTypes.includes(option.value) ? "default" : "outline"}
+                          variant={selectedTypeSet.has(option.value) ? "default" : "outline"}
                           onClick={() => toggleTypeFilter(option.value)}
                         >
                           <span className="flex min-w-0 items-center gap-1.5">

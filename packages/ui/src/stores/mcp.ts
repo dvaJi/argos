@@ -69,10 +69,11 @@ const normalizeEnabledToolNames = (value: unknown): string[] => {
   if (!Array.isArray(value)) return [];
   return Array.from(
     new Set(
-      value
-        .filter((item): item is string => typeof item === "string")
-        .map((item) => item.trim())
-        .filter(Boolean),
+      value.flatMap((item) => {
+        if (typeof item !== "string") return [];
+        const trimmed = item.trim();
+        return trimmed ? [trimmed] : [];
+      }),
     ),
   );
 };
@@ -277,16 +278,16 @@ const updateServerStatus = async (serverName: string, noRefresh = false) => {
     if (!mcpStore.state.config.mcpEnabled) return;
 
     if (isRunning) {
-      const serverTools = mcpStore.state.tools
-        .filter((tool) => tool.server.name === serverName)
-        .map((tool) => tool.function.name);
+      const serverTools = mcpStore.state.tools.flatMap((tool) =>
+        tool.server.name === serverName ? [tool.function.name] : [],
+      );
       if (serverTools.length > 0) {
         const mergedTools = Array.from(new Set([...mcpStore.state.enabledToolNames, ...serverTools]));
         await setEnabledToolNames(mergedTools);
       }
     } else {
-      const allServerToolNames = mcpStore.state.tools.map((tool) => tool.function.name);
-      const filteredTools = mcpStore.state.enabledToolNames.filter((name) => allServerToolNames.includes(name));
+      const allServerToolNames = new Set(mcpStore.state.tools.map((tool) => tool.function.name));
+      const filteredTools = mcpStore.state.enabledToolNames.filter((name) => allServerToolNames.has(name));
       await setEnabledToolNames(filteredTools);
     }
   } catch (error) {
@@ -383,9 +384,9 @@ const setMcpEnabled = async (enabled: boolean) => {
         }, 1000);
       } else {
         await Promise.allSettled(
-          Object.entries(mcpStore.state.config.mcpServers)
-            .filter(([, sc]) => !isPluginOwnedServerConfig(sc))
-            .map(([sn]) => mcpClient.stopServer(sn)),
+          Object.entries(mcpStore.state.config.mcpServers).flatMap(([sn, sc]) =>
+            isPluginOwnedServerConfig(sc) ? [] : [mcpClient.stopServer(sn)],
+          ),
         );
         mcpStore.setState((s) => ({
           ...s,
@@ -648,12 +649,12 @@ export const getPrompt = async (prompt: PromptListEntry, args?: Record<string, u
       let content = matchedPrompt.content;
 
       if (args && matchedPrompt.parameters) {
-        const requiredParams = matchedPrompt.parameters.filter((param) => param.required).map((param) => param.name);
+        const requiredParams = matchedPrompt.parameters.flatMap((param) => (param.required ? [param.name] : []));
         const missingParams = requiredParams.filter((paramName) => !(paramName in args));
         if (missingParams.length > 0) throw new Error(`Missing required parameters: ${missingParams.join(", ")}`);
 
-        const validParamNames = matchedPrompt.parameters.map((param) => param.name);
-        const invalidParams = Object.keys(args).filter((key) => !validParamNames.includes(key));
+        const validParamNames = new Set(matchedPrompt.parameters.map((param) => param.name));
+        const invalidParams = Object.keys(args).filter((key) => !validParamNames.has(key));
         if (invalidParams.length > 0) throw new Error(`Invalid parameters: ${invalidParams.join(", ")}`);
 
         for (const [key, value] of Object.entries(args)) {

@@ -18,6 +18,7 @@ export function ReactArtifact({ block, className }: ReactArtifactProps) {
         srcDoc={htmlContent}
         className="html-iframe-wrapper h-full min-h-0 w-full"
         sandbox="allow-scripts"
+        title="Artifact preview"
         data-testid="react-artifact-iframe"
       />
     </div>

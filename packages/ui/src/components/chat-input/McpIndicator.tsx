@@ -48,10 +48,11 @@ function normalizeToolNames(toolNames: string[] | null | undefined): string[] {
   if (!Array.isArray(toolNames)) return [];
   return Array.from(
     new Set(
-      toolNames
-        .filter((s): s is string => typeof s === "string")
-        .map((s) => s.trim())
-        .filter(Boolean),
+      toolNames.flatMap((s) => {
+        if (typeof s !== "string") return [];
+        const trimmed = s.trim();
+        return trimmed ? [trimmed] : [];
+      }),
     ),
   ).sort();
 }
@@ -211,11 +212,12 @@ export default function McpIndicator({
     const groups = new Map<string, ToolGroupItem[]>();
     for (const tool of agentTools) {
       const existing = groups.get(tool.server.name) ?? [];
+      const toolName = tool.function.name;
       existing.push({
         kind: "tool",
-        id: tool.function.name,
-        label: tool.function.name,
-        toolName: tool.function.name,
+        id: toolName,
+        label: toolName,
+        toolName,
       });
       groups.set(tool.server.name, existing);
     }
@@ -228,7 +230,7 @@ export default function McpIndicator({
       .map(([name, items]) => ({
         name,
         label: getGroupLabel(name),
-        items: [...items].sort((a, b) => a.label.localeCompare(b.label)),
+        items: items.toSorted((a, b) => a.label.localeCompare(b.label)),
       }))
       .sort((a, b) => {
         const ai = GROUP_ORDER.indexOf(a.name);
@@ -315,10 +317,11 @@ export default function McpIndicator({
 
   const setGroupEnabled = useCallback(
     async (group: ToolGroup, enabled: boolean) => {
+      const pendingToolNameSet = new Set(pendingToolNames);
       if (
         !isArgosContext ||
         group.items.some((item) =>
-          item.kind === "subagent" ? subagentTogglePending : pendingToolNames.includes(item.toolName),
+          item.kind === "subagent" ? subagentTogglePending : pendingToolNameSet.has(item.toolName),
         )
       ) {
         return;

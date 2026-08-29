@@ -42,6 +42,11 @@ const categoryLabels: Record<string, string> = {
   system: resolveTitle("settings.overview.categories.system"),
 };
 
+const ACTIVITY_TIMESTAMP_FORMAT = new Intl.DateTimeFormat(undefined, {
+  dateStyle: "medium",
+  timeStyle: "short",
+});
+
 export default function SettingsOverview() {
   const router = useRouter();
   const settingsClient = useMemo(() => createSettingsClient(), []);
@@ -153,10 +158,10 @@ export default function SettingsOverview() {
   const getActivityCategoryLabel = (category: SettingsActivityRecord["category"]) =>
     categoryLabels[category] ?? category;
 
-  const formatDate = (timestamp: number) =>
-    new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(timestamp));
+  const formatDate = (timestamp: number) => ACTIVITY_TIMESTAMP_FORMAT.format(new Date(timestamp));
 
   useEffect(() => {
+    let cancelled = false;
     void (async () => {
       await Promise.allSettled([
         ensureInitialized(),
@@ -165,13 +170,18 @@ export default function SettingsOverview() {
         initializeSync(),
         fetchAgents(),
       ]);
+      if (cancelled) return;
       try {
-        setActivities(await settingsClient.listRecentActivity(200));
+        const activities = await settingsClient.listRecentActivity(200);
+        if (!cancelled) setActivities(activities);
       } catch (error) {
         console.warn("[SettingsOverview] Failed to load activity:", error);
-        setActivities([]);
+        if (!cancelled) setActivities([]);
       }
     })();
+    return () => {
+      cancelled = true;
+    };
   }, [settingsClient]);
 
   return (
