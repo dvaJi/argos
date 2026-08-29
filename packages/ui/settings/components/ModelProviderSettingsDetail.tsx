@@ -115,18 +115,23 @@ export default function ModelProviderSettingsDetail({
       }
     }
     if (providerId === "gemini") {
+      const categoryKeys = Object.keys(safetyCategories);
+      const savedValues = await Promise.all(
+        categoryKeys.map((categoryKey) =>
+          providerStore
+            .getGeminiSafety(categoryKey)
+            .then((v) => ({ categoryKey, savedValue: v as string }))
+            .catch((err) => {
+              console.error(`Failed to fetch Gemini safety setting for ${categoryKey}:`, err);
+              return { categoryKey, savedValue: null as string | null };
+            }),
+        ),
+      );
       const newLevels: Record<string, number> = {};
-      for (const key in safetyCategories) {
-        const categoryKey = key as string;
-        try {
-          const savedValue = (await providerStore.getGeminiSafety(categoryKey)) as string;
-          newLevels[categoryKey] =
-            valueToLevelMap[savedValue as SafetySettingValue] ??
-            safetyCategories[categoryKey as SafetyCategoryKey].defaultLevel;
-        } catch (error) {
-          console.error(`Failed to fetch Gemini safety setting for ${categoryKey}:`, error);
-          newLevels[categoryKey] = safetyCategories[categoryKey as SafetyCategoryKey].defaultLevel;
-        }
+      for (const { categoryKey, savedValue } of savedValues) {
+        newLevels[categoryKey] =
+          valueToLevelMap[savedValue as SafetySettingValue] ??
+          safetyCategories[categoryKey as SafetyCategoryKey].defaultLevel;
       }
       setGeminiSafetyLevels(newLevels);
     }

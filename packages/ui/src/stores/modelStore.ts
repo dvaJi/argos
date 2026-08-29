@@ -1199,9 +1199,7 @@ const setupModelListeners = () => {
 
 const refreshMaterializedProviders = async () => {
   const providerIds = getMaterializedProviderIds();
-  for (const providerId of providerIds) {
-    await refreshProviderModels(providerId);
-  }
+  await Promise.all(providerIds.map((providerId) => refreshProviderModels(providerId)));
 };
 
 const cleanup = () => {

@@ -247,6 +247,8 @@ const startEnabledServers = async () => {
 };
 
 const updateAllServerStatuses = async () => {
+  // Sequential: each updateServerStatus reads and writes the shared
+  // enabledToolNames list — parallel calls would lose concurrent updates.
   for (const serverName of Object.keys(mcpStore.state.config.mcpServers)) {
     await updateServerStatus(serverName, true);
   }

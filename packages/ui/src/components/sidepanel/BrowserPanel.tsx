@@ -205,11 +205,13 @@ export function BrowserPanel({ sessionId }: BrowserPanelProps) {
     if (isBrowserPanelVisible) await ensureVisibleAttachment();
   };
   const flushPendingSessionDestroys = async () => {
-    for (const sid of Array.from(pendingBrowserDestroySessionIds.current)) {
-      if (getSessionUiStatus(sid) === "working") continue;
-      pendingBrowserDestroySessionIds.current.delete(sid);
-      await callBrowserAction("destroy", () => browserClient.destroy(sid));
-    }
+    await Promise.all(
+      Array.from(pendingBrowserDestroySessionIds.current).map(async (sid) => {
+        if (getSessionUiStatus(sid) === "working") return;
+        pendingBrowserDestroySessionIds.current.delete(sid);
+        await callBrowserAction("destroy", () => browserClient.destroy(sid));
+      }),
+    );
   };
   const navigate = async (e: FormEvent) => {
     e.preventDefault();

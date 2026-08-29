@@ -59,14 +59,16 @@ export default function McpBuiltinMarket({ embedded = false, onBack }: McpBuilti
 
   const checkInstalledServers = async (currentItems: MarketItem[]) => {
     const installed = new Set<string>();
-    for (const item of currentItems) {
-      try {
-        const isInstalled = await mcpClient.isServerInstalled("mcprouter", item.server_key);
-        if (isInstalled) installed.add(item.server_key);
-      } catch (e) {
-        console.error("Failed to check installation status:", e);
-      }
-    }
+    await Promise.all(
+      currentItems.map(async (item) => {
+        try {
+          const isInstalled = await mcpClient.isServerInstalled("mcprouter", item.server_key);
+          if (isInstalled) installed.add(item.server_key);
+        } catch (e) {
+          console.error("Failed to check installation status:", e);
+        }
+      }),
+    );
     setInstalledServers(installed);
   };
 
