@@ -191,9 +191,9 @@ describe("LLMProviderPresenter background model sync", () => {
     new LLMProviderPresenter(
       createConfigPresenter(
         createProvider({
-          id: "doubao",
-          name: "Doubao",
-          apiType: "doubao",
+          id: "mistral",
+          name: "Mistral",
+          apiType: "mistral",
           baseUrl: "https://ark.cn-beijing.volces.com/api/v3",
         }),
       ),
@@ -239,9 +239,9 @@ describe("LLMProviderPresenter background model sync", () => {
     new LLMProviderPresenter(
       createConfigPresenter(
         createProvider({
-          id: "doubao",
-          name: "Doubao",
-          apiType: "doubao",
+          id: "mistral",
+          name: "Mistral",
+          apiType: "mistral",
           baseUrl: "https://ark.cn-beijing.volces.com/api/v3",
         }),
       ),
@@ -277,9 +277,9 @@ describe("LLMProviderPresenter background model sync", () => {
 
   it("refreshes provider DB before rebuilding DB-backed provider models", async () => {
     const provider = createProvider({
-      id: "doubao",
-      name: "Doubao",
-      apiType: "doubao",
+      id: "mistral",
+      name: "Mistral",
+      apiType: "mistral",
       baseUrl: "https://ark.cn-beijing.volces.com/api/v3",
     });
     const configPresenter = createConfigPresenter(provider);
@@ -288,7 +288,7 @@ describe("LLMProviderPresenter background model sync", () => {
       .mockResolvedValue(undefined);
 
     const presenter = new LLMProviderPresenter(configPresenter, mockSqlitePresenter);
-    await presenter.refreshModels("doubao");
+    await presenter.refreshModels("mistral");
 
     expect(configPresenter.refreshProviderDb).toHaveBeenCalledWith(true);
     expect(refreshSpy).toHaveBeenCalledTimes(1);
@@ -299,9 +299,9 @@ describe("LLMProviderPresenter background model sync", () => {
 
   it("surfaces provider DB refresh failures without rebuilding DB-backed provider models", async () => {
     const provider = createProvider({
-      id: "doubao",
-      name: "Doubao",
-      apiType: "doubao",
+      id: "mistral",
+      name: "Mistral",
+      apiType: "mistral",
       baseUrl: "https://ark.cn-beijing.volces.com/api/v3",
     });
     const configPresenter = createConfigPresenter(provider);
@@ -317,7 +317,7 @@ describe("LLMProviderPresenter background model sync", () => {
 
     const presenter = new LLMProviderPresenter(configPresenter, mockSqlitePresenter);
 
-    await expect(presenter.refreshModels("doubao")).rejects.toThrow("Model refresh failed: network down");
+    await expect(presenter.refreshModels("mistral")).rejects.toThrow("Model refresh failed: network down");
     expect(refreshSpy).not.toHaveBeenCalled();
   });
 
@@ -343,9 +343,9 @@ describe("LLMProviderPresenter background model sync", () => {
     const presenter = new LLMProviderPresenter(
       createConfigPresenter(
         createProvider({
-          id: "doubao",
-          name: "Doubao",
-          apiType: "doubao",
+          id: "mistral",
+          name: "Mistral",
+          apiType: "mistral",
           baseUrl: "https://ark.cn-beijing.volces.com/api/v3",
         }),
       ),
@@ -364,7 +364,7 @@ describe("LLMProviderPresenter background model sync", () => {
     expect(presenter.getProviders()).toHaveLength(1);
     expect(refreshSpy).toHaveBeenCalledTimes(1);
     expect(warnSpy).toHaveBeenCalledWith(
-      "[LLMProviderPresenter] Failed to refresh models for provider doubao during provider-db-updated:",
+      "[LLMProviderPresenter] Failed to refresh models for provider mistral during provider-db-updated:",
       expect.any(Error),
     );
   });

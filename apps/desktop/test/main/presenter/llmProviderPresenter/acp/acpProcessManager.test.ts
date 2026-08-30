@@ -2,7 +2,7 @@ import { EventEmitter } from "events";
 import * as fs from "fs";
 import path from "path";
 import { describe, expect, it, vi } from "vitest";
-import spawn from "cross-spawn";
+import { spawn } from "node:child_process";
 import * as shellEnvHelper from "@argos/backend-core/runtime/shellEnv";
 import { AcpProcessManager, parseLoadSessionCapability } from "@argos/acp-runtime";
 import { createAcpTestPorts } from "./acpTestPorts";
@@ -23,9 +23,15 @@ vi.mock("electron", () => ({
   },
 }));
 
-vi.mock("cross-spawn", () => ({
-  default: vi.fn<(...args: any[]) => any>(),
-}));
+// AcpProcessManager spawns agents via node:child_process; mock it so tests can
+// assert on spawn args without launching a real process.
+vi.mock("node:child_process", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:child_process")>();
+  return {
+    ...actual,
+    spawn: vi.fn<(...args: any[]) => any>(),
+  };
+});
 
 vi.mock("@argos/backend-core/runtime/shellEnv", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@argos/backend-core/runtime/shellEnv")>();

@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import logger from "@argos/shared/logger";
 import { DEEPLINK_EVENTS, NOTIFICATION_EVENTS, SETTINGS_EVENTS } from "#/events";
+
+vi.mock("@argos/shared/logger", async () => {
+  const { mockSharedLogger } = await import("../../mocks/sharedLogger");
+  return mockSharedLogger();
+});
 
 const browserWindowFromIdMock = vi.hoisted(() => vi.fn<(...args: any[]) => any>());
 const electronAppMock = vi.hoisted(() => ({
@@ -113,7 +119,7 @@ describe("DeeplinkPresenter", () => {
     expect(chatWindow.show).toHaveBeenCalledTimes(1);
     expect(chatWindow.focus).toHaveBeenCalledTimes(1);
     expect(presenterMock.windowPresenter.sendToWindow).toHaveBeenCalledWith(1, DEEPLINK_EVENTS.START, {
-      msg: "ä½ å¥½",
+      msg: "hello",
       modelId: "deepseek-chat",
       systemPrompt: "Be concise",
       mentions: ["README.md", "docs/spec.md"],
@@ -145,7 +151,7 @@ describe("DeeplinkPresenter", () => {
       1,
       DEEPLINK_EVENTS.START,
       expect.objectContaining({
-        msg: "ä½ å¥½",
+        msg: "hello",
         autoSend: false,
       }),
     );
@@ -173,7 +179,7 @@ describe("DeeplinkPresenter", () => {
           demo: {
             env: {},
             descriptions: "demo MCP Service",
-            icons: "ðŸ”Œ",
+            icons: "🔌",
             autoApprove: ["all"],
             enabled: false,
             disable: false,
@@ -365,16 +371,18 @@ describe("DeeplinkPresenter", () => {
     };
     const rawData = Buffer.from(JSON.stringify(payload)).toString("base64");
     const url = `argos:provider/install?v=1&data=${rawData}`;
-    const consoleLogSpy = vi.spyOn<(...args: any[]) => any>(console, "log").mockImplementation(() => {});
 
     await deeplinkPresenter.handleDeepLink(url);
 
-    expect(consoleLogSpy).toHaveBeenCalledWith("Received DeepLink:", "argos:provider/install?v=1&data=%5BREDACTED%5D");
-    expect(consoleLogSpy).toHaveBeenCalledWith("Processing provider/install command, parameters:", {
+    expect(logger.info).toHaveBeenCalledWith(
+      "[Deeplink] Received DeepLink:",
+      "argos:provider/install?v=1&data=%5BREDACTED%5D",
+    );
+    expect(logger.info).toHaveBeenCalledWith("[Deeplink] Processing provider/install command, parameters:", {
       v: "1",
       data: "[REDACTED]",
     });
-    const serializedLogs = consoleLogSpy.mock.calls
+    const serializedLogs = logger.info.mock.calls
       .flatMap((call) => call.map((value) => (typeof value === "string" ? value : JSON.stringify(value))))
       .join(" ");
     expect(serializedLogs).not.toContain(rawData);

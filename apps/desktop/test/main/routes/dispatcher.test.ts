@@ -86,11 +86,18 @@ const daemonRouteMocks = vi.hoisted(() => ({
 
 vi.mock("#/routes/daemonRouteProxy", async (importOriginal) => {
   const actual = await importOriginal<typeof import("#/routes/daemonRouteProxy")>();
-  const invokeDaemonRoute = vi.fn(async (route: string, input: unknown) => {
+  // Unregistered routes reject immediately with daemon_not_running. Do NOT
+  // fall through to the real proxy here: it waits up to 30s for a sidecar
+  // handle, which would blow past the test timeout.
+  const invokeDaemonRoute = vi.fn(async (route: string, _input: unknown) => {
     if (daemonRouteMocks.outputs.has(route)) {
       return daemonRouteMocks.outputs.get(route);
     }
-    return actual.invokeDaemonRoute(route, input);
+    throw new actual.DaemonRouteError({
+      code: "daemon_not_running",
+      route,
+      message: "Daemon is not running",
+    });
   });
   daemonRouteMocks.invokeDaemonRoute = invokeDaemonRoute;
   return { ...actual, invokeDaemonRoute };
@@ -537,6 +544,22 @@ function createRuntime() {
 }
 
 describe("dispatchArgosRoute", () => {
+  const createDaemonSessionFixture = (overrides: Record<string, unknown> = {}) => ({
+    id: "session-1",
+    agentId: "argos",
+    title: "Restored",
+    projectDir: null,
+    isPinned: false,
+    sessionKind: "regular",
+    subagentEnabled: false,
+    createdAt: 1,
+    updatedAt: 2,
+    status: "idle",
+    providerId: "openai",
+    modelId: "gpt-5.4",
+    ...overrides,
+  });
+
   it("reads a typed settings snapshot", async () => {
     const { runtime } = createRuntime();
 
@@ -686,6 +709,19 @@ describe("dispatchArgosRoute", () => {
 
   it("dispatches session and chat routes with renderer context", async () => {
     const { runtime, agentSessionPresenter } = createRuntime();
+    daemonRouteMocks.outputs.set("sessions.create", {
+      session: createDaemonSessionFixture({ id: "session-1", title: "hello world" }),
+    });
+    daemonRouteMocks.outputs.set("chat.sendMessage", {
+      accepted: true,
+      requestId: "message-2",
+      messageId: "message-2",
+    });
+    daemonRouteMocks.outputs.set("chat.steerActiveTurn", { accepted: true });
+    daemonRouteMocks.outputs.set("sessions.compact", {
+      compacted: true,
+      state: { status: "compacted", cursorOrderSeq: 5, summaryUpdatedAt: 123 },
+    });
 
     const createResult = await dispatchArgosRoute(
       runtime,
@@ -700,13 +736,10 @@ describe("dispatchArgosRoute", () => {
       },
     );
 
-    expect(agentSessionPresenter.createSession).toHaveBeenCalledWith(
-      {
-        agentId: "argos",
-        message: "hello world",
-      },
-      88,
-    );
+    expect(daemonRouteMocks.invokeDaemonRoute).toHaveBeenCalledWith("sessions.create", {
+      agentId: "argos",
+      message: "hello world",
+    });
     expect(createResult).toEqual({
       session: expect.objectContaining({
         id: "session-1",
@@ -726,7 +759,10 @@ describe("dispatchArgosRoute", () => {
       },
     );
 
-    expect(agentSessionPresenter.sendMessage).toHaveBeenCalledWith("session-1", "follow up");
+    expect(daemonRouteMocks.invokeDaemonRoute).toHaveBeenCalledWith("chat.sendMessage", {
+      sessionId: "session-1",
+      content: "follow up",
+    });
 
     await dispatchArgosRoute(
       runtime,
@@ -741,7 +777,10 @@ describe("dispatchArgosRoute", () => {
       },
     );
 
-    expect(agentSessionPresenter.steerActiveTurn).toHaveBeenCalledWith("session-1", "refine the active answer");
+    expect(daemonRouteMocks.invokeDaemonRoute).toHaveBeenCalledWith("chat.steerActiveTurn", {
+      sessionId: "session-1",
+      content: "refine the active answer",
+    });
 
     const compactResult = await dispatchArgosRoute(
       runtime,
@@ -755,7 +794,7 @@ describe("dispatchArgosRoute", () => {
       },
     );
 
-    expect(agentSessionPresenter.compactSession).toHaveBeenCalledWith("session-1");
+    expect(daemonRouteMocks.invokeDaemonRoute).toHaveBeenCalledWith("sessions.compact", { sessionId: "session-1" });
     expect(compactResult).toEqual({
       compacted: true,
       state: {
@@ -764,10 +803,21 @@ describe("dispatchArgosRoute", () => {
         summaryUpdatedAt: 123,
       },
     });
+    // Session lifecycle is daemon-owned; the local session presenter stays out of the path.
+    expect(agentSessionPresenter.createSession).not.toHaveBeenCalled();
   });
 
   it("dispatches session generation settings routes without dropping timeout", async () => {
-    const { runtime, agentSessionPresenter } = createRuntime();
+    const { runtime } = createRuntime();
+    const generationSettings = {
+      systemPrompt: "",
+      temperature: 0.7,
+      contextLength: 32000,
+      maxTokens: 4096,
+      timeout: 5000,
+    };
+    daemonRouteMocks.outputs.set("sessions.updateGenerationSettings", { settings: generationSettings });
+    daemonRouteMocks.outputs.set("sessions.getGenerationSettings", { settings: generationSettings });
 
     const updateResult = await dispatchArgosRoute(
       runtime,
@@ -796,8 +846,11 @@ describe("dispatchArgosRoute", () => {
       },
     );
 
-    expect(agentSessionPresenter.updateSessionGenerationSettings).toHaveBeenCalledWith("session-1", {
-      timeout: 5000,
+    expect(daemonRouteMocks.invokeDaemonRoute).toHaveBeenCalledWith("sessions.updateGenerationSettings", {
+      sessionId: "session-1",
+      settings: {
+        timeout: 5000,
+      },
     });
     expect(updateResult).toEqual({
       settings: {
@@ -808,7 +861,6 @@ describe("dispatchArgosRoute", () => {
         timeout: 5000,
       },
     });
-    expect(agentSessionPresenter.getSessionGenerationSettings).toHaveBeenCalledWith("session-1");
     expect(getResult).toEqual({
       settings: {
         systemPrompt: "",
@@ -821,7 +873,24 @@ describe("dispatchArgosRoute", () => {
   });
 
   it("dispatches provider query and tool interaction routes through typed services", async () => {
-    const { runtime, configPresenter, llmProviderPresenter, agentSessionPresenter } = createRuntime();
+    const { runtime, llmProviderPresenter, agentSessionPresenter } = createRuntime();
+    daemonRouteMocks.outputs.set("models.getProviderCatalog", {
+      catalog: {
+        providerModels: [
+          {
+            id: "gpt-5.4",
+            name: "GPT-5.4",
+            group: "default",
+            providerId: "openai",
+          },
+        ],
+        customModels: [],
+        dbProviderModels: [],
+        modelStatusMap: {},
+      },
+    });
+    daemonRouteMocks.outputs.set("providers.testConnection", { isOk: true, errorMsg: null });
+    daemonRouteMocks.outputs.set("chat.respondToolInteraction", { accepted: true, resumed: true });
 
     const modelsResult = await dispatchArgosRoute(
       runtime,
@@ -866,12 +935,14 @@ describe("dispatchArgosRoute", () => {
       },
     );
 
-    expect(configPresenter.getProviderModels).toHaveBeenCalledWith("openai");
-    expect(llmProviderPresenter.check).toHaveBeenCalledWith("openai", "gpt-5.4");
-    expect(agentSessionPresenter.respondToolInteraction).toHaveBeenCalledWith("session-1", "message-1", "tool-1", {
-      kind: "permission",
-      granted: true,
+    expect(daemonRouteMocks.invokeDaemonRoute).toHaveBeenCalledWith("models.getProviderCatalog", {
+      providerId: "openai",
     });
+    expect(daemonRouteMocks.invokeDaemonRoute).toHaveBeenCalledWith("providers.testConnection", {
+      providerId: "openai",
+      modelId: "gpt-5.4",
+    });
+    expect(agentSessionPresenter.respondToolInteraction).not.toHaveBeenCalled();
     expect(modelsResult).toEqual({
       providerModels: [
         {
@@ -894,24 +965,11 @@ describe("dispatchArgosRoute", () => {
   });
 
   it("activates, deactivates, and reads the active session through typed routes", async () => {
-    const { runtime, agentSessionPresenter } = createRuntime();
-    (agentSessionPresenter.getActiveSession as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      id: "session-1",
-      agentId: "argos",
-      title: "Restored",
-      projectDir: "/workspace",
-      isPinned: false,
-      isDraft: false,
-      sessionKind: "regular",
-      parentSessionId: null,
-      subagentEnabled: false,
-      subagentMeta: null,
-      createdAt: 1,
-      updatedAt: 2,
-      status: "idle",
-      providerId: "openai",
-      modelId: "gpt-5.4",
-    });
+    const { runtime } = createRuntime();
+    const activeSession = createDaemonSessionFixture({ id: "session-1", title: "Restored" });
+    daemonRouteMocks.outputs.set("sessions.activate", { activated: true });
+    daemonRouteMocks.outputs.set("sessions.deactivate", { deactivated: true });
+    daemonRouteMocks.outputs.set("sessions.getActive", { session: activeSession });
 
     const activateResult = await dispatchArgosRoute(
       runtime,
@@ -945,9 +1003,11 @@ describe("dispatchArgosRoute", () => {
       },
     );
 
-    expect(agentSessionPresenter.activateSession).toHaveBeenCalledWith(88, "session-1");
-    expect(agentSessionPresenter.deactivateSession).toHaveBeenCalledWith(88);
-    expect(agentSessionPresenter.getActiveSession).toHaveBeenCalledWith(88);
+    expect(daemonRouteMocks.invokeDaemonRoute).toHaveBeenCalledWith("sessions.activate", {
+      sessionId: "session-1",
+    });
+    expect(daemonRouteMocks.invokeDaemonRoute).toHaveBeenCalledWith("sessions.deactivate", {});
+    expect(daemonRouteMocks.invokeDaemonRoute).toHaveBeenCalledWith("sessions.getActive", {});
     expect(activateResult).toEqual({ activated: true });
     expect(deactivateResult).toEqual({ deactivated: true });
     expect(activeResult).toEqual({
@@ -958,7 +1018,8 @@ describe("dispatchArgosRoute", () => {
   });
 
   it("resolves stopStream by requestId when sessionId is omitted", async () => {
-    const { runtime, agentSessionPresenter } = createRuntime();
+    const { runtime } = createRuntime();
+    daemonRouteMocks.outputs.set("chat.stopStream", { stopped: true });
 
     const result = await dispatchArgosRoute(
       runtime,
@@ -972,8 +1033,9 @@ describe("dispatchArgosRoute", () => {
       },
     );
 
-    expect(agentSessionPresenter.getMessage).toHaveBeenCalledWith("message-1");
-    expect(agentSessionPresenter.cancelGeneration).toHaveBeenCalledWith("session-1");
+    expect(daemonRouteMocks.invokeDaemonRoute).toHaveBeenCalledWith("chat.stopStream", {
+      requestId: "message-1",
+    });
     expect(result).toEqual({ stopped: true });
   });
 

@@ -254,7 +254,13 @@ vi.mock("fs", () => {
   };
 });
 
-// Mock path module
+// Mock path module.
+//
+// NOTE: this stub deliberately emits POSIX-style joins (`args.join("/")`) —
+// the desktop suite's fixtures and assertions were written against that
+// shape, and it keeps them platform-independent. Known trade-off: it does not
+// normalize separators when args already contain backslashes. See
+// docs/issues/windows-desktop-tests/ before changing this.
 vi.mock("path", async () => {
   const actual = await vi.importActual("path");
   return {

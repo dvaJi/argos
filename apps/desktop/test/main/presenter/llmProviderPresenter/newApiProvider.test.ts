@@ -9,17 +9,10 @@ const { mockRunAiSdkCoreStream } = vi.hoisted(() => ({
   mockRunAiSdkCoreStream: vi.fn<(...args: any[]) => any>(),
 }));
 
-vi.mock("@argos/shared/logger", () => ({
-  default: {
-    info: vi.fn<(...args: any[]) => any>(),
-    warn: vi.fn<(...args: any[]) => any>(),
-    error: vi.fn<(...args: any[]) => any>(),
-    debug: vi.fn<(...args: any[]) => any>(),
-    verbose: vi.fn<(...args: any[]) => any>(),
-    silly: vi.fn<(...args: any[]) => any>(),
-    log: vi.fn<(...args: any[]) => any>(),
-  },
-}));
+vi.mock("@argos/shared/logger", async () => {
+  const { mockSharedLogger } = await import("../../../mocks/sharedLogger");
+  return mockSharedLogger();
+});
 
 vi.mock("electron", () => ({
   app: {
