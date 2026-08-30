@@ -67,7 +67,6 @@ const ExportWizard: FC<ExportWizardProps> = ({ currentStep, onStepChange, onComp
     }
   }
   const allSkillsSelected = localSkills.length > 0 && selectedSkills.length === localSkills.length;
-  const isKiroSelected = selectedToolId === "kiro";
   const conflictItems = ((): ConflictItem[] => {
     return exportPreviews.flatMap((p) =>
       p.conflict
@@ -110,33 +109,6 @@ const ExportWizard: FC<ExportWizardProps> = ({ currentStep, onStepChange, onComp
     }
     return undefined;
   })();
-  const getStepClass = (step: number) => {
-    if (currentStep > step) return "bg-primary text-primary-foreground";
-    if (currentStep === step) return "bg-primary text-primary-foreground";
-    return "bg-muted text-muted-foreground";
-  };
-  const getToolIcon = (toolId: string): string => {
-    const icons: Record<string, string> = {
-      "claude-code": "simple-icons:anthropic",
-      cursor: "simple-icons:cursor",
-      windsurf: "lucide:wind",
-      copilot: "simple-icons:github",
-      kiro: "lucide:sparkles",
-      antigravity: "lucide:rocket",
-    };
-    return icons[toolId] || "lucide:box";
-  };
-  const getToolIconBg = (toolId: string): string => {
-    const bgs: Record<string, string> = {
-      "claude-code": "bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400",
-      cursor: "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400",
-      windsurf: "bg-cyan-100 text-cyan-600 dark:bg-cyan-900/30 dark:text-cyan-400",
-      copilot: "bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400",
-      kiro: "bg-pink-100 text-pink-600 dark:bg-pink-900/30 dark:text-pink-400",
-      antigravity: "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400",
-    };
-    return bgs[toolId] || "bg-gray-100 text-gray-600 dark:bg-gray-900/30 dark:text-gray-400";
-  };
   const updateSkillChecked = (skillName: string, checked: boolean) => {
     setSkillCheckedState((prev) => ({
       ...prev,
@@ -254,250 +226,439 @@ const ExportWizard: FC<ExportWizardProps> = ({ currentStep, onStepChange, onComp
   }, []);
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-center gap-2 mb-6">
-        {[1, 2, 3].map((step) => (
-          <div key={step} className="flex items-center">
-            <div
-              className={[
-                "w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors",
-                getStepClass(step),
-              ].join(" ")}
-            >
-              {currentStep > step ? <Icon icon="lucide:check" className="w-4 h-4" /> : step}
-            </div>
-            {step < 3 && (
-              <div
-                className={["w-12 h-0.5 mx-2 transition-colors", currentStep > step ? "bg-primary" : "bg-muted"].join(
-                  " ",
-                )}
-              />
-            )}
-          </div>
-        ))}
-      </div>
+      <ExportWizardStepIndicator currentStep={currentStep} />
 
       <div className="flex-1 overflow-auto">
         {currentStep === 1 && (
-          <div>
-            <h3 className="text-sm font-medium mb-4">Select skills to export</h3>
-            {loadingSkills ? (
-              <div className="flex items-center justify-center py-8">
-                <Icon icon="lucide:loader-2" className="w-6 h-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : (
-              <>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="text-sm text-muted-foreground">
-                    Selected {selectedSkills.length} of {localSkills.length}
-                  </div>
-                  <Button variant="ghost" size="sm" onClick={toggleAllSkills}>
-                    {allSkillsSelected ? "Deselect All" : "Select All"}
-                  </Button>
-                </div>
-                <ScrollArea className="h-[280px] pr-4">
-                  <div className="space-y-2">
-                    {localSkills.map((skill) => (
-                      <div
-                        key={skill.name}
-                        className="flex items-start gap-3 p-3 border rounded-lg hover:bg-accent/50 transition-colors"
-                      >
-                        <Checkbox
-                          checked={skillCheckedState[skill.name]}
-                          onCheckedChange={(value) => updateSkillChecked(skill.name, Boolean(value))}
-                          className="mt-0.5"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <span className="font-medium truncate">{skill.name}</span>
-                          {skill.description && (
-                            <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{skill.description}</p>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </ScrollArea>
-              </>
-            )}
-          </div>
+          <ExportSkillsStep
+            loading={loadingSkills}
+            skills={localSkills}
+            selectedCount={selectedSkills.length}
+            checkedState={skillCheckedState}
+            allSelected={allSkillsSelected}
+            onToggleSkill={updateSkillChecked}
+            onToggleAll={toggleAllSkills}
+          />
         )}
 
         {currentStep === 2 && (
-          <div>
-            <h3 className="text-sm font-medium mb-4">Select target tool</h3>
-            {scanningTools ? (
-              <div className="flex items-center justify-center py-8">
-                <Icon icon="lucide:loader-2" className="w-6 h-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  {availableTools.map((tool) => (
-                    <div
-                      key={tool.id}
-                      className={[
-                        "flex items-center justify-between p-3 border rounded-lg hover:bg-accent transition-colors cursor-pointer",
-                        selectedToolId === tool.id ? "border-accent-400 bg-accent-400/10" : "",
-                      ].join(" ")}
-                      onClick={() => setSelectedToolId(tool.id)}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          setSelectedToolId(tool.id);
-                        }
-                      }}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={[
-                            "w-10 h-10 rounded-lg flex items-center justify-center",
-                            getToolIconBg(tool.id),
-                          ].join(" ")}
-                        >
-                          <Icon icon={getToolIcon(tool.id)} className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <div className="font-medium">{tool.name}</div>
-                          <div className="text-xs text-muted-foreground truncate max-w-[300px]">{tool.skillsDir}</div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {isKiroSelected && (
-                  <div className="p-4 border rounded-lg bg-pink-50/50 dark:bg-pink-900/10 space-y-4">
-                    <div className="flex items-center gap-2 text-sm font-medium text-pink-600 dark:text-pink-400">
-                      <Icon icon="lucide:sparkles" className="w-4 h-4" />
-                      Kiro Options
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-sm">Inclusion Mode</Label>
-                      <RadioGroup
-                        value={kiroInclusion}
-                        onValueChange={(v) => setKiroInclusion(v as KiroInclusionMode)}
-                        className="space-y-2"
-                      >
-                        <div className="flex items-start gap-2">
-                          <RadioGroupItem value="on-demand" id="kiro-on-demand" className="mt-0.5" />
-                          <div>
-                            <Label htmlFor="kiro-on-demand" className="text-sm font-normal">
-                              On Demand
-                            </Label>
-                            <p className="text-xs text-muted-foreground">
-                              Include skill only when explicitly requested
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <RadioGroupItem value="always" id="kiro-always" className="mt-0.5" />
-                          <div>
-                            <Label htmlFor="kiro-always" className="text-sm font-normal">
-                              Always
-                            </Label>
-                            <p className="text-xs text-muted-foreground">Always include this skill</p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <RadioGroupItem value="conditional" id="kiro-conditional" className="mt-0.5" />
-                          <div className="flex-1">
-                            <Label htmlFor="kiro-conditional" className="text-sm font-normal">
-                              Conditional
-                            </Label>
-                            <p className="text-xs text-muted-foreground">Include based on file patterns</p>
-                          </div>
-                        </div>
-                      </RadioGroup>
-                    </div>
-                    {kiroInclusion === "conditional" && (
-                      <div className="space-y-2">
-                        <Label htmlFor="kiro-patterns" className="text-sm">
-                          File Patterns
-                        </Label>
-                        <Input
-                          id="kiro-patterns"
-                          value={kiroFilePatterns}
-                          onChange={(e) => setKiroFilePatterns(e.target.value)}
-                          placeholder="e.g. *.ts, *.tsx, src/**"
-                          className="text-sm"
-                        />
-                        <p className="text-xs text-muted-foreground">Comma-separated glob patterns</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+          <ExportToolStep
+            scanning={scanningTools}
+            tools={availableTools}
+            selectedToolId={selectedToolId}
+            onSelectTool={setSelectedToolId}
+            kiroInclusion={kiroInclusion}
+            onKiroInclusionChange={setKiroInclusion}
+            kiroFilePatterns={kiroFilePatterns}
+            onKiroFilePatternsChange={setKiroFilePatterns}
+          />
         )}
 
         {currentStep === 3 && (
-          <div>
-            <h3 className="text-sm font-medium mb-4">Preview and confirm</h3>
-            {loading && (
-              <div className="flex flex-col items-center justify-center py-8">
-                <Icon icon="lucide:loader-2" className="w-8 h-8 animate-spin text-muted-foreground mb-2" />
-                <span className="text-sm text-muted-foreground">Previewing...</span>
-              </div>
-            )}
-            {exporting && (
-              <div className="flex flex-col items-center justify-center py-8">
-                <Icon icon="lucide:loader-2" className="w-8 h-8 animate-spin text-primary mb-2" />
-                <span className="text-sm text-muted-foreground">
-                  Exporting {exportProgress.current}/{exportProgress.total}...
-                </span>
-                <span className="text-xs text-muted-foreground mt-1">{exportProgress.currentSkill}</span>
-              </div>
-            )}
-            {!loading && !exporting && (
-              <>
-                {allWarnings.length > 0 && (
-                  <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
-                    <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-medium text-sm mb-2">
-                      <Icon icon="lucide:alert-triangle" className="w-4 h-4" />
-                      Warnings
-                    </div>
-                    <div className="space-y-1">
-                      {allWarnings.map((warning, index) => (
-                        <div key={index} className="text-xs text-amber-700 dark:text-amber-300">
-                          {warning}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {conflictItems.length > 0 ? (
-                  <ConflictResolver
-                    conflicts={conflictItems}
-                    strategies={conflictStrategies}
-                    warnings={[]}
-                    onStrategiesChange={setConflictStrategies}
-                  />
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Icon icon="lucide:check-circle" className="w-12 h-12 mx-auto mb-2 text-green-500" />
-                    <p>No conflicts detected</p>
-                    <p className="text-xs mt-1">Ready to export {selectedSkills.length} skill(s)</p>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
+          <ExportPreviewStep
+            loading={loading}
+            exporting={exporting}
+            progress={exportProgress}
+            warnings={allWarnings}
+            conflicts={conflictItems}
+            strategies={conflictStrategies}
+            onStrategiesChange={setConflictStrategies}
+            selectedCount={selectedSkills.length}
+          />
         )}
       </div>
 
-      <div className="flex justify-between pt-4 border-t mt-4 flex-shrink-0">
-        <Button variant="outline" onClick={handleBack} disabled={exporting}>
-          {currentStep === 1 ? "Cancel" : "Back"}
-        </Button>
-        <Button onClick={handleNext} disabled={!canProceed || exporting}>
-          {exporting && <Icon icon="lucide:loader-2" className="w-4 h-4 mr-2 animate-spin" />}
-          {nextButtonText}
-        </Button>
-      </div>
+      <ExportWizardFooter
+        currentStep={currentStep}
+        exporting={exporting}
+        canProceed={canProceed}
+        nextButtonText={nextButtonText}
+        onBack={handleBack}
+        onNext={handleNext}
+      />
     </div>
   );
 };
+const getStepClass = (step: number, currentStep: number) => {
+  if (currentStep > step) return "bg-primary text-primary-foreground";
+  if (currentStep === step) return "bg-primary text-primary-foreground";
+  return "bg-muted text-muted-foreground";
+};
+const getToolIcon = (toolId: string): string => {
+  const icons: Record<string, string> = {
+    "claude-code": "simple-icons:anthropic",
+    cursor: "simple-icons:cursor",
+    windsurf: "lucide:wind",
+    copilot: "simple-icons:github",
+    kiro: "lucide:sparkles",
+    antigravity: "lucide:rocket",
+  };
+  return icons[toolId] || "lucide:box";
+};
+const getToolIconBg = (toolId: string): string => {
+  const bgs: Record<string, string> = {
+    "claude-code": "bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400",
+    cursor: "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400",
+    windsurf: "bg-cyan-100 text-cyan-600 dark:bg-cyan-900/30 dark:text-cyan-400",
+    copilot: "bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400",
+    kiro: "bg-pink-100 text-pink-600 dark:bg-pink-900/30 dark:text-pink-400",
+    antigravity: "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400",
+  };
+  return bgs[toolId] || "bg-gray-100 text-gray-600 dark:bg-gray-900/30 dark:text-gray-400";
+};
+interface ExportWizardStepIndicatorProps {
+  currentStep: number;
+}
+
+/** The 1-2-3 progress indicator at the top of the wizard. */
+function ExportWizardStepIndicator({ currentStep }: ExportWizardStepIndicatorProps) {
+  return (
+    <div className="flex items-center justify-center gap-2 mb-6">
+      {[1, 2, 3].map((step) => (
+        <div key={step} className="flex items-center">
+          <div
+            className={[
+              "w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors",
+              getStepClass(step, currentStep),
+            ].join(" ")}
+          >
+            {currentStep > step ? <Icon icon="lucide:check" className="w-4 h-4" /> : step}
+          </div>
+          {step < 3 && (
+            <div
+              className={["w-12 h-0.5 mx-2 transition-colors", currentStep > step ? "bg-primary" : "bg-muted"].join(
+                " ",
+              )}
+            />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+interface ExportSkillsStepProps {
+  loading: boolean;
+  skills: { name: string; description?: string }[];
+  selectedCount: number;
+  checkedState: Record<string, boolean>;
+  allSelected: boolean;
+  onToggleSkill: (skillName: string, checked: boolean) => void;
+  onToggleAll: () => void;
+}
+
+/** Step 1: pick which local skills to export. */
+function ExportSkillsStep({
+  loading,
+  skills,
+  selectedCount,
+  checkedState,
+  allSelected,
+  onToggleSkill,
+  onToggleAll,
+}: ExportSkillsStepProps) {
+  return (
+    <div>
+      <h3 className="text-sm font-medium mb-4">Select skills to export</h3>
+      {loading ? (
+        <div className="flex items-center justify-center py-8">
+          <Icon icon="lucide:loader-2" className="w-6 h-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
+        <>
+          <div className="flex items-center justify-between mb-4">
+            <div className="text-sm text-muted-foreground">
+              Selected {selectedCount} of {skills.length}
+            </div>
+            <Button variant="ghost" size="sm" onClick={onToggleAll}>
+              {allSelected ? "Deselect All" : "Select All"}
+            </Button>
+          </div>
+          <ScrollArea className="h-[280px] pr-4">
+            <div className="space-y-2">
+              {skills.map((skill) => (
+                <div
+                  key={skill.name}
+                  className="flex items-start gap-3 p-3 border rounded-lg hover:bg-accent/50 transition-colors"
+                >
+                  <Checkbox
+                    checked={checkedState[skill.name]}
+                    onCheckedChange={(value) => onToggleSkill(skill.name, Boolean(value))}
+                    className="mt-0.5"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <span className="font-medium truncate">{skill.name}</span>
+                    {skill.description && (
+                      <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{skill.description}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        </>
+      )}
+    </div>
+  );
+}
+interface ExportToolStepProps {
+  scanning: boolean;
+  tools: ExternalToolConfig[];
+  selectedToolId: string | null;
+  onSelectTool: (toolId: string) => void;
+  kiroInclusion: KiroInclusionMode;
+  onKiroInclusionChange: (mode: KiroInclusionMode) => void;
+  kiroFilePatterns: string;
+  onKiroFilePatternsChange: (patterns: string) => void;
+}
+
+/** Step 2: choose the target tool and its extra options. */
+function ExportToolStep({
+  scanning,
+  tools,
+  selectedToolId,
+  onSelectTool,
+  kiroInclusion,
+  onKiroInclusionChange,
+  kiroFilePatterns,
+  onKiroFilePatternsChange,
+}: ExportToolStepProps) {
+  const isKiroSelected = selectedToolId === "kiro";
+  return (
+    <div>
+      <h3 className="text-sm font-medium mb-4">Select target tool</h3>
+      {scanning ? (
+        <div className="flex items-center justify-center py-8">
+          <Icon icon="lucide:loader-2" className="w-6 h-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="space-y-2">
+            {tools.map((tool) => (
+              <div
+                key={tool.id}
+                className={[
+                  "flex items-center justify-between p-3 border rounded-lg hover:bg-accent transition-colors cursor-pointer",
+                  selectedToolId === tool.id ? "border-accent-400 bg-accent-400/10" : "",
+                ].join(" ")}
+                onClick={() => onSelectTool(tool.id)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onSelectTool(tool.id);
+                  }
+                }}
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className={["w-10 h-10 rounded-lg flex items-center justify-center", getToolIconBg(tool.id)].join(
+                      " ",
+                    )}
+                  >
+                    <Icon icon={getToolIcon(tool.id)} className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="font-medium">{tool.name}</div>
+                    <div className="text-xs text-muted-foreground truncate max-w-[300px]">{tool.skillsDir}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {isKiroSelected && (
+            <KiroExportOptionsPanel
+              inclusion={kiroInclusion}
+              onInclusionChange={onKiroInclusionChange}
+              filePatterns={kiroFilePatterns}
+              onFilePatternsChange={onKiroFilePatternsChange}
+            />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+interface KiroExportOptionsPanelProps {
+  inclusion: KiroInclusionMode;
+  onInclusionChange: (mode: KiroInclusionMode) => void;
+  filePatterns: string;
+  onFilePatternsChange: (patterns: string) => void;
+}
+
+/** Extra export options shown when Kiro is the selected target tool. */
+function KiroExportOptionsPanel({
+  inclusion,
+  onInclusionChange,
+  filePatterns,
+  onFilePatternsChange,
+}: KiroExportOptionsPanelProps) {
+  return (
+    <div className="p-4 border rounded-lg bg-pink-50/50 dark:bg-pink-900/10 space-y-4">
+      <div className="flex items-center gap-2 text-sm font-medium text-pink-600 dark:text-pink-400">
+        <Icon icon="lucide:sparkles" className="w-4 h-4" />
+        Kiro Options
+      </div>
+      <div className="space-y-2">
+        <Label className="text-sm">Inclusion Mode</Label>
+        <RadioGroup
+          value={inclusion}
+          onValueChange={(v) => onInclusionChange(v as KiroInclusionMode)}
+          className="space-y-2"
+        >
+          <div className="flex items-start gap-2">
+            <RadioGroupItem value="on-demand" id="kiro-on-demand" className="mt-0.5" />
+            <div>
+              <Label htmlFor="kiro-on-demand" className="text-sm font-normal">
+                On Demand
+              </Label>
+              <p className="text-xs text-muted-foreground">Include skill only when explicitly requested</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2">
+            <RadioGroupItem value="always" id="kiro-always" className="mt-0.5" />
+            <div>
+              <Label htmlFor="kiro-always" className="text-sm font-normal">
+                Always
+              </Label>
+              <p className="text-xs text-muted-foreground">Always include this skill</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2">
+            <RadioGroupItem value="conditional" id="kiro-conditional" className="mt-0.5" />
+            <div className="flex-1">
+              <Label htmlFor="kiro-conditional" className="text-sm font-normal">
+                Conditional
+              </Label>
+              <p className="text-xs text-muted-foreground">Include based on file patterns</p>
+            </div>
+          </div>
+        </RadioGroup>
+      </div>
+      {inclusion === "conditional" && (
+        <div className="space-y-2">
+          <Label htmlFor="kiro-patterns" className="text-sm">
+            File Patterns
+          </Label>
+          <Input
+            id="kiro-patterns"
+            value={filePatterns}
+            onChange={(e) => onFilePatternsChange(e.target.value)}
+            placeholder="e.g. *.ts, *.tsx, src/**"
+            className="text-sm"
+          />
+          <p className="text-xs text-muted-foreground">Comma-separated glob patterns</p>
+        </div>
+      )}
+    </div>
+  );
+}
+interface ExportPreviewStepProps {
+  loading: boolean;
+  exporting: boolean;
+  progress: { current: number; total: number; currentSkill: string };
+  warnings: string[];
+  conflicts: ConflictItem[];
+  strategies: Record<string, ConflictStrategy>;
+  onStrategiesChange: (strategies: Record<string, ConflictStrategy>) => void;
+  selectedCount: number;
+}
+
+/** Step 3: preview warnings, resolve conflicts, and confirm the export. */
+function ExportPreviewStep({
+  loading,
+  exporting,
+  progress,
+  warnings,
+  conflicts,
+  strategies,
+  onStrategiesChange,
+  selectedCount,
+}: ExportPreviewStepProps) {
+  return (
+    <div>
+      <h3 className="text-sm font-medium mb-4">Preview and confirm</h3>
+      {loading && (
+        <div className="flex flex-col items-center justify-center py-8">
+          <Icon icon="lucide:loader-2" className="w-8 h-8 animate-spin text-muted-foreground mb-2" />
+          <span className="text-sm text-muted-foreground">Previewing...</span>
+        </div>
+      )}
+      {exporting && (
+        <div className="flex flex-col items-center justify-center py-8">
+          <Icon icon="lucide:loader-2" className="w-8 h-8 animate-spin text-primary mb-2" />
+          <span className="text-sm text-muted-foreground">
+            Exporting {progress.current}/{progress.total}...
+          </span>
+          <span className="text-xs text-muted-foreground mt-1">{progress.currentSkill}</span>
+        </div>
+      )}
+      {!loading && !exporting && (
+        <>
+          {warnings.length > 0 && (
+            <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+              <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-medium text-sm mb-2">
+                <Icon icon="lucide:alert-triangle" className="w-4 h-4" />
+                Warnings
+              </div>
+              <div className="space-y-1">
+                {warnings.map((warning, index) => (
+                  <div key={index} className="text-xs text-amber-700 dark:text-amber-300">
+                    {warning}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {conflicts.length > 0 ? (
+            <ConflictResolver
+              conflicts={conflicts}
+              strategies={strategies}
+              warnings={[]}
+              onStrategiesChange={onStrategiesChange}
+            />
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <Icon icon="lucide:check-circle" className="w-12 h-12 mx-auto mb-2 text-green-500" />
+              <p>No conflicts detected</p>
+              <p className="text-xs mt-1">Ready to export {selectedCount} skill(s)</p>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+interface ExportWizardFooterProps {
+  currentStep: number;
+  exporting: boolean;
+  canProceed: boolean;
+  nextButtonText: string;
+  onBack: () => void;
+  onNext: () => void;
+}
+
+/** Back/next action bar pinned to the bottom of the wizard. */
+function ExportWizardFooter({
+  currentStep,
+  exporting,
+  canProceed,
+  nextButtonText,
+  onBack,
+  onNext,
+}: ExportWizardFooterProps) {
+  return (
+    <div className="flex justify-between pt-4 border-t mt-4 flex-shrink-0">
+      <Button variant="outline" onClick={onBack} disabled={exporting}>
+        {currentStep === 1 ? "Cancel" : "Back"}
+      </Button>
+      <Button onClick={onNext} disabled={!canProceed || exporting}>
+        {exporting && <Icon icon="lucide:loader-2" className="w-4 h-4 mr-2 animate-spin" />}
+        {nextButtonText}
+      </Button>
+    </div>
+  );
+}
 export default ExportWizard;

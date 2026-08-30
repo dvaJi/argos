@@ -454,8 +454,9 @@ function scheduleProviderOrderSync(): void {
 
   providerOrderSyncTimer = setTimeout(() => {
     const ensured = ensureOrderIncludesProviders(providerStore.state.providerOrder, list);
-    const isSameLength = ensured.length === providerStore.state.providerOrder.length;
-    const isSameOrder = isSameLength && ensured.every((id, idx) => id === providerStore.state.providerOrder[idx]);
+    const isSameOrder =
+      ensured.length === providerStore.state.providerOrder.length &&
+      ensured.every((id, idx) => id === providerStore.state.providerOrder[idx]);
 
     if (!isSameOrder) {
       providerStore.setState((prev) => ({ ...prev, providerOrder: ensured }));

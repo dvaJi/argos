@@ -11,6 +11,9 @@
     // compiler-endorsed "adjust state during render" pattern (prev-compare)
     // used to reset drafts — oxlint's compiler rules approve these sites.
     "react-doctor/no-adjust-state-on-prop-change": "off",
+    // POLICY (2026-08): `async-defer-await` in mcpSampling — `ensureModelsReady()`
+    // must be awaited to determine readiness; there is no skip path that avoids it.
+    "react-doctor/async-defer-await": "off",
     // POLICY (2026-08): oxlint's React Compiler rules (enabled as errors in .oxlintrc.json)
     // are the authority for effect dependencies in this repo; the classic
     // exhaustive-deps rule disagrees with compiler-approved latest-ref and

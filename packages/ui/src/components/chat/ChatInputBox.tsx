@@ -77,6 +77,22 @@ const sameFiles = (a: MessageFile[], b: MessageFile[]) => {
   }
   return true;
 };
+const insertWorkspaceReferenceText = (ed: Editor, targetPath: string, workspacePath: string | null): boolean => {
+  const referenceText = buildChatInputWorkspaceReferenceText(
+    targetPath,
+    workspacePath,
+    targetPath.split(/[/\\]/).pop(),
+  );
+  if (!referenceText) return false;
+  const { from, to } = ed.state.selection;
+  const docSize = ed.state.doc.content.size;
+  const before = from > 0 ? ed.state.doc.textBetween(Math.max(0, from - 1), from, "\n", "\n") : "";
+  const after = to < docSize ? ed.state.doc.textBetween(to, Math.min(docSize, to + 1), "\n", "\n") : "";
+  const prefix = before && !/\s/.test(before) ? " " : "";
+  const suffix = after && /\s/.test(after) ? "" : " ";
+  ed.chain().focus().insertContent(`${prefix}${referenceText}${suffix}`).run();
+  return true;
+};
 interface ChatInputBoxProps {
   modelValue?: string;
   placeholder?: string;
@@ -280,20 +296,7 @@ const ChatInputBox = forwardRef<
     }
     function insertWorkspaceReference(targetPath: string): boolean {
       if (!editor) return false;
-      const referenceText = buildChatInputWorkspaceReferenceText(
-        targetPath,
-        workspacePath,
-        targetPath.split(/[/\\]/).pop(),
-      );
-      if (!referenceText) return false;
-      const { from, to } = editor.state.selection;
-      const docSize = editor.state.doc.content.size;
-      const before = from > 0 ? editor.state.doc.textBetween(Math.max(0, from - 1), from, "\n", "\n") : "";
-      const after = to < docSize ? editor.state.doc.textBetween(to, Math.min(docSize, to + 1), "\n", "\n") : "";
-      const prefix = before && !/\s/.test(before) ? " " : "";
-      const suffix = after && /\s/.test(after) ? "" : " ";
-      editor.chain().focus().insertContent(`${prefix}${referenceText}${suffix}`).run();
-      return true;
+      return insertWorkspaceReferenceText(editor, targetPath, workspacePath);
     }
     function onDrop(event: DragEvent) {
       event.preventDefault();
@@ -345,39 +348,14 @@ const ChatInputBox = forwardRef<
           onChange={(e) => filesHelper.handleFileSelect(e as any)}
         />
 
-        {activeSkillNames.length > 0 && (
-          <div className="flex flex-wrap gap-2 px-4 pt-3">
-            {activeSkillNames.map((skillName) => (
-              <div
-                key={skillName}
-                className="inline-flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-2 py-1 text-xs text-primary"
-              >
-                <Icon icon="lucide:sparkles" className="h-3 w-3 shrink-0" />
-                <span className="truncate max-w-[160px]">{skillName}</span>
-                <button
-                  type="button"
-                  className="inline-flex h-4 w-4 items-center justify-center rounded-sm hover:bg-primary/20"
-                  aria-label={`Remove skill ${skillName}`}
-                  onClick={() => removeSkill(skillName)}
-                >
-                  <Icon icon="lucide:x" className="h-3 w-3" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
+        {activeSkillNames.length > 0 && <ActiveSkillChips skills={activeSkillNames} onRemove={removeSkill} />}
 
         {filesHelper.selectedFiles.length > 0 && (
-          <div className={`flex flex-wrap gap-2 px-4 ${activeSkillNames.length > 0 ? "pt-2" : "pt-3"}`}>
-            {filesHelper.selectedFiles.map((file: MessageFile, index: number) => (
-              <ChatAttachmentItem
-                key={file.path || file.name}
-                file={file}
-                removable
-                onRemove={() => filesHelper.deleteFile(index)}
-              />
-            ))}
-          </div>
+          <PendingFileList
+            files={filesHelper.selectedFiles}
+            paddingClass={activeSkillNames.length > 0 ? "pt-2" : "pt-3"}
+            onRemove={(index) => filesHelper.deleteFile(index)}
+          />
         )}
 
         <div
@@ -419,3 +397,48 @@ const ChatInputBox = forwardRef<
 );
 ChatInputBox.displayName = "ChatInputBox";
 export default ChatInputBox;
+interface ActiveSkillChipsProps {
+  skills: string[];
+  onRemove: (skillName: string) => void;
+}
+
+/** Chips for the skills attached to the pending message. */
+function ActiveSkillChips({ skills, onRemove }: ActiveSkillChipsProps) {
+  return (
+    <div className="flex flex-wrap gap-2 px-4 pt-3">
+      {skills.map((skillName) => (
+        <div
+          key={skillName}
+          className="inline-flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-2 py-1 text-xs text-primary"
+        >
+          <Icon icon="lucide:sparkles" className="h-3 w-3 shrink-0" />
+          <span className="truncate max-w-[160px]">{skillName}</span>
+          <button
+            type="button"
+            className="inline-flex h-4 w-4 items-center justify-center rounded-sm hover:bg-primary/20"
+            aria-label={`Remove skill ${skillName}`}
+            onClick={() => onRemove(skillName)}
+          >
+            <Icon icon="lucide:x" className="h-3 w-3" />
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+interface PendingFileListProps {
+  files: MessageFile[];
+  paddingClass: string;
+  onRemove: (index: number) => void;
+}
+
+/** Attachment previews for the files selected in the composer. */
+function PendingFileList({ files, paddingClass, onRemove }: PendingFileListProps) {
+  return (
+    <div className={`flex flex-wrap gap-2 px-4 ${paddingClass}`}>
+      {files.map((file: MessageFile, index: number) => (
+        <ChatAttachmentItem key={file.path || file.name} file={file} removable onRemove={() => onRemove(index)} />
+      ))}
+    </div>
+  );
+}

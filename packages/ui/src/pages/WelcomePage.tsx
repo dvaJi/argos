@@ -95,6 +95,184 @@ const GUIDED_STEP_TITLES: Record<GuidedOnboardingStepId, string> = {
 function guideStepTitle(stepId: GuidedOnboardingStepId): string {
   return GUIDED_STEP_TITLES[stepId] ?? stepId;
 }
+function GuideStepItem({
+  step,
+  isCurrent,
+  onSelect,
+}: {
+  step: GuidedOnboardingStepState;
+  isCurrent: boolean;
+  onSelect: (stepId: GuidedOnboardingStepId) => void;
+}) {
+  const statusIcon = stepStatusIcon(step.status, isCurrent);
+  return (
+    <li>
+      <button
+        type="button"
+        className="group flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors duration-150 hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/60"
+        onClick={() => onSelect(step.id)}
+      >
+        <Icon icon={statusIcon.icon} aria-hidden="true" className={cn("h-4 w-4 shrink-0", statusIcon.className)} />
+        <span
+          className={cn(
+            "flex-1 truncate text-[13px]",
+            step.status === "completed" || step.status === "skipped"
+              ? "text-muted-foreground"
+              : isCurrent
+                ? "font-medium text-foreground"
+                : "text-foreground/80",
+          )}
+        >
+          {guideStepTitle(step.id)}
+        </span>
+        {isCurrent && <span className="shrink-0 text-xs font-medium text-accent-500">Up next</span>}
+        <Icon
+          icon="lucide:arrow-right"
+          aria-hidden="true"
+          className={cn(
+            "h-3.5 w-3.5 shrink-0 text-muted-foreground/60 opacity-0 transition duration-150 group-hover:translate-x-0.5 group-hover:opacity-100",
+            isCurrent && "text-accent-500/80",
+          )}
+        />
+      </button>
+    </li>
+  );
+}
+function WelcomeGuideCard({
+  onboardingState,
+  guideSteps,
+  currentGuideStepId,
+  completedStepCount,
+  primaryGuideActionLabel,
+  onResumeStep,
+  onPrimaryAction,
+}: {
+  onboardingState: GuidedOnboardingState;
+  guideSteps: GuidedOnboardingStepState[];
+  currentGuideStepId: GuidedOnboardingStepId;
+  completedStepCount: number;
+  primaryGuideActionLabel: string;
+  onResumeStep: (stepId: GuidedOnboardingStepId) => void;
+  onPrimaryAction: () => void;
+}) {
+  return (
+    <section
+      data-testid="welcome-guide-card"
+      aria-label="Setup progress"
+      className={`w-full overflow-hidden rounded-xl border border-border/70 bg-card/60 ${ENTRANCE_CLASS}`}
+      style={{
+        animationDelay: "60ms",
+      }}
+    >
+      <div className="flex items-center justify-between gap-3 px-4 pt-3.5">
+        <div className="min-w-0">
+          <p className="truncate text-[13px] font-medium text-foreground">Get started</p>
+          <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">
+            {completedStepCount} of {guideSteps.length} steps complete
+          </p>
+        </div>
+        <button
+          data-testid="welcome-guide-primary-action"
+          type="button"
+          className="shrink-0 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition duration-150 hover:bg-primary/90 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/60"
+          onClick={onPrimaryAction}
+        >
+          {primaryGuideActionLabel}
+        </button>
+      </div>
+
+      <div className="px-4 pt-3">
+        <div
+          role="progressbar"
+          aria-label="Setup progress"
+          aria-valuemin={0}
+          aria-valuemax={Math.max(guideSteps.length, 1)}
+          aria-valuenow={completedStepCount}
+          className="h-0.5 w-full overflow-hidden rounded-full bg-muted"
+        >
+          <div
+            className="h-full rounded-full bg-accent-500 transition-[width] duration-300 ease-out"
+            style={{
+              width: `${guideSteps.length > 0 ? (completedStepCount / guideSteps.length) * 100 : 0}%`,
+            }}
+          />
+        </div>
+      </div>
+
+      <ul className="mt-2 divide-y divide-border/50 py-1" aria-label="Setup steps">
+        {guideSteps.map((step: GuidedOnboardingStepState) => {
+          const isCurrent = step.id === currentGuideStepId && onboardingState.status === "active";
+          return <GuideStepItem key={step.id} step={step} isCurrent={isCurrent} onSelect={onResumeStep} />;
+        })}
+      </ul>
+    </section>
+  );
+}
+function ProviderGrid({
+  isDark,
+  animationDelay,
+  onAddProvider,
+  onImportProviders,
+}: {
+  isDark: boolean;
+  animationDelay: string;
+  onAddProvider: () => void;
+  onImportProviders: () => void;
+}) {
+  return (
+    <div className={`w-full ${ENTRANCE_CLASS}`} style={{ animationDelay }}>
+      <div className="flex items-center justify-between gap-3 px-1">
+        <p className="text-xs font-medium text-muted-foreground">Add a provider</p>
+        <button
+          data-testid="welcome-guide-import-action"
+          type="button"
+          className="text-xs text-muted-foreground transition-colors duration-150 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/60"
+          onClick={onImportProviders}
+        >
+          Import existing setup
+        </button>
+      </div>
+
+      <div data-testid="welcome-provider-grid" className="mt-2 grid w-full grid-cols-3 gap-2">
+        {providers.map((provider) => (
+          <button
+            key={provider.id}
+            type="button"
+            className="flex flex-col items-center gap-2 rounded-lg border border-border/70 bg-card/40 px-3 py-3.5 transition duration-150 hover:border-border hover:bg-accent/50 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/60"
+            onClick={onAddProvider}
+          >
+            <ModelIcon modelId={provider.id} customClass="h-5 w-5" isDark={isDark} />
+            <span className="text-xs text-foreground/80">{provider.name}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+function AcpSetupCard({ animationDelay, onSetup }: { animationDelay: string; onSetup: () => void }) {
+  return (
+    <div className={`w-full border-t border-border/60 pt-4 ${ENTRANCE_CLASS}`} style={{ animationDelay }}>
+      <button
+        type="button"
+        className="group flex w-full items-center gap-3 rounded-lg border border-border/70 px-3.5 py-3 text-left transition duration-150 hover:border-border hover:bg-accent/50 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/60"
+        onClick={onSetup}
+      >
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted/70 text-muted-foreground">
+          <Icon icon="lucide:plug-zap" aria-hidden="true" className="h-4 w-4" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[13px] font-medium text-foreground">Connect an ACP agent</span>
+          <span className="mt-0.5 block truncate text-xs text-muted-foreground">Use an external agent through ACP</span>
+        </span>
+        <Icon
+          icon="lucide:arrow-right"
+          aria-hidden="true"
+          className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60 opacity-0 transition duration-150 group-hover:translate-x-0.5 group-hover:opacity-100"
+        />
+      </button>
+    </div>
+  );
+}
 export function WelcomePage() {
   const navigate = useNavigate();
   const theme = useStore(themeStore);
@@ -292,154 +470,25 @@ export function WelcomePage() {
         </header>
 
         {showGuide && onboardingState && (
-          <section
-            data-testid="welcome-guide-card"
-            aria-label="Setup progress"
-            className={`w-full overflow-hidden rounded-xl border border-border/70 bg-card/60 ${ENTRANCE_CLASS}`}
-            style={{
-              animationDelay: "60ms",
-            }}
-          >
-            <div className="flex items-center justify-between gap-3 px-4 pt-3.5">
-              <div className="min-w-0">
-                <p className="truncate text-[13px] font-medium text-foreground">Get started</p>
-                <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">
-                  {completedStepCount} of {guideSteps.length} steps complete
-                </p>
-              </div>
-              <button
-                data-testid="welcome-guide-primary-action"
-                type="button"
-                className="shrink-0 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition duration-150 hover:bg-primary/90 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/60"
-                onClick={() => void handlePrimaryGuideAction()}
-              >
-                {primaryGuideActionLabel}
-              </button>
-            </div>
-
-            <div className="px-4 pt-3">
-              <div
-                role="progressbar"
-                aria-label="Setup progress"
-                aria-valuemin={0}
-                aria-valuemax={Math.max(guideSteps.length, 1)}
-                aria-valuenow={completedStepCount}
-                className="h-0.5 w-full overflow-hidden rounded-full bg-muted"
-              >
-                <div
-                  className="h-full rounded-full bg-accent-500 transition-[width] duration-300 ease-out"
-                  style={{
-                    width: `${guideSteps.length > 0 ? (completedStepCount / guideSteps.length) * 100 : 0}%`,
-                  }}
-                />
-              </div>
-            </div>
-
-            <ul className="mt-2 divide-y divide-border/50 py-1" aria-label="Setup steps">
-              {guideSteps.map((step: GuidedOnboardingStepState) => {
-                const isCurrent = step.id === currentGuideStepId && onboardingState.status === "active";
-                const statusIcon = stepStatusIcon(step.status, isCurrent);
-                return (
-                  <li key={step.id}>
-                    <button
-                      type="button"
-                      className="group flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors duration-150 hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/60"
-                      onClick={() => void resumeGuideStep(step.id)}
-                    >
-                      <Icon
-                        icon={statusIcon.icon}
-                        aria-hidden="true"
-                        className={cn("h-4 w-4 shrink-0", statusIcon.className)}
-                      />
-                      <span
-                        className={cn(
-                          "flex-1 truncate text-[13px]",
-                          step.status === "completed" || step.status === "skipped"
-                            ? "text-muted-foreground"
-                            : isCurrent
-                              ? "font-medium text-foreground"
-                              : "text-foreground/80",
-                        )}
-                      >
-                        {guideStepTitle(step.id)}
-                      </span>
-                      {isCurrent && <span className="shrink-0 text-xs font-medium text-accent-500">Up next</span>}
-                      <Icon
-                        icon="lucide:arrow-right"
-                        aria-hidden="true"
-                        className={cn(
-                          "h-3.5 w-3.5 shrink-0 text-muted-foreground/60 opacity-0 transition duration-150 group-hover:translate-x-0.5 group-hover:opacity-100",
-                          isCurrent && "text-accent-500/80",
-                        )}
-                      />
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
+          <WelcomeGuideCard
+            onboardingState={onboardingState}
+            guideSteps={guideSteps}
+            currentGuideStepId={currentGuideStepId}
+            completedStepCount={completedStepCount}
+            primaryGuideActionLabel={primaryGuideActionLabel}
+            onResumeStep={(stepId) => void resumeGuideStep(stepId)}
+            onPrimaryAction={() => void handlePrimaryGuideAction()}
+          />
         )}
 
-        <div
-          className={`w-full ${ENTRANCE_CLASS}`}
-          style={{
-            animationDelay: showGuide ? "120ms" : "60ms",
-          }}
-        >
-          <div className="flex items-center justify-between gap-3 px-1">
-            <p className="text-xs font-medium text-muted-foreground">Add a provider</p>
-            <button
-              data-testid="welcome-guide-import-action"
-              type="button"
-              className="text-xs text-muted-foreground transition-colors duration-150 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/60"
-              onClick={() => void onImportProviders()}
-            >
-              Import existing setup
-            </button>
-          </div>
+        <ProviderGrid
+          isDark={theme.isDark}
+          animationDelay={showGuide ? "120ms" : "60ms"}
+          onAddProvider={() => void onAddProvider()}
+          onImportProviders={() => void onImportProviders()}
+        />
 
-          <div data-testid="welcome-provider-grid" className="mt-2 grid w-full grid-cols-3 gap-2">
-            {providers.map((provider) => (
-              <button
-                key={provider.id}
-                type="button"
-                className="flex flex-col items-center gap-2 rounded-lg border border-border/70 bg-card/40 px-3 py-3.5 transition duration-150 hover:border-border hover:bg-accent/50 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/60"
-                onClick={() => void onAddProvider()}
-              >
-                <ModelIcon modelId={provider.id} customClass="h-5 w-5" isDark={theme.isDark} />
-                <span className="text-xs text-foreground/80">{provider.name}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div
-          className={`w-full border-t border-border/60 pt-4 ${ENTRANCE_CLASS}`}
-          style={{
-            animationDelay: showGuide ? "180ms" : "120ms",
-          }}
-        >
-          <button
-            type="button"
-            className="group flex w-full items-center gap-3 rounded-lg border border-border/70 px-3.5 py-3 text-left transition duration-150 hover:border-border hover:bg-accent/50 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/60"
-            onClick={() => void onSetupAcp()}
-          >
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted/70 text-muted-foreground">
-              <Icon icon="lucide:plug-zap" aria-hidden="true" className="h-4 w-4" />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-[13px] font-medium text-foreground">Connect an ACP agent</span>
-              <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-                Use an external agent through ACP
-              </span>
-            </span>
-            <Icon
-              icon="lucide:arrow-right"
-              aria-hidden="true"
-              className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60 opacity-0 transition duration-150 group-hover:translate-x-0.5 group-hover:opacity-100"
-            />
-          </button>
-        </div>
+        <AcpSetupCard animationDelay={showGuide ? "180ms" : "120ms"} onSetup={() => void onSetupAcp()} />
       </div>
     </div>
   );

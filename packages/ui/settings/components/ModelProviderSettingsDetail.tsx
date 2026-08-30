@@ -11,7 +11,7 @@ import VertexProviderSettingsDetail from "./VertexProviderSettingsDetail";
 import ProviderRateLimitConfig from "./ProviderRateLimitConfig";
 import ModelScopeMcpSync from "./ModelScopeMcpSync";
 import ProviderModelManager from "./ProviderModelManager";
-import ProviderDialogContainer from "./ProviderDialogContainer";
+import ProviderDialogContainer, { type ProviderDialogKind } from "./ProviderDialogContainer";
 import { useModelCheckStore } from "#/stores/modelCheck";
 import { levelToValueMap, safetyCategories } from "#/lib/gemini";
 import type { SafetyCategoryKey, SafetySettingValue } from "#/lib/gemini";
@@ -56,11 +56,8 @@ export default function ModelProviderSettingsDetail({
   const [isModelListLoading, setIsModelListLoading] = useState(true);
   const [hasInitializedModelList, setHasInitializedModelList] = useState(false);
   const [modelToDisable, setModelToDisable] = useState<RENDERER_MODEL_META | null>(null);
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [showDisableAllConfirmDialog, setShowDisableAllConfirmDialog] = useState(false);
-  const [showDeleteProviderDialog, setShowDeleteProviderDialog] = useState(false);
   const [checkResult, setCheckResult] = useState(false);
-  const [showCheckModelDialog, setShowCheckModelDialog] = useState(false);
+  const [activeProviderDialog, setActiveProviderDialog] = useState<ProviderDialogKind | null>(null);
   const [activeTab, setActiveTab] = useState<"connection" | "models" | "advanced">("connection");
   const enabledModels = (() => {
     const enabledModelsList = [...customModels.filter((m) => m.enabled), ...providerModels.filter((m) => m.enabled)];
@@ -157,7 +154,7 @@ export default function ModelProviderSettingsDetail({
   const handleModelEnabledChange = async (model: RENDERER_MODEL_META, enabled: boolean, confirm: boolean = false) => {
     if (!enabled && confirm) {
       setModelToDisable(model);
-      setShowConfirmDialog(true);
+      setActiveProviderDialog("confirm");
       return;
     }
     await modelStore.updateModelStatus(provider.id, model.id, enabled);
@@ -172,13 +169,13 @@ export default function ModelProviderSettingsDetail({
     } catch (error) {
       console.error("Failed to disable model:", error);
     }
-    setShowConfirmDialog(false);
+    setActiveProviderDialog(null);
     setModelToDisable(null);
   };
   const confirmDisableAll = async () => {
     try {
       await modelStore.disableAllModels(provider.id);
-      setShowDisableAllConfirmDialog(false);
+      setActiveProviderDialog(null);
     } catch (error) {
       console.error("Failed to disable all models:", error);
     }
@@ -186,7 +183,7 @@ export default function ModelProviderSettingsDetail({
   const confirmDeleteProvider = async () => {
     try {
       await providerStore.removeProvider(provider.id);
-      setShowDeleteProviderDialog(false);
+      setActiveProviderDialog(null);
     } catch (error) {
       console.error("Failed to delete provider:", error);
     }
@@ -222,6 +219,18 @@ export default function ModelProviderSettingsDetail({
   const handleConfigChanged = () => {
     return modelStore.refreshProviderModels(provider.id);
   };
+  const handleValidateProvider = async () => {
+    if (!provider.enable) return;
+    try {
+      const resp = await providerStore.checkProvider(provider.id);
+      setCheckResult(resp.isOk);
+      setActiveProviderDialog("checkModel");
+      if (resp.isOk) await modelStore.refreshProviderModels(provider.id);
+    } catch {
+      setCheckResult(false);
+      setActiveProviderDialog("checkModel");
+    }
+  };
   const openModelCheckDialog = () => {
     if (!provider.enable) return;
     modelCheckStore.openDialog(provider.id);
@@ -234,19 +243,7 @@ export default function ModelProviderSettingsDetail({
     <section className="w-full h-full">
       <ScrollArea className="w-full h-full">
         <div className="flex flex-col gap-4 p-4">
-          <div className="rounded-lg border border-border bg-card p-4">
-            <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-              <div className="min-w-0">
-                <h2 className="truncate text-lg font-semibold">{provider.name}</h2>
-                <p className="mt-1 truncate text-sm text-muted-foreground">
-                  {provider.baseUrl || "No API URL configured"}
-                </p>
-              </div>
-              <div className="flex shrink-0 flex-wrap items-center gap-2">
-                <Badge variant="outline">{enabledModels.length} models enabled</Badge>
-              </div>
-            </div>
-          </div>
+          <ProviderSummaryHeader provider={provider} enabledModelsCount={enabledModels.length} />
 
           <Tabs
             value={activeTab}
@@ -270,7 +267,7 @@ export default function ModelProviderSettingsDetail({
                 onApiHostChange={handleApiHostChange}
                 onApiKeyChange={handleApiKeyChange}
                 onValidateKey={openModelCheckDialog}
-                onDeleteProvider={() => setShowDeleteProviderDialog(true)}
+                onDeleteProvider={() => setActiveProviderDialog("deleteProvider")}
                 onOAuthSuccess={handleOAuthSuccess}
                 onOAuthError={handleOAuthError}
               />
@@ -292,48 +289,15 @@ export default function ModelProviderSettingsDetail({
             </TabsContent>
 
             <TabsContent value="advanced" className="mt-0">
-              <div className="flex flex-col gap-4">
-                <ProviderRateLimitConfig provider={provider} onConfigChanged={handleConfigChanged} />
-
-                {provider.apiType === "vertex" && (
-                  <VertexProviderSettingsDetail
-                    provider={provider as VERTEX_PROVIDER}
-                    onConfigUpdated={handleConfigChanged}
-                    onValidateProvider={async () => {
-                      if (!provider.enable) return;
-                      try {
-                        const resp = await providerStore.checkProvider(provider.id);
-                        setCheckResult(resp.isOk);
-                        setShowCheckModelDialog(true);
-                        if (resp.isOk) await modelStore.refreshProviderModels(provider.id);
-                      } catch {
-                        setCheckResult(false);
-                        setShowCheckModelDialog(true);
-                      }
-                    }}
-                  />
-                )}
-
-                {provider.id === "azure-openai" && (
-                  <AzureProviderConfig
-                    provider={provider}
-                    initialValue={azureApiVersion}
-                    onApiVersionChange={handleAzureApiVersionChange}
-                  />
-                )}
-
-                {provider.id === "gemini" && (
-                  <GeminiSafetyConfig
-                    provider={provider}
-                    initialSafetyLevels={geminiSafetyLevelsForChild}
-                    onSafetySettingChange={handleSafetySettingChange}
-                  />
-                )}
-
-                {provider.id === "voiceai" && <VoiceAIProviderConfig provider={provider} />}
-
-                {provider.id === "modelscope" && <ModelScopeMcpSync provider={provider} />}
-              </div>
+              <ProviderAdvancedTab
+                provider={provider}
+                azureApiVersion={azureApiVersion}
+                geminiSafetyLevels={geminiSafetyLevelsForChild}
+                onConfigChanged={handleConfigChanged}
+                onAzureApiVersionChange={handleAzureApiVersionChange}
+                onSafetySettingChange={handleSafetySettingChange}
+                onValidateProvider={handleValidateProvider}
+              />
             </TabsContent>
           </Tabs>
         </div>
@@ -343,18 +307,87 @@ export default function ModelProviderSettingsDetail({
         provider={provider}
         modelToDisable={modelToDisable}
         checkResult={checkResult}
-        showConfirmDialog={showConfirmDialog}
-        showCheckModelDialog={showCheckModelDialog}
-        showDisableAllConfirmDialog={showDisableAllConfirmDialog}
-        showDeleteProviderDialog={showDeleteProviderDialog}
-        onShowConfirmDialogChange={setShowConfirmDialog}
-        onShowCheckModelDialogChange={setShowCheckModelDialog}
-        onShowDisableAllConfirmDialogChange={setShowDisableAllConfirmDialog}
-        onShowDeleteProviderDialogChange={setShowDeleteProviderDialog}
+        activeDialog={activeProviderDialog}
+        onActiveDialogChange={setActiveProviderDialog}
         onConfirmDisableModel={confirmDisable}
         onConfirmDisableAllModels={confirmDisableAll}
         onConfirmDeleteProvider={confirmDeleteProvider}
       />
     </section>
+  );
+}
+
+interface ProviderSummaryHeaderProps {
+  provider: LLM_PROVIDER;
+  enabledModelsCount: number;
+}
+
+function ProviderSummaryHeader({ provider, enabledModelsCount }: ProviderSummaryHeaderProps) {
+  return (
+    <div className="rounded-lg border border-border bg-card p-4">
+      <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
+          <h2 className="truncate text-lg font-semibold">{provider.name}</h2>
+          <p className="mt-1 truncate text-sm text-muted-foreground">{provider.baseUrl || "No API URL configured"}</p>
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <Badge variant="outline">{enabledModelsCount} models enabled</Badge>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface ProviderAdvancedTabProps {
+  provider: LLM_PROVIDER;
+  azureApiVersion: string;
+  geminiSafetyLevels: Record<string, number>;
+  onConfigChanged: () => void | Promise<unknown>;
+  onAzureApiVersionChange: (value: string) => Promise<void>;
+  onSafetySettingChange: (key: SafetyCategoryKey, level: number) => Promise<void>;
+  onValidateProvider: () => Promise<void>;
+}
+
+function ProviderAdvancedTab({
+  provider,
+  azureApiVersion,
+  geminiSafetyLevels,
+  onConfigChanged,
+  onAzureApiVersionChange,
+  onSafetySettingChange,
+  onValidateProvider,
+}: ProviderAdvancedTabProps) {
+  return (
+    <div className="flex flex-col gap-4">
+      <ProviderRateLimitConfig provider={provider} onConfigChanged={onConfigChanged} />
+
+      {provider.apiType === "vertex" && (
+        <VertexProviderSettingsDetail
+          provider={provider as VERTEX_PROVIDER}
+          onConfigUpdated={onConfigChanged}
+          onValidateProvider={onValidateProvider}
+        />
+      )}
+
+      {provider.id === "azure-openai" && (
+        <AzureProviderConfig
+          provider={provider}
+          initialValue={azureApiVersion}
+          onApiVersionChange={onAzureApiVersionChange}
+        />
+      )}
+
+      {provider.id === "gemini" && (
+        <GeminiSafetyConfig
+          provider={provider}
+          initialSafetyLevels={geminiSafetyLevels}
+          onSafetySettingChange={onSafetySettingChange}
+        />
+      )}
+
+      {provider.id === "voiceai" && <VoiceAIProviderConfig provider={provider} />}
+
+      {provider.id === "modelscope" && <ModelScopeMcpSync provider={provider} />}
+    </div>
   );
 }

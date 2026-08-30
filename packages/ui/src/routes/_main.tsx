@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useRef, type RefObject } from "react";
 import { createFileRoute, Outlet, useRouter } from "@tanstack/react-router";
 import { useStore } from "@tanstack/react-store";
 import { ErrorBoundary } from "../components/ErrorBoundary";
@@ -62,12 +62,12 @@ function hideArtifactsForSession(_activeSessionId: string | null) {
     visible: false,
   }));
 }
-function MainLayout() {
-  const routerInstance = useRouter();
-  useAcpAgentUpdateNotifications();
-  const draftState = useStore(draftStore);
-  const sessionState = useStore(sessionStore);
-  const [isStartupRouteReady, setIsStartupRouteReady] = useState(false);
+
+type AppIpcRuntimeOptions = Parameters<typeof useAppIpcRuntime>[0];
+type MainLayoutRouter = ReturnType<typeof useRouter>;
+
+/** Serializes error toasts so they surface one at a time. */
+function useErrorToastQueue() {
   const errorQueue = useRef<
     Array<{
       id: string;
@@ -78,8 +78,6 @@ function MainLayout() {
   >([]);
   const currentErrorId = useRef<string | null>(null);
   const errorDisplayTimer = useRef<number | null>(null);
-  const processingStartDeeplinkToken = useRef<number | null>(null);
-  const processedStartDeeplinkToken = useRef<number | null>(null);
   const displayError = function displayError(error: { id: string; title: string; message: string; type: string }) {
     currentErrorId.current = error.id;
     const handleErrorClosed = () => {
@@ -125,6 +123,22 @@ function MainLayout() {
       }
     }
   };
+  useEffect(() => {
+    return () => {
+      if (errorDisplayTimer.current) {
+        clearTimeout(errorDisplayTimer.current);
+        errorDisplayTimer.current = null;
+      }
+    };
+  }, []);
+  return { showErrorToast };
+}
+
+/** Applies a pending start deeplink once the startup route gate is open. */
+function useStartDeeplinkHandlers(input: { routerInstance: MainLayoutRouter; isStartupRouteReady: boolean }) {
+  const { routerInstance, isStartupRouteReady } = input;
+  const processingTokenRef = useRef<number | null>(null);
+  const processedTokenRef = useRef<number | null>(null);
   const activatePendingStartDeeplink = async (
     pendingStartDeeplink: StartDeeplinkPayload | null | undefined,
   ): Promise<void> => {
@@ -132,13 +146,13 @@ function MainLayout() {
       return;
     }
     const token = pendingStartDeeplink.token;
-    if (processingStartDeeplinkToken.current === token || processedStartDeeplinkToken.current === token) {
+    if (processingTokenRef.current === token || processedTokenRef.current === token) {
       return;
     }
-    processingStartDeeplinkToken.current = token;
+    processingTokenRef.current = token;
     const clearProcessingToken = () => {
-      if (processingStartDeeplinkToken.current === token) {
-        processingStartDeeplinkToken.current = null;
+      if (processingTokenRef.current === token) {
+        processingTokenRef.current = null;
       }
     };
     try {
@@ -159,14 +173,14 @@ function MainLayout() {
       }));
       if (sessionStore.state.activeSessionId) {
         await closeSession();
-        processedStartDeeplinkToken.current = token;
+        processedTokenRef.current = token;
         clearProcessingToken();
         return;
       }
       goToNewThread({
         refresh: true,
       });
-      processedStartDeeplinkToken.current = token;
+      processedTokenRef.current = token;
       clearProcessingToken();
     } catch (error) {
       clearProcessingToken();
@@ -191,16 +205,12 @@ function MainLayout() {
     }));
     void activatePendingStartDeeplink(nextDeeplink);
   };
-  const handleDatabaseRepairSuggested = (payload: unknown) => {
-    const repairPayload = payload as DatabaseRepairSuggestedPayload | undefined;
-    if (!repairPayload) {
-      return;
-    }
-    toast({
-      title: repairPayload.title,
-      description: `${repairPayload.message} - ${repairPayload.reason}`,
-    });
-  };
+  return { activatePendingStartDeeplink, handleStartDeeplink };
+}
+
+/** Guided-onboarding dev trigger + resume-request handlers. */
+function createGuidedOnboardingHandlers(input: { routerInstance: MainLayoutRouter }) {
+  const { routerInstance } = input;
   const handleStartGuidedOnboardingDev = async () => {
     if (!import.meta.env.DEV) {
       return;
@@ -276,48 +286,73 @@ function MainLayout() {
     }
     void handleResumeGuidedOnboarding(detail.trigger);
   };
-  const { setup: setupMcpDeeplink } = useMcpInstallDeeplinkHandler();
-  const handleZoomIn = () => {
-    uiSettingsStore.setState((s) => ({
-      ...s,
-      fontSizeLevel: s.fontSizeLevel + 1,
-    }));
-  };
-  const handleZoomOut = () => {
-    uiSettingsStore.setState((s) => ({
-      ...s,
-      fontSizeLevel: s.fontSizeLevel - 1,
-    }));
-  };
-  const handleZoomResume = () => {
-    uiSettingsStore.setState((s) => ({
-      ...s,
-      fontSizeLevel: 1,
-    }));
-  };
-  const handleCreateNewConversation = async () => {
-    try {
-      await startNewConversation({
-        refresh: true,
-      });
-    } catch (error) {
-      console.error("Failed to create new conversation:", error);
-    }
-  };
-  useAppIpcRuntime({
-    handleStartDeeplink: (event, payload) => {
-      handleStartDeeplink(event, payload as Omit<StartDeeplinkPayload, "token"> | undefined);
-    },
-    handleStartGuidedOnboardingDev,
+  return { handleStartGuidedOnboardingDev, handleResumeGuidedOnboarding, handleGuidedOnboardingResumeRequested };
+}
+
+function reportDatabaseRepairSuggested(payload: unknown) {
+  const repairPayload = payload as DatabaseRepairSuggestedPayload | undefined;
+  if (!repairPayload) {
+    return;
+  }
+  toast({
+    title: repairPayload.title,
+    description: `${repairPayload.message} - ${repairPayload.reason}`,
+  });
+}
+
+function handleZoomIn() {
+  uiSettingsStore.setState((s) => ({
+    ...s,
+    fontSizeLevel: s.fontSizeLevel + 1,
+  }));
+}
+
+function handleZoomOut() {
+  uiSettingsStore.setState((s) => ({
+    ...s,
+    fontSizeLevel: s.fontSizeLevel - 1,
+  }));
+}
+
+function handleZoomResume() {
+  uiSettingsStore.setState((s) => ({
+    ...s,
+    fontSizeLevel: 1,
+  }));
+}
+
+async function handleCreateNewConversation() {
+  try {
+    await startNewConversation({
+      refresh: true,
+    });
+  } catch (error) {
+    console.error("Failed to create new conversation:", error);
+  }
+}
+
+/** Builds the IPC runtime handler table (module-level factory; store/module deps only). */
+function createAppIpcRuntimeHandlers(input: {
+  routerInstance: MainLayoutRouter;
+  showErrorToast: AppIpcRuntimeOptions["showErrorToast"];
+  handleStartDeeplink: AppIpcRuntimeOptions["handleStartDeeplink"];
+  handleStartGuidedOnboardingDev: AppIpcRuntimeOptions["handleStartGuidedOnboardingDev"];
+  handleResumeGuidedOnboarding: (trigger: GuidedOnboardingResumeTrigger) => Promise<void>;
+  handleDatabaseRepairSuggested: AppIpcRuntimeOptions["handleDatabaseRepairSuggested"];
+}): AppIpcRuntimeOptions {
+  const { routerInstance } = input;
+  return {
+    handleStartDeeplink: input.handleStartDeeplink,
+    handleStartGuidedOnboardingDev: input.handleStartGuidedOnboardingDev,
     handleWindowFocused: () => {
-      handleResumeGuidedOnboarding("window-focus");
+      input.handleResumeGuidedOnboarding("window-focus");
       // Re-read the thread-sidebar experiment flag: the settings window can
       // toggle it while the main window is unfocused, and the daemon emits no
       // change event for config entries.
       void loadThreadSidebarEnabled();
     },
-    showErrorToast,
-    handleDatabaseRepairSuggested,
+    showErrorToast: input.showErrorToast,
+    handleDatabaseRepairSuggested: input.handleDatabaseRepairSuggested,
     handleZoomIn,
     handleZoomOut,
     handleZoomResume,
@@ -370,7 +405,14 @@ function MainLayout() {
       if (pathname === "/welcome") return "welcome";
       return pathname;
     },
-  });
+  };
+}
+
+/** Startup route gate: bounce to /welcome until onboarding/init completes, then unlock the app. */
+function useEnsureStartupWelcomeState(
+  routerInstance: MainLayoutRouter,
+  setIsStartupRouteReady: (ready: boolean) => void,
+) {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -445,20 +487,15 @@ function MainLayout() {
     return () => {
       cancelled = true;
     };
-  }, [routerInstance]);
-  const { pendingStartDeeplink } = draftState;
-  useEffect(() => {
-    if (!isStartupRouteReady) return;
-    void activatePendingStartDeeplink(pendingStartDeeplink);
-  }, [isStartupRouteReady, activatePendingStartDeeplink, pendingStartDeeplink]);
-  const guidedOnboardingResumeHandlerRef = useRef(handleGuidedOnboardingResumeRequested);
-  useEffect(() => {
-    guidedOnboardingResumeHandlerRef.current = handleGuidedOnboardingResumeRequested;
-  }, [handleGuidedOnboardingResumeRequested]);
-  const setupMcpDeeplinkRef = useRef(setupMcpDeeplink);
-  useEffect(() => {
-    setupMcpDeeplinkRef.current = setupMcpDeeplink;
-  }, [setupMcpDeeplink]);
+  }, [routerInstance, setIsStartupRouteReady]);
+}
+
+/** Mount-time bootstrap: icons, stores, IPC deeplink listeners, connection recovery. */
+function useAppBootstrapEffects(input: {
+  guidedOnboardingResumeHandlerRef: RefObject<(event: Event) => void>;
+  setupMcpDeeplinkRef: RefObject<() => () => void>;
+}) {
+  const { guidedOnboardingResumeHandlerRef, setupMcpDeeplinkRef } = input;
   useEffect(() => {
     const handleEscKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -487,20 +524,16 @@ function MainLayout() {
       }
     });
     return () => {
-      if (errorDisplayTimer.current) {
-        clearTimeout(errorDisplayTimer.current);
-        errorDisplayTimer.current = null;
-      }
       unsubscribeConnection();
       window.removeEventListener("keydown", handleEscKey);
       window.removeEventListener(GUIDED_ONBOARDING_RESUME_REQUESTED_EVENT, handleResumeRequested);
       cleanupMcpDeeplinkListeners();
     };
-  }, []);
-  const { activeSessionId } = sessionState;
-  useEffect(() => {
-    hideArtifactsForSession(activeSessionId);
-  }, [activeSessionId]);
+  }, [guidedOnboardingResumeHandlerRef, setupMcpDeeplinkRef]);
+}
+
+/** Bridges the settings window's NAVIGATE event into the in-app router. */
+function useSettingsNavigateListener(routerInstance: MainLayoutRouter) {
   useEffect(() => {
     const handleSettingsNavigate = (
       _event: unknown,
@@ -524,6 +557,56 @@ function MainLayout() {
       ipcRenderer.removeListener?.(SETTINGS_EVENTS.NAVIGATE, handleSettingsNavigate);
     };
   }, [routerInstance]);
+}
+
+function MainLayout() {
+  const routerInstance = useRouter();
+  useAcpAgentUpdateNotifications();
+  const draftState = useStore(draftStore);
+  const sessionState = useStore(sessionStore);
+  const [isStartupRouteReady, setIsStartupRouteReady] = useState(false);
+  const { showErrorToast } = useErrorToastQueue();
+  const { activatePendingStartDeeplink, handleStartDeeplink } = useStartDeeplinkHandlers({
+    routerInstance,
+    isStartupRouteReady,
+  });
+  const { handleStartGuidedOnboardingDev, handleResumeGuidedOnboarding, handleGuidedOnboardingResumeRequested } =
+    createGuidedOnboardingHandlers({ routerInstance });
+  const { setup: setupMcpDeeplink } = useMcpInstallDeeplinkHandler();
+  const appIpcHandlers = createAppIpcRuntimeHandlers({
+    routerInstance,
+    showErrorToast,
+    handleStartDeeplink: (event, payload) => {
+      handleStartDeeplink(event, payload as Omit<StartDeeplinkPayload, "token"> | undefined);
+    },
+    handleStartGuidedOnboardingDev,
+    handleResumeGuidedOnboarding,
+    handleDatabaseRepairSuggested: reportDatabaseRepairSuggested,
+  });
+  useAppIpcRuntime(appIpcHandlers);
+  useEnsureStartupWelcomeState(routerInstance, setIsStartupRouteReady);
+  const { pendingStartDeeplink } = draftState;
+  useEffect(() => {
+    if (!isStartupRouteReady) return;
+    void activatePendingStartDeeplink(pendingStartDeeplink);
+  }, [isStartupRouteReady, activatePendingStartDeeplink, pendingStartDeeplink]);
+  const guidedOnboardingResumeHandlerRef = useRef(handleGuidedOnboardingResumeRequested);
+  useEffect(() => {
+    guidedOnboardingResumeHandlerRef.current = handleGuidedOnboardingResumeRequested;
+  }, [handleGuidedOnboardingResumeRequested]);
+  const setupMcpDeeplinkRef = useRef(setupMcpDeeplink);
+  useEffect(() => {
+    setupMcpDeeplinkRef.current = setupMcpDeeplink;
+  }, [setupMcpDeeplink]);
+  useAppBootstrapEffects({
+    guidedOnboardingResumeHandlerRef,
+    setupMcpDeeplinkRef,
+  });
+  const { activeSessionId } = sessionState;
+  useEffect(() => {
+    hideArtifactsForSession(activeSessionId);
+  }, [activeSessionId]);
+  useSettingsNavigateListener(routerInstance);
   return (
     <>
       <AppBar />

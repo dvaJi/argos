@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, type RefObject } from "react";
 import { Icon } from "@iconify/react";
 import { createFileRoute, Outlet, useRouter, useRouterState } from "@tanstack/react-router";
 import { useStore } from "@tanstack/react-store";
@@ -113,23 +113,8 @@ const hasSameRouteParams = (currentParams: Record<string, unknown>, nextParams: 
   }
   return nextEntries.every(([key, value]) => currentParams[key] === value);
 };
-function SettingsLayout() {
-  const routerInstance = useRouter();
-  const routerState = useRouterState();
-  const { isMacOS, isWinMacOS } = useDeviceVersion();
-  const windowClient = createWindowClient();
-  const providerState = useStore(providerStore);
-  const providerDeeplinkImportState = useStore(providerDeeplinkImportStore);
-  const { setup: setupMcpDeeplink } = useMcpInstallDeeplinkHandler();
-  const [isImportingProvider, setIsImportingProvider] = useState(false);
-  const [isProcessingProviderPreview, setIsProcessingProviderPreview] = useState(false);
-  const providerStoreInitializePromise = useRef<Promise<void> | null>(null);
-  const [startupTimeOrigin] = useState(() => (typeof performance !== "undefined" ? performance.now() : Date.now()));
-  const logSettingsStartup = (phase: string) => {
-    const now = typeof performance !== "undefined" ? performance.now() : Date.now();
-    const elapsed = Math.round(now - startupTimeOrigin);
-    console.info(`[Startup][Settings][Renderer] ${phase} elapsed=${elapsed}ms`);
-  };
+/** Builds the sidebar navigation model (module-level: pure over shared settings metadata). */
+function buildSettingsNavigationModel() {
   const settings = getSettingsRouteItems().flatMap((item) =>
     isSettingAvailableInCurrentRuntime(item.routeName)
       ? [
@@ -168,32 +153,65 @@ function SettingsLayout() {
     });
     return groups;
   })();
-  const pendingProviderImportPreview = providerDeeplinkImportState.preview;
-  const pendingProviderImportToken = providerDeeplinkImportState.previewToken;
-  const providerImportConfirmDisabled = (() => {
-    if (!pendingProviderImportPreview) {
-      return true;
-    }
-    if (pendingProviderImportPreview.kind === "builtin") {
-      return !providerState.providers.some((provider) => provider.id === pendingProviderImportPreview.id);
-    }
-    return false;
-  })();
+  return { settings, settingGroups };
+}
+/** Publishes a pending section for the already-mounted settings page (module-level: window-scoped). */
+async function publishSettingsSection(section?: string) {
+  if (!section) {
+    return;
+  }
+  (window as SettingsWindowState).__argosSettingsPendingSection = section;
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  window.dispatchEvent(
+    new CustomEvent(SETTINGS_SECTION_EVENT, {
+      detail: {
+        section,
+      },
+    }),
+  );
+}
+type ProviderImportControllerInput = {
+  routerInstance: ReturnType<typeof useRouter>;
+  windowClient: ReturnType<typeof createWindowClient>;
+  startupTimeOrigin: number;
+  isProcessingProviderPreview: boolean;
+  setIsProcessingProviderPreview: (value: boolean) => void;
+  isImportingProvider: boolean;
+  setIsImportingProvider: (value: boolean) => void;
+  providerStoreInitializePromiseRef: RefObject<Promise<void> | null>;
+};
+/** Provider deeplink-import flow: store readiness, preview application, and confirm. */
+function useProviderImportController(input: ProviderImportControllerInput) {
+  const {
+    routerInstance,
+    windowClient,
+    startupTimeOrigin,
+    isProcessingProviderPreview,
+    setIsProcessingProviderPreview,
+    isImportingProvider,
+    setIsImportingProvider,
+    providerStoreInitializePromiseRef,
+  } = input;
+  const logSettingsStartup = (phase: string) => {
+    const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+    const elapsed = Math.round(now - startupTimeOrigin);
+    console.info(`[Startup][Settings][Renderer] ${phase} elapsed=${elapsed}ms`);
+  };
   const ensureProviderStoreReady = async () => {
     if (isProviderStoreInitialized()) {
       return;
     }
-    if (!providerStoreInitializePromise.current) {
-      providerStoreInitializePromise.current = Promise.resolve(ensureInitialized?.() ?? initializeProviders?.())
+    if (!providerStoreInitializePromiseRef.current) {
+      providerStoreInitializePromiseRef.current = Promise.resolve(ensureInitialized?.() ?? initializeProviders?.())
         .then(() => {
           logSettingsStartup("providerStore ready");
         })
         .catch((error) => {
-          providerStoreInitializePromise.current = null;
+          providerStoreInitializePromiseRef.current = null;
           throw error;
         });
     }
-    await providerStoreInitializePromise.current;
+    await providerStoreInitializePromiseRef.current;
   };
   const ensureProviderRouteReady = async (providerId?: string) => {
     await ensureProviderStoreReady();
@@ -214,20 +232,6 @@ function SettingsLayout() {
     await routerInstance.navigate({
       to: (providerId ? `/settings/provider/${providerId}` : "/settings/provider") as any,
     });
-  };
-  const publishSettingsSection = async (section?: string) => {
-    if (!section) {
-      return;
-    }
-    (window as SettingsWindowState).__argosSettingsPendingSection = section;
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    window.dispatchEvent(
-      new CustomEvent(SETTINGS_SECTION_EVENT, {
-        detail: {
-          section,
-        },
-      }),
-    );
   };
   const applyProviderInstallPreview = async (preview: ProviderInstallPreview) => {
     console.log(
@@ -278,12 +282,6 @@ function SettingsLayout() {
   const handleProviderInstall = async () => {
     await syncPendingProviderInstall();
   };
-  const handleProviderImportDialogOpenChange = (open: boolean) => {
-    if (!open) {
-      clearProviderPreview();
-      releaseProviderPreviewProcessing();
-    }
-  };
   const confirmProviderImport = async () => {
     const preview = providerDeeplinkImportStore.state.preview;
     if (!preview || isImportingProvider) {
@@ -330,6 +328,23 @@ function SettingsLayout() {
     }
     setIsImportingProvider(false);
   };
+  return {
+    ensureProviderStoreReady,
+    ensureProviderRouteReady,
+    navigateToProviderSettings,
+    applyProviderInstallPreview,
+    syncPendingProviderInstall,
+    releaseProviderPreviewProcessing,
+    handleProviderInstall,
+    confirmProviderImport,
+  };
+}
+/** Settings-page navigation handlers shared by the sidebar and IPC events. */
+function createSettingsNavigationHandlers(input: {
+  routerInstance: ReturnType<typeof useRouter>;
+  syncPendingProviderInstall: () => Promise<void>;
+}) {
+  const { routerInstance, syncPendingProviderInstall } = input;
   const handleSettingsNavigate = async (_event: unknown, payload?: SettingsNavigationPayload) => {
     const routeName = payload?.routeName;
     const params = normalizeRouteParams(payload?.params);
@@ -362,6 +377,59 @@ function SettingsLayout() {
       to: "/chat",
     });
   };
+  return { handleSettingsNavigate, handleClick, navigateBack };
+}
+function SettingsLayout() {
+  const routerInstance = useRouter();
+  const routerState = useRouterState();
+  const { isMacOS, isWinMacOS } = useDeviceVersion();
+  const windowClient = createWindowClient();
+  const providerState = useStore(providerStore);
+  const providerDeeplinkImportState = useStore(providerDeeplinkImportStore);
+  const { setup: setupMcpDeeplink } = useMcpInstallDeeplinkHandler();
+  const [isImportingProvider, setIsImportingProvider] = useState(false);
+  const [isProcessingProviderPreview, setIsProcessingProviderPreview] = useState(false);
+  const providerStoreInitializePromise = useRef<Promise<void> | null>(null);
+  const [startupTimeOrigin] = useState(() => (typeof performance !== "undefined" ? performance.now() : Date.now()));
+  const logSettingsStartup = (phase: string) => {
+    const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+    const elapsed = Math.round(now - startupTimeOrigin);
+    console.info(`[Startup][Settings][Renderer] ${phase} elapsed=${elapsed}ms`);
+  };
+  const { settings, settingGroups } = buildSettingsNavigationModel();
+  const pendingProviderImportPreview = providerDeeplinkImportState.preview;
+  const pendingProviderImportToken = providerDeeplinkImportState.previewToken;
+  const providerImportConfirmDisabled = (() => {
+    if (!pendingProviderImportPreview) {
+      return true;
+    }
+    if (pendingProviderImportPreview.kind === "builtin") {
+      return !providerState.providers.some((provider) => provider.id === pendingProviderImportPreview.id);
+    }
+    return false;
+  })();
+  const providerImport = useProviderImportController({
+    routerInstance,
+    windowClient,
+    startupTimeOrigin,
+    isProcessingProviderPreview,
+    setIsProcessingProviderPreview,
+    isImportingProvider,
+    setIsImportingProvider,
+    providerStoreInitializePromiseRef: providerStoreInitializePromise,
+  });
+  const handleProviderImportDialogOpenChange = (open: boolean) => {
+    if (!open) {
+      clearProviderPreview();
+      providerImport.releaseProviderPreviewProcessing();
+    }
+  };
+  const { ensureProviderRouteReady, syncPendingProviderInstall, handleProviderInstall, confirmProviderImport } =
+    providerImport;
+  const { handleSettingsNavigate, handleClick, navigateBack } = createSettingsNavigationHandlers({
+    routerInstance,
+    syncPendingProviderInstall: providerImport.syncPendingProviderInstall,
+  });
   useEffect(() => {
     const navigateHandler = (_event: unknown, payload?: SettingsNavigationPayload) => {
       void handleSettingsNavigate(_event, payload);

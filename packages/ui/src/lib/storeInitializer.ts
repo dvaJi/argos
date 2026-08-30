@@ -3,9 +3,19 @@ import { initialize as initializeProviders } from "#/stores/providerStore";
 import { DEEPLINK_EVENTS } from "#/events";
 import { createIpcSubscriptionScope } from "#/lib/ipcSubscription";
 import { mcpStore } from "#/stores/mcp";
-import { router } from "#/router";
 import { initTheme } from "#/stores/theme";
 import { initWorkspaceStore } from "#/stores/ui/workspace";
+
+// Lazy router import: breaks the circular dependency
+// (storeInitializer → router → routeTree → routes → storeInitializer).
+let routerInstance: (typeof import("#/router"))["router"] | null = null;
+const getRouter = async () => {
+  if (!routerInstance) {
+    const mod = await import("#/router");
+    routerInstance = mod.router;
+  }
+  return routerInstance;
+};
 
 export const initAppStores = async () => {
   console.info("[Startup][Renderer] initAppStores begin");
@@ -42,13 +52,14 @@ export const useMcpInstallDeeplinkHandler = () => {
   let cleanupIpcListeners: (() => void) | null = null;
 
   const navigateToMcpSettings = async () => {
-    const currentRoute = router.state.location;
+    const rt = await getRouter();
+    const currentRoute = rt.state.location;
     const currentPath = currentRoute.pathname;
 
     if (currentPath !== "/settings/mcp") {
-      await (router.navigate as any)({ to: "/settings/mcp" });
+      await (rt.navigate as any)({ to: "/settings/mcp" });
     } else {
-      await (router.navigate as any)({
+      await (rt.navigate as any)({
         to: "/settings/mcp",
         search: (prev: Record<string, unknown>) => prev,
         replace: true,

@@ -25,6 +25,181 @@ import {
 
 type PairingResult = { pairingUrl: string; expiresAt: number } | null;
 
+function MachinesIntroCards() {
+  return (
+    <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <div className="rounded-2xl border bg-background p-4">
+        <div className="flex items-start gap-3">
+          <span className="mt-1 size-2 rounded-full bg-green-600" />
+          <div className="min-w-0 space-y-1">
+            <div className="text-sm font-medium">This computer</div>
+            <p className="text-pretty text-xs leading-5 text-muted-foreground">
+              Argos Desktop manages the local server automatically. Most users only need this machine.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border bg-muted/20 p-4">
+        <div className="flex items-start gap-3">
+          <Icon icon="lucide:server" className="mt-0.5 size-4 text-muted-foreground" />
+          <div className="min-w-0 space-y-1">
+            <div className="text-sm font-medium">Argos Server</div>
+            <p className="text-pretty text-xs leading-5 text-muted-foreground">
+              Install <code>argos-daemon</code> on another machine when agents and project files should run there.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface BrowserPairingCardProps {
+  pairing: PairingResult;
+  generating: boolean;
+  onGenerate: () => void;
+}
+
+function BrowserPairingCard({ pairing, generating, onGenerate }: BrowserPairingCardProps) {
+  return (
+    <div className="rounded-2xl border p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <Icon icon="lucide:smartphone" className="size-4 text-muted-foreground" />
+        <div className="text-sm font-medium">Browser Access</div>
+      </div>
+      <p className="text-pretty text-xs leading-5 text-muted-foreground">
+        Generate a one-time pairing URL to open Argos in a browser on this machine. The URL expires after 5 minutes and
+        can only be used once.
+      </p>
+      {pairing ? (
+        <div className="space-y-2">
+          <Input readOnly value={pairing.pairingUrl} className="font-mono text-xs" />
+          <p className="text-xs tabular-nums text-muted-foreground">
+            Expires: {new Date(pairing.expiresAt).toLocaleTimeString()}
+          </p>
+        </div>
+      ) : (
+        <Button variant="outline" size="sm" onClick={onGenerate} disabled={generating}>
+          <Icon icon="lucide:link" className="mr-1.5 size-3.5" />
+          {generating ? "Generating..." : "Generate pairing URL"}
+        </Button>
+      )}
+    </div>
+  );
+}
+
+interface RemoteMachineItemProps {
+  workspace: WorkspaceEntry;
+  onRetry: () => void;
+  onEditAddress: () => void;
+  onRename: () => void;
+  onCopyDiagnostics: () => void;
+  onRemove: () => void;
+}
+
+function RemoteMachineItem({
+  workspace,
+  onRetry,
+  onEditAddress,
+  onRename,
+  onCopyDiagnostics,
+  onRemove,
+}: RemoteMachineItemProps) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-2xl border p-3">
+      <div className="min-w-0 space-y-0.5">
+        <div className="truncate text-sm font-medium">{workspace.name}</div>
+        <div className="truncate font-mono text-xs text-muted-foreground">{workspace.remoteUrl}</div>
+        <div className="truncate text-xs text-muted-foreground">
+          {workspace.lastKnownServerVersion
+            ? `Argos Server v${workspace.lastKnownServerVersion}`
+            : "Pairing verification required"}
+          {workspace.environmentId ? ` · ${workspace.environmentId.slice(0, 8)}` : ""}
+        </div>
+        <div className="truncate text-xs text-muted-foreground">
+          Protocol {workspace.lastKnownProtocolVersion ?? "unknown"}
+          {workspace.lastConnectedAt
+            ? ` · connected ${new Date(workspace.lastConnectedAt).toLocaleString()}`
+            : " · not connected yet"}
+        </div>
+        {workspace.lastKnownCapabilities && workspace.lastKnownCapabilities.length > 0 && (
+          <div className="truncate text-xs text-muted-foreground">
+            Capabilities: {workspace.lastKnownCapabilities.join(", ")}
+          </div>
+        )}
+      </div>
+      <div className="flex items-center gap-1">
+        <Button variant="ghost" size="sm" onClick={onRetry}>
+          Retry
+        </Button>
+        <Button variant="ghost" size="sm" onClick={onEditAddress}>
+          Edit address
+        </Button>
+        <Button variant="ghost" size="sm" onClick={onRename}>
+          Rename
+        </Button>
+        <Button variant="ghost" size="sm" onClick={onCopyDiagnostics}>
+          Diagnostics
+        </Button>
+        {(workspace.trustState === "pairing-required" || workspace.trustState === "identity-changed") && (
+          <Button variant="outline" size="sm" onClick={onEditAddress}>
+            Pair again
+          </Button>
+        )}
+        <Button variant="ghost" size="sm" onClick={onRemove}>
+          Forget
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+interface RenameMachineDialogProps {
+  workspace: WorkspaceEntry | null;
+  renameValue: string;
+  onRenameValueChange: (value: string) => void;
+  onClose: () => void;
+  onSubmit: () => void;
+}
+
+function RenameMachineDialog({
+  workspace,
+  renameValue,
+  onRenameValueChange,
+  onClose,
+  onSubmit,
+}: RenameMachineDialogProps) {
+  return (
+    <Dialog open={Boolean(workspace)} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Rename remote machine</DialogTitle>
+          <DialogDescription>Choose the name shown in Desktop. This does not rename the server.</DialogDescription>
+        </DialogHeader>
+        <Label htmlFor="remote-machine-name">Machine name</Label>
+        <Input
+          id="remote-machine-name"
+          value={renameValue}
+          onChange={(event) => onRenameValueChange(event.target.value)}
+          autoFocus
+          onKeyDown={(event) => {
+            if (event.key === "Enter") onSubmit();
+          }}
+        />
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={onSubmit} disabled={!renameValue.trim() || renameValue.trim() === workspace?.name}>
+            Save name
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function ServerSettings() {
   const { toast } = useToast();
   const [workspaces, setWorkspaces] = useState<WorkspaceEntry[]>(() => readWorkspaceConfig().workspaces);
@@ -219,113 +394,27 @@ export default function ServerSettings() {
             </a>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-            <div className="rounded-2xl border bg-background p-4">
-              <div className="flex items-start gap-3">
-                <span className="mt-1 size-2 rounded-full bg-green-600" />
-                <div className="min-w-0 space-y-1">
-                  <div className="text-sm font-medium">This computer</div>
-                  <p className="text-pretty text-xs leading-5 text-muted-foreground">
-                    Argos Desktop manages the local server automatically. Most users only need this machine.
-                  </p>
-                </div>
-              </div>
-            </div>
+          <MachinesIntroCards />
 
-            <div className="rounded-2xl border bg-muted/20 p-4">
-              <div className="flex items-start gap-3">
-                <Icon icon="lucide:server" className="mt-0.5 size-4 text-muted-foreground" />
-                <div className="min-w-0 space-y-1">
-                  <div className="text-sm font-medium">Argos Server</div>
-                  <p className="text-pretty text-xs leading-5 text-muted-foreground">
-                    Install <code>argos-daemon</code> on another machine when agents and project files should run there.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border p-4 space-y-3">
-            <div className="flex items-center gap-2">
-              <Icon icon="lucide:smartphone" className="size-4 text-muted-foreground" />
-              <div className="text-sm font-medium">Browser Access</div>
-            </div>
-            <p className="text-pretty text-xs leading-5 text-muted-foreground">
-              Generate a one-time pairing URL to open Argos in a browser on this machine. The URL expires after 5
-              minutes and can only be used once.
-            </p>
-            {pairing ? (
-              <div className="space-y-2">
-                <Input readOnly value={pairing.pairingUrl} className="font-mono text-xs" />
-                <p className="text-xs tabular-nums text-muted-foreground">
-                  Expires: {new Date(pairing.expiresAt).toLocaleTimeString()}
-                </p>
-              </div>
-            ) : (
-              <Button variant="outline" size="sm" onClick={handleGeneratePairingUrl} disabled={generating}>
-                <Icon icon="lucide:link" className="mr-1.5 size-3.5" />
-                {generating ? "Generating..." : "Generate pairing URL"}
-              </Button>
-            )}
-          </div>
+          <BrowserPairingCard pairing={pairing} generating={generating} onGenerate={handleGeneratePairingUrl} />
 
           {remoteWorkspaces.length > 0 && (
             <div className="space-y-2">
               <Label className="text-sm font-medium">Saved remote machines</Label>
               <div className="grid gap-2">
                 {remoteWorkspaces.map((workspace) => (
-                  <div key={workspace.id} className="flex items-center justify-between gap-3 rounded-2xl border p-3">
-                    <div className="min-w-0 space-y-0.5">
-                      <div className="truncate text-sm font-medium">{workspace.name}</div>
-                      <div className="truncate font-mono text-xs text-muted-foreground">{workspace.remoteUrl}</div>
-                      <div className="truncate text-xs text-muted-foreground">
-                        {workspace.lastKnownServerVersion
-                          ? `Argos Server v${workspace.lastKnownServerVersion}`
-                          : "Pairing verification required"}
-                        {workspace.environmentId ? ` · ${workspace.environmentId.slice(0, 8)}` : ""}
-                      </div>
-                      <div className="truncate text-xs text-muted-foreground">
-                        Protocol {workspace.lastKnownProtocolVersion ?? "unknown"}
-                        {workspace.lastConnectedAt
-                          ? ` · connected ${new Date(workspace.lastConnectedAt).toLocaleString()}`
-                          : " · not connected yet"}
-                      </div>
-                      {workspace.lastKnownCapabilities && workspace.lastKnownCapabilities.length > 0 && (
-                        <div className="truncate text-xs text-muted-foreground">
-                          Capabilities: {workspace.lastKnownCapabilities.join(", ")}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="sm" onClick={() => void handleRetry(workspace)}>
-                        Retry
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => setRecoveryWorkspace(workspace)}>
-                        Edit address
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setRenameWorkspace(workspace);
-                          setRenameValue(workspace.name);
-                        }}
-                      >
-                        Rename
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => void handleCopyDiagnostics(workspace)}>
-                        Diagnostics
-                      </Button>
-                      {(workspace.trustState === "pairing-required" || workspace.trustState === "identity-changed") && (
-                        <Button variant="outline" size="sm" onClick={() => setRecoveryWorkspace(workspace)}>
-                          Pair again
-                        </Button>
-                      )}
-                      <Button variant="ghost" size="sm" onClick={() => void handleRemove(workspace)}>
-                        Forget
-                      </Button>
-                    </div>
-                  </div>
+                  <RemoteMachineItem
+                    key={workspace.id}
+                    workspace={workspace}
+                    onRetry={() => void handleRetry(workspace)}
+                    onEditAddress={() => setRecoveryWorkspace(workspace)}
+                    onRename={() => {
+                      setRenameWorkspace(workspace);
+                      setRenameValue(workspace.name);
+                    }}
+                    onCopyDiagnostics={() => void handleCopyDiagnostics(workspace)}
+                    onRemove={() => void handleRemove(workspace)}
+                  />
                 ))}
               </div>
             </div>
@@ -342,37 +431,13 @@ export default function ServerSettings() {
               compact
             />
           </div>
-          <Dialog open={Boolean(renameWorkspace)} onOpenChange={(open) => !open && setRenameWorkspace(null)}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Rename remote machine</DialogTitle>
-                <DialogDescription>
-                  Choose the name shown in Desktop. This does not rename the server.
-                </DialogDescription>
-              </DialogHeader>
-              <Label htmlFor="remote-machine-name">Machine name</Label>
-              <Input
-                id="remote-machine-name"
-                value={renameValue}
-                onChange={(event) => setRenameValue(event.target.value)}
-                autoFocus
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") handleRename();
-                }}
-              />
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setRenameWorkspace(null)}>
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleRename}
-                  disabled={!renameValue.trim() || renameValue.trim() === renameWorkspace?.name}
-                >
-                  Save name
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <RenameMachineDialog
+            workspace={renameWorkspace}
+            renameValue={renameValue}
+            onRenameValueChange={setRenameValue}
+            onClose={() => setRenameWorkspace(null)}
+            onSubmit={handleRename}
+          />
         </div>
       </ScrollArea>
     </div>

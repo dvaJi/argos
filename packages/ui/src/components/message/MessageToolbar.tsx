@@ -1,4 +1,4 @@
-import { type FC, useState, useMemo, useRef } from "react";
+import { type FC, type MouseEventHandler, type ReactNode, useState, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "#shadcn/components/ui/tooltip";
@@ -35,6 +35,78 @@ interface MessageToolbarProps {
   onCopyImageFromTop?: () => void;
   onTrace?: () => void;
 }
+const LONG_PRESS_DURATION = 800;
+const TOOLBAR_BUTTON_BASE_CLASS =
+  "w-4 h-4 text-muted-foreground hover:text-primary hover:bg-transparent transition-colors duration-[var(--dc-motion-fast)] ease-[var(--dc-ease-out-soft)]";
+const TOOLBAR_TIP_CLASS =
+  "absolute -top-6 left-1/2 transform -translate-x-1/2 bg-background border px-2 py-1 rounded text-xs whitespace-nowrap z-50";
+const ToolbarIconButton = ({
+  icon,
+  iconClassName = "w-3 h-3",
+  tooltip,
+  onClick,
+  disabled,
+  className,
+  onMouseDown,
+  onMouseUp,
+  onMouseLeave,
+  children,
+}: {
+  icon: string;
+  iconClassName?: string;
+  tooltip: string;
+  onClick?: () => void;
+  disabled?: boolean;
+  className?: string;
+  onMouseDown?: MouseEventHandler<HTMLButtonElement>;
+  onMouseUp?: MouseEventHandler<HTMLButtonElement>;
+  onMouseLeave?: MouseEventHandler<HTMLButtonElement>;
+  children?: ReactNode;
+}) => (
+  <Tooltip>
+    <TooltipTrigger
+      render={
+        <Button
+          variant="ghost"
+          size="icon"
+          className={[TOOLBAR_BUTTON_BASE_CLASS, className].filter(Boolean).join(" ")}
+          onClick={onClick}
+          disabled={disabled}
+          onMouseDown={onMouseDown}
+          onMouseUp={onMouseUp}
+          onMouseLeave={onMouseLeave}
+        />
+      }
+    >
+      <Icon icon={icon} className={iconClassName} />
+      {children}
+    </TooltipTrigger>
+    <TooltipContent>{tooltip}</TooltipContent>
+  </Tooltip>
+);
+const MessageUsageStats = ({
+  usage,
+  hasTokensPerSecond,
+}: {
+  usage: MessageToolbarProps["usage"];
+  hasTokensPerSecond: boolean;
+}) => (
+  <span className="flex flex-row gap-2">
+    {(usage.input_tokens > 0 || usage.output_tokens > 0) && (
+      <>
+        <span className="text-xs flex flex-row items-center">
+          <Icon icon="lucide:arrow-up" className="w-3 h-3" />
+          {usage.input_tokens}
+        </span>
+        <span className="text-xs flex flex-row items-center">
+          <Icon icon="lucide:arrow-down" className="w-3 h-3" />
+          {usage.output_tokens}
+        </span>
+      </>
+    )}
+    {hasTokensPerSecond && <>{usage.tokens_per_second?.toFixed(2)}/S</>}
+  </span>
+);
 export const MessageToolbar: FC<MessageToolbarProps> = ({
   usage,
   loading,
@@ -65,7 +137,6 @@ export const MessageToolbar: FC<MessageToolbarProps> = ({
   const [showCopyImageTip, setShowCopyImageTip] = useState(false);
   const [showCopyFromTopTip, setShowCopyFromTopTip] = useState(false);
   const copyImagePressTimer = useRef<number | null>(null);
-  const LONG_PRESS_DURATION = 800;
   const hasTokensPerSecond = usage.tokens_per_second > 0;
   const hasVariants = (totalVariants || 0) > 1;
   const allowTrace = showTrace ?? false;
@@ -106,259 +177,75 @@ export const MessageToolbar: FC<MessageToolbarProps> = ({
       <span className={loading ? "hidden" : "flex flex-row gap-3"}>
         {isEditMode ? (
           <>
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="w-4 h-4 text-muted-foreground hover:text-primary hover:bg-transparent transition-colors duration-[var(--dc-motion-fast)] ease-[var(--dc-ease-out-soft)]"
-                    onClick={onSave}
-                  />
-                }
-              >
-                <Icon icon="lucide:check" className="w-3 h-3" />
-              </TooltipTrigger>
-              <TooltipContent>Save</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="w-4 h-4 text-muted-foreground hover:text-primary hover:bg-transparent transition-colors duration-[var(--dc-motion-fast)] ease-[var(--dc-ease-out-soft)]"
-                    onClick={onCancel}
-                  />
-                }
-              >
-                <Icon icon="lucide:x" className="w-3 h-3" />
-              </TooltipTrigger>
-              <TooltipContent>Cancel</TooltipContent>
-            </Tooltip>
+            <ToolbarIconButton icon="lucide:check" tooltip="Save" onClick={onSave} />
+            <ToolbarIconButton icon="lucide:x" tooltip="Cancel" onClick={onCancel} />
           </>
         ) : (
           <>
             {!isAssistant && !isEditMode && !isReadOnly && (
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="w-4 h-4 text-muted-foreground hover:text-primary hover:bg-transparent transition-colors duration-[var(--dc-motion-fast)] ease-[var(--dc-ease-out-soft)]"
-                      onClick={onRetry}
-                    />
-                  }
-                >
-                  <Icon icon="lucide:refresh-cw" className="w-3 h-3" />
-                </TooltipTrigger>
-                <TooltipContent>Retry</TooltipContent>
-              </Tooltip>
+              <ToolbarIconButton icon="lucide:refresh-cw" tooltip="Retry" onClick={onRetry} />
             )}
 
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className={`w-4 h-4 text-muted-foreground hover:text-primary hover:bg-transparent transition-colors duration-[var(--dc-motion-fast)] ease-[var(--dc-ease-out-soft)] ${isAssistant && hasVariants ? "" : "hidden"}`}
-                    disabled={currentVariantIndex === 0}
-                    onClick={onPrev}
-                  />
-                }
-              >
-                <Icon icon="lucide:chevron-left" className="w-3 h-3" />
-              </TooltipTrigger>
-              <TooltipContent>Previous variant</TooltipContent>
-            </Tooltip>
+            <ToolbarIconButton
+              icon="lucide:chevron-left"
+              tooltip="Previous variant"
+              className={isAssistant && hasVariants ? "" : "hidden"}
+              disabled={currentVariantIndex === 0}
+              onClick={onPrev}
+            />
 
             <span className={isAssistant && hasVariants ? "" : "hidden"}>
               {(currentVariantIndex ?? 0) + 1} / {totalVariants}
             </span>
 
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className={`w-4 h-4 text-muted-foreground hover:text-primary hover:bg-transparent transition-colors duration-[var(--dc-motion-fast)] ease-[var(--dc-ease-out-soft)] ${isAssistant && hasVariants ? "" : "hidden"}`}
-                    disabled={(currentVariantIndex ?? 0) >= (totalVariants || 0) - 1}
-                    onClick={onNext}
-                  />
-                }
-              >
-                <Icon icon="lucide:chevron-right" className="w-3 h-3" />
-              </TooltipTrigger>
-              <TooltipContent>Next variant</TooltipContent>
-            </Tooltip>
+            <ToolbarIconButton
+              icon="lucide:chevron-right"
+              tooltip="Next variant"
+              className={isAssistant && hasVariants ? "" : "hidden"}
+              disabled={(currentVariantIndex ?? 0) >= (totalVariants || 0) - 1}
+              onClick={onNext}
+            />
 
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="relative w-4 h-4 text-muted-foreground hover:text-primary hover:bg-transparent transition-colors duration-[var(--dc-motion-fast)] ease-[var(--dc-ease-out-soft)]"
-                    onClick={handleCopy}
-                  />
-                }
-              >
-                <Icon icon="lucide:copy" className="w-3 h-3" />
-                {showCopyTip && (
-                  <span className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-background border px-2 py-1 rounded text-xs whitespace-nowrap z-50">
-                    Copied
-                  </span>
-                )}
-              </TooltipTrigger>
-              <TooltipContent>Copy</TooltipContent>
-            </Tooltip>
+            <ToolbarIconButton icon="lucide:copy" tooltip="Copy" className="relative" onClick={handleCopy}>
+              {showCopyTip && <span className={TOOLBAR_TIP_CLASS}>Copied</span>}
+            </ToolbarIconButton>
 
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className={`relative w-4 h-4 text-muted-foreground hover:text-primary hover:bg-transparent transition-colors duration-[var(--dc-motion-fast)] ease-[var(--dc-ease-out-soft)] ${isAssistant ? "" : "hidden"}`}
-                    disabled={isCapturingImage}
-                    onMouseDown={handleCopyImageStart}
-                    onMouseUp={handleCopyImageEnd}
-                    onMouseLeave={handleCopyImageCancel}
-                  />
-                }
-              >
-                {isCapturingImage ? (
-                  <Icon icon="lucide:loader" className="w-3 h-3 animate-spin" />
-                ) : (
-                  <Icon icon="lucide:images" className="w-3 h-3" />
-                )}
-                {showCopyImageTip && (
-                  <span className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-background border px-2 py-1 rounded text-xs whitespace-nowrap z-50">
-                    Image copied
-                  </span>
-                )}
-                {showCopyFromTopTip && (
-                  <span className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-background border px-2 py-1 rounded text-xs whitespace-nowrap z-50">
-                    Copied from top
-                  </span>
-                )}
-              </TooltipTrigger>
-              <TooltipContent>
-                {isCapturingImage ? "Capturing..." : "Copy image (long press for from top)"}
-              </TooltipContent>
-            </Tooltip>
+            <ToolbarIconButton
+              icon={isCapturingImage ? "lucide:loader" : "lucide:images"}
+              iconClassName={isCapturingImage ? "w-3 h-3 animate-spin" : "w-3 h-3"}
+              tooltip={isCapturingImage ? "Capturing..." : "Copy image (long press for from top)"}
+              className="relative"
+              disabled={isCapturingImage}
+              onMouseDown={handleCopyImageStart}
+              onMouseUp={handleCopyImageEnd}
+              onMouseLeave={handleCopyImageCancel}
+            >
+              {showCopyImageTip && <span className={TOOLBAR_TIP_CLASS}>Image copied</span>}
+              {showCopyFromTopTip && <span className={TOOLBAR_TIP_CLASS}>Copied from top</span>}
+            </ToolbarIconButton>
 
             {isAssistant && !isReadOnly && (
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="w-4 h-4 text-muted-foreground hover:text-primary hover:bg-transparent transition-colors duration-[var(--dc-motion-fast)] ease-[var(--dc-ease-out-soft)]"
-                      onClick={onRetry}
-                    />
-                  }
-                >
-                  <Icon icon="lucide:refresh-cw" className="w-3 h-3" />
-                </TooltipTrigger>
-                <TooltipContent>Retry</TooltipContent>
-              </Tooltip>
+              <ToolbarIconButton icon="lucide:refresh-cw" tooltip="Retry" onClick={onRetry} />
             )}
 
             {isAssistant && traceDebugEnabled && allowTrace && (
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="w-4 h-4 text-muted-foreground hover:text-primary hover:bg-transparent transition-colors duration-[var(--dc-motion-fast)] ease-[var(--dc-ease-out-soft)]"
-                      onClick={onTrace}
-                    />
-                  }
-                >
-                  <Icon icon="lucide:bug" className="w-3 h-3" />
-                </TooltipTrigger>
-                <TooltipContent>Trace debug</TooltipContent>
-              </Tooltip>
+              <ToolbarIconButton icon="lucide:bug" tooltip="Trace debug" onClick={onTrace} />
             )}
 
             {isAssistant && !loading && !isInGeneratingThread && !isReadOnly && (
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="w-4 h-4 text-muted-foreground hover:text-primary hover:bg-transparent transition-colors duration-[var(--dc-motion-fast)] ease-[var(--dc-ease-out-soft)]"
-                      onClick={onFork}
-                    />
-                  }
-                >
-                  <Icon icon="lucide:git-branch" className="w-3 h-3" />
-                </TooltipTrigger>
-                <TooltipContent>Fork</TooltipContent>
-              </Tooltip>
+              <ToolbarIconButton icon="lucide:git-branch" tooltip="Fork" onClick={onFork} />
             )}
 
             {!isAssistant && !isEditMode && !isReadOnly && (
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="w-4 h-4 text-muted-foreground hover:text-primary hover:bg-transparent transition-colors duration-[var(--dc-motion-fast)] ease-[var(--dc-ease-out-soft)]"
-                      onClick={onEdit}
-                    />
-                  }
-                >
-                  <Icon icon="lucide:edit" className="w-3 h-3" />
-                </TooltipTrigger>
-                <TooltipContent>Edit</TooltipContent>
-              </Tooltip>
+              <ToolbarIconButton icon="lucide:edit" tooltip="Edit" onClick={onEdit} />
             )}
 
-            {!isReadOnly && (
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="w-4 h-4 text-muted-foreground hover:text-primary hover:bg-transparent transition-colors duration-[var(--dc-motion-fast)] ease-[var(--dc-ease-out-soft)]"
-                      onClick={onDelete}
-                    />
-                  }
-                >
-                  <Icon icon="lucide:trash-2" className="w-3 h-3" />
-                </TooltipTrigger>
-                <TooltipContent>Delete</TooltipContent>
-              </Tooltip>
-            )}
+            {!isReadOnly && <ToolbarIconButton icon="lucide:trash-2" tooltip="Delete" onClick={onDelete} />}
           </>
         )}
       </span>
 
-      <span className="flex flex-row gap-2">
-        {(usage.input_tokens > 0 || usage.output_tokens > 0) && (
-          <>
-            <span className="text-xs flex flex-row items-center">
-              <Icon icon="lucide:arrow-up" className="w-3 h-3" />
-              {usage.input_tokens}
-            </span>
-            <span className="text-xs flex flex-row items-center">
-              <Icon icon="lucide:arrow-down" className="w-3 h-3" />
-              {usage.output_tokens}
-            </span>
-          </>
-        )}
-        {hasTokensPerSecond && <>{usage.tokens_per_second?.toFixed(2)}/S</>}
-      </span>
+      <MessageUsageStats usage={usage} hasTokensPerSecond={hasTokensPerSecond} />
     </div>
   );
 };

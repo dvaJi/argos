@@ -277,59 +277,22 @@ export default function SystemPromptSettingsSection() {
       )}
 
       {currentSystemPrompt && (
-        <div className="space-y-2">
-          <Textarea
-            value={currentSystemPrompt.content}
-            className="h-48 w-full"
-            placeholder="Enter prompt content..."
-            onChange={(e) =>
-              setCurrentSystemPrompt((prev) =>
-                prev
-                  ? {
-                      ...prev,
-                      content: e.target.value,
-                    }
-                  : null,
-              )
-            }
-            onBlur={() => void saveCurrentSystemPrompt()}
-          />
-          <div className="flex items-center gap-2">
-            {currentSystemPrompt.id === "default" ? (
-              <Button variant="outline" size="sm" onClick={() => void resetDefaultSystemPrompt()}>
-                <Icon icon="lucide:rotate-ccw" className="mr-1 h-3.5 w-3.5" />
-                Reset to Default
-              </Button>
-            ) : (
-              <AlertDialog>
-                <AlertDialogTrigger
-                  render={
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                    />
+        <SystemPromptContentEditor
+          prompt={currentSystemPrompt}
+          onContentChange={(content) =>
+            setCurrentSystemPrompt((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    content,
                   }
-                >
-                  <Icon icon="lucide:trash-2" className="mr-1 h-3.5 w-3.5" />
-                  Delete
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Delete &quot;{currentSystemPrompt.name}&quot;?</AlertDialogTitle>
-                    <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => void handleDeleteSystemPrompt(currentSystemPrompt.id)}>
-                      Confirm
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
-          </div>
-        </div>
+                : null,
+            )
+          }
+          onSave={saveCurrentSystemPrompt}
+          onResetDefault={resetDefaultSystemPrompt}
+          onDelete={handleDeleteSystemPrompt}
+        />
       )}
 
       <SystemPromptEditorSheet
@@ -341,6 +304,68 @@ export default function SystemPromptSettingsSection() {
         }}
         onSave={handleSaveSystemPrompt}
       />
+    </div>
+  );
+}
+
+interface SystemPromptContentEditorProps {
+  prompt: SystemPromptItem;
+  onContentChange: (content: string) => void;
+  onSave: () => void;
+  onResetDefault: () => void;
+  onDelete: (promptId: string) => void;
+}
+
+/** Content textarea plus the reset/delete action row for the selected prompt. */
+function SystemPromptContentEditor({
+  prompt,
+  onContentChange,
+  onSave,
+  onResetDefault,
+  onDelete,
+}: SystemPromptContentEditorProps) {
+  return (
+    <div className="space-y-2">
+      <Textarea
+        value={prompt.content}
+        className="h-48 w-full"
+        placeholder="Enter prompt content..."
+        onChange={(e) => onContentChange(e.target.value)}
+        onBlur={() => void onSave()}
+      />
+      <div className="flex items-center gap-2">
+        {prompt.id === "default" ? (
+          <Button variant="outline" size="sm" onClick={() => void onResetDefault()}>
+            <Icon icon="lucide:rotate-ccw" className="mr-1 h-3.5 w-3.5" />
+            Reset to Default
+          </Button>
+        ) : (
+          <AlertDialog>
+            <AlertDialogTrigger
+              render={
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                />
+              }
+            >
+              <Icon icon="lucide:trash-2" className="mr-1 h-3.5 w-3.5" />
+              Delete
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete &quot;{prompt.name}&quot;?</AlertDialogTitle>
+                <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={() => void onDelete(prompt.id)}>Confirm</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
+      </div>
     </div>
   );
 }

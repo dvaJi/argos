@@ -204,45 +204,13 @@ const DifyKnowledgeSettings = () => {
             {configs.length > 0 && (
               <div className="space-y-3">
                 {configs.map((config, index) => (
-                  <div
+                  <DifyConfigCard
                     key={`${config.endpoint}:${config.datasetId}:${config.description}`}
-                    className="p-3 border rounded-md relative"
-                  >
-                    <div className="absolute top-2 right-2 flex gap-2">
-                      <Switch
-                        checked={config.enabled === true}
-                        onCheckedChange={(v) => toggleConfigEnabled(index, v)}
-                      />
-                      <button
-                        className="text-muted-foreground hover:text-primary"
-                        aria-label="Edit Dify config"
-                        onClick={() => editConfig(index)}
-                      >
-                        <Icon icon="lucide:edit" className="h-4 w-4" />
-                      </button>
-                      <button
-                        className="text-muted-foreground hover:text-destructive"
-                        aria-label="Remove Dify config"
-                        onClick={() => removeConfig(index)}
-                      >
-                        <Icon icon="lucide:trash-2" className="h-4 w-4" />
-                      </button>
-                    </div>
-                    <div className="grid gap-2">
-                      <span className="font-medium text-sm">{config.description}</span>
-                      <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-                        <div>
-                          <span className="font-medium">API Key:</span> {config.apiKey.substring(0, 8) + "****"}
-                        </div>
-                        <div>
-                          <span className="font-medium">Dataset ID:</span> {config.datasetId}
-                        </div>
-                        <div className="col-span-2">
-                          <span className="font-medium">Endpoint:</span> {config.endpoint}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                    config={config}
+                    onToggleEnabled={(v) => void toggleConfigEnabled(index, v)}
+                    onEdit={() => editConfig(index)}
+                    onRemove={() => void removeConfig(index)}
+                  />
                 ))}
               </div>
             )}
@@ -256,78 +224,149 @@ const DifyKnowledgeSettings = () => {
         </CollapsibleContent>
       </Collapsible>
 
-      <Dialog open={isConfigDialogOpen} onOpenChange={setIsConfigDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{isEditing ? "Edit Dify Config" : "Add Dify Config"}</DialogTitle>
-            <DialogDescription>Connect to Dify knowledge bases</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">Description</Label>
-              <Input
-                value={editingConfig.description}
-                onChange={(e) =>
-                  setEditingConfig((p) => ({
-                    ...p,
-                    description: e.target.value,
-                  }))
-                }
-                placeholder="Description"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">API Key</Label>
-              <Input
-                value={editingConfig.apiKey}
-                onChange={(e) =>
-                  setEditingConfig((p) => ({
-                    ...p,
-                    apiKey: e.target.value,
-                  }))
-                }
-                type="password"
-                placeholder="Dify API Key"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">Dataset ID</Label>
-              <Input
-                value={editingConfig.datasetId}
-                onChange={(e) =>
-                  setEditingConfig((p) => ({
-                    ...p,
-                    datasetId: e.target.value,
-                  }))
-                }
-                placeholder="Dify Dataset ID"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">Endpoint</Label>
-              <Input
-                value={editingConfig.endpoint}
-                onChange={(e) =>
-                  setEditingConfig((p) => ({
-                    ...p,
-                    endpoint: e.target.value,
-                  }))
-                }
-                placeholder="https://api.dify.ai/v1"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={closeDialog}>
-              Cancel
-            </Button>
-            <Button disabled={!isValid} onClick={saveConfig}>
-              {isEditing ? "Confirm" : "Add Config"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <DifyConfigDialog
+        open={isConfigDialogOpen}
+        onOpenChange={setIsConfigDialogOpen}
+        isEditing={isEditing}
+        editingConfig={editingConfig}
+        onEditingConfigChange={setEditingConfig}
+        onClose={closeDialog}
+        onSave={() => void saveConfig()}
+        isValid={isValid}
+      />
     </div>
   );
 };
+const DifyConfigCard = ({
+  config,
+  onToggleEnabled,
+  onEdit,
+  onRemove,
+}: {
+  config: DifyConfig;
+  onToggleEnabled: (enabled: boolean) => void;
+  onEdit: () => void;
+  onRemove: () => void;
+}) => (
+  <div className="p-3 border rounded-md relative">
+    <div className="absolute top-2 right-2 flex gap-2">
+      <Switch checked={config.enabled === true} onCheckedChange={onToggleEnabled} />
+      <button className="text-muted-foreground hover:text-primary" aria-label="Edit Dify config" onClick={onEdit}>
+        <Icon icon="lucide:edit" className="h-4 w-4" />
+      </button>
+      <button
+        className="text-muted-foreground hover:text-destructive"
+        aria-label="Remove Dify config"
+        onClick={onRemove}
+      >
+        <Icon icon="lucide:trash-2" className="h-4 w-4" />
+      </button>
+    </div>
+    <div className="grid gap-2">
+      <span className="font-medium text-sm">{config.description}</span>
+      <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+        <div>
+          <span className="font-medium">API Key:</span> {config.apiKey.substring(0, 8) + "****"}
+        </div>
+        <div>
+          <span className="font-medium">Dataset ID:</span> {config.datasetId}
+        </div>
+        <div className="col-span-2">
+          <span className="font-medium">Endpoint:</span> {config.endpoint}
+        </div>
+      </div>
+    </div>
+  </div>
+);
+const DifyConfigDialog = ({
+  open,
+  onOpenChange,
+  isEditing,
+  editingConfig,
+  onEditingConfigChange,
+  onClose,
+  onSave,
+  isValid,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  isEditing: boolean;
+  editingConfig: DifyConfig;
+  onEditingConfigChange: React.Dispatch<React.SetStateAction<DifyConfig>>;
+  onClose: () => void;
+  onSave: () => void;
+  isValid: boolean;
+}) => (
+  <Dialog open={open} onOpenChange={onOpenChange}>
+    <DialogContent>
+      <DialogHeader>
+        <DialogTitle>{isEditing ? "Edit Dify Config" : "Add Dify Config"}</DialogTitle>
+        <DialogDescription>Connect to Dify knowledge bases</DialogDescription>
+      </DialogHeader>
+      <div className="space-y-4 py-4">
+        <div className="space-y-2">
+          <Label className="text-xs text-muted-foreground">Description</Label>
+          <Input
+            value={editingConfig.description}
+            onChange={(e) =>
+              onEditingConfigChange((p) => ({
+                ...p,
+                description: e.target.value,
+              }))
+            }
+            placeholder="Description"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label className="text-xs text-muted-foreground">API Key</Label>
+          <Input
+            value={editingConfig.apiKey}
+            onChange={(e) =>
+              onEditingConfigChange((p) => ({
+                ...p,
+                apiKey: e.target.value,
+              }))
+            }
+            type="password"
+            placeholder="Dify API Key"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label className="text-xs text-muted-foreground">Dataset ID</Label>
+          <Input
+            value={editingConfig.datasetId}
+            onChange={(e) =>
+              onEditingConfigChange((p) => ({
+                ...p,
+                datasetId: e.target.value,
+              }))
+            }
+            placeholder="Dify Dataset ID"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label className="text-xs text-muted-foreground">Endpoint</Label>
+          <Input
+            value={editingConfig.endpoint}
+            onChange={(e) =>
+              onEditingConfigChange((p) => ({
+                ...p,
+                endpoint: e.target.value,
+              }))
+            }
+            placeholder="https://api.dify.ai/v1"
+          />
+        </div>
+      </div>
+      <DialogFooter>
+        <Button variant="outline" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button disabled={!isValid} onClick={onSave}>
+          {isEditing ? "Confirm" : "Add Config"}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+);
 export default DifyKnowledgeSettings;

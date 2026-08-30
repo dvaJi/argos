@@ -9,7 +9,7 @@ import { Button } from "#shadcn/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "#shadcn/components/ui/tooltip";
 import { Icon } from "@iconify/react";
 import ProviderModelManager from "./ProviderModelManager";
-import ProviderDialogContainer from "./ProviderDialogContainer";
+import ProviderDialogContainer, { type ProviderDialogKind } from "./ProviderDialogContainer";
 interface BedrockProviderSettingsDetailProps {
   provider: AWS_BEDROCK_PROVIDER;
   onProviderConfigured?: () => void;
@@ -29,10 +29,7 @@ export default function BedrockProviderSettingsDetail({
   const [showSecretAccessKey, setShowSecretAccessKey] = useState(false);
   const [checkResult, setCheckResult] = useState(false);
   const [modelToDisable, setModelToDisable] = useState<RENDERER_MODEL_META | null>(null);
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [showCheckModelDialog, setShowCheckModelDialog] = useState(false);
-  const [showDisableAllConfirmDialog, setShowDisableAllConfirmDialog] = useState(false);
-  const [showDeleteProviderDialog, setShowDeleteProviderDialog] = useState(false);
+  const [activeProviderDialog, setActiveProviderDialog] = useState<ProviderDialogKind | null>(null);
   const customModels = (() => {
     const providerCustomModels = modelStore.customModels.find((entry) => entry.providerId === provider.id);
     return providerCustomModels?.models || [];
@@ -115,15 +112,15 @@ export default function BedrockProviderSettingsDetail({
       const resp = await providerStore.checkProvider(provider.id);
       if (resp.isOk) {
         setCheckResult(true);
-        setShowCheckModelDialog(true);
+        setActiveProviderDialog("checkModel");
         await modelStore.refreshProviderModels(provider.id);
       } else {
         setCheckResult(false);
-        setShowCheckModelDialog(true);
+        setActiveProviderDialog("checkModel");
       }
     } catch {
       setCheckResult(false);
-      setShowCheckModelDialog(true);
+      setActiveProviderDialog("checkModel");
     }
   };
   const handleVerifyCredential = async (updates: Partial<AWS_BEDROCK_PROVIDER>) => {
@@ -138,14 +135,14 @@ export default function BedrockProviderSettingsDetail({
       } catch (error) {
         console.error("Failed to disable model:", error);
       }
-      setShowConfirmDialog(false);
+      setActiveProviderDialog(null);
       setModelToDisable(null);
     }
   };
   const handleModelEnabledChange = async (model: RENDERER_MODEL_META, enabled: boolean, confirm: boolean = false) => {
     if (!enabled && confirm) {
       setModelToDisable(model);
-      setShowConfirmDialog(true);
+      setActiveProviderDialog("confirm");
     } else {
       await modelStore.updateModelStatus(provider.id, model.id, enabled);
       if (enabled) {
@@ -156,7 +153,7 @@ export default function BedrockProviderSettingsDetail({
   const confirmDisableAll = async () => {
     try {
       await modelStore.disableAllModels(provider.id);
-      setShowDisableAllConfirmDialog(false);
+      setActiveProviderDialog(null);
     } catch (error) {
       console.error("Failed to disable all models:", error);
     }
@@ -302,14 +299,8 @@ export default function BedrockProviderSettingsDetail({
         provider={provider}
         modelToDisable={modelToDisable}
         checkResult={checkResult}
-        showConfirmDialog={showConfirmDialog}
-        showCheckModelDialog={showCheckModelDialog}
-        showDisableAllConfirmDialog={showDisableAllConfirmDialog}
-        showDeleteProviderDialog={showDeleteProviderDialog}
-        onShowConfirmDialogChange={setShowConfirmDialog}
-        onShowCheckModelDialogChange={setShowCheckModelDialog}
-        onShowDisableAllConfirmDialogChange={setShowDisableAllConfirmDialog}
-        onShowDeleteProviderDialogChange={setShowDeleteProviderDialog}
+        activeDialog={activeProviderDialog}
+        onActiveDialogChange={setActiveProviderDialog}
         onConfirmDisableModel={confirmDisable}
         onConfirmDisableAllModels={confirmDisableAll}
         onConfirmDeleteProvider={() => {}}

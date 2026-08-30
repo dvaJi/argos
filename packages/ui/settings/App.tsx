@@ -44,6 +44,7 @@ import {
 import type { SettingsNavigationPayload } from "@argos/shared/settingsNavigation";
 import { useStartupWorkloadStore } from "#/stores/startupWorkloadStore";
 import { useStore } from "@tanstack/react-store";
+
 const windowClient = createWindowClient();
 const DATABASE_REPAIR_SECTION = "database-repair";
 const SETTINGS_SECTION_EVENT = "argos:settings-section";
@@ -76,40 +77,71 @@ const hasSameRouteParams = (currentParams: Record<string, unknown>, nextParams: 
   }
   return nextEntries.every(([key, value]) => currentParams[key] === value);
 };
-export default function SettingsApp() {
-  const routerInstance = useRouter();
-  const routerState = useRouterState();
-  const { isMacOS, isWinMacOS } = useDeviceVersion();
-  useFontManager();
-  const themeState = useStore(themeStore);
-  const modelCheckState = useStore(modelCheckStore);
-  const uiSettingsState = useStore(uiSettingsStore);
-  const providerState = useStore(providerStore);
-  const providerDeeplinkImportState = useStore(providerDeeplinkImportStore);
-  const startupWorkloadState = useStartupWorkloadStore();
-  const { setup: setupMcpDeeplink } = useMcpInstallDeeplinkHandler();
-  const errorQueue = useRef<
-    Array<{
-      id: string;
-      title: string;
-      message: string;
-      type: string;
-    }>
-  >([]);
-  const currentErrorId = useRef<string | null>(null);
-  const errorDisplayTimer = useRef<number | null>(null);
-  const [isImportingProvider, setIsImportingProvider] = useState(false);
-  const [isProcessingProviderPreview, setIsProcessingProviderPreview] = useState(false);
-  const hasLoggedFirstRouteResolved = useRef(false);
-  const providerStoreInitializePromise = useRef<Promise<void> | null>(null);
-  const toasterTheme =
-    themeState.themeMode === "system" ? (themeState.isDark ? "dark" : "light") : themeState.themeMode;
-  const [startupTimeOrigin] = useState(() => (typeof performance !== "undefined" ? performance.now() : Date.now()));
-  const logSettingsStartup = (phase: string) => {
-    const now = typeof performance !== "undefined" ? performance.now() : Date.now();
-    const elapsed = Math.round(now - startupTimeOrigin);
-    console.info(`${SETTINGS_STARTUP_LOG_PREFIX} ${phase} elapsed=${elapsed}ms`);
+
+type QueuedError = { id: string; title: string; message: string; type: string };
+
+const createErrorToastQueue = () => {
+  const queue: QueuedError[] = [];
+  let currentId: string | null = null;
+  let displayTimer: number | null = null;
+
+  const display = (error: QueuedError) => {
+    currentId = error.id;
+    const { dismiss } = toast({
+      title: error.title,
+      description: error.message,
+      variant: "destructive",
+      onOpenChange: (open) => {
+        if (!open) {
+          handleClosed();
+        }
+      },
+    });
+    if (displayTimer) {
+      clearTimeout(displayTimer);
+    }
+    displayTimer = window.setTimeout(() => {
+      dismiss();
+    }, 3000);
   };
+  const handleClosed = () => {
+    currentId = null;
+    if (queue.length > 0) {
+      const nextError = queue.shift();
+      if (nextError) {
+        display(nextError);
+      }
+    } else if (displayTimer) {
+      clearTimeout(displayTimer);
+      displayTimer = null;
+    }
+  };
+  const show = (error: QueuedError) => {
+    const exists = queue.findIndex((item) => item.id === error.id);
+    if (exists !== -1) {
+      return;
+    }
+    if (currentId) {
+      if (queue.length > 5) {
+        queue.shift();
+      }
+      queue.push(error);
+      return;
+    }
+    display(error);
+  };
+  const dispose = () => {
+    if (displayTimer) {
+      clearTimeout(displayTimer);
+      displayTimer = null;
+    }
+  };
+
+  return { show, dispose };
+};
+type ErrorToastQueue = ReturnType<typeof createErrorToastQueue>;
+
+const buildSettingsNavigation = () => {
   const settings = getSettingsRouteItems(getRuntimePlatform()).map((item) => ({
     title: item.titleKey,
     name: item.routeName,
@@ -126,6 +158,100 @@ export default function SettingsApp() {
       path: resolveSettingsNavigationPath(item.routeName),
     })),
   }));
+  return { settings, settingGroups };
+};
+type SettingsSidebarGroups = ReturnType<typeof buildSettingsNavigation>["settingGroups"];
+
+const publishSettingsSection = async (section?: string) => {
+  if (!section) {
+    return;
+  }
+  (window as SettingsWindowState).__argosSettingsPendingSection = section;
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  window.dispatchEvent(
+    new CustomEvent(SETTINGS_SECTION_EVENT, {
+      detail: {
+        section,
+      },
+    }),
+  );
+};
+
+const openDatabaseRepairSection = async (routerInstance: RouterInstance) => {
+  await routerInstance.navigate({
+    to: "/database" as any,
+  });
+  await publishSettingsSection(DATABASE_REPAIR_SECTION);
+};
+
+const showDatabaseRepairSuggestedToast = (payload: DatabaseRepairSuggestedPayload) => {
+  toast({
+    title: payload.title,
+    description: `${payload.message} - ${payload.reason}`,
+  });
+};
+
+const resolveSettingsWindowTitle = (pathname: string, settings: Array<{ name: string; title: string }>) => {
+  const routeSegment = pathname.split("/").filter(Boolean)[0] || "";
+  const currentSetting = settings.find((s) => s.name === `settings-${routeSegment}`);
+  return currentSetting ? `Settings - ${currentSetting.title}` : "Settings";
+};
+
+const runSettingsStartup = async (deps: {
+  routerInstance: RouterInstance;
+  logSettingsStartup: (phase: string) => void;
+  syncPendingProviderInstall: () => Promise<void>;
+  onStartupInteractive: () => void;
+}) => {
+  const { routerInstance, logSettingsStartup, syncPendingProviderInstall, onStartupInteractive } = deps;
+  const [settingsLoadResult, routerReadyResult, themeResult] = await Promise.allSettled([
+    loadUiSettings(),
+    routerInstance.load(),
+    initTheme(),
+  ]);
+  if (settingsLoadResult.status === "rejected") {
+    console.error(
+      `${SETTINGS_STARTUP_LOG_PREFIX} failed to load UI settings during startup:`,
+      settingsLoadResult.reason,
+    );
+  }
+  if (themeResult.status === "rejected") {
+    console.error(`${SETTINGS_STARTUP_LOG_PREFIX} theme init failed:`, themeResult.reason);
+  }
+  if (routerReadyResult.status === "rejected") {
+    console.error(`${SETTINGS_STARTUP_LOG_PREFIX} router ready failed during startup:`, routerReadyResult.reason);
+  }
+  try {
+    await initializeProviders();
+    logSettingsStartup("provider summaries ready");
+  } catch (error) {
+    console.error(`${SETTINGS_STARTUP_LOG_PREFIX} provider summaries failed:`, error);
+  }
+  try {
+    await initializeModels();
+    logSettingsStartup("enabled models ready");
+  } catch (error) {
+    console.error(`${SETTINGS_STARTUP_LOG_PREFIX} enabled models failed:`, error);
+  }
+  markStartupInteractive();
+  onStartupInteractive();
+  await syncPendingProviderInstall();
+  await windowClient.notifyReady();
+  logSettingsStartup("settings window ready IPC sent");
+};
+
+type RouterInstance = ReturnType<typeof useRouter>;
+
+const useProviderDeeplinkImport = (deps: {
+  routerInstance: RouterInstance;
+  logSettingsStartup: (phase: string) => void;
+}) => {
+  const { routerInstance, logSettingsStartup } = deps;
+  const [isImportingProvider, setIsImportingProvider] = useState(false);
+  const [isProcessingProviderPreview, setIsProcessingProviderPreview] = useState(false);
+  const providerStoreInitializePromise = useRef<Promise<void> | null>(null);
+  const providerState = useStore(providerStore);
+  const providerDeeplinkImportState = useStore(providerDeeplinkImportStore);
   const pendingProviderImportPreview = providerDeeplinkImportState.preview;
   const pendingProviderImportToken = providerDeeplinkImportState.previewToken;
   const providerImportConfirmDisabled = (() => {
@@ -172,86 +298,6 @@ export default function SettingsApp() {
       to: (providerId ? `/provider/${providerId}` : "/provider") as any,
     });
   };
-  const publishSettingsSection = async (section?: string) => {
-    if (!section) {
-      return;
-    }
-    (window as SettingsWindowState).__argosSettingsPendingSection = section;
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    window.dispatchEvent(
-      new CustomEvent(SETTINGS_SECTION_EVENT, {
-        detail: {
-          section,
-        },
-      }),
-    );
-  };
-  const openDatabaseRepairSection = async () => {
-    await routerInstance.navigate({
-      to: "/database" as any,
-    });
-    await publishSettingsSection(DATABASE_REPAIR_SECTION);
-  };
-  const showDatabaseRepairSuggestedToast = (payload: DatabaseRepairSuggestedPayload) => {
-    toast({
-      title: payload.title,
-      description: `${payload.message} - ${payload.reason}`,
-    });
-  };
-  const handleErrorClosedRef = useRef<(() => void) | null>(null);
-  const displayError = (error: { id: string; title: string; message: string; type: string }) => {
-    currentErrorId.current = error.id;
-    const { dismiss } = toast({
-      title: error.title,
-      description: error.message,
-      variant: "destructive",
-      onOpenChange: (open) => {
-        if (!open) {
-          handleErrorClosedRef.current?.();
-        }
-      },
-    });
-    if (errorDisplayTimer.current) {
-      clearTimeout(errorDisplayTimer.current);
-    }
-    errorDisplayTimer.current = window.setTimeout(() => {
-      dismiss();
-    }, 3000);
-  };
-  const handleErrorClosed = () => {
-    currentErrorId.current = null;
-    if (errorQueue.current.length > 0) {
-      const nextError = errorQueue.current.shift();
-      if (nextError) {
-        displayError(nextError);
-      }
-    } else if (errorDisplayTimer.current) {
-      clearTimeout(errorDisplayTimer.current);
-      errorDisplayTimer.current = null;
-    }
-  };
-  useEffect(() => {
-    handleErrorClosedRef.current = handleErrorClosed;
-  }, [handleErrorClosed]);
-  const showErrorToast = (error: { id: string; title: string; message: string; type: string }) => {
-    const exists = errorQueue.current.findIndex((item) => item.id === error.id);
-    if (exists !== -1) {
-      return;
-    }
-    if (currentErrorId.current) {
-      if (errorQueue.current.length > 5) {
-        errorQueue.current.shift();
-      }
-      errorQueue.current.push(error);
-      return;
-    }
-    displayError(error);
-  };
-
-  // Effect Events keep the startup listeners subscribed for the window lifetime
-  // while still seeing the latest toast callbacks.
-  const onShowError = useEffectEvent(showErrorToast);
-  const onDatabaseRepairSuggestedToast = useEffectEvent(showDatabaseRepairSuggestedToast);
   const applyProviderInstallPreview = async (preview: ProviderInstallPreview) => {
     console.log(
       "Applying provider install preview in settings renderer:",
@@ -351,6 +397,117 @@ export default function SettingsApp() {
     }
     setIsImportingProvider(false);
   };
+
+  return {
+    pendingProviderImportPreview,
+    pendingProviderImportToken,
+    providerImportConfirmDisabled,
+    isImportingProvider,
+    isProcessingProviderPreview,
+    ensureProviderRouteReady,
+    syncPendingProviderInstall,
+    handleProviderInstall,
+    handleProviderImportDialogOpenChange,
+    confirmProviderImport,
+  };
+};
+
+const SettingsTitleBar = ({ isMacOS, onClose }: { isMacOS: boolean; onClose: () => void }) => (
+  <div
+    className={`w-full h-9 window-drag-region shrink-0 justify-start flex flex-row relative border border-b-0 border-window-inner-border box-border rounded-t-[10px] ${isMacOS ? "" : "rounded-t-none"} ${isMacOS ? "bg-window-background" : "bg-window-background/10"}`}
+  >
+    <div className="absolute bottom-0 left-0 w-full h-[1px] bg-border z-10" />
+    {!isMacOS && (
+      <Button
+        variant="ghost"
+        className="window-no-drag-region shrink-0 h-9 rounded-none gap-1.5 px-3 text-muted-foreground hover:text-foreground"
+        onClick={onClose}
+      >
+        <ArrowLeft className="size-4" />
+        <span className="text-xs font-medium">Back to chat</span>
+      </Button>
+    )}
+  </div>
+);
+
+const SettingsSidebar = ({
+  groups,
+  activeSegment,
+  onNavigate,
+}: {
+  groups: SettingsSidebarGroups;
+  activeSegment: string;
+  onNavigate: (path: string) => void;
+}) => (
+  <div
+    data-testid="settings-navigation"
+    className="w-60 h-full border-r border-border shrink-0 overflow-y-auto bg-muted/10"
+  >
+    <div className="flex flex-col gap-4 p-3">
+      {groups.map((group) => (
+        <div key={group.key} className="flex flex-col gap-1">
+          <div className="px-2 text-xs font-medium text-muted-foreground">{group.titleKey}</div>
+          <div className="flex flex-col gap-1">
+            {group.items.map((setting) => (
+              <button
+                key={setting.name}
+                type="button"
+                data-testid={getSettingsTabTestId(setting.name)}
+                className={`flex w-full min-w-0 flex-row items-center gap-2 rounded-md px-2 py-2 text-start transition-colors hover:bg-accent ${activeSegment === setting.name.replace("settings-", "") ? "bg-accent text-accent-foreground" : ""}`}
+                onClick={() => onNavigate(setting.path)}
+              >
+                <Icon icon={setting.icon} className="size-4 shrink-0 text-muted-foreground" />
+                <span className="min-w-0 truncate text-sm font-medium">{setting.title}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+export default function SettingsApp() {
+  const routerInstance = useRouter();
+  const routerState = useRouterState();
+  const { isMacOS, isWinMacOS } = useDeviceVersion();
+  useFontManager();
+  const themeState = useStore(themeStore);
+  const modelCheckState = useStore(modelCheckStore);
+  const uiSettingsState = useStore(uiSettingsStore);
+  const startupWorkloadState = useStartupWorkloadStore();
+  const { setup: setupMcpDeeplink } = useMcpInstallDeeplinkHandler();
+  const [startupTimeOrigin] = useState(() => (typeof performance !== "undefined" ? performance.now() : Date.now()));
+  const logSettingsStartup = (phase: string) => {
+    const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+    const elapsed = Math.round(now - startupTimeOrigin);
+    console.info(`${SETTINGS_STARTUP_LOG_PREFIX} ${phase} elapsed=${elapsed}ms`);
+  };
+  const hasLoggedFirstRouteResolved = useRef(false);
+  const [errorToastQueue] = useState(createErrorToastQueue);
+  const showErrorToast = (error: QueuedError) => {
+    errorToastQueue.show(error);
+  };
+  const onShowError = useEffectEvent(showErrorToast);
+  const onDatabaseRepairSuggestedToast = useEffectEvent(showDatabaseRepairSuggestedToast);
+  const providerImport = useProviderDeeplinkImport({ routerInstance, logSettingsStartup });
+  const {
+    pendingProviderImportPreview,
+    pendingProviderImportToken,
+    providerImportConfirmDisabled,
+    isImportingProvider,
+    ensureProviderRouteReady,
+    syncPendingProviderInstall,
+    handleProviderInstall,
+    handleProviderImportDialogOpenChange,
+    confirmProviderImport,
+  } = providerImport;
+  const { settings, settingGroups } = buildSettingsNavigation();
+  const toasterTheme =
+    themeState.themeMode === "system" ? (themeState.isDark ? "dark" : "light") : themeState.themeMode;
+  const modelCheckOpen = modelCheckState.isDialogOpen;
+  const currentPath = routerState.location.pathname;
+  const currentRouteSegment = currentPath.split("/").filter(Boolean)[0] || "";
   const handleSettingsNavigate = async (_event: unknown, payload?: SettingsNavigationPayload) => {
     const routeName = payload?.routeName;
     const params = normalizeRouteParams(payload?.params);
@@ -412,19 +569,8 @@ export default function SettingsApp() {
     logSettingsStartup("app mounted");
   }, [logSettingsStartup]);
   useEffect(() => {
-    const updateTitle = () => {
-      const currentPath = routerState.location.pathname;
-      const routeSegment = currentPath.split("/").filter(Boolean)[0] || "";
-      const currentSetting = settings.find((s) => s.name === `settings-${routeSegment}`);
-      if (currentSetting) {
-        document.title = `Settings - ${currentSetting.title}`;
-      } else {
-        document.title = "Settings";
-      }
-    };
-    updateTitle();
-    const currentPath = routerState.location.pathname;
-    const routeSegment = currentPath.split("/").filter(Boolean)[0] || "";
+    document.title = resolveSettingsWindowTitle(routerState.location.pathname, settings);
+    const routeSegment = routerState.location.pathname.split("/").filter(Boolean)[0] || "";
     if (!hasLoggedFirstRouteResolved.current && routeSegment) {
       hasLoggedFirstRouteResolved.current = true;
       logSettingsStartup(`first route resolved route=${routeSegment}`);
@@ -473,101 +619,25 @@ export default function SettingsApp() {
     const handleWindowFocus = () => {
       void syncPendingProviderInstallRef.current();
     };
-    const init = async () => {
-      const [settingsLoadResult, routerReadyResult, themeResult] = await Promise.allSettled([
-        loadUiSettings(),
-        routerInstance.load(),
-        initTheme(),
-      ]);
-      if (settingsLoadResult.status === "rejected") {
-        console.error(
-          `${SETTINGS_STARTUP_LOG_PREFIX} failed to load UI settings during startup:`,
-          settingsLoadResult.reason,
-        );
-      }
-      if (themeResult.status === "rejected") {
-        console.error(`${SETTINGS_STARTUP_LOG_PREFIX} theme init failed:`, themeResult.reason);
-      }
-      if (routerReadyResult.status === "rejected") {
-        console.error(`${SETTINGS_STARTUP_LOG_PREFIX} router ready failed during startup:`, routerReadyResult.reason);
-      }
-      try {
-        await initializeProviders();
-        logSettingsStartup("provider summaries ready");
-      } catch (error) {
-        console.error(`${SETTINGS_STARTUP_LOG_PREFIX} provider summaries failed:`, error);
-      }
-      try {
-        await initializeModels();
-        logSettingsStartup("enabled models ready");
-      } catch (error) {
-        console.error(`${SETTINGS_STARTUP_LOG_PREFIX} enabled models failed:`, error);
-      }
-      markStartupInteractive();
-      window.addEventListener("focus", handleWindowFocus);
-      await syncPendingProviderInstallRef.current();
-      await windowClient.notifyReady();
-      logSettingsStartup("settings window ready IPC sent");
-    };
-    void init();
+    void runSettingsStartup({
+      routerInstance,
+      logSettingsStartup,
+      syncPendingProviderInstall: () => syncPendingProviderInstallRef.current(),
+      onStartupInteractive: () => window.addEventListener("focus", handleWindowFocus),
+    });
     return () => {
-      if (errorDisplayTimer.current) {
-        clearTimeout(errorDisplayTimer.current);
-        errorDisplayTimer.current = null;
-      }
+      errorToastQueue.dispose();
       notificationScope.cleanup();
       window.removeEventListener("focus", handleWindowFocus);
       teardownMcpDeeplink();
     };
-  }, [routerInstance, logSettingsStartup]);
-  const modelCheckOpen = modelCheckState.isDialogOpen;
-  const currentPath = routerState.location.pathname;
-  const currentRouteSegment = currentPath.split("/").filter(Boolean)[0] || "";
+  }, [routerInstance, logSettingsStartup, errorToastQueue]);
   return (
     <div data-testid="settings-page" className={`w-full h-screen flex flex-col ${isWinMacOS ? "" : "bg-background"}`}>
-      <div
-        className={`w-full h-9 window-drag-region shrink-0 justify-start flex flex-row relative border border-b-0 border-window-inner-border box-border rounded-t-[10px] ${isMacOS ? "" : "rounded-t-none"} ${isMacOS ? "bg-window-background" : "bg-window-background/10"}`}
-      >
-        <div className="absolute bottom-0 left-0 w-full h-[1px] bg-border z-10" />
-        {!isMacOS && (
-          <Button
-            variant="ghost"
-            className="window-no-drag-region shrink-0 h-9 rounded-none gap-1.5 px-3 text-muted-foreground hover:text-foreground"
-            onClick={closeWindow}
-          >
-            <ArrowLeft className="size-4" />
-            <span className="text-xs font-medium">Back to chat</span>
-          </Button>
-        )}
-      </div>
+      <SettingsTitleBar isMacOS={isMacOS} onClose={closeWindow} />
       <div className="w-full h-0 flex-1 flex flex-row bg-background relative">
         <div className="border-x border-b border-window-inner-border rounded-b-[10px] absolute z-10 top-0 left-0 bottom-0 right-0 pointer-events-none" />
-        <div
-          data-testid="settings-navigation"
-          className="w-60 h-full border-r border-border shrink-0 overflow-y-auto bg-muted/10"
-        >
-          <div className="flex flex-col gap-4 p-3">
-            {settingGroups.map((group) => (
-              <div key={group.key} className="flex flex-col gap-1">
-                <div className="px-2 text-xs font-medium text-muted-foreground">{group.titleKey}</div>
-                <div className="flex flex-col gap-1">
-                  {group.items.map((setting) => (
-                    <button
-                      key={setting.name}
-                      type="button"
-                      data-testid={getSettingsTabTestId(setting.name)}
-                      className={`flex w-full min-w-0 flex-row items-center gap-2 rounded-md px-2 py-2 text-start transition-colors hover:bg-accent ${currentRouteSegment === setting.name.replace("settings-", "") ? "bg-accent text-accent-foreground" : ""}`}
-                      onClick={() => handleClick(setting.path)}
-                    >
-                      <Icon icon={setting.icon} className="size-4 shrink-0 text-muted-foreground" />
-                      <span className="min-w-0 truncate text-sm font-medium">{setting.title}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <SettingsSidebar groups={settingGroups} activeSegment={currentRouteSegment} onNavigate={handleClick} />
         <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
           <Outlet />
         </div>
@@ -584,13 +654,13 @@ export default function SettingsApp() {
         }}
       />
       <ProviderDeeplinkImportDialog
-        key={pendingProviderImportToken}
-        open={Boolean(pendingProviderImportPreview)}
-        preview={pendingProviderImportPreview}
-        confirmDisabled={providerImportConfirmDisabled}
-        submitting={isImportingProvider}
-        onOpenChange={handleProviderImportDialogOpenChange}
-        onConfirm={() => void confirmProviderImport()}
+        key={providerImport.pendingProviderImportToken}
+        open={Boolean(providerImport.pendingProviderImportPreview)}
+        preview={providerImport.pendingProviderImportPreview}
+        confirmDisabled={providerImport.providerImportConfirmDisabled}
+        submitting={providerImport.isImportingProvider}
+        onOpenChange={providerImport.handleProviderImportDialogOpenChange}
+        onConfirm={() => void providerImport.confirmProviderImport()}
       />
       <Toaster theme={toasterTheme as "light" | "dark" | "system"} />
     </div>

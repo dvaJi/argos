@@ -19,7 +19,7 @@ import { MessageBlockVideo } from "./MessageBlockVideo";
 import { MessageBlockPlan } from "./MessageBlockPlan";
 import { MessageTurnFold } from "./MessageTurnFold";
 import { MessageBlockFileChanges } from "./MessageBlockFileChanges";
-import { buildAssistantRenderItems } from "./messageActivityGroups";
+import { buildAssistantRenderItems, type AssistantRenderItem } from "./messageActivityGroups";
 import {
   Dialog,
   DialogContent,
@@ -334,131 +334,25 @@ const MessageItemAssistant = forwardRef<MessageItemAssistantRef, MessageItemAssi
       className="flex flex-row pl-4 pt-5 pr-11 group gap-2 w-full justify-start assistant-message-item"
       onContextMenu={handleContextMenuOpen}
     >
-      <div className="shrink-0 w-5 h-5 flex items-center justify-center">
-        {currentMessage.model_provider === "acp" ? (
-          (() => {
-            const agent = agentStore.state.agents.find((a) => a.id === currentMessage.model_id);
-            return agent ? (
-              <AgentAvatar agent={agent} className="w-4.5 h-4.5" />
-            ) : (
-              <ModelIcon modelId={currentMessage.model_id} isDark={themeStore.isDark} customClass="w-[18px] h-[18px]" />
-            );
-          })()
-        ) : (
-          <ModelIcon
-            modelId={currentMessage.model_provider}
-            customClass="w-[18px] h-[18px]"
-            isDark={themeStore.isDark}
-          />
-        )}
-      </div>
+      <AssistantMessageAvatar
+        modelProvider={currentMessage.model_provider}
+        modelId={currentMessage.model_provider === "acp" ? currentMessage.model_id : undefined}
+        isDark={themeStore.isDark}
+      />
 
       <div className="flex flex-col w-full space-y-1.5">
         <MessageInfo name={currentMessage.model_name} timestamp={currentMessage.timestamp} />
         {currentContent.length === 0 && (currentMessage?.status ?? message.status) === "pending" ? (
           <Spinner className="size-3 text-muted-foreground" />
         ) : (
-          <div className="flex flex-col w-full gap-1.5" data-message-content="true">
-            {currentRenderItems.map((item) => {
-              if (item.kind === "turn-fold") {
-                return (
-                  <MessageTurnFold
-                    key={item.key}
-                    blocks={item.blocks}
-                    messageId={currentMessage.id}
-                    threadId={currentThreadId}
-                    durationMs={item.durationMs}
-                    onToggleCollapse={handleCollapseToggle}
-                  />
-                );
-              }
-              const block = item.block;
-              if (block.type === "content") {
-                return (
-                  <MessageBlockContent
-                    key={item.key}
-                    block={block}
-                    messageId={currentMessage.id}
-                    threadId={currentThreadId}
-                  />
-                );
-              }
-              if ((block.type === "reasoning_content" || block.type === "artifact-thinking") && block.content) {
-                return (
-                  <MessageBlockThink
-                    key={item.key}
-                    block={block}
-                    usage={currentMessage.usage}
-                    onToggleCollapse={handleCollapseToggle}
-                  />
-                );
-              }
-              if (block.type === "plan") return <MessageBlockPlan key={item.key} block={block} />;
-              if (block.type === "tool_call" && !isInternalToolCall(block)) {
-                return (
-                  <MessageBlockToolCall
-                    key={item.key}
-                    block={block}
-                    messageId={currentMessage.id}
-                    threadId={currentThreadId}
-                  />
-                );
-              }
-              if (block.type === "action" && block.action_type === "question_request") {
-                return <MessageBlockQuestionRequest key={item.key} block={block} />;
-              }
-              if (block.type === "action") {
-                return (
-                  <MessageBlockAction
-                    key={item.key}
-                    messageId={currentMessage.id}
-                    conversationId={currentThreadId}
-                    block={block}
-                    isReadOnly={isReadOnly}
-                    onContinue={handleBlockContinue}
-                  />
-                );
-              }
-              if (isAudioBlock(block))
-                return (
-                  <MessageBlockAudio
-                    key={item.key}
-                    block={block}
-                    messageId={currentMessage.id}
-                    threadId={currentThreadId}
-                  />
-                );
-              if (isVideoBlock(block))
-                return (
-                  <MessageBlockVideo
-                    key={item.key}
-                    block={block}
-                    messageId={currentMessage.id}
-                    threadId={currentThreadId}
-                  />
-                );
-              if (block.type === "image")
-                return (
-                  <MessageBlockImage
-                    key={item.key}
-                    block={block}
-                    messageId={currentMessage.id}
-                    threadId={currentThreadId}
-                  />
-                );
-              if (block.type === "file_changes")
-                return (
-                  <MessageBlockFileChanges
-                    key={item.key}
-                    block={block}
-                    messageId={currentMessage.id}
-                    threadId={currentThreadId}
-                  />
-                );
-              if (block.type === "error") return <MessageBlockError key={item.key} block={block} />;
-              return null;
-            })}
-          </div>
+          <AssistantMessageBlocks
+            items={currentRenderItems}
+            message={currentMessage}
+            threadId={currentThreadId}
+            isReadOnly={isReadOnly}
+            onContinue={handleBlockContinue}
+            onToggleCollapse={handleCollapseToggle}
+          />
         )}
         <MessageToolbar
           loading={message.status === "pending"}
@@ -487,60 +381,197 @@ const MessageItemAssistant = forwardRef<MessageItemAssistantRef, MessageItemAssi
     return (
       <>
         {content}
-        <Dialog open={isForkDialogOpen} onOpenChange={setIsForkDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Fork Conversation</DialogTitle>
-              <DialogDescription>Create a new branch from this message?</DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsForkDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                variant="default"
-                onClick={() => {
-                  props.onFork?.(currentMessage.id);
-                  setIsForkDialogOpen(false);
-                }}
-              >
-                Confirm
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <ForkConversationDialog
+          open={isForkDialogOpen}
+          onOpenChange={setIsForkDialogOpen}
+          onCancel={() => setIsForkDialogOpen(false)}
+          onConfirm={() => {
+            props.onFork?.(currentMessage.id);
+            setIsForkDialogOpen(false);
+          }}
+        />
       </>
     );
   }
   return (
     <ContextMenu>
       <ContextMenuTrigger render={<div />}>{content}</ContextMenuTrigger>
-      <ContextMenuContent className="w-56">
-        {showSelectionMenu ? (
-          <>
-            <ContextMenuItem onClick={handleSelectionCopy}>Copy</ContextMenuItem>
-            <ContextMenuItem onClick={handleSelectionTranslate}>Translate</ContextMenuItem>
-            {!isReadOnly && <ContextMenuItem onClick={handleSelectionAskAI}>Ask AI</ContextMenuItem>}
-          </>
-        ) : (
-          <>
-            <ContextMenuItem onClick={() => handleAction("copy")}>Copy</ContextMenuItem>
-            {!isReadOnly && <ContextMenuItem onClick={() => handleAction("retry")}>Retry</ContextMenuItem>}
-            {!isReadOnly && (
-              <ContextMenuItem
-                disabled={message.status === "pending" || resolvedIsInGeneratingThread}
-                onClick={() => handleAction("fork")}
-              >
-                Fork
-              </ContextMenuItem>
-            )}
-            {!isReadOnly && <ContextMenuSeparator />}
-            {!isReadOnly && <ContextMenuItem onClick={() => handleAction("delete")}>Delete</ContextMenuItem>}
-          </>
-        )}
-      </ContextMenuContent>
+      <AssistantContextMenuItems
+        showSelectionMenu={showSelectionMenu}
+        isReadOnly={isReadOnly}
+        disabledFork={message.status === "pending" || resolvedIsInGeneratingThread}
+        onSelectionCopy={handleSelectionCopy}
+        onSelectionTranslate={handleSelectionTranslate}
+        onSelectionAskAI={handleSelectionAskAI}
+        onAction={handleAction}
+      />
     </ContextMenu>
   );
 });
 MessageItemAssistant.displayName = "MessageItemAssistant";
+const AssistantMessageAvatar = ({
+  modelProvider,
+  modelId,
+  isDark,
+}: {
+  modelProvider: string;
+  modelId: string | undefined;
+  isDark: boolean;
+}) => (
+  <div className="shrink-0 w-5 h-5 flex items-center justify-center">
+    {modelProvider === "acp" ? (
+      (() => {
+        const agent = modelId ? agentStore.state.agents.find((a) => a.id === modelId) : undefined;
+        return agent ? (
+          <AgentAvatar agent={agent} className="w-4.5 h-4.5" />
+        ) : (
+          <ModelIcon modelId={modelId ?? ""} isDark={isDark} customClass="w-[18px] h-[18px]" />
+        );
+      })()
+    ) : (
+      <ModelIcon modelId={modelProvider} customClass="w-[18px] h-[18px]" isDark={isDark} />
+    )}
+  </div>
+);
+
+const AssistantMessageBlocks = ({
+  items,
+  message,
+  threadId,
+  isReadOnly,
+  onContinue,
+  onToggleCollapse,
+}: {
+  items: AssistantRenderItem[];
+  message: DisplayAssistantMessage;
+  threadId: string;
+  isReadOnly: boolean;
+  onContinue: (conversationId: string, messageId: string) => void;
+  onToggleCollapse: () => void;
+}) => (
+  <div className="flex flex-col w-full gap-1.5" data-message-content="true">
+    {items.map((item) => {
+      if (item.kind === "turn-fold") {
+        return (
+          <MessageTurnFold
+            key={item.key}
+            blocks={item.blocks}
+            messageId={message.id}
+            threadId={threadId}
+            durationMs={item.durationMs}
+            onToggleCollapse={onToggleCollapse}
+          />
+        );
+      }
+      const block = item.block;
+      if (block.type === "content") {
+        return <MessageBlockContent key={item.key} block={block} messageId={message.id} threadId={threadId} />;
+      }
+      if ((block.type === "reasoning_content" || block.type === "artifact-thinking") && block.content) {
+        return (
+          <MessageBlockThink key={item.key} block={block} usage={message.usage} onToggleCollapse={onToggleCollapse} />
+        );
+      }
+      if (block.type === "plan") return <MessageBlockPlan key={item.key} block={block} />;
+      if (block.type === "tool_call" && !isInternalToolCall(block)) {
+        return <MessageBlockToolCall key={item.key} block={block} messageId={message.id} threadId={threadId} />;
+      }
+      if (block.type === "action" && block.action_type === "question_request") {
+        return <MessageBlockQuestionRequest key={item.key} block={block} />;
+      }
+      if (block.type === "action") {
+        return (
+          <MessageBlockAction
+            key={item.key}
+            messageId={message.id}
+            conversationId={threadId}
+            block={block}
+            isReadOnly={isReadOnly}
+            onContinue={onContinue}
+          />
+        );
+      }
+      if (isAudioBlock(block))
+        return <MessageBlockAudio key={item.key} block={block} messageId={message.id} threadId={threadId} />;
+      if (isVideoBlock(block))
+        return <MessageBlockVideo key={item.key} block={block} messageId={message.id} threadId={threadId} />;
+      if (block.type === "image")
+        return <MessageBlockImage key={item.key} block={block} messageId={message.id} threadId={threadId} />;
+      if (block.type === "file_changes")
+        return <MessageBlockFileChanges key={item.key} block={block} messageId={message.id} threadId={threadId} />;
+      if (block.type === "error") return <MessageBlockError key={item.key} block={block} />;
+      return null;
+    })}
+  </div>
+);
+
+const ForkConversationDialog = ({
+  open,
+  onOpenChange,
+  onCancel,
+  onConfirm,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) => (
+  <Dialog open={open} onOpenChange={onOpenChange}>
+    <DialogContent>
+      <DialogHeader>
+        <DialogTitle>Fork Conversation</DialogTitle>
+        <DialogDescription>Create a new branch from this message?</DialogDescription>
+      </DialogHeader>
+      <DialogFooter>
+        <Button variant="outline" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button variant="default" onClick={onConfirm}>
+          Confirm
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+);
+
+const AssistantContextMenuItems = ({
+  showSelectionMenu,
+  isReadOnly,
+  disabledFork,
+  onSelectionCopy,
+  onSelectionTranslate,
+  onSelectionAskAI,
+  onAction,
+}: {
+  showSelectionMenu: boolean;
+  isReadOnly: boolean;
+  disabledFork: boolean;
+  onSelectionCopy: () => void;
+  onSelectionTranslate: () => void;
+  onSelectionAskAI: () => void;
+  onAction: (action: HandleActionType) => void;
+}) => (
+  <ContextMenuContent className="w-56">
+    {showSelectionMenu ? (
+      <>
+        <ContextMenuItem onClick={onSelectionCopy}>Copy</ContextMenuItem>
+        <ContextMenuItem onClick={onSelectionTranslate}>Translate</ContextMenuItem>
+        {!isReadOnly && <ContextMenuItem onClick={onSelectionAskAI}>Ask AI</ContextMenuItem>}
+      </>
+    ) : (
+      <>
+        <ContextMenuItem onClick={() => onAction("copy")}>Copy</ContextMenuItem>
+        {!isReadOnly && <ContextMenuItem onClick={() => onAction("retry")}>Retry</ContextMenuItem>}
+        {!isReadOnly && (
+          <ContextMenuItem disabled={disabledFork} onClick={() => onAction("fork")}>
+            Fork
+          </ContextMenuItem>
+        )}
+        {!isReadOnly && <ContextMenuSeparator />}
+        {!isReadOnly && <ContextMenuItem onClick={() => onAction("delete")}>Delete</ContextMenuItem>}
+      </>
+    )}
+  </ContextMenuContent>
+);
+
 export default MessageItemAssistant;

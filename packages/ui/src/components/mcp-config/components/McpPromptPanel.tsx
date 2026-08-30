@@ -150,43 +150,12 @@ const McpPromptPanel: FC<McpPromptPanelProps> = ({ serverName, open, onOpenChang
 
           <div className="flex-1 flex overflow-hidden min-h-0">
             <div className="hidden lg:flex lg:w-1/3 lg:border-r lg:flex-col">
-              <ScrollArea className="flex-1 min-h-0">
-                {mcpStore.toolsLoading && (
-                  <div className="flex justify-center py-8">
-                    <Icon icon="lucide:loader" className="h-6 w-6 animate-spin text-muted-foreground" />
-                  </div>
-                )}
-                {!mcpStore.toolsLoading && serverPrompts.length === 0 && (
-                  <div className="text-center py-8">
-                    <div className="mx-auto w-12 h-12 bg-muted/30 rounded-full flex items-center justify-center mb-3">
-                      <Icon icon="lucide:message-square" className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                    <p className="text-sm text-muted-foreground">No prompts available</p>
-                  </div>
-                )}
-                {!mcpStore.toolsLoading && serverPrompts.length > 0 && (
-                  <div className="p-2 space-y-1">
-                    {serverPrompts.map((prompt) => (
-                      <Button
-                        key={prompt.name}
-                        variant="ghost"
-                        className={[
-                          "w-full justify-start h-auto p-3 text-left",
-                          selectedPrompt === prompt.name ? "bg-accent text-accent-foreground" : "",
-                        ].join(" ")}
-                        onClick={() => selectPrompt(prompt)}
-                      >
-                        <div className="flex items-start space-x-2 w-full">
-                          <Icon icon="lucide:message-square-text" className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium text-sm truncate">{prompt.name}</div>
-                          </div>
-                        </div>
-                      </Button>
-                    ))}
-                  </div>
-                )}
-              </ScrollArea>
+              <PromptListPane
+                loading={mcpStore.toolsLoading}
+                prompts={serverPrompts}
+                selectedPrompt={selectedPrompt}
+                onSelect={selectPrompt}
+              />
             </div>
 
             <div className="flex-1 flex flex-col overflow-hidden lg:w-2/3 min-h-0">
@@ -215,93 +184,22 @@ const McpPromptPanel: FC<McpPromptPanelProps> = ({ serverName, open, onOpenChang
                         </p>
                       </div>
 
-                      {promptArgsDescription.length > 0 && (
-                        <div className="border rounded-lg">
-                          <Button
-                            variant="ghost"
-                            className="w-full justify-between p-3 h-auto"
-                            onClick={() => setIsParametersExpanded(!isParametersExpanded)}
-                          >
-                            <span className="font-medium">Parameters ({promptArgsDescription.length})</span>
-                            <Icon
-                              icon={isParametersExpanded ? "lucide:chevron-up" : "lucide:chevron-down"}
-                              className="h-4 w-4"
-                            />
-                          </Button>
-                          {isParametersExpanded && (
-                            <div className="px-3 pb-3 space-y-2">
-                              {promptArgsDescription.map((arg) => (
-                                <div key={arg.name} className="p-2 bg-muted/30 rounded-md border border-border/30">
-                                  <div className="flex items-center space-x-1 mb-1">
-                                    <code className="text-xs font-mono font-medium text-foreground">{arg.name}</code>
-                                    {arg.required && (
-                                      <Badge variant="destructive" className="text-xs px-1 py-0">
-                                        Required
-                                      </Badge>
-                                    )}
-                                  </div>
-                                  {arg.description && (
-                                    <p className="text-xs text-muted-foreground">{arg.description}</p>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
+                      <PromptParametersCard
+                        args={promptArgsDescription}
+                        expanded={isParametersExpanded}
+                        onToggle={() => setIsParametersExpanded(!isParametersExpanded)}
+                      />
 
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <h3 className="text-sm font-medium text-foreground">Input</h3>
-                          <div className="flex space-x-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 text-xs px-2"
-                              onClick={() => setPromptParams(defaultPromptParams)}
-                            >
-                              <Icon icon="lucide:refresh-cw" className="mr-1 h-3 w-3" /> Reset
-                            </Button>
-                            <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={formatPromptParams}>
-                              <Icon icon="lucide:align-left" className="mr-1 h-3 w-3" /> Format
-                            </Button>
-                          </div>
-                        </div>
-
-                        <div className="relative">
-                          <textarea
-                            value={promptParams}
-                            onChange={(e) => {
-                              setPromptParams(e.target.value);
-                              validatePromptJson(e.target.value);
-                            }}
-                            onBlur={() => setPromptParams(formatJson(promptParams))}
-                            aria-label="Prompt parameters (JSON)"
-                            className={[
-                              "flex h-32 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                              jsonPromptError ? "border-destructive" : "",
-                            ].join(" ")}
-                            placeholder="{}"
-                          />
-                          {jsonPromptError && (
-                            <div className="absolute right-3 top-3 text-xs text-destructive">Invalid JSON</div>
-                          )}
-                        </div>
-                        <p className="text-xs text-muted-foreground">Enter parameters as JSON</p>
-
-                        <Button
-                          className="w-full"
-                          disabled={promptLoading || jsonPromptError}
-                          onClick={() => callPrompt(selectedPromptObj as PromptListEntry)}
-                        >
-                          {promptLoading ? (
-                            <Icon icon="lucide:loader" className="mr-2 h-4 w-4 animate-spin" />
-                          ) : (
-                            <Icon icon="lucide:play" className="mr-2 h-4 w-4" />
-                          )}
-                          {promptLoading ? "Running..." : "Execute"}
-                        </Button>
-                      </div>
+                      <PromptRunCard
+                        params={promptParams}
+                        jsonError={jsonPromptError}
+                        loading={promptLoading}
+                        defaultParams={defaultPromptParams}
+                        onParamsChange={setPromptParams}
+                        onValidateJson={validatePromptJson}
+                        onFormat={formatPromptParams}
+                        onRun={() => callPrompt(selectedPromptObj as PromptListEntry)}
+                      />
 
                       {promptResult && <McpJsonViewer content={promptResult} title="Result" readonly />}
                     </div>
@@ -315,4 +213,166 @@ const McpPromptPanel: FC<McpPromptPanelProps> = ({ serverName, open, onOpenChang
     </Sheet>
   );
 };
+interface PromptListPaneProps {
+  loading: boolean;
+  prompts: PromptListEntry[];
+  selectedPrompt: string;
+  onSelect: (prompt: PromptListEntry) => void;
+}
+
+/** Desktop sidebar list of available prompts for the selected server. */
+function PromptListPane({ loading, prompts, selectedPrompt, onSelect }: PromptListPaneProps) {
+  return (
+    <ScrollArea className="flex-1 min-h-0">
+      {loading && (
+        <div className="flex justify-center py-8">
+          <Icon icon="lucide:loader" className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      )}
+      {!loading && prompts.length === 0 && (
+        <div className="text-center py-8">
+          <div className="mx-auto w-12 h-12 bg-muted/30 rounded-full flex items-center justify-center mb-3">
+            <Icon icon="lucide:message-square" className="h-5 w-5 text-muted-foreground" />
+          </div>
+          <p className="text-sm text-muted-foreground">No prompts available</p>
+        </div>
+      )}
+      {!loading && prompts.length > 0 && (
+        <div className="p-2 space-y-1">
+          {prompts.map((prompt) => (
+            <Button
+              key={prompt.name}
+              variant="ghost"
+              className={[
+                "w-full justify-start h-auto p-3 text-left",
+                selectedPrompt === prompt.name ? "bg-accent text-accent-foreground" : "",
+              ].join(" ")}
+              onClick={() => onSelect(prompt)}
+            >
+              <div className="flex items-start space-x-2 w-full">
+                <Icon icon="lucide:message-square-text" className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-sm truncate">{prompt.name}</div>
+                </div>
+              </div>
+            </Button>
+          ))}
+        </div>
+      )}
+    </ScrollArea>
+  );
+}
+interface PromptArgumentSummary {
+  name: string;
+  description: string;
+  required: boolean;
+}
+interface PromptParametersCardProps {
+  args: PromptArgumentSummary[];
+  expanded: boolean;
+  onToggle: () => void;
+}
+
+/** Collapsible card describing the selected prompt's arguments. */
+function PromptParametersCard({ args, expanded, onToggle }: PromptParametersCardProps) {
+  if (args.length === 0) return null;
+  return (
+    <div className="border rounded-lg">
+      <Button variant="ghost" className="w-full justify-between p-3 h-auto" onClick={onToggle}>
+        <span className="font-medium">Parameters ({args.length})</span>
+        <Icon icon={expanded ? "lucide:chevron-up" : "lucide:chevron-down"} className="h-4 w-4" />
+      </Button>
+      {expanded && (
+        <div className="px-3 pb-3 space-y-2">
+          {args.map((arg) => (
+            <div key={arg.name} className="p-2 bg-muted/30 rounded-md border border-border/30">
+              <div className="flex items-center space-x-1 mb-1">
+                <code className="text-xs font-mono font-medium text-foreground">{arg.name}</code>
+                {arg.required && (
+                  <Badge variant="destructive" className="text-xs px-1 py-0">
+                    Required
+                  </Badge>
+                )}
+              </div>
+              {arg.description && <p className="text-xs text-muted-foreground">{arg.description}</p>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+interface PromptRunCardProps {
+  params: string;
+  jsonError: boolean;
+  loading: boolean;
+  defaultParams: string;
+  onParamsChange: (value: string) => void;
+  onValidateJson: (input: string) => boolean;
+  onFormat: () => void;
+  onRun: () => void;
+}
+
+/** JSON parameter editor with reset/format actions and the execute button. */
+function PromptRunCard({
+  params,
+  jsonError,
+  loading,
+  defaultParams,
+  onParamsChange,
+  onValidateJson,
+  onFormat,
+  onRun,
+}: PromptRunCardProps) {
+  const formatJson = (input: string): string => {
+    try {
+      return JSON.stringify(JSON.parse(input), null, 2);
+    } catch {
+      return input;
+    }
+  };
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-medium text-foreground">Input</h3>
+        <div className="flex space-x-2">
+          <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={() => onParamsChange(defaultParams)}>
+            <Icon icon="lucide:refresh-cw" className="mr-1 h-3 w-3" /> Reset
+          </Button>
+          <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={onFormat}>
+            <Icon icon="lucide:align-left" className="mr-1 h-3 w-3" /> Format
+          </Button>
+        </div>
+      </div>
+
+      <div className="relative">
+        <textarea
+          value={params}
+          onChange={(e) => {
+            onParamsChange(e.target.value);
+            onValidateJson(e.target.value);
+          }}
+          onBlur={() => onParamsChange(formatJson(params))}
+          aria-label="Prompt parameters (JSON)"
+          className={[
+            "flex h-32 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+            jsonError ? "border-destructive" : "",
+          ].join(" ")}
+          placeholder="{}"
+        />
+        {jsonError && <div className="absolute right-3 top-3 text-xs text-destructive">Invalid JSON</div>}
+      </div>
+      <p className="text-xs text-muted-foreground">Enter parameters as JSON</p>
+
+      <Button className="w-full" disabled={loading || jsonError} onClick={onRun}>
+        {loading ? (
+          <Icon icon="lucide:loader" className="mr-2 h-4 w-4 animate-spin" />
+        ) : (
+          <Icon icon="lucide:play" className="mr-2 h-4 w-4" />
+        )}
+        {loading ? "Running..." : "Execute"}
+      </Button>
+    </div>
+  );
+}
 export default McpPromptPanel;

@@ -22,6 +22,8 @@ interface AcpDiagnosticsProps {
 }
 type ConnectionState = "off" | "unchecked" | "checking" | "ready" | "auth" | "error";
 type AuthMethod = AcpAgentDiagnostics["authMethods"][number];
+type DiagnosticsCapabilities = AcpAgentDiagnostics["capabilities"];
+type RunDebugAction = (action: string, payload?: Record<string, unknown>) => Promise<AcpDebugRunResult | null>;
 const CAPABILITY_LABELS: Array<{
   key: keyof AcpAgentDiagnostics["capabilities"];
   label: string;
@@ -373,89 +375,31 @@ export default function AcpDiagnostics({
   return (
     <Collapsible open={detailsOpen} onOpenChange={setManualDetailsOpen}>
       <section aria-label={`${agentName} connection`} className="border-t bg-muted/20 text-xs">
-        <div className="flex min-w-0 items-center gap-2 px-3 py-2.5">
-          <span
-            aria-hidden="true"
-            className={cn(
-              "size-2 shrink-0 rounded-full",
-              connectionState === "ready"
-                ? "bg-primary"
-                : connectionState === "error"
-                  ? "bg-destructive"
-                  : "bg-muted-foreground/60",
-            )}
-          />
-          <Badge variant={connectionBadgeVariant} className="shrink-0">
-            {connectionCopy.label}
-          </Badge>
-          <p className="min-w-0 flex-1 truncate text-muted-foreground">{connectionCopy.description}</p>
-
-          <div className="flex shrink-0 items-center gap-1">
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    size="icon-sm"
-                    variant="ghost"
-                    aria-label={checkLabel}
-                    disabled={probing || !canRun}
-                    onClick={() => void runDiagnostics()}
-                  >
-                    {probing ? <Spinner /> : <Icon icon="lucide:refresh-cw" />}
-                  </Button>
-                }
-              />
-              <TooltipContent>{canRun ? checkLabel : `Enable ${agentName} before checking`}</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    size="icon-sm"
-                    variant="ghost"
-                    aria-label={detailsLabel}
-                    aria-expanded={detailsOpen}
-                    aria-controls={`acp-details-${agentId}`}
-                    onClick={() => setManualDetailsOpen(!detailsOpen)}
-                  >
-                    <Icon icon={detailsOpen ? "lucide:chevron-up" : "lucide:chevron-down"} />
-                  </Button>
-                }
-              />
-              <TooltipContent>{detailsLabel}</TooltipContent>
-            </Tooltip>
-          </div>
-        </div>
+        <ConnectionHeader
+          agentId={agentId}
+          agentName={agentName}
+          connectionState={connectionState}
+          connectionCopy={connectionCopy}
+          connectionBadgeVariant={connectionBadgeVariant}
+          checkLabel={checkLabel}
+          detailsLabel={detailsLabel}
+          detailsOpen={detailsOpen}
+          probing={probing}
+          canRun={canRun}
+          onCheck={() => void runDiagnostics()}
+          onToggleDetails={() => setManualDetailsOpen(!detailsOpen)}
+        />
 
         <CollapsibleContent id={`acp-details-${agentId}`}>
           <div className="flex flex-col gap-3 border-t px-3 py-3">
-            <Field>
-              <FieldLabel htmlFor={`acp-workdir-${agentId}`}>Workspace folder (optional)</FieldLabel>
-              <Input
-                id={`acp-workdir-${agentId}`}
-                value={workdirInput}
-                disabled={probing || !canRun}
-                onChange={(event) => setWorkdirInput(event.target.value)}
-                placeholder="C:\\Users\\you\\project"
-                className="font-mono text-xs"
-              />
-              <FieldDescription>
-                Leave blank to use the app default. Use a project folder when the agent needs context.
-              </FieldDescription>
-            </Field>
+            <WorkspaceField
+              agentId={agentId}
+              value={workdirInput}
+              disabled={probing || !canRun}
+              onChange={(event) => setWorkdirInput(event.target.value)}
+            />
 
-            {probeError && (
-              <div
-                className="flex gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-2.5 py-2 text-destructive"
-                role="alert"
-              >
-                <Icon icon="lucide:triangle-alert" className="mt-0.5 size-4 shrink-0" />
-                <div className="min-w-0">
-                  <div className="font-semibold">Connection check failed</div>
-                  <p className="mt-0.5 text-pretty">{probeError}</p>
-                </div>
-              </div>
-            )}
+            {probeError && <ProbeErrorAlert message={probeError} />}
 
             {(diagnostics?.ready || diagnostics?.authRequired || diagnostics?.lastError) && (
               <>
@@ -467,163 +411,23 @@ export default function AcpDiagnostics({
                   <Row label="Workdir">{diagnostics.workdir ?? "App default"}</Row>
                 </div>
 
-                <div>
-                  <div className="text-xs font-semibold text-muted-foreground mb-1">Capabilities</div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {CAPABILITY_LABELS.map(({ key, label }) => {
-                      const enabled = Boolean(caps?.[key]);
-                      return (
-                        <Badge
-                          key={key}
-                          variant={enabled ? "default" : "outline"}
-                          className={enabled ? "" : "opacity-50"}
-                        >
-                          {label}
-                        </Badge>
-                      );
-                    })}
-                  </div>
-                </div>
+                <CapabilitiesBadges caps={caps} />
 
-                <div>
-                  <div className="text-xs font-semibold text-muted-foreground mb-1">Authentication</div>
-                  {authMethodOptions.length ? (
-                    <div className="flex flex-wrap gap-2">
-                      {authMethodOptions.map(({ method, label }) => (
-                        <div key={method.id} className="flex w-full flex-col gap-1.5">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Button
-                              size="xs"
-                              variant="outline"
-                              disabled={loading}
-                              onClick={() =>
-                                void runAction("authenticate", {
-                                  methodId: method.id,
-                                })
-                              }
-                            >
-                              {label}
-                            </Button>
-                            {method.type === "env_var" && method.link && (
-                              <a
-                                href={method.link}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 text-xs text-muted-foreground underline hover:text-foreground"
-                              >
-                                Get credentials
-                              </a>
-                            )}
-                          </div>
-                          {method.type === "env_var" && method.vars?.length ? (
-                            <ul className="flex flex-col gap-1 rounded-lg border bg-muted/40 px-2 py-1.5 text-xs">
-                              {method.vars.map((variable) => (
-                                <li key={variable.name} className="flex items-center gap-2">
-                                  <code className="rounded bg-background px-1 py-0.5 font-mono">{variable.name}</code>
-                                  {variable.label ? (
-                                    <span className="text-muted-foreground">{variable.label}</span>
-                                  ) : null}
-                                  {variable.optional ? (
-                                    <Badge variant="outline" className="opacity-70">
-                                      optional
-                                    </Badge>
-                                  ) : (
-                                    <Badge variant="secondary">required</Badge>
-                                  )}
-                                  {variable.secret ? <span className="text-muted-foreground">secret</span> : null}
-                                </li>
-                              ))}
-                              <li className="pt-0.5 text-muted-foreground">
-                                Set these environment variables, then re-initialize the agent from the ACP providers
-                                settings.
-                              </li>
-                            </ul>
-                          ) : null}
-                        </div>
-                      ))}
-                      {caps?.authLogout && (
-                        <Button size="xs" variant="ghost" disabled={loading} onClick={() => void runAction("logout")}>
-                          Logout
-                        </Button>
-                      )}
-                    </div>
-                  ) : (
-                    <span className="text-muted-foreground">No auth required</span>
-                  )}
-                </div>
+                <AuthMethodsSection
+                  options={authMethodOptions}
+                  loading={loading}
+                  logoutEnabled={Boolean(caps?.authLogout)}
+                  onRunAction={runAction}
+                />
 
                 {caps?.sessionList && (
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="text-xs font-semibold text-muted-foreground">Remote Sessions</div>
-                      <Button
-                        size="xs"
-                        variant="outline"
-                        disabled={loading}
-                        onClick={() =>
-                          void runAction("sessionList", {
-                            sync: true,
-                          })
-                        }
-                      >
-                        Sync Sessions
-                      </Button>
-                    </div>
-                    {remoteSessions.length === 0 ? (
-                      <span className="text-muted-foreground">No remote sessions synced</span>
-                    ) : (
-                      <div className="flex flex-col gap-1.5">
-                        {remoteSessions.map((session) => (
-                          <div
-                            key={session.sessionId}
-                            className="flex items-center justify-between gap-2 rounded-lg border px-2 py-1.5"
-                          >
-                            <div className="min-w-0">
-                              <div className="truncate font-medium">{session.title ?? session.sessionId}</div>
-                              <div className="truncate text-xs text-muted-foreground">{session.sessionId}</div>
-                            </div>
-                            <div className="flex shrink-0 gap-1.5">
-                              {caps.loadSession && (
-                                <Button
-                                  size="xs"
-                                  variant="outline"
-                                  disabled={loading}
-                                  onClick={() =>
-                                    void runAction("sessionImport", {
-                                      sessionId: session.sessionId,
-                                    })
-                                  }
-                                >
-                                  Import
-                                </Button>
-                              )}
-                              {caps.sessionClose && (
-                                <Button
-                                  size="xs"
-                                  variant="ghost"
-                                  className="text-destructive"
-                                  disabled={loading}
-                                  onClick={() => {
-                                    if (
-                                      window.confirm(
-                                        "Close remote session? This permanently closes the remote ACP session and the agent will no longer be able to resume it.",
-                                      )
-                                    ) {
-                                      void runAction("sessionCloseRemote", {
-                                        sessionId: session.sessionId,
-                                      });
-                                    }
-                                  }}
-                                >
-                                  Close Remote
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                  <RemoteSessionsSection
+                    sessions={remoteSessions}
+                    loading={loading}
+                    canImport={Boolean(caps.loadSession)}
+                    canClose={Boolean(caps.sessionClose)}
+                    onRunAction={runAction}
+                  />
                 )}
 
                 {diagnostics.authRequired && (
@@ -647,6 +451,300 @@ export default function AcpDiagnostics({
     </Collapsible>
   );
 }
+const ConnectionHeader = ({
+  agentId,
+  agentName,
+  connectionState,
+  connectionCopy,
+  connectionBadgeVariant,
+  checkLabel,
+  detailsLabel,
+  detailsOpen,
+  probing,
+  canRun,
+  onCheck,
+  onToggleDetails,
+}: {
+  agentId: string;
+  agentName: string;
+  connectionState: ConnectionState;
+  connectionCopy: { label: string; description: string };
+  connectionBadgeVariant: "destructive" | "default" | "secondary";
+  checkLabel: string;
+  detailsLabel: string;
+  detailsOpen: boolean;
+  probing: boolean;
+  canRun: boolean;
+  onCheck: () => void;
+  onToggleDetails: () => void;
+}) => (
+  <div className="flex min-w-0 items-center gap-2 px-3 py-2.5">
+    <span
+      aria-hidden="true"
+      className={cn(
+        "size-2 shrink-0 rounded-full",
+        connectionState === "ready"
+          ? "bg-primary"
+          : connectionState === "error"
+            ? "bg-destructive"
+            : "bg-muted-foreground/60",
+      )}
+    />
+    <Badge variant={connectionBadgeVariant} className="shrink-0">
+      {connectionCopy.label}
+    </Badge>
+    <p className="min-w-0 flex-1 truncate text-muted-foreground">{connectionCopy.description}</p>
+
+    <div className="flex shrink-0 items-center gap-1">
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              aria-label={checkLabel}
+              disabled={probing || !canRun}
+              onClick={onCheck}
+            >
+              {probing ? <Spinner /> : <Icon icon="lucide:refresh-cw" />}
+            </Button>
+          }
+        />
+        <TooltipContent>{canRun ? checkLabel : `Enable ${agentName} before checking`}</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              aria-label={detailsLabel}
+              aria-expanded={detailsOpen}
+              aria-controls={`acp-details-${agentId}`}
+              onClick={onToggleDetails}
+            >
+              <Icon icon={detailsOpen ? "lucide:chevron-up" : "lucide:chevron-down"} />
+            </Button>
+          }
+        />
+        <TooltipContent>{detailsLabel}</TooltipContent>
+      </Tooltip>
+    </div>
+  </div>
+);
+const WorkspaceField = ({
+  agentId,
+  value,
+  disabled,
+  onChange,
+}: {
+  agentId: string;
+  value: string;
+  disabled: boolean;
+  onChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+}) => (
+  <Field>
+    <FieldLabel htmlFor={`acp-workdir-${agentId}`}>Workspace folder (optional)</FieldLabel>
+    <Input
+      id={`acp-workdir-${agentId}`}
+      value={value}
+      disabled={disabled}
+      onChange={onChange}
+      placeholder="C:\\Users\\you\\project"
+      className="font-mono text-xs"
+    />
+    <FieldDescription>
+      Leave blank to use the app default. Use a project folder when the agent needs context.
+    </FieldDescription>
+  </Field>
+);
+const ProbeErrorAlert = ({ message }: { message: string }) => (
+  <div
+    className="flex gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-2.5 py-2 text-destructive"
+    role="alert"
+  >
+    <Icon icon="lucide:triangle-alert" className="mt-0.5 size-4 shrink-0" />
+    <div className="min-w-0">
+      <div className="font-semibold">Connection check failed</div>
+      <p className="mt-0.5 text-pretty">{message}</p>
+    </div>
+  </div>
+);
+const CapabilitiesBadges = ({ caps }: { caps: DiagnosticsCapabilities | undefined }) => (
+  <div>
+    <div className="text-xs font-semibold text-muted-foreground mb-1">Capabilities</div>
+    <div className="flex flex-wrap gap-1.5">
+      {CAPABILITY_LABELS.map(({ key, label }) => {
+        const enabled = Boolean(caps?.[key]);
+        return (
+          <Badge key={key} variant={enabled ? "default" : "outline"} className={enabled ? "" : "opacity-50"}>
+            {label}
+          </Badge>
+        );
+      })}
+    </div>
+  </div>
+);
+const AuthMethodsSection = ({
+  options,
+  loading,
+  logoutEnabled,
+  onRunAction,
+}: {
+  options: Array<{ method: AuthMethod; label: string }>;
+  loading: boolean;
+  logoutEnabled: boolean;
+  onRunAction: RunDebugAction;
+}) => (
+  <div>
+    <div className="text-xs font-semibold text-muted-foreground mb-1">Authentication</div>
+    {options.length ? (
+      <div className="flex flex-wrap gap-2">
+        {options.map(({ method, label }) => (
+          <div key={method.id} className="flex w-full flex-col gap-1.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                size="xs"
+                variant="outline"
+                disabled={loading}
+                onClick={() =>
+                  void onRunAction("authenticate", {
+                    methodId: method.id,
+                  })
+                }
+              >
+                {label}
+              </Button>
+              {method.type === "env_var" && method.link && (
+                <a
+                  href={method.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-muted-foreground underline hover:text-foreground"
+                >
+                  Get credentials
+                </a>
+              )}
+            </div>
+            {method.type === "env_var" && method.vars?.length ? (
+              <ul className="flex flex-col gap-1 rounded-lg border bg-muted/40 px-2 py-1.5 text-xs">
+                {method.vars.map((variable) => (
+                  <li key={variable.name} className="flex items-center gap-2">
+                    <code className="rounded bg-background px-1 py-0.5 font-mono">{variable.name}</code>
+                    {variable.label ? <span className="text-muted-foreground">{variable.label}</span> : null}
+                    {variable.optional ? (
+                      <Badge variant="outline" className="opacity-70">
+                        optional
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary">required</Badge>
+                    )}
+                    {variable.secret ? <span className="text-muted-foreground">secret</span> : null}
+                  </li>
+                ))}
+                <li className="pt-0.5 text-muted-foreground">
+                  Set these environment variables, then re-initialize the agent from the ACP providers settings.
+                </li>
+              </ul>
+            ) : null}
+          </div>
+        ))}
+        {logoutEnabled && (
+          <Button size="xs" variant="ghost" disabled={loading} onClick={() => void onRunAction("logout")}>
+            Logout
+          </Button>
+        )}
+      </div>
+    ) : (
+      <span className="text-muted-foreground">No auth required</span>
+    )}
+  </div>
+);
+const RemoteSessionsSection = ({
+  sessions,
+  loading,
+  canImport,
+  canClose,
+  onRunAction,
+}: {
+  sessions: AcpRemoteSessionSummary[];
+  loading: boolean;
+  canImport: boolean;
+  canClose: boolean;
+  onRunAction: RunDebugAction;
+}) => (
+  <div>
+    <div className="flex items-center justify-between mb-1">
+      <div className="text-xs font-semibold text-muted-foreground">Remote Sessions</div>
+      <Button
+        size="xs"
+        variant="outline"
+        disabled={loading}
+        onClick={() =>
+          void onRunAction("sessionList", {
+            sync: true,
+          })
+        }
+      >
+        Sync Sessions
+      </Button>
+    </div>
+    {sessions.length === 0 ? (
+      <span className="text-muted-foreground">No remote sessions synced</span>
+    ) : (
+      <div className="flex flex-col gap-1.5">
+        {sessions.map((session) => (
+          <div
+            key={session.sessionId}
+            className="flex items-center justify-between gap-2 rounded-lg border px-2 py-1.5"
+          >
+            <div className="min-w-0">
+              <div className="truncate font-medium">{session.title ?? session.sessionId}</div>
+              <div className="truncate text-xs text-muted-foreground">{session.sessionId}</div>
+            </div>
+            <div className="flex shrink-0 gap-1.5">
+              {canImport && (
+                <Button
+                  size="xs"
+                  variant="outline"
+                  disabled={loading}
+                  onClick={() =>
+                    void onRunAction("sessionImport", {
+                      sessionId: session.sessionId,
+                    })
+                  }
+                >
+                  Import
+                </Button>
+              )}
+              {canClose && (
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  className="text-destructive"
+                  disabled={loading}
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        "Close remote session? This permanently closes the remote ACP session and the agent will no longer be able to resume it.",
+                      )
+                    ) {
+                      void onRunAction("sessionCloseRemote", {
+                        sessionId: session.sessionId,
+                      });
+                    }
+                  }}
+                >
+                  Close Remote
+                </Button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+);
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-1.5">

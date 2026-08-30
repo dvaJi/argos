@@ -1,4 +1,4 @@
-import { type FC, type HTMLAttributes, type KeyboardEvent, useState, useEffect, useRef } from "react";
+import { type FC, type HTMLAttributes, type KeyboardEvent, type RefObject, useState, useEffect, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import {
@@ -67,18 +67,7 @@ const ChatTopBar: FC<ChatTopBarProps> = ({
   const isReadOnly = isReadOnlyProp === true;
   const currentAgent = agentStore.agents.find((agent) => agent.id === currentSession?.agentId) ?? null;
   const currentAgentName = currentAgent?.name ?? currentSession?.agentId ?? "";
-  const transferAgents = agentStore.enabledAgents.flatMap((agent) =>
-    agent.type === "argos"
-      ? [
-          {
-            id: agent.id,
-            name: agent.name,
-            type: agent.type,
-            enabled: agent.enabled,
-          },
-        ]
-      : [],
-  );
+  const transferAgents = toTransferAgents(agentStore.enabledAgents);
   const canMoveConversation =
     !isReadOnly && currentSession?.sessionKind === "regular" && currentSession?.status !== "working";
   const canManageMemory = !isReadOnly && Boolean(currentSession?.agentId) && currentAgent?.type === "argos";
@@ -254,232 +243,59 @@ const ChatTopBar: FC<ChatTopBarProps> = ({
         {...attrs}
         className={`sticky top-0 z-10 flex h-12 items-center justify-between bg-background/60 px-4 backdrop-blur-lg window-drag-region ${showCollapsedNewChatSpacer ? "pl-12" : ""}`}
       >
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          {showCollapsedNewChatButton && (
-            <div className="pointer-events-none absolute inset-x-0 top-0 z-30 h-12">
-              <Button
-                variant="ghost"
-                size="icon"
-                data-testid="collapsed-new-chat-button"
-                className="collapsed-new-chat-button pointer-events-auto absolute left-4 top-2.5 h-7 w-7 text-muted-foreground hover:text-foreground"
-                title="New chat"
-                aria-label="New chat"
-                onClick={handleCollapsedNewChat}
-              >
-                <Icon icon="lucide:plus" className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
-          {parentSessionId && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
-              title="Back to parent"
-              onClick={handleBackToParent}
-            >
-              <Icon icon="lucide:corner-up-left" className="h-3.5 w-3.5" />
-              <span>Back to parent</span>
-            </Button>
-          )}
-          {project && (
-            <div className="flex items-center gap-1.5 text-muted-foreground">
-              <Icon icon="lucide:folder" className="w-3.5 h-3.5 shrink-0" />
-              <span className="text-xs truncate">{projectName}</span>
-              <Icon icon="lucide:chevron-right" className="w-3 h-3 shrink-0" />
-            </div>
-          )}
-          {currentAgent && <AgentSwitcher variant="topbar" className="text-muted-foreground" />}
-          {isReadOnly ? (
-            <div className="min-w-0 flex-1">
-              <h2 className="text-sm font-medium truncate">{currentTitle}</h2>
-            </div>
-          ) : (
-            <div
-              className={`title-inline-shell no-drag min-w-0 flex-1 ${isRenaming ? "title-inline-shell--editing" : ""}`}
-            >
-              {!isRenaming ? (
-                <button
-                  type="button"
-                  data-testid="chat-topbar-title-trigger"
-                  className="title-inline-trigger flex w-full min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/60"
-                  title="Rename"
-                  aria-label="Rename"
-                  onClick={openRenameDialog}
-                >
-                  <span className="truncate text-sm font-medium">{currentTitle}</span>
-                  <Icon icon="lucide:pencil" className="title-inline-icon h-3.5 w-3.5 shrink-0" />
-                </button>
-              ) : (
-                <div className="title-inline-editor flex w-full min-w-0 items-center gap-1 rounded-md px-1 py-0.5">
-                  <input
-                    ref={renameInputRef}
-                    data-testid="chat-topbar-title-input"
-                    className="title-inline-input h-7 w-full min-w-0 flex-1 bg-transparent px-1 text-sm font-medium text-foreground outline-none"
-                    aria-label="Rename"
-                    value={renameValue}
-                    onChange={(e) => setRenameValue(e.target.value)}
-                    onClick={(e) => e.stopPropagation()}
-                    onKeyDown={handleRenameInputKeydown}
-                  />
-                  <div className="flex shrink-0 items-center gap-0.5">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      data-testid="chat-topbar-title-cancel"
-                      className="title-inline-action h-7 w-7 text-muted-foreground hover:text-foreground"
-                      title="Cancel"
-                      aria-label="Cancel"
-                      onClick={handleRenameCancel}
-                    >
-                      <Icon icon="lucide:x" className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      data-testid="chat-topbar-title-save"
-                      className="title-inline-action h-7 w-7 text-primary hover:text-primary disabled:text-muted-foreground"
-                      title="Confirm"
-                      aria-label="Confirm"
-                      disabled={!canSubmitRename}
-                      onClick={() => void handleRenameConfirm()}
-                    >
-                      <Icon icon="lucide:check" className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+        <ChatTopBarLeft
+          showCollapsedNewChatButton={showCollapsedNewChatButton}
+          onCollapsedNewChat={handleCollapsedNewChat}
+          parentSessionId={parentSessionId}
+          onBackToParent={handleBackToParent}
+          project={project}
+          projectName={projectName}
+          showAgentSwitcher={Boolean(currentAgent)}
+          isReadOnly={isReadOnly}
+          currentTitle={currentTitle}
+          isRenaming={isRenaming}
+          renameValue={renameValue}
+          canSubmitRename={canSubmitRename}
+          renameInputRef={renameInputRef}
+          onRenameTrigger={openRenameDialog}
+          onRenameValueChange={setRenameValue}
+          onRenameCancel={handleRenameCancel}
+          onRenameConfirm={() => void handleRenameConfirm()}
+          onRenameKeydown={handleRenameInputKeydown}
+        />
 
-        <div className="flex items-center gap-1 no-drag">
-          {canManageMemory && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 text-muted-foreground hover:text-foreground"
-              title="Memory"
-              aria-label="Memory"
-              onClick={() => void openMemoryDialog()}
-            >
-              <Icon icon="lucide:brain-circuit" className="w-4 h-4" />
-            </Button>
-          )}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 text-muted-foreground hover:text-foreground"
-            title="Workspace"
-            onClick={() => sidepanelStore.toggleWorkspace(sessionId)}
-          >
-            <Icon icon="lucide:folder-tree" className="w-4 h-4" />
-          </Button>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                  title="Share / Export"
-                />
-              }
-            >
-              <Icon icon="lucide:share" className="w-4 h-4" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52">
-              <DropdownMenuItem onClick={() => void handleExport("markdown")}>
-                <Icon icon="lucide:file-text" className="mr-2 h-4 w-4" />
-                <span>Markdown Document (.md)</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => void handleExport("html")}>
-                <Icon icon="lucide:globe" className="mr-2 h-4 w-4" />
-                <span>HTML Document (.html)</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => void handleExport("txt")}>
-                <Icon icon="lucide:file-type" className="mr-2 h-4 w-4" />
-                <span>Plain Text (.txt)</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => void handleExport("nowledge-mem")}>
-                <Icon icon="lucide:brain" className="mr-2 h-4 w-4" />
-                <span>Nowledge Memory (.json)</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {!isReadOnly && (
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                    title="More options"
-                  />
-                }
-              >
-                <Icon icon="lucide:ellipsis" className="w-4 h-4" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={() => void handleTogglePin()}>
-                  <Icon icon={isPinned ? "lucide:pin-off" : "lucide:pin"} className="mr-2 h-4 w-4" />
-                  <span>{isPinned ? "Unpin" : "Pin"}</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem disabled={!canMoveConversation} onClick={() => void openMoveDialog()}>
-                  <Icon icon="lucide:move-right" className="mr-2 h-4 w-4" />
-                  <span>Move conversation</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={openClearDialog}>
-                  <Icon icon="lucide:eraser" className="mr-2 h-4 w-4" />
-                  <span>Clear messages</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-destructive" onClick={openDeleteDialog}>
-                  <Icon icon="lucide:trash-2" className="mr-2 h-4 w-4" />
-                  <span>Delete</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </div>
+        <ChatTopBarActions
+          canManageMemory={canManageMemory}
+          onOpenMemory={() => void openMemoryDialog()}
+          onToggleWorkspace={() => sidepanelStore.toggleWorkspace(sessionId)}
+          onExport={handleExport}
+          isReadOnly={isReadOnly}
+          isPinned={isPinned}
+          canMoveConversation={canMoveConversation}
+          onTogglePin={() => void handleTogglePin()}
+          onOpenMove={() => void openMoveDialog()}
+          onOpenClear={openClearDialog}
+          onOpenDelete={openDeleteDialog}
+        />
       </div>
 
-      <Dialog open={clearDialogOpen} onOpenChange={setClearDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Clear Messages</DialogTitle>
-            <DialogDescription>Are you sure you want to clear all messages in this conversation?</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setClearDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={() => void handleClearConfirm()}>
-              Clear
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <SessionConfirmDialog
+        open={clearDialogOpen}
+        title="Clear Messages"
+        description="Are you sure you want to clear all messages in this conversation?"
+        confirmLabel="Clear"
+        onOpenChange={setClearDialogOpen}
+        onConfirm={() => void handleClearConfirm()}
+      />
 
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Chat</DialogTitle>
-            <DialogDescription>Are you sure you want to delete this conversation?</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={() => void handleDeleteConfirm()}>
-              Delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <SessionConfirmDialog
+        open={deleteDialogOpen}
+        title="Delete Chat"
+        description="Are you sure you want to delete this conversation?"
+        confirmLabel="Delete"
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={() => void handleDeleteConfirm()}
+      />
 
       <AgentTransferDialog
         open={moveDialogOpen}
@@ -508,4 +324,347 @@ const ChatTopBar: FC<ChatTopBarProps> = ({
     </>
   );
 };
+const toTransferAgents = <T extends { id: string; name: string; type: "argos" | "acp"; enabled: boolean }>(
+  agents: T[],
+) =>
+  agents.flatMap((agent) =>
+    agent.type === "argos"
+      ? [
+          {
+            id: agent.id,
+            name: agent.name,
+            type: agent.type,
+            enabled: agent.enabled,
+          },
+        ]
+      : [],
+  );
+interface ChatTopBarLeftProps {
+  showCollapsedNewChatButton: boolean;
+  onCollapsedNewChat: () => void;
+  parentSessionId: string | null | undefined;
+  onBackToParent: () => void;
+  project: string;
+  projectName: string;
+  showAgentSwitcher: boolean;
+  isReadOnly: boolean;
+  currentTitle: string;
+  isRenaming: boolean;
+  renameValue: string;
+  canSubmitRename: boolean;
+  renameInputRef: RefObject<HTMLInputElement | null>;
+  onRenameTrigger: () => void;
+  onRenameValueChange: (value: string) => void;
+  onRenameCancel: () => void;
+  onRenameConfirm: () => void;
+  onRenameKeydown: (event: KeyboardEvent) => void;
+}
+
+/** Left cluster: collapsed new-chat overlay, breadcrumbs, agent switcher, title. */
+function ChatTopBarLeft(props: ChatTopBarLeftProps) {
+  const {
+    showCollapsedNewChatButton,
+    onCollapsedNewChat,
+    parentSessionId,
+    onBackToParent,
+    project,
+    projectName,
+    showAgentSwitcher,
+    isReadOnly,
+    currentTitle,
+  } = props;
+  return (
+    <div className="flex min-w-0 flex-1 items-center gap-2">
+      {showCollapsedNewChatButton && (
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-30 h-12">
+          <Button
+            variant="ghost"
+            size="icon"
+            data-testid="collapsed-new-chat-button"
+            className="collapsed-new-chat-button pointer-events-auto absolute left-4 top-2.5 h-7 w-7 text-muted-foreground hover:text-foreground"
+            title="New chat"
+            aria-label="New chat"
+            onClick={onCollapsedNewChat}
+          >
+            <Icon icon="lucide:plus" className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
+      {parentSessionId && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
+          title="Back to parent"
+          onClick={onBackToParent}
+        >
+          <Icon icon="lucide:corner-up-left" className="h-3.5 w-3.5" />
+          <span>Back to parent</span>
+        </Button>
+      )}
+      {project && (
+        <div className="flex items-center gap-1.5 text-muted-foreground">
+          <Icon icon="lucide:folder" className="w-3.5 h-3.5 shrink-0" />
+          <span className="text-xs truncate">{projectName}</span>
+          <Icon icon="lucide:chevron-right" className="w-3 h-3 shrink-0" />
+        </div>
+      )}
+      {showAgentSwitcher && <AgentSwitcher variant="topbar" className="text-muted-foreground" />}
+      <ChatTopBarTitleSection
+        isReadOnly={isReadOnly}
+        currentTitle={currentTitle}
+        isRenaming={props.isRenaming}
+        renameValue={props.renameValue}
+        canSubmitRename={props.canSubmitRename}
+        renameInputRef={props.renameInputRef}
+        onRenameTrigger={props.onRenameTrigger}
+        onRenameValueChange={props.onRenameValueChange}
+        onRenameCancel={props.onRenameCancel}
+        onRenameConfirm={props.onRenameConfirm}
+        onRenameKeydown={props.onRenameKeydown}
+      />
+    </div>
+  );
+}
+interface ChatTopBarTitleSectionProps {
+  isReadOnly: boolean;
+  currentTitle: string;
+  isRenaming: boolean;
+  renameValue: string;
+  canSubmitRename: boolean;
+  renameInputRef: RefObject<HTMLInputElement | null>;
+  onRenameTrigger: () => void;
+  onRenameValueChange: (value: string) => void;
+  onRenameCancel: () => void;
+  onRenameConfirm: () => void;
+  onRenameKeydown: (event: KeyboardEvent) => void;
+}
+
+/** Read-only title or the inline rename trigger/editor. */
+function ChatTopBarTitleSection({
+  isReadOnly,
+  currentTitle,
+  isRenaming,
+  renameValue,
+  canSubmitRename,
+  renameInputRef,
+  onRenameTrigger,
+  onRenameValueChange,
+  onRenameCancel,
+  onRenameConfirm,
+  onRenameKeydown,
+}: ChatTopBarTitleSectionProps) {
+  if (isReadOnly) {
+    return (
+      <div className="min-w-0 flex-1">
+        <h2 className="text-sm font-medium truncate">{currentTitle}</h2>
+      </div>
+    );
+  }
+  return (
+    <div className={`title-inline-shell no-drag min-w-0 flex-1 ${isRenaming ? "title-inline-shell--editing" : ""}`}>
+      {!isRenaming ? (
+        <button
+          type="button"
+          data-testid="chat-topbar-title-trigger"
+          className="title-inline-trigger flex w-full min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/60"
+          title="Rename"
+          aria-label="Rename"
+          onClick={onRenameTrigger}
+        >
+          <span className="truncate text-sm font-medium">{currentTitle}</span>
+          <Icon icon="lucide:pencil" className="title-inline-icon h-3.5 w-3.5 shrink-0" />
+        </button>
+      ) : (
+        <div className="title-inline-editor flex w-full min-w-0 items-center gap-1 rounded-md px-1 py-0.5">
+          <input
+            ref={renameInputRef}
+            data-testid="chat-topbar-title-input"
+            className="title-inline-input h-7 w-full min-w-0 flex-1 bg-transparent px-1 text-sm font-medium text-foreground outline-none"
+            aria-label="Rename"
+            value={renameValue}
+            onChange={(e) => onRenameValueChange(e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={onRenameKeydown}
+          />
+          <div className="flex shrink-0 items-center gap-0.5">
+            <Button
+              variant="ghost"
+              size="icon"
+              data-testid="chat-topbar-title-cancel"
+              className="title-inline-action h-7 w-7 text-muted-foreground hover:text-foreground"
+              title="Cancel"
+              aria-label="Cancel"
+              onClick={onRenameCancel}
+            >
+              <Icon icon="lucide:x" className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              data-testid="chat-topbar-title-save"
+              className="title-inline-action h-7 w-7 text-primary hover:text-primary disabled:text-muted-foreground"
+              title="Confirm"
+              aria-label="Confirm"
+              disabled={!canSubmitRename}
+              onClick={onRenameConfirm}
+            >
+              <Icon icon="lucide:check" className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+interface ChatTopBarActionsProps {
+  canManageMemory: boolean;
+  onOpenMemory: () => void;
+  onToggleWorkspace: () => void;
+  onExport: (format: "markdown" | "html" | "txt" | "nowledge-mem") => void;
+  isReadOnly: boolean;
+  isPinned: boolean;
+  canMoveConversation: boolean;
+  onTogglePin: () => void;
+  onOpenMove: () => void;
+  onOpenClear: () => void;
+  onOpenDelete: () => void;
+}
+
+/** Right cluster: memory, workspace, export menu, and the overflow menu. */
+function ChatTopBarActions(props: ChatTopBarActionsProps) {
+  const { canManageMemory, onOpenMemory, onToggleWorkspace, onExport, isReadOnly, isPinned, canMoveConversation } =
+    props;
+  return (
+    <div className="flex items-center gap-1 no-drag">
+      {canManageMemory && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 text-muted-foreground hover:text-foreground"
+          title="Memory"
+          aria-label="Memory"
+          onClick={onOpenMemory}
+        >
+          <Icon icon="lucide:brain-circuit" className="w-4 h-4" />
+        </Button>
+      )}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+        title="Workspace"
+        onClick={onToggleWorkspace}
+      >
+        <Icon icon="lucide:folder-tree" className="w-4 h-4" />
+      </Button>
+
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-muted-foreground hover:text-foreground"
+              title="Share / Export"
+            />
+          }
+        >
+          <Icon icon="lucide:share" className="w-4 h-4" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-52">
+          <DropdownMenuItem onClick={() => void onExport("markdown")}>
+            <Icon icon="lucide:file-text" className="mr-2 h-4 w-4" />
+            <span>Markdown Document (.md)</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => void onExport("html")}>
+            <Icon icon="lucide:globe" className="mr-2 h-4 w-4" />
+            <span>HTML Document (.html)</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => void onExport("txt")}>
+            <Icon icon="lucide:file-type" className="mr-2 h-4 w-4" />
+            <span>Plain Text (.txt)</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => void onExport("nowledge-mem")}>
+            <Icon icon="lucide:brain" className="mr-2 h-4 w-4" />
+            <span>Nowledge Memory (.json)</span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {!isReadOnly && (
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                title="More options"
+              />
+            }
+          >
+            <Icon icon="lucide:ellipsis" className="w-4 h-4" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem onClick={props.onTogglePin}>
+              <Icon icon={isPinned ? "lucide:pin-off" : "lucide:pin"} className="mr-2 h-4 w-4" />
+              <span>{isPinned ? "Unpin" : "Pin"}</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled={!canMoveConversation} onClick={props.onOpenMove}>
+              <Icon icon="lucide:move-right" className="mr-2 h-4 w-4" />
+              <span>Move conversation</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={props.onOpenClear}>
+              <Icon icon="lucide:eraser" className="mr-2 h-4 w-4" />
+              <span>Clear messages</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="text-destructive" onClick={props.onOpenDelete}>
+              <Icon icon="lucide:trash-2" className="mr-2 h-4 w-4" />
+              <span>Delete</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+    </div>
+  );
+}
+interface SessionConfirmDialogProps {
+  open: boolean;
+  title: string;
+  description: string;
+  confirmLabel: string;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: () => void;
+}
+
+/** Minimal destructive confirm dialog used for clear/delete. */
+function SessionConfirmDialog({
+  open,
+  title,
+  description,
+  confirmLabel,
+  onOpenChange,
+  onConfirm,
+}: SessionConfirmDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button variant="destructive" onClick={onConfirm}>
+            {confirmLabel}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 export default ChatTopBar;
