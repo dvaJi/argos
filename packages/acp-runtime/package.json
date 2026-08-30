@@ -13,8 +13,7 @@
     "@argos/backend-core": "workspace:*",
     "@argos/shared": "workspace:*",
     "@argos/shared-contracts": "workspace:*",
-    "nanoid": "catalog:",
-    "node-pty": "^1.1.0"
+    "nanoid": "catalog:"
   },
   "devDependencies": {
     "typescript": "catalog:"
