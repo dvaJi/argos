@@ -11,7 +11,7 @@ import VertexProviderSettingsDetail from "./VertexProviderSettingsDetail";
 import ProviderRateLimitConfig from "./ProviderRateLimitConfig";
 import ModelScopeMcpSync from "./ModelScopeMcpSync";
 import ProviderModelManager from "./ProviderModelManager";
-import ProviderDialogContainer from "./ProviderDialogContainer";
+import ProviderDialogContainer, { type ProviderDialogKind } from "./ProviderDialogContainer";
 import { useModelCheckStore } from "#/stores/modelCheck";
 import { levelToValueMap, safetyCategories } from "#/lib/gemini";
 import type { SafetyCategoryKey, SafetySettingValue } from "#/lib/gemini";
@@ -56,11 +56,8 @@ export default function ModelProviderSettingsDetail({
   const [isModelListLoading, setIsModelListLoading] = useState(true);
   const [hasInitializedModelList, setHasInitializedModelList] = useState(false);
   const [modelToDisable, setModelToDisable] = useState<RENDERER_MODEL_META | null>(null);
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [showDisableAllConfirmDialog, setShowDisableAllConfirmDialog] = useState(false);
-  const [showDeleteProviderDialog, setShowDeleteProviderDialog] = useState(false);
   const [checkResult, setCheckResult] = useState(false);
-  const [showCheckModelDialog, setShowCheckModelDialog] = useState(false);
+  const [activeProviderDialog, setActiveProviderDialog] = useState<ProviderDialogKind | null>(null);
   const [activeTab, setActiveTab] = useState<"connection" | "models" | "advanced">("connection");
   const enabledModels = (() => {
     const enabledModelsList = [...customModels.filter((m) => m.enabled), ...providerModels.filter((m) => m.enabled)];
@@ -157,7 +154,7 @@ export default function ModelProviderSettingsDetail({
   const handleModelEnabledChange = async (model: RENDERER_MODEL_META, enabled: boolean, confirm: boolean = false) => {
     if (!enabled && confirm) {
       setModelToDisable(model);
-      setShowConfirmDialog(true);
+      setActiveProviderDialog("confirm");
       return;
     }
     await modelStore.updateModelStatus(provider.id, model.id, enabled);
@@ -172,13 +169,13 @@ export default function ModelProviderSettingsDetail({
     } catch (error) {
       console.error("Failed to disable model:", error);
     }
-    setShowConfirmDialog(false);
+    setActiveProviderDialog(null);
     setModelToDisable(null);
   };
   const confirmDisableAll = async () => {
     try {
       await modelStore.disableAllModels(provider.id);
-      setShowDisableAllConfirmDialog(false);
+      setActiveProviderDialog(null);
     } catch (error) {
       console.error("Failed to disable all models:", error);
     }
@@ -186,7 +183,7 @@ export default function ModelProviderSettingsDetail({
   const confirmDeleteProvider = async () => {
     try {
       await providerStore.removeProvider(provider.id);
-      setShowDeleteProviderDialog(false);
+      setActiveProviderDialog(null);
     } catch (error) {
       console.error("Failed to delete provider:", error);
     }
@@ -270,7 +267,7 @@ export default function ModelProviderSettingsDetail({
                 onApiHostChange={handleApiHostChange}
                 onApiKeyChange={handleApiKeyChange}
                 onValidateKey={openModelCheckDialog}
-                onDeleteProvider={() => setShowDeleteProviderDialog(true)}
+                onDeleteProvider={() => setActiveProviderDialog("deleteProvider")}
                 onOAuthSuccess={handleOAuthSuccess}
                 onOAuthError={handleOAuthError}
               />
@@ -304,11 +301,11 @@ export default function ModelProviderSettingsDetail({
                       try {
                         const resp = await providerStore.checkProvider(provider.id);
                         setCheckResult(resp.isOk);
-                        setShowCheckModelDialog(true);
+                        setActiveProviderDialog("checkModel");
                         if (resp.isOk) await modelStore.refreshProviderModels(provider.id);
                       } catch {
                         setCheckResult(false);
-                        setShowCheckModelDialog(true);
+                        setActiveProviderDialog("checkModel");
                       }
                     }}
                   />
@@ -343,14 +340,8 @@ export default function ModelProviderSettingsDetail({
         provider={provider}
         modelToDisable={modelToDisable}
         checkResult={checkResult}
-        showConfirmDialog={showConfirmDialog}
-        showCheckModelDialog={showCheckModelDialog}
-        showDisableAllConfirmDialog={showDisableAllConfirmDialog}
-        showDeleteProviderDialog={showDeleteProviderDialog}
-        onShowConfirmDialogChange={setShowConfirmDialog}
-        onShowCheckModelDialogChange={setShowCheckModelDialog}
-        onShowDisableAllConfirmDialogChange={setShowDisableAllConfirmDialog}
-        onShowDeleteProviderDialogChange={setShowDeleteProviderDialog}
+        activeDialog={activeProviderDialog}
+        onActiveDialogChange={setActiveProviderDialog}
         onConfirmDisableModel={confirmDisable}
         onConfirmDisableAllModels={confirmDisableAll}
         onConfirmDeleteProvider={confirmDeleteProvider}

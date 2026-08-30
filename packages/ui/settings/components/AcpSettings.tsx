@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useReducer } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Badge } from "#shadcn/components/ui/badge";
@@ -139,38 +139,120 @@ const consumeAgentRequest = (current: Record<string, number>, id: string, reques
     : current;
 const subscribeToAgentChanges = (listener: () => void) =>
   window.argos?.on?.("config.agents.changed" as never, listener) ?? (() => undefined);
+type ManualAgentDialogState = {
+  open: boolean;
+  editId: string;
+  name: string;
+  command: string;
+  argsText: string;
+  env: string;
+  enabled: boolean;
+};
+type ManualAgentDialogAction =
+  | { type: "OPEN"; agent?: AcpManualAgent }
+  | { type: "CLOSE" }
+  | { type: "SET_NAME"; value: string }
+  | { type: "SET_COMMAND"; value: string }
+  | { type: "SET_ARGS_TEXT"; value: string }
+  | { type: "SET_ENV"; value: string }
+  | { type: "SET_ENABLED"; value: boolean };
+const initialManualAgentDialog: ManualAgentDialogState = {
+  open: false,
+  editId: "",
+  name: "",
+  command: "",
+  argsText: "",
+  env: "",
+  enabled: true,
+};
+const manualAgentDialogReducer = (
+  state: ManualAgentDialogState,
+  action: ManualAgentDialogAction,
+): ManualAgentDialogState => {
+  switch (action.type) {
+    case "OPEN":
+      return {
+        open: true,
+        editId: action.agent?.id ?? "",
+        name: action.agent?.name ?? "",
+        command: action.agent?.command ?? "",
+        argsText: (action.agent?.args ?? []).join("\n"),
+        env: stringifyEnvBlock(action.agent?.env),
+        enabled: action.agent?.enabled ?? true,
+      };
+    case "CLOSE":
+      return { ...state, open: false };
+    case "SET_NAME":
+      return { ...state, name: action.value };
+    case "SET_COMMAND":
+      return { ...state, command: action.value };
+    case "SET_ARGS_TEXT":
+      return { ...state, argsText: action.value };
+    case "SET_ENV":
+      return { ...state, env: action.value };
+    case "SET_ENABLED":
+      return { ...state, enabled: action.value };
+  }
+};
+type AcpDataState = {
+  enabled: boolean;
+  registryAgents: AcpRegistryAgent[];
+  manualAgents: AcpManualAgent[];
+  sharedMcpCount: number;
+  loadError: string | null;
+};
+type AcpDataAction =
+  | { type: "SET_LOAD_ERROR"; message: string | null }
+  | { type: "SET_ENABLED"; enabled: boolean }
+  | { type: "CLEAR_AGENTS" }
+  | { type: "SET_AGENTS"; registryAgents: AcpRegistryAgent[]; manualAgents: AcpManualAgent[] }
+  | { type: "SET_REGISTRY_AGENTS"; registryAgents: AcpRegistryAgent[] }
+  | { type: "SET_SHARED_MCP_COUNT"; count: number };
+const initialAcpData: AcpDataState = {
+  enabled: false,
+  registryAgents: [],
+  manualAgents: [],
+  sharedMcpCount: 0,
+  loadError: null,
+};
+const acpDataReducer = (state: AcpDataState, action: AcpDataAction): AcpDataState => {
+  switch (action.type) {
+    case "SET_LOAD_ERROR":
+      return { ...state, loadError: action.message };
+    case "SET_ENABLED":
+      return { ...state, enabled: action.enabled };
+    case "CLEAR_AGENTS":
+      return { ...state, registryAgents: [], manualAgents: [], sharedMcpCount: 0 };
+    case "SET_AGENTS":
+      return { ...state, registryAgents: action.registryAgents, manualAgents: action.manualAgents };
+    case "SET_REGISTRY_AGENTS":
+      return { ...state, registryAgents: action.registryAgents };
+    case "SET_SHARED_MCP_COUNT":
+      return { ...state, sharedMcpCount: action.count };
+  }
+};
 export default function AcpSettings() {
   const configClient = createConfigClient();
-  const [acpEnabled, setAcpEnabled] = useState(false);
+  const [acpData, dispatchAcpData] = useReducer(acpDataReducer, initialAcpData);
   const [toggling, setToggling] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [manualSaving, setManualSaving] = useState(false);
   const [manualSectionOpen, setManualSectionOpen] = useState(false);
   const [sharedMcpOpen, setSharedMcpOpen] = useState(false);
-  const [sharedMcpCount, setSharedMcpCount] = useState(0);
-  const [registryAgents, setRegistryAgents] = useState<AcpRegistryAgent[]>([]);
-  const [manualAgents, setManualAgents] = useState<AcpManualAgent[]>([]);
   const [envDrafts, setEnvDrafts] = useState<Record<string, string>>({});
   const [agentPending, setAgentPending] = useState<Record<string, boolean>>({});
   const [agentConfigurationOpen, setAgentConfigurationOpen] = useState<Record<string, boolean>>({});
   const [connectionCheckRequests, setConnectionCheckRequests] = useState<Record<string, number>>({});
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [registryDialogOpen, setRegistryDialogOpen] = useState(false);
   const [registrySearch, setRegistrySearch] = useState("");
   const [registryFilter, setRegistryFilter] = useState<RegistryDialogFilter>("all");
-  const [manualDialogOpen, setManualDialogOpen] = useState(false);
-  const [manualEditId, setManualEditId] = useState("");
-  const [manualName, setManualName] = useState("");
-  const [manualCommand, setManualCommand] = useState("");
-  const [manualArgsText, setManualArgsText] = useState("");
-  const [manualEnv, setManualEnv] = useState("");
-  const [manualEnabled, setManualEnabled] = useState(true);
   const [debugOpen, setDebugOpen] = useState(false);
   const [debugAgentId, setDebugAgentId] = useState("");
   const [debugAgentName, setDebugAgentName] = useState("");
   const [uninstallOpen, setUninstallOpen] = useState(false);
   const [uninstallAgent, setUninstallAgent] = useState<AcpRegistryAgent | null>(null);
+  const [manualDialog, dispatchManualDialog] = useReducer(manualAgentDialogReducer, initialManualAgentDialog);
   const setPending = (id: string, pending: boolean) =>
     setAgentPending((current) => updatePendingState(current, id, pending));
   const requestConnectionCheck = (id: string) =>
@@ -178,11 +260,11 @@ export default function AcpSettings() {
   const consumeConnectionCheckRequest = (id: string, request: number) => {
     setConnectionCheckRequests((current) => consumeAgentRequest(current, id, request));
   };
-  const installedRegistryAgents = registryAgents.filter((a) => a.installState?.status === "installed");
-  const showSharedMcpSection = installedRegistryAgents.length > 0 || manualAgents.length > 0;
+  const installedRegistryAgents = acpData.registryAgents.filter((a) => a.installState?.status === "installed");
+  const showSharedMcpSection = installedRegistryAgents.length > 0 || acpData.manualAgents.length > 0;
   const filteredRegistryCatalogAgents = (() => {
     const keyword = registrySearch.trim().toLowerCase();
-    return registryAgents.filter((agent) => {
+    return acpData.registryAgents.filter((agent) => {
       const matchKeyword =
         !keyword ||
         agent.name.toLowerCase().includes(keyword) ||
@@ -204,26 +286,26 @@ export default function AcpSettings() {
   const loadAcpData = async () => {
     try {
       const enabled = await configClient.getAcpEnabled();
-      setLoadError(null);
-      setAcpEnabled(enabled);
+      dispatchAcpData({ type: "SET_LOAD_ERROR", message: null });
+      dispatchAcpData({ type: "SET_ENABLED", enabled });
       if (!enabled) {
-        setRegistryAgents([]);
-        setManualAgents([]);
-        setSharedMcpCount(0);
+        dispatchAcpData({ type: "CLEAR_AGENTS" });
         return;
       }
       const [registryList, manualList] = await Promise.all([
         configClient.listAcpRegistryAgents(),
         configClient.listManualAcpAgents(),
       ]);
-      setRegistryAgents(registryList);
-      setManualAgents(manualList);
+      dispatchAcpData({ type: "SET_AGENTS", registryAgents: registryList, manualAgents: manualList });
       syncEnvDrafts(registryList);
       const sharedMcp = await configClient.getAcpSharedMcpSelections();
-      setSharedMcpCount(sharedMcp.length);
+      dispatchAcpData({ type: "SET_SHARED_MCP_COUNT", count: sharedMcp.length });
     } catch (error) {
       console.error("[ACP] settings error:", error);
-      setLoadError(error instanceof Error ? error.message : "ACP settings could not be loaded.");
+      dispatchAcpData({
+        type: "SET_LOAD_ERROR",
+        message: error instanceof Error ? error.message : "ACP settings could not be loaded.",
+      });
     }
     setLoading(false);
   };
@@ -236,16 +318,16 @@ export default function AcpSettings() {
   // so users with custom agents don't see an always-collapsed section.
   const didAutoExpandManualRef = useRef(false);
   useEffect(() => {
-    if (didAutoExpandManualRef.current || manualAgents.length === 0) return;
+    if (didAutoExpandManualRef.current || acpData.manualAgents.length === 0) return;
     didAutoExpandManualRef.current = true;
     setManualSectionOpen(true);
-  }, [manualAgents]);
+  }, [acpData.manualAgents]);
   const handleToggle = async (enabled: boolean) => {
     if (toggling) return;
     setToggling(true);
     try {
       await configClient.setAcpEnabled(enabled);
-      setAcpEnabled(enabled);
+      dispatchAcpData({ type: "SET_ENABLED", enabled });
       if (enabled) await loadAcpData();
     } catch (error) {
       console.error("[ACP] toggle error:", error);
@@ -256,7 +338,7 @@ export default function AcpSettings() {
     setRefreshing(true);
     try {
       const list = await configClient.refreshAcpRegistry(true);
-      setRegistryAgents(list);
+      dispatchAcpData({ type: "SET_REGISTRY_AGENTS", registryAgents: list });
       syncEnvDrafts(list);
     } catch (error) {
       console.error("[ACP] refresh error:", error);
@@ -402,16 +484,10 @@ export default function AcpSettings() {
     await installRegistryAgent(agent);
   };
   const openManualDialog = (agent?: AcpManualAgent) => {
-    setManualEditId(agent?.id ?? "");
-    setManualName(agent?.name ?? "");
-    setManualCommand(agent?.command ?? "");
-    setManualArgsText((agent?.args ?? []).join("\n"));
-    setManualEnv(stringifyEnvBlock(agent?.env));
-    setManualEnabled(agent?.enabled ?? true);
-    setManualDialogOpen(true);
+    dispatchManualDialog({ type: "OPEN", agent });
   };
   const saveManualAgent = async () => {
-    if (!manualName.trim() || !manualCommand.trim()) {
+    if (!manualDialog.name.trim() || !manualDialog.command.trim()) {
       toast({
         title: "Missing fields",
         description: "Name and command are required",
@@ -421,22 +497,22 @@ export default function AcpSettings() {
     }
     setManualSaving(true);
     try {
-      const args = manualArgsText
+      const args = manualDialog.argsText
         .split(/\r?\n/)
         .map((s) => s.trim())
         .filter(Boolean);
       const payload = {
-        name: manualName.trim(),
-        command: manualCommand.trim(),
+        name: manualDialog.name.trim(),
+        command: manualDialog.command.trim(),
         args: args.length ? args : undefined,
-        env: parseEnvBlock(manualEnv),
-        enabled: manualEnabled,
+        env: parseEnvBlock(manualDialog.env),
+        enabled: manualDialog.enabled,
       };
-      const wasEnabled = manualEditId
-        ? Boolean(manualAgents.find((agent) => agent.id === manualEditId)?.enabled)
+      const wasEnabled = manualDialog.editId
+        ? Boolean(acpData.manualAgents.find((agent) => agent.id === manualDialog.editId)?.enabled)
         : false;
-      if (manualEditId) {
-        await configClient.updateManualAcpAgent(manualEditId, payload);
+      if (manualDialog.editId) {
+        await configClient.updateManualAcpAgent(manualDialog.editId, payload);
       } else {
         const addedAgent = await configClient.addManualAcpAgent(payload);
         if (payload.enabled) {
@@ -444,8 +520,8 @@ export default function AcpSettings() {
           setManualSectionOpen(true);
         }
       }
-      if (manualEditId && payload.enabled && !wasEnabled) requestConnectionCheck(manualEditId);
-      setManualDialogOpen(false);
+      if (manualDialog.editId && payload.enabled && !wasEnabled) requestConnectionCheck(manualDialog.editId);
+      dispatchManualDialog({ type: "CLOSE" });
       await loadAcpData();
       toast({
         title: "Saved",
@@ -478,20 +554,20 @@ export default function AcpSettings() {
           </div>
           <div className="flex items-center gap-3">
             <div className="text-right">
-              <div className="text-sm font-medium">ACP {acpEnabled ? "enabled" : "disabled"}</div>
+              <div className="text-sm font-medium">ACP {acpData.enabled ? "enabled" : "disabled"}</div>
               <p className="text-xs text-muted-foreground">Applies to all agents</p>
             </div>
             <Switch
               aria-label="Enable Agent Client Protocol"
               dir="ltr"
-              checked={acpEnabled}
+              checked={acpData.enabled}
               onCheckedChange={handleToggle}
               disabled={toggling}
             />
           </div>
         </div>
 
-        {acpEnabled && (
+        {acpData.enabled && (
           <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Icon icon="lucide:route" className="size-3.5 shrink-0" />
             Install enables an agent and checks its default connection automatically.
@@ -500,13 +576,13 @@ export default function AcpSettings() {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {acpEnabled ? (
+        {acpData.enabled ? (
           <div className="flex flex-col gap-6 p-4">
-            {loadError && (
+            {acpData.loadError && (
               <Alert variant="destructive">
                 <Icon icon="lucide:triangle-alert" />
                 <AlertTitle>ACP settings could not be loaded</AlertTitle>
-                <AlertDescription>{loadError}</AlertDescription>
+                <AlertDescription>{acpData.loadError}</AlertDescription>
               </Alert>
             )}
 
@@ -518,7 +594,7 @@ export default function AcpSettings() {
                     <p className="text-sm text-muted-foreground">Manage which MCP tools are shared with ACP agents</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant="outline">MCP Access: {sharedMcpCount}</Badge>
+                    <Badge variant="outline">MCP Access: {acpData.sharedMcpCount}</Badge>
                     <Button
                       size="sm"
                       variant="outline"
@@ -532,7 +608,9 @@ export default function AcpSettings() {
                 <CollapsibleContent>
                   <div className="rounded-xl border px-4 py-4">
                     <AgentMcpSelector
-                      onUpdateSelections={(selections: string[]) => setSharedMcpCount(selections.length)}
+                      onUpdateSelections={(selections: string[]) =>
+                        dispatchAcpData({ type: "SET_SHARED_MCP_COUNT", count: selections.length })
+                      }
                     />
                   </div>
                 </CollapsibleContent>
@@ -800,9 +878,9 @@ export default function AcpSettings() {
               </div>
 
               <CollapsibleContent>
-                {loading && !manualAgents.length ? (
+                {loading && !acpData.manualAgents.length ? (
                   <Skeleton className="h-24 w-full" />
-                ) : !manualAgents.length ? (
+                ) : !acpData.manualAgents.length ? (
                   <Empty className="border py-8">
                     <EmptyHeader>
                       <EmptyTitle>No custom agents</EmptyTitle>
@@ -817,7 +895,7 @@ export default function AcpSettings() {
                   </Empty>
                 ) : (
                   <div className="divide-y overflow-hidden rounded-xl border bg-card">
-                    {manualAgents.map((agent) => (
+                    {acpData.manualAgents.map((agent) => (
                       <article key={agent.id}>
                         <div className="flex flex-col gap-3 px-3 py-3 lg:flex-row lg:items-center lg:justify-between">
                           <div className="flex min-w-0 items-start gap-3">
@@ -925,10 +1003,10 @@ export default function AcpSettings() {
         )}
       </div>
 
-      <Dialog open={manualDialogOpen} onOpenChange={setManualDialogOpen}>
+      <Dialog open={manualDialog.open} onOpenChange={(open) => dispatchManualDialog({ type: open ? "OPEN" : "CLOSE" })}>
         <DialogContent className="sm:max-w-[560px]">
           <DialogHeader>
-            <DialogTitle>{manualEditId ? "Edit Custom Agent" : "Add Custom Agent"}</DialogTitle>
+            <DialogTitle>{manualDialog.editId ? "Edit Custom Agent" : "Add Custom Agent"}</DialogTitle>
             <DialogDescription>Configure a custom ACP agent with command and arguments.</DialogDescription>
           </DialogHeader>
           <FieldGroup className="gap-4">
@@ -936,8 +1014,8 @@ export default function AcpSettings() {
               <FieldLabel htmlFor="acp-manual-name">Agent name</FieldLabel>
               <Input
                 id="acp-manual-name"
-                value={manualName}
-                onChange={(e) => setManualName(e.target.value)}
+                value={manualDialog.name}
+                onChange={(e) => dispatchManualDialog({ type: "SET_NAME", value: e.target.value })}
                 placeholder="My Agent"
               />
             </Field>
@@ -945,8 +1023,8 @@ export default function AcpSettings() {
               <FieldLabel htmlFor="acp-manual-command">Command</FieldLabel>
               <Input
                 id="acp-manual-command"
-                value={manualCommand}
-                onChange={(e) => setManualCommand(e.target.value)}
+                value={manualDialog.command}
+                onChange={(e) => dispatchManualDialog({ type: "SET_COMMAND", value: e.target.value })}
                 placeholder="npx -y my-agent"
               />
             </Field>
@@ -954,8 +1032,8 @@ export default function AcpSettings() {
               <FieldLabel htmlFor="acp-manual-args">Arguments</FieldLabel>
               <Textarea
                 id="acp-manual-args"
-                value={manualArgsText}
-                onChange={(e) => setManualArgsText(e.target.value)}
+                value={manualDialog.argsText}
+                onChange={(e) => dispatchManualDialog({ type: "SET_ARGS_TEXT", value: e.target.value })}
                 className="min-h-[96px] font-mono text-xs"
                 placeholder="--arg1&#10;--arg2"
               />
@@ -965,8 +1043,8 @@ export default function AcpSettings() {
               <FieldLabel htmlFor="acp-manual-env">Environment</FieldLabel>
               <Textarea
                 id="acp-manual-env"
-                value={manualEnv}
-                onChange={(e) => setManualEnv(e.target.value)}
+                value={manualDialog.env}
+                onChange={(e) => dispatchManualDialog({ type: "SET_ENV", value: e.target.value })}
                 className="min-h-[120px] font-mono text-xs"
                 placeholder="API_KEY=xxx"
               />
@@ -977,11 +1055,15 @@ export default function AcpSettings() {
                 <FieldLabel htmlFor="acp-manual-enabled">Enabled</FieldLabel>
                 <FieldDescription>Make this agent available immediately after saving.</FieldDescription>
               </div>
-              <Switch id="acp-manual-enabled" checked={manualEnabled} onCheckedChange={setManualEnabled} />
+              <Switch
+                id="acp-manual-enabled"
+                checked={manualDialog.enabled}
+                onCheckedChange={(checked) => dispatchManualDialog({ type: "SET_ENABLED", value: checked })}
+              />
             </Field>
           </FieldGroup>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setManualDialogOpen(false)}>
+            <Button variant="ghost" onClick={() => dispatchManualDialog({ type: "CLOSE" })}>
               Cancel
             </Button>
             <Button disabled={manualSaving} onClick={() => void saveManualAgent()}>
@@ -1053,7 +1135,7 @@ export default function AcpSettings() {
             </DialogHeader>
 
             <div className="flex-1 overflow-y-auto px-5 py-4">
-              {loading && !registryAgents.length ? (
+              {loading && !acpData.registryAgents.length ? (
                 <div className="flex flex-col gap-3 py-4" aria-label="Loading registry">
                   {[0, 1, 2].map((item) => (
                     <div key={item} className="flex items-center gap-3">

@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import { type FormEvent, useEffect, useRef, useReducer } from "react";
 import type { Rectangle } from "electron";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
@@ -32,23 +32,62 @@ const normalizeUrl = (value: string) => {
   if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed)) return trimmed;
   return `https://${trimmed}`;
 };
+const emptyBrowserStatus = (): YoBrowserStatus => ({
+  initialized: false,
+  page: null,
+  canGoBack: false,
+  canGoForward: false,
+  visible: false,
+  loading: false,
+});
+type BrowserPanelState = {
+  browserStatus: YoBrowserStatus;
+  urlInput: string;
+  canGoBack: boolean;
+  canGoForward: boolean;
+  showPlaceholder: boolean;
+};
+type BrowserPanelAction =
+  | { type: "RESET" }
+  | { type: "APPLY_STATUS"; status: YoBrowserStatus }
+  | { type: "SET_URL_INPUT"; value: string };
+const createInitialBrowserPanelState = (): BrowserPanelState => ({
+  browserStatus: emptyBrowserStatus(),
+  urlInput: "",
+  canGoBack: false,
+  canGoForward: false,
+  showPlaceholder: true,
+});
+const browserPanelReducer = (state: BrowserPanelState, action: BrowserPanelAction): BrowserPanelState => {
+  switch (action.type) {
+    case "RESET":
+      return {
+        browserStatus: emptyBrowserStatus(),
+        urlInput: "",
+        canGoBack: false,
+        canGoForward: false,
+        showPlaceholder: true,
+      };
+    case "APPLY_STATUS": {
+      const url = action.status.page?.url || "about:blank";
+      return {
+        browserStatus: action.status,
+        urlInput: url === "about:blank" ? "" : url,
+        canGoBack: action.status.canGoBack,
+        canGoForward: action.status.canGoForward,
+        showPlaceholder: !action.status.initialized || url === "about:blank",
+      };
+    }
+    case "SET_URL_INPUT":
+      return { ...state, urlInput: action.value };
+  }
+};
 export function BrowserPanel({ sessionId }: BrowserPanelProps) {
   const sidepanelStore = useSidepanelStore();
   const sessionStore = useSessionStore();
   const browserClient = createBrowserClient();
   const containerRef = useRef<HTMLDivElement>(null);
-  const [browserStatus, setBrowserStatus] = useState<YoBrowserStatus>({
-    initialized: false,
-    page: null,
-    canGoBack: false,
-    canGoForward: false,
-    visible: false,
-    loading: false,
-  });
-  const [urlInput, setUrlInput] = useState("");
-  const [canGoBack, setCanGoBack] = useState(false);
-  const [canGoForward, setCanGoForward] = useState(false);
-  const [showPlaceholder, setShowPlaceholder] = useState(true);
+  const [browser, dispatchBrowser] = useReducer(browserPanelReducer, undefined, createInitialBrowserPanelState);
   const lastSyncedBounds = useRef<Rectangle | null>(null);
   const pendingBrowserDestroySessionIds = useRef(new Set<string>());
   const visibilityRunId = useRef(0);
@@ -67,28 +106,10 @@ export function BrowserPanel({ sessionId }: BrowserPanelProps) {
     }
   };
   const resetBrowserState = () => {
-    setBrowserStatus({
-      initialized: false,
-      page: null,
-      canGoBack: false,
-      canGoForward: false,
-      visible: false,
-      loading: false,
-    });
-    setUrlInput("about:blank");
-    setUrlInput("");
-    setCanGoBack(false);
-    setCanGoForward(false);
-    setShowPlaceholder(true);
+    dispatchBrowser({ type: "RESET" });
   };
   const applyBrowserStatus = (status: YoBrowserStatus) => {
-    setBrowserStatus(status);
-    const url = status.page?.url || "about:blank";
-    setUrlInput(url);
-    setUrlInput(url === "about:blank" ? "" : url);
-    setCanGoBack(status.canGoBack);
-    setCanGoForward(status.canGoForward);
-    setShowPlaceholder(!status.initialized || url === "about:blank");
+    dispatchBrowser({ type: "APPLY_STATUS", status });
   };
   const captureContainerBounds = (): Rectangle | null => {
     if (!containerRef.current) return null;
@@ -100,7 +121,8 @@ export function BrowserPanel({ sessionId }: BrowserPanelProps) {
       height: rect.height,
     };
   };
-  const canSyncVisibleBounds = () => Boolean(currentSessionId && browserStatus.initialized && isBrowserPanelVisible);
+  const canSyncVisibleBounds = () =>
+    Boolean(currentSessionId && browser.browserStatus.initialized && isBrowserPanelVisible);
   const waitForStableRect = async (runId: number): Promise<Rectangle | null> => {
     let previousKey = "";
     let stableCount = 0;
@@ -178,7 +200,7 @@ export function BrowserPanel({ sessionId }: BrowserPanelProps) {
     await callBrowserAction("detach", () => browserClient.detach(sid));
   };
   const ensureVisibleAttachment = async () => {
-    if (!currentSessionId || !browserStatus.initialized || !isBrowserPanelVisible) return;
+    if (!currentSessionId || !browser.browserStatus.initialized || !isBrowserPanelVisible) return;
     const runId = ++visibilityRunId.current;
     await new Promise((r) => setTimeout(r, 0));
     const stableRect = await waitForStableRect(runId);
@@ -200,7 +222,7 @@ export function BrowserPanel({ sessionId }: BrowserPanelProps) {
   };
   const handleOpenRequested = async (payload: { sessionId: string; url: string }) => {
     if (payload.sessionId !== currentSessionId) return;
-    if (payload.url) setUrlInput(payload.url);
+    if (payload.url) dispatchBrowser({ type: "SET_URL_INPUT", value: payload.url });
     await loadState(currentSessionId);
     if (isBrowserPanelVisible) await ensureVisibleAttachment();
   };
@@ -216,7 +238,7 @@ export function BrowserPanel({ sessionId }: BrowserPanelProps) {
   const navigate = async (e: FormEvent) => {
     e.preventDefault();
     if (!currentSessionId) return;
-    const nextUrl = normalizeUrl(urlInput);
+    const nextUrl = normalizeUrl(browser.urlInput);
     if (!nextUrl) return;
     const result = await callBrowserAction("loadUrl", () => browserClient.loadUrl(currentSessionId, nextUrl));
     if (result === null) return;
@@ -224,17 +246,17 @@ export function BrowserPanel({ sessionId }: BrowserPanelProps) {
     await loadState(currentSessionId);
   };
   const goBack = async () => {
-    if (!currentSessionId || !browserStatus.initialized) return;
+    if (!currentSessionId || !browser.browserStatus.initialized) return;
     await callBrowserAction("goBack", () => browserClient.goBack(currentSessionId));
     await loadState(currentSessionId);
   };
   const goForward = async () => {
-    if (!currentSessionId || !browserStatus.initialized) return;
+    if (!currentSessionId || !browser.browserStatus.initialized) return;
     await callBrowserAction("goForward", () => browserClient.goForward(currentSessionId));
     await loadState(currentSessionId);
   };
   const reloadPage = async () => {
-    if (!currentSessionId || !browserStatus.initialized) return;
+    if (!currentSessionId || !browser.browserStatus.initialized) return;
     await callBrowserAction("reload", () => browserClient.reload(currentSessionId));
     await loadState(currentSessionId);
   };
@@ -332,7 +354,7 @@ export function BrowserPanel({ sessionId }: BrowserPanelProps) {
           size="icon"
           className="h-7 w-7"
           aria-label="Back"
-          disabled={!canGoBack}
+          disabled={!browser.canGoBack}
           onClick={goBack}
         >
           <Icon icon="lucide:arrow-left" className="h-4 w-4" />
@@ -342,7 +364,7 @@ export function BrowserPanel({ sessionId }: BrowserPanelProps) {
           size="icon"
           className="h-7 w-7"
           aria-label="Forward"
-          disabled={!canGoForward}
+          disabled={!browser.canGoForward}
           onClick={goForward}
         >
           <Icon icon="lucide:arrow-right" className="h-4 w-4" />
@@ -352,8 +374,8 @@ export function BrowserPanel({ sessionId }: BrowserPanelProps) {
         </Button>
         <form className="flex min-w-0 flex-1" onSubmit={navigate}>
           <Input
-            value={urlInput}
-            onChange={(e) => setUrlInput(e.target.value)}
+            value={browser.urlInput}
+            onChange={(e) => dispatchBrowser({ type: "SET_URL_INPUT", value: e.target.value })}
             aria-label="Address"
             className="h-7 text-xs"
             placeholder="Enter URL..."
@@ -364,7 +386,7 @@ export function BrowserPanel({ sessionId }: BrowserPanelProps) {
         </form>
       </div>
       <div ref={containerRef} className="relative min-h-0 flex-1 overflow-hidden">
-        {showPlaceholder && (
+        {browser.showPlaceholder && (
           <div className="absolute inset-0">
             <BrowserPlaceholder />
           </div>

@@ -50,6 +50,546 @@ const formatDateTimeLocal = (timestamp: number) => {
   const date = new Date(timestamp);
   return `${date.getFullYear()}-${padTwo(date.getMonth() + 1)}-${padTwo(date.getDate())}T${padTwo(date.getHours())}:${padTwo(date.getMinutes())}`;
 };
+interface TaskEditorPanelProps {
+  task: ScheduledTask;
+  index: number;
+  settings: ScheduledTasksSettings;
+  enabledAgents: Agent[];
+  onceInputValues: string[];
+  recurringTimeValues: string[];
+  /** Whether the model picker popover is open for this task. */
+  modelPickerOpen: boolean;
+  onModelPickerOpenChange: (open: boolean) => void;
+  getModelLabel: (action: PromptAction) => string;
+  setSettings: (next: ScheduledTasksSettings) => void;
+  commitTask: (index: number, override?: ScheduledTask) => Promise<void>;
+}
+
+/**
+ * Expanded editor for a single scheduled task: name, trigger, and action
+ * fields. Extracted from `ScheduledTasksSettings` to keep JSX nesting shallow.
+ */
+function TaskEditorPanel({
+  task,
+  index,
+  settings,
+  enabledAgents,
+  onceInputValues,
+  recurringTimeValues,
+  modelPickerOpen,
+  onModelPickerOpenChange,
+  getModelLabel,
+  setSettings,
+  commitTask,
+}: TaskEditorPanelProps) {
+  return (
+    <div className="border-t bg-background/60 px-4 py-4 sm:px-5 sm:py-5">
+      <div className="mb-4 space-y-2">
+        <Label className="text-xs text-muted-foreground">Task Name</Label>
+        <Input
+          value={task.name}
+          placeholder="Task name"
+          className="h-8!"
+          onChange={(e) => {
+            const next: ScheduledTasksSettings = {
+              ...settings,
+              tasks: settings.tasks.map((t, i) =>
+                i === index
+                  ? {
+                      ...t,
+                      name: e.target.value,
+                    }
+                  : t,
+              ),
+            };
+            setSettings(next);
+          }}
+          onBlur={() => void commitTask(index)}
+        />
+      </div>
+
+      <div className="grid items-start gap-4 lg:grid-cols-2">
+        <section className="space-y-3 rounded-lg border bg-card/40 p-4">
+          <div className="flex items-center gap-2">
+            <Icon icon="lucide:calendar-clock" className="h-4 w-4 text-muted-foreground" />
+            <div className="text-sm font-medium">Trigger</div>
+          </div>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Type</Label>
+              <Select
+                value={task.trigger.kind}
+                onValueChange={(value) => {
+                  let trigger: ScheduledTaskTrigger;
+                  switch (value as TriggerKind) {
+                    case "once":
+                      trigger = {
+                        kind: "once",
+                        firesAt: Date.now() + 3600000,
+                      };
+                      break;
+                    case "daily":
+                      trigger = {
+                        kind: "daily",
+                        hour: 9,
+                        minute: 0,
+                      };
+                      break;
+                    case "weekly":
+                      trigger = {
+                        kind: "weekly",
+                        dayOfWeek: 1,
+                        hour: 9,
+                        minute: 0,
+                      };
+                      break;
+                  }
+                  const next: ScheduledTasksSettings = {
+                    ...settings,
+                    tasks: settings.tasks.map((t, i) =>
+                      i === index
+                        ? {
+                            ...t,
+                            trigger,
+                          }
+                        : t,
+                    ),
+                  };
+                  setSettings(next);
+                  void commitTask(index, next.tasks[index]);
+                }}
+              >
+                <SelectTrigger className="h-8! w-full min-w-0">
+                  <SelectValue className="min-w-0 truncate" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="once">Once</SelectItem>
+                  <SelectItem value="daily">Daily</SelectItem>
+                  <SelectItem value="weekly">Weekly</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {task.trigger.kind === "once" && (
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Fires At</Label>
+                <Input
+                  type="datetime-local"
+                  className="h-8!"
+                  value={onceInputValues[index] ?? ""}
+                  onChange={(e) => {
+                    const ts = new Date(e.target.value).getTime();
+                    if (Number.isFinite(ts)) {
+                      const next: ScheduledTasksSettings = {
+                        ...settings,
+                        tasks: settings.tasks.map((t, i) =>
+                          i === index
+                            ? {
+                                ...t,
+                                trigger: {
+                                  kind: "once" as const,
+                                  firesAt: ts,
+                                },
+                              }
+                            : t,
+                        ),
+                      };
+                      setSettings(next);
+                    }
+                  }}
+                  onBlur={() => void commitTask(index)}
+                />
+              </div>
+            )}
+            {(task.trigger.kind === "daily" || task.trigger.kind === "weekly") && (
+              <>
+                {task.trigger.kind === "weekly" && (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Day of Week</Label>
+                    <Select
+                      value={String(task.trigger.dayOfWeek)}
+                      onValueChange={(value) => {
+                        const next: ScheduledTasksSettings = {
+                          ...settings,
+                          tasks: settings.tasks.map((t, i) =>
+                            i === index && t.trigger.kind === "weekly"
+                              ? {
+                                  ...t,
+                                  trigger: {
+                                    ...t.trigger,
+                                    dayOfWeek: Number(value),
+                                  },
+                                }
+                              : t,
+                          ),
+                        };
+                        setSettings(next);
+                        void commitTask(index, next.tasks[index]);
+                      }}
+                    >
+                      <SelectTrigger className="h-8! w-full min-w-0">
+                        <SelectValue className="min-w-0 truncate" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(DAY_OF_WEEK_OPTIONS).map(([value, label]) => (
+                          <SelectItem key={value} value={value}>
+                            {label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Time</Label>
+                  <Input
+                    type="time"
+                    className="h-8!"
+                    value={recurringTimeValues[index] ?? "09:00"}
+                    onChange={(e) => {
+                      const [h, m] = e.target.value.split(":");
+                      const hour = Number(h);
+                      const minute = Number(m);
+                      if (Number.isFinite(hour) && Number.isFinite(minute)) {
+                        const next: ScheduledTasksSettings = {
+                          ...settings,
+                          tasks: settings.tasks.map((t, i) => {
+                            if (i !== index) return t;
+                            if (t.trigger.kind === "daily")
+                              return {
+                                ...t,
+                                trigger: {
+                                  kind: "daily" as const,
+                                  hour,
+                                  minute,
+                                },
+                              };
+                            if (t.trigger.kind === "weekly")
+                              return {
+                                ...t,
+                                trigger: {
+                                  ...t.trigger,
+                                  hour,
+                                  minute,
+                                },
+                              };
+                            return t;
+                          }),
+                        };
+                        setSettings(next);
+                      }
+                    }}
+                    onBlur={() => void commitTask(index)}
+                  />
+                </div>
+              </>
+            )}
+          </div>
+        </section>
+
+        <section className="space-y-3 rounded-lg border bg-card/40 p-4">
+          <div className="flex items-center gap-2">
+            <Icon icon="lucide:send" className="h-4 w-4 text-muted-foreground" />
+            <div className="text-sm font-medium">Action</div>
+          </div>
+          <div className="space-y-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="min-w-0 space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Type</Label>
+                <Select
+                  value={task.action.kind}
+                  onValueChange={(value) => {
+                    const kind = value as ActionKind;
+                    let action: ScheduledTaskAction;
+                    if (kind === "notify") {
+                      action = {
+                        kind: "notify",
+                        title: task.action.title || task.name,
+                        body: "",
+                      };
+                    } else {
+                      action = {
+                        kind: "prompt",
+                        title: task.action.title || task.name,
+                        message: "",
+                        autoSend: false,
+                        agentId: "argos",
+                      };
+                    }
+                    const next: ScheduledTasksSettings = {
+                      ...settings,
+                      tasks: settings.tasks.map((t, i) =>
+                        i === index
+                          ? {
+                              ...t,
+                              action,
+                            }
+                          : t,
+                      ),
+                    };
+                    setSettings(next);
+                    void commitTask(index, next.tasks[index]);
+                  }}
+                >
+                  <SelectTrigger className="h-8! w-full min-w-0">
+                    <SelectValue className="min-w-0 truncate" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="notify">Notify</SelectItem>
+                    <SelectItem value="prompt">Prompt</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="min-w-0 space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Title</Label>
+                <Input
+                  value={task.action.title}
+                  className="h-8!"
+                  placeholder="Title"
+                  onChange={(e) => {
+                    const next: ScheduledTasksSettings = {
+                      ...settings,
+                      tasks: settings.tasks.map((t, i) =>
+                        i === index
+                          ? {
+                              ...t,
+                              action: {
+                                ...t.action,
+                                title: e.target.value,
+                              },
+                            }
+                          : t,
+                      ),
+                    };
+                    setSettings(next);
+                  }}
+                  onBlur={() => void commitTask(index)}
+                />
+              </div>
+            </div>
+
+            {task.action.kind === "notify" && (
+              <div className="space-y-1.5">
+                <Label htmlFor={`task-notify-body-${task.id}`} className="text-xs text-muted-foreground">
+                  Body
+                </Label>
+                <textarea
+                  id={`task-notify-body-${task.id}`}
+                  value={(task.action as NotifyAction).body}
+                  className="min-h-20 w-full rounded-md border bg-background p-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  rows={3}
+                  onChange={(e) => {
+                    const next: ScheduledTasksSettings = {
+                      ...settings,
+                      tasks: settings.tasks.map((t, i) =>
+                        i === index
+                          ? {
+                              ...t,
+                              action: {
+                                ...t.action,
+                                body: e.target.value,
+                              },
+                            }
+                          : t,
+                      ),
+                    };
+                    setSettings(next);
+                  }}
+                  onBlur={() => void commitTask(index)}
+                />
+              </div>
+            )}
+
+            {task.action.kind === "prompt" && (
+              <>
+                <div className="space-y-1.5">
+                  <Label htmlFor={`task-prompt-message-${task.id}`} className="text-xs text-muted-foreground">
+                    Message
+                  </Label>
+                  <textarea
+                    id={`task-prompt-message-${task.id}`}
+                    value={(task.action as PromptAction).message}
+                    className="min-h-24 w-full rounded-md border bg-background p-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    rows={3}
+                    onChange={(e) => {
+                      const next: ScheduledTasksSettings = {
+                        ...settings,
+                        tasks: settings.tasks.map((t, i) =>
+                          i === index
+                            ? {
+                                ...t,
+                                action: {
+                                  ...t.action,
+                                  message: e.target.value,
+                                },
+                              }
+                            : t,
+                        ),
+                      };
+                      setSettings(next);
+                    }}
+                    onBlur={() => void commitTask(index)}
+                  />
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="min-w-0 space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Agent</Label>
+                    <Select
+                      value={(task.action as PromptAction).agentId ?? "argos"}
+                      onValueChange={(value) => {
+                        const agent = enabledAgents.find((a) => a.id === value);
+                        const preset = agent?.config?.defaultModelPreset;
+                        const next: ScheduledTasksSettings = {
+                          ...settings,
+                          tasks: settings.tasks.map((t, i) =>
+                            i === index
+                              ? ({
+                                  ...t,
+                                  action: {
+                                    ...t.action,
+                                    agentId: value,
+                                    ...(preset
+                                      ? {
+                                          providerId: preset.providerId,
+                                          modelId: preset.modelId,
+                                        }
+                                      : {}),
+                                  },
+                                } as ScheduledTask)
+                              : t,
+                          ),
+                        };
+                        setSettings(next);
+                        void commitTask(index, next.tasks[index]);
+                      }}
+                    >
+                      <SelectTrigger className="h-8! w-full min-w-0">
+                        <SelectValue className="min-w-0 truncate" placeholder="Select agent" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {enabledAgents.map((agent) => (
+                          <SelectItem key={agent.id} value={agent.id}>
+                            <span className="block max-w-[18rem] truncate">
+                              {agent.name} ({agent.id})
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="min-w-0 space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Model</Label>
+                    <Popover open={modelPickerOpen} onOpenChange={onModelPickerOpenChange}>
+                      <PopoverTrigger
+                        render={
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-8! w-full min-w-0 justify-between px-3 text-left font-normal"
+                          />
+                        }
+                      >
+                        <span className="flex min-w-0 items-center gap-2">
+                          {(task.action as PromptAction).providerId && (
+                            <ModelIcon modelId={(task.action as PromptAction).providerId ?? ""} />
+                          )}
+                          <span className="truncate">{getModelLabel(task.action as PromptAction)}</span>
+                        </span>
+                        <Icon icon="lucide:chevron-down" className="h-4 w-4 shrink-0 opacity-50" />
+                      </PopoverTrigger>
+                      <PopoverContent align="start" className="w-[min(22rem,calc(100vw-2rem))] p-0">
+                        <ModelSelect
+                          excludeProviders={["acp"]}
+                          respectChatMode={false}
+                          selectedProviderId={(task.action as PromptAction).providerId ?? ""}
+                          selectedModelId={(task.action as PromptAction).modelId ?? ""}
+                          onUpdateModel={(model: RENDERER_MODEL_META, providerId: string) => {
+                            const next: ScheduledTasksSettings = {
+                              ...settings,
+                              tasks: settings.tasks.map((t, i) =>
+                                i === index
+                                  ? {
+                                      ...t,
+                                      action: {
+                                        ...t.action,
+                                        providerId,
+                                        modelId: model.id,
+                                      },
+                                    }
+                                  : t,
+                              ),
+                            };
+                            setSettings(next);
+                            onModelPickerOpenChange(false);
+                            void commitTask(index, next.tasks[index]);
+                          }}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor={`task-system-prompt-${task.id}`} className="text-xs text-muted-foreground">
+                    System Prompt
+                  </Label>
+                  <textarea
+                    id={`task-system-prompt-${task.id}`}
+                    value={(task.action as PromptAction).systemPrompt ?? ""}
+                    className="min-h-20 w-full rounded-md border bg-background p-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    rows={2}
+                    onChange={(e) => {
+                      const next: ScheduledTasksSettings = {
+                        ...settings,
+                        tasks: settings.tasks.map((t, i) =>
+                          i === index
+                            ? {
+                                ...t,
+                                action: {
+                                  ...t.action,
+                                  systemPrompt: e.target.value,
+                                },
+                              }
+                            : t,
+                        ),
+                      };
+                      setSettings(next);
+                    }}
+                    onBlur={() => void commitTask(index)}
+                  />
+                </div>
+                <label className="flex w-fit items-center gap-2 text-xs text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={(task.action as PromptAction).autoSend}
+                    onChange={(e) => {
+                      const next: ScheduledTasksSettings = {
+                        ...settings,
+                        tasks: settings.tasks.map((t, i) =>
+                          i === index
+                            ? {
+                                ...t,
+                                action: {
+                                  ...t.action,
+                                  autoSend: e.target.checked,
+                                },
+                              }
+                            : t,
+                        ),
+                      };
+                      setSettings(next);
+                    }}
+                    onBlur={() => void commitTask(index)}
+                  />
+                  Auto-send
+                </label>
+              </>
+            )}
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
 export default function ScheduledTasksSettings() {
   const { toast } = useToast();
   const client = createScheduledTasksClient();
@@ -363,532 +903,24 @@ export default function ScheduledTasksSettings() {
                       </div>
 
                       <CollapsibleContent>
-                        <div className="border-t bg-background/60 px-4 py-4 sm:px-5 sm:py-5">
-                          <div className="mb-4 space-y-2">
-                            <Label className="text-xs text-muted-foreground">Task Name</Label>
-                            <Input
-                              value={task.name}
-                              placeholder="Task name"
-                              className="h-8!"
-                              onChange={(e) => {
-                                const next: ScheduledTasksSettings = {
-                                  ...settings!,
-                                  tasks: settings.tasks.map((t, i) =>
-                                    i === index
-                                      ? {
-                                          ...t,
-                                          name: e.target.value,
-                                        }
-                                      : t,
-                                  ),
-                                };
-                                setSettings(next);
-                              }}
-                              onBlur={() => void commitTask(index)}
-                            />
-                          </div>
-
-                          <div className="grid items-start gap-4 lg:grid-cols-2">
-                            <section className="space-y-3 rounded-lg border bg-card/40 p-4">
-                              <div className="flex items-center gap-2">
-                                <Icon icon="lucide:calendar-clock" className="h-4 w-4 text-muted-foreground" />
-                                <div className="text-sm font-medium">Trigger</div>
-                              </div>
-                              <div className="space-y-3">
-                                <div className="space-y-1.5">
-                                  <Label className="text-xs text-muted-foreground">Type</Label>
-                                  <Select
-                                    value={task.trigger.kind}
-                                    onValueChange={(value) => {
-                                      let trigger: ScheduledTaskTrigger;
-                                      switch (value as TriggerKind) {
-                                        case "once":
-                                          trigger = {
-                                            kind: "once",
-                                            firesAt: Date.now() + 3600000,
-                                          };
-                                          break;
-                                        case "daily":
-                                          trigger = {
-                                            kind: "daily",
-                                            hour: 9,
-                                            minute: 0,
-                                          };
-                                          break;
-                                        case "weekly":
-                                          trigger = {
-                                            kind: "weekly",
-                                            dayOfWeek: 1,
-                                            hour: 9,
-                                            minute: 0,
-                                          };
-                                          break;
-                                      }
-                                      const next: ScheduledTasksSettings = {
-                                        ...settings!,
-                                        tasks: settings.tasks.map((t, i) =>
-                                          i === index
-                                            ? {
-                                                ...t,
-                                                trigger,
-                                              }
-                                            : t,
-                                        ),
-                                      };
-                                      setSettings(next);
-                                      void commitTask(index, next.tasks[index]);
-                                    }}
-                                  >
-                                    <SelectTrigger className="h-8! w-full min-w-0">
-                                      <SelectValue className="min-w-0 truncate" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="once">Once</SelectItem>
-                                      <SelectItem value="daily">Daily</SelectItem>
-                                      <SelectItem value="weekly">Weekly</SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                                {task.trigger.kind === "once" && (
-                                  <div className="space-y-1.5">
-                                    <Label className="text-xs text-muted-foreground">Fires At</Label>
-                                    <Input
-                                      type="datetime-local"
-                                      className="h-8!"
-                                      value={onceInputValues[index] ?? ""}
-                                      onChange={(e) => {
-                                        const ts = new Date(e.target.value).getTime();
-                                        if (Number.isFinite(ts)) {
-                                          const next: ScheduledTasksSettings = {
-                                            ...settings!,
-                                            tasks: settings.tasks.map((t, i) =>
-                                              i === index
-                                                ? {
-                                                    ...t,
-                                                    trigger: {
-                                                      kind: "once" as const,
-                                                      firesAt: ts,
-                                                    },
-                                                  }
-                                                : t,
-                                            ),
-                                          };
-                                          setSettings(next);
-                                        }
-                                      }}
-                                      onBlur={() => void commitTask(index)}
-                                    />
-                                  </div>
-                                )}
-                                {(task.trigger.kind === "daily" || task.trigger.kind === "weekly") && (
-                                  <>
-                                    {task.trigger.kind === "weekly" && (
-                                      <div className="space-y-1.5">
-                                        <Label className="text-xs text-muted-foreground">Day of Week</Label>
-                                        <Select
-                                          value={String(task.trigger.dayOfWeek)}
-                                          onValueChange={(value) => {
-                                            const next: ScheduledTasksSettings = {
-                                              ...settings!,
-                                              tasks: settings.tasks.map((t, i) =>
-                                                i === index && t.trigger.kind === "weekly"
-                                                  ? {
-                                                      ...t,
-                                                      trigger: {
-                                                        ...t.trigger,
-                                                        dayOfWeek: Number(value),
-                                                      },
-                                                    }
-                                                  : t,
-                                              ),
-                                            };
-                                            setSettings(next);
-                                            void commitTask(index, next.tasks[index]);
-                                          }}
-                                        >
-                                          <SelectTrigger className="h-8! w-full min-w-0">
-                                            <SelectValue className="min-w-0 truncate" />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                            {Object.entries(DAY_OF_WEEK_OPTIONS).map(([value, label]) => (
-                                              <SelectItem key={value} value={value}>
-                                                {label}
-                                              </SelectItem>
-                                            ))}
-                                          </SelectContent>
-                                        </Select>
-                                      </div>
-                                    )}
-                                    <div className="space-y-1.5">
-                                      <Label className="text-xs text-muted-foreground">Time</Label>
-                                      <Input
-                                        type="time"
-                                        className="h-8!"
-                                        value={recurringTimeValues[index] ?? "09:00"}
-                                        onChange={(e) => {
-                                          const [h, m] = e.target.value.split(":");
-                                          const hour = Number(h);
-                                          const minute = Number(m);
-                                          if (Number.isFinite(hour) && Number.isFinite(minute)) {
-                                            const next: ScheduledTasksSettings = {
-                                              ...settings!,
-                                              tasks: settings.tasks.map((t, i) => {
-                                                if (i !== index) return t;
-                                                if (t.trigger.kind === "daily")
-                                                  return {
-                                                    ...t,
-                                                    trigger: {
-                                                      kind: "daily" as const,
-                                                      hour,
-                                                      minute,
-                                                    },
-                                                  };
-                                                if (t.trigger.kind === "weekly")
-                                                  return {
-                                                    ...t,
-                                                    trigger: {
-                                                      ...t.trigger,
-                                                      hour,
-                                                      minute,
-                                                    },
-                                                  };
-                                                return t;
-                                              }),
-                                            };
-                                            setSettings(next);
-                                          }
-                                        }}
-                                        onBlur={() => void commitTask(index)}
-                                      />
-                                    </div>
-                                  </>
-                                )}
-                              </div>
-                            </section>
-
-                            <section className="space-y-3 rounded-lg border bg-card/40 p-4">
-                              <div className="flex items-center gap-2">
-                                <Icon icon="lucide:send" className="h-4 w-4 text-muted-foreground" />
-                                <div className="text-sm font-medium">Action</div>
-                              </div>
-                              <div className="space-y-3">
-                                <div className="grid gap-3 sm:grid-cols-2">
-                                  <div className="min-w-0 space-y-1.5">
-                                    <Label className="text-xs text-muted-foreground">Type</Label>
-                                    <Select
-                                      value={task.action.kind}
-                                      onValueChange={(value) => {
-                                        const kind = value as ActionKind;
-                                        let action: ScheduledTaskAction;
-                                        if (kind === "notify") {
-                                          action = {
-                                            kind: "notify",
-                                            title: task.action.title || task.name,
-                                            body: "",
-                                          };
-                                        } else {
-                                          action = {
-                                            kind: "prompt",
-                                            title: task.action.title || task.name,
-                                            message: "",
-                                            autoSend: false,
-                                            agentId: "argos",
-                                          };
-                                        }
-                                        const next: ScheduledTasksSettings = {
-                                          ...settings!,
-                                          tasks: settings.tasks.map((t, i) =>
-                                            i === index
-                                              ? {
-                                                  ...t,
-                                                  action,
-                                                }
-                                              : t,
-                                          ),
-                                        };
-                                        setSettings(next);
-                                        void commitTask(index, next.tasks[index]);
-                                      }}
-                                    >
-                                      <SelectTrigger className="h-8! w-full min-w-0">
-                                        <SelectValue className="min-w-0 truncate" />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="notify">Notify</SelectItem>
-                                        <SelectItem value="prompt">Prompt</SelectItem>
-                                      </SelectContent>
-                                    </Select>
-                                  </div>
-                                  <div className="min-w-0 space-y-1.5">
-                                    <Label className="text-xs text-muted-foreground">Title</Label>
-                                    <Input
-                                      value={task.action.title}
-                                      className="h-8!"
-                                      placeholder="Title"
-                                      onChange={(e) => {
-                                        const next: ScheduledTasksSettings = {
-                                          ...settings!,
-                                          tasks: settings.tasks.map((t, i) =>
-                                            i === index
-                                              ? {
-                                                  ...t,
-                                                  action: {
-                                                    ...t.action,
-                                                    title: e.target.value,
-                                                  },
-                                                }
-                                              : t,
-                                          ),
-                                        };
-                                        setSettings(next);
-                                      }}
-                                      onBlur={() => void commitTask(index)}
-                                    />
-                                  </div>
-                                </div>
-
-                                {task.action.kind === "notify" && (
-                                  <div className="space-y-1.5">
-                                    <Label
-                                      htmlFor={`task-notify-body-${task.id}`}
-                                      className="text-xs text-muted-foreground"
-                                    >
-                                      Body
-                                    </Label>
-                                    <textarea
-                                      id={`task-notify-body-${task.id}`}
-                                      value={(task.action as NotifyAction).body}
-                                      className="min-h-20 w-full rounded-md border bg-background p-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                      rows={3}
-                                      onChange={(e) => {
-                                        const next: ScheduledTasksSettings = {
-                                          ...settings!,
-                                          tasks: settings.tasks.map((t, i) =>
-                                            i === index
-                                              ? {
-                                                  ...t,
-                                                  action: {
-                                                    ...t.action,
-                                                    body: e.target.value,
-                                                  },
-                                                }
-                                              : t,
-                                          ),
-                                        };
-                                        setSettings(next);
-                                      }}
-                                      onBlur={() => void commitTask(index)}
-                                    />
-                                  </div>
-                                )}
-
-                                {task.action.kind === "prompt" && (
-                                  <>
-                                    <div className="space-y-1.5">
-                                      <Label
-                                        htmlFor={`task-prompt-message-${task.id}`}
-                                        className="text-xs text-muted-foreground"
-                                      >
-                                        Message
-                                      </Label>
-                                      <textarea
-                                        id={`task-prompt-message-${task.id}`}
-                                        value={(task.action as PromptAction).message}
-                                        className="min-h-24 w-full rounded-md border bg-background p-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                        rows={3}
-                                        onChange={(e) => {
-                                          const next: ScheduledTasksSettings = {
-                                            ...settings!,
-                                            tasks: settings.tasks.map((t, i) =>
-                                              i === index
-                                                ? {
-                                                    ...t,
-                                                    action: {
-                                                      ...t.action,
-                                                      message: e.target.value,
-                                                    },
-                                                  }
-                                                : t,
-                                            ),
-                                          };
-                                          setSettings(next);
-                                        }}
-                                        onBlur={() => void commitTask(index)}
-                                      />
-                                    </div>
-                                    <div className="grid gap-3 sm:grid-cols-2">
-                                      <div className="min-w-0 space-y-1.5">
-                                        <Label className="text-xs text-muted-foreground">Agent</Label>
-                                        <Select
-                                          value={(task.action as PromptAction).agentId ?? "argos"}
-                                          onValueChange={(value) => {
-                                            const agent = enabledAgents.find((a) => a.id === value);
-                                            const preset = agent?.config?.defaultModelPreset;
-                                            const next: ScheduledTasksSettings = {
-                                              ...settings!,
-                                              tasks: settings.tasks.map((t, i) =>
-                                                i === index
-                                                  ? ({
-                                                      ...t,
-                                                      action: {
-                                                        ...t.action,
-                                                        agentId: value,
-                                                        ...(preset
-                                                          ? {
-                                                              providerId: preset.providerId,
-                                                              modelId: preset.modelId,
-                                                            }
-                                                          : {}),
-                                                      },
-                                                    } as ScheduledTask)
-                                                  : t,
-                                              ),
-                                            };
-                                            setSettings(next);
-                                            void commitTask(index, next.tasks[index]);
-                                          }}
-                                        >
-                                          <SelectTrigger className="h-8! w-full min-w-0">
-                                            <SelectValue className="min-w-0 truncate" placeholder="Select agent" />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                            {enabledAgents.map((agent) => (
-                                              <SelectItem key={agent.id} value={agent.id}>
-                                                <span className="block max-w-[18rem] truncate">
-                                                  {agent.name} ({agent.id})
-                                                </span>
-                                              </SelectItem>
-                                            ))}
-                                          </SelectContent>
-                                        </Select>
-                                      </div>
-                                      <div className="min-w-0 space-y-1.5">
-                                        <Label className="text-xs text-muted-foreground">Model</Label>
-                                        <Popover
-                                          open={modelPickerOpen[task.id] ?? false}
-                                          onOpenChange={(open) =>
-                                            setModelPickerOpen((prev) => ({
-                                              ...prev,
-                                              [task.id]: open,
-                                            }))
-                                          }
-                                        >
-                                          <PopoverTrigger
-                                            render={
-                                              <Button
-                                                type="button"
-                                                variant="outline"
-                                                className="h-8! w-full min-w-0 justify-between px-3 text-left font-normal"
-                                              />
-                                            }
-                                          >
-                                            <span className="flex min-w-0 items-center gap-2">
-                                              {(task.action as PromptAction).providerId && (
-                                                <ModelIcon modelId={(task.action as PromptAction).providerId ?? ""} />
-                                              )}
-                                              <span className="truncate">
-                                                {getModelLabel(task.action as PromptAction)}
-                                              </span>
-                                            </span>
-                                            <Icon icon="lucide:chevron-down" className="h-4 w-4 shrink-0 opacity-50" />
-                                          </PopoverTrigger>
-                                          <PopoverContent align="start" className="w-[min(22rem,calc(100vw-2rem))] p-0">
-                                            <ModelSelect
-                                              excludeProviders={["acp"]}
-                                              respectChatMode={false}
-                                              selectedProviderId={(task.action as PromptAction).providerId ?? ""}
-                                              selectedModelId={(task.action as PromptAction).modelId ?? ""}
-                                              onUpdateModel={(model: RENDERER_MODEL_META, providerId: string) => {
-                                                const next: ScheduledTasksSettings = {
-                                                  ...settings!,
-                                                  tasks: settings.tasks.map((t, i) =>
-                                                    i === index
-                                                      ? {
-                                                          ...t,
-                                                          action: {
-                                                            ...t.action,
-                                                            providerId,
-                                                            modelId: model.id,
-                                                          },
-                                                        }
-                                                      : t,
-                                                  ),
-                                                };
-                                                setSettings(next);
-                                                setModelPickerOpen((prev) => ({
-                                                  ...prev,
-                                                  [task.id]: false,
-                                                }));
-                                                void commitTask(index, next.tasks[index]);
-                                              }}
-                                            />
-                                          </PopoverContent>
-                                        </Popover>
-                                      </div>
-                                    </div>
-                                    <div className="space-y-1.5">
-                                      <Label
-                                        htmlFor={`task-system-prompt-${task.id}`}
-                                        className="text-xs text-muted-foreground"
-                                      >
-                                        System Prompt
-                                      </Label>
-                                      <textarea
-                                        id={`task-system-prompt-${task.id}`}
-                                        value={(task.action as PromptAction).systemPrompt ?? ""}
-                                        className="min-h-20 w-full rounded-md border bg-background p-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                        rows={2}
-                                        onChange={(e) => {
-                                          const next: ScheduledTasksSettings = {
-                                            ...settings!,
-                                            tasks: settings.tasks.map((t, i) =>
-                                              i === index
-                                                ? {
-                                                    ...t,
-                                                    action: {
-                                                      ...t.action,
-                                                      systemPrompt: e.target.value,
-                                                    },
-                                                  }
-                                                : t,
-                                            ),
-                                          };
-                                          setSettings(next);
-                                        }}
-                                        onBlur={() => void commitTask(index)}
-                                      />
-                                    </div>
-                                    <label className="flex w-fit items-center gap-2 text-xs text-muted-foreground">
-                                      <input
-                                        type="checkbox"
-                                        checked={(task.action as PromptAction).autoSend}
-                                        onChange={(e) => {
-                                          const next: ScheduledTasksSettings = {
-                                            ...settings!,
-                                            tasks: settings.tasks.map((t, i) =>
-                                              i === index
-                                                ? {
-                                                    ...t,
-                                                    action: {
-                                                      ...t.action,
-                                                      autoSend: e.target.checked,
-                                                    },
-                                                  }
-                                                : t,
-                                            ),
-                                          };
-                                          setSettings(next);
-                                        }}
-                                        onBlur={() => void commitTask(index)}
-                                      />
-                                      Auto-send
-                                    </label>
-                                  </>
-                                )}
-                              </div>
-                            </section>
-                          </div>
-                        </div>
+                        <TaskEditorPanel
+                          task={task}
+                          index={index}
+                          settings={settings}
+                          enabledAgents={enabledAgents}
+                          onceInputValues={onceInputValues}
+                          recurringTimeValues={recurringTimeValues}
+                          modelPickerOpen={modelPickerOpen[task.id] ?? false}
+                          onModelPickerOpenChange={(open) =>
+                            setModelPickerOpen((prev) => ({
+                              ...prev,
+                              [task.id]: open,
+                            }))
+                          }
+                          getModelLabel={getModelLabel}
+                          setSettings={setSettings}
+                          commitTask={commitTask}
+                        />
                       </CollapsibleContent>
                     </div>
                   </Collapsible>

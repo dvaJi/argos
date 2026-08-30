@@ -9,18 +9,16 @@ import {
 } from "#shadcn/components/ui/dialog";
 import type { LLM_PROVIDER, RENDERER_MODEL_META } from "@argos/shared/presenter";
 
+/** The confirmation dialogs are mutually exclusive; only one can be open at a time. */
+export type ProviderDialogKind = "confirm" | "checkModel" | "disableAll" | "deleteProvider";
+
 interface ProviderDialogContainerProps {
   provider: LLM_PROVIDER;
   modelToDisable: RENDERER_MODEL_META | null;
   checkResult: boolean;
-  showConfirmDialog: boolean;
-  showCheckModelDialog: boolean;
-  showDisableAllConfirmDialog: boolean;
-  showDeleteProviderDialog: boolean;
-  onShowConfirmDialogChange: (value: boolean) => void;
-  onShowCheckModelDialogChange: (value: boolean) => void;
-  onShowDisableAllConfirmDialogChange: (value: boolean) => void;
-  onShowDeleteProviderDialogChange: (value: boolean) => void;
+  /** Which confirmation dialog is currently open (at most one). */
+  activeDialog: ProviderDialogKind | null;
+  onActiveDialogChange: (dialog: ProviderDialogKind | null) => void;
   onConfirmDisableModel?: () => void;
   onConfirmDisableAllModels?: () => void;
   onConfirmDeleteProvider?: () => void;
@@ -30,21 +28,15 @@ export default function ProviderDialogContainer({
   provider,
   modelToDisable,
   checkResult,
-  showConfirmDialog,
-  showCheckModelDialog,
-  showDisableAllConfirmDialog,
-  showDeleteProviderDialog,
-  onShowConfirmDialogChange,
-  onShowCheckModelDialogChange,
-  onShowDisableAllConfirmDialogChange,
-  onShowDeleteProviderDialogChange,
+  activeDialog,
+  onActiveDialogChange,
   onConfirmDisableModel,
   onConfirmDisableAllModels,
   onConfirmDeleteProvider,
 }: ProviderDialogContainerProps) {
   return (
     <div>
-      <Dialog open={showConfirmDialog} onOpenChange={onShowConfirmDialogChange}>
+      <Dialog open={activeDialog === "confirm"} onOpenChange={(open) => onActiveDialogChange(open ? "confirm" : null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Disable Model</DialogTitle>
@@ -53,7 +45,7 @@ export default function ProviderDialogContainer({
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => onShowConfirmDialogChange(false)}>
+            <Button variant="outline" onClick={() => onActiveDialogChange(null)}>
               Cancel
             </Button>
             <Button variant="destructive" onClick={onConfirmDisableModel}>
@@ -63,7 +55,10 @@ export default function ProviderDialogContainer({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showCheckModelDialog} onOpenChange={onShowCheckModelDialogChange}>
+      <Dialog
+        open={activeDialog === "checkModel"}
+        onOpenChange={(open) => onActiveDialogChange(open ? "checkModel" : null)}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{checkResult ? "Verification Successful" : "Verification Failed"}</DialogTitle>
@@ -74,21 +69,24 @@ export default function ProviderDialogContainer({
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => onShowCheckModelDialogChange(false)}>
+            <Button variant="outline" onClick={() => onActiveDialogChange(null)}>
               Close
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showDisableAllConfirmDialog} onOpenChange={onShowDisableAllConfirmDialogChange}>
+      <Dialog
+        open={activeDialog === "disableAll"}
+        onOpenChange={(open) => onActiveDialogChange(open ? "disableAll" : null)}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Disable All Models</DialogTitle>
             <DialogDescription>Are you sure you want to disable all models for "{provider.name}"?</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => onShowDisableAllConfirmDialogChange(false)}>
+            <Button variant="outline" onClick={() => onActiveDialogChange(null)}>
               Cancel
             </Button>
             <Button variant="destructive" onClick={onConfirmDisableAllModels}>
@@ -98,7 +96,10 @@ export default function ProviderDialogContainer({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showDeleteProviderDialog} onOpenChange={onShowDeleteProviderDialogChange}>
+      <Dialog
+        open={activeDialog === "deleteProvider"}
+        onOpenChange={(open) => onActiveDialogChange(open ? "deleteProvider" : null)}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Provider</DialogTitle>
@@ -107,7 +108,7 @@ export default function ProviderDialogContainer({
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => onShowDeleteProviderDialogChange(false)}>
+            <Button variant="outline" onClick={() => onActiveDialogChange(null)}>
               Cancel
             </Button>
             <Button variant="destructive" onClick={onConfirmDeleteProvider}>

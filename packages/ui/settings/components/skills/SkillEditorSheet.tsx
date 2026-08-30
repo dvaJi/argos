@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useReducer } from "react";
 import { nanoid } from "nanoid";
 import * as yaml from "yaml";
 import { Icon } from "@iconify/react";
@@ -30,6 +30,86 @@ type EnvRow = {
 };
 type EditableScript = SkillScriptDescriptor & {
   description: string;
+};
+type SkillRuntimeState = {
+  pythonRuntime: SkillRuntimePreference;
+  nodeRuntime: SkillRuntimePreference;
+  envRows: EnvRow[];
+  scriptRows: EditableScript[];
+  loaded: boolean;
+};
+type SkillRuntimeAction =
+  | {
+      type: "LOADED";
+      pythonRuntime: SkillRuntimePreference;
+      nodeRuntime: SkillRuntimePreference;
+      envRows: EnvRow[];
+      scriptRows: EditableScript[];
+    }
+  | { type: "SET_PYTHON_RUNTIME"; value: SkillRuntimePreference }
+  | { type: "SET_NODE_RUNTIME"; value: SkillRuntimePreference }
+  | { type: "ADD_ENV_ROW"; id: string }
+  | { type: "REMOVE_ENV_ROW"; id: string; fallbackId: string }
+  | { type: "UPDATE_ENV_ROW"; id: string; key?: string; value?: string }
+  | { type: "SET_SCRIPT_ENABLED"; relativePath: string; enabled: boolean };
+const blankEnvRow = (id: string): EnvRow => ({
+  id,
+  key: "",
+  value: "",
+});
+const createInitialSkillRuntimeState = (): SkillRuntimeState => ({
+  pythonRuntime: "auto",
+  nodeRuntime: "auto",
+  envRows: [blankEnvRow(nanoid(6))],
+  scriptRows: [],
+  loaded: false,
+});
+const skillRuntimeReducer = (state: SkillRuntimeState, action: SkillRuntimeAction): SkillRuntimeState => {
+  switch (action.type) {
+    case "LOADED":
+      return {
+        pythonRuntime: action.pythonRuntime,
+        nodeRuntime: action.nodeRuntime,
+        envRows: action.envRows,
+        scriptRows: action.scriptRows,
+        loaded: true,
+      };
+    case "SET_PYTHON_RUNTIME":
+      return { ...state, pythonRuntime: action.value };
+    case "SET_NODE_RUNTIME":
+      return { ...state, nodeRuntime: action.value };
+    case "ADD_ENV_ROW":
+      return { ...state, envRows: [...state.envRows, blankEnvRow(action.id)] };
+    case "REMOVE_ENV_ROW": {
+      const next = state.envRows.filter((row) => row.id !== action.id);
+      return { ...state, envRows: next.length ? next : [blankEnvRow(action.fallbackId)] };
+    }
+    case "UPDATE_ENV_ROW":
+      return {
+        ...state,
+        envRows: state.envRows.map((row) =>
+          row.id === action.id
+            ? {
+                ...row,
+                key: action.key ?? row.key,
+                value: action.value ?? row.value,
+              }
+            : row,
+        ),
+      };
+    case "SET_SCRIPT_ENABLED":
+      return {
+        ...state,
+        scriptRows: state.scriptRows.map((script) =>
+          script.relativePath === action.relativePath
+            ? {
+                ...script,
+                enabled: action.enabled,
+              }
+            : script,
+        ),
+      };
+  }
 };
 interface SkillEditorSheetProps {
   skill: SkillMetadata | null;
@@ -65,18 +145,8 @@ const SkillEditorForm = function SkillEditorForm({ skill, onSaved, onClose }: Sk
   const [editDescription, setEditDescription] = useState(skill.description);
   const [editAllowedTools, setEditAllowedTools] = useState(() => skill.allowedTools?.join(", ") || "");
   const [editContent, setEditContent] = useState("");
-  const [pythonRuntime, setPythonRuntime] = useState<SkillRuntimePreference>("auto");
-  const [nodeRuntime, setNodeRuntime] = useState<SkillRuntimePreference>("auto");
-  const [envRows, setEnvRows] = useState<EnvRow[]>([
-    {
-      id: nanoid(6),
-      key: "",
-      value: "",
-    },
-  ]);
-  const [scriptRows, setScriptRows] = useState<EditableScript[]>([]);
   const [saving, setSaving] = useState(false);
-  const [loaded, setLoaded] = useState(false);
+  const [runtime, dispatchRuntime] = useReducer(skillRuntimeReducer, undefined, createInitialSkillRuntimeState);
   const loadRequestId = useRef(0);
   const skillsStoreRef = useRef(skillsStore);
   useEffect(() => {
@@ -103,59 +173,28 @@ const SkillEditorForm = function SkillEditorForm({ skill, onSaved, onClose }: Sk
         },
         scriptOverrides: {},
       };
-      setPythonRuntime(ext.runtimePolicy.python);
-      setNodeRuntime(ext.runtimePolicy.node);
       const rows = Object.entries(ext.env).map(([k, v]) => ({
         id: nanoid(6),
         key: k,
         value: v,
       }));
-      setEnvRows(
-        rows.length
-          ? rows
-          : [
-              {
-                id: nanoid(6),
-                key: "",
-                value: "",
-              },
-            ],
-      );
-      setScriptRows(
-        (skillsStoreRef.current.skillScripts[name] ?? []).map((s) => ({
+      dispatchRuntime({
+        type: "LOADED",
+        pythonRuntime: ext.runtimePolicy.python,
+        nodeRuntime: ext.runtimePolicy.node,
+        envRows: rows.length ? rows : [blankEnvRow(nanoid(6))],
+        scriptRows: (skillsStoreRef.current.skillScripts[name] ?? []).map((s) => ({
           ...s,
           description: s.description ?? "",
         })),
-      );
-      setLoaded(true);
+      });
     });
     return () => {
       loadRequestId.current++;
     };
   }, [skill.name]);
-  const addEnvRow = () =>
-    setEnvRows((prev) => [
-      ...prev,
-      {
-        id: nanoid(6),
-        key: "",
-        value: "",
-      },
-    ]);
-  const removeEnvRow = (id: string) => {
-    setEnvRows((prev) => {
-      const next = prev.filter((r) => r.id !== id);
-      return next.length
-        ? next
-        : [
-            {
-              id: nanoid(6),
-              key: "",
-              value: "",
-            },
-          ];
-    });
-  };
+  const addEnvRow = () => dispatchRuntime({ type: "ADD_ENV_ROW", id: nanoid(6) });
+  const removeEnvRow = (id: string) => dispatchRuntime({ type: "REMOVE_ENV_ROW", id, fallbackId: nanoid(6) });
   const buildSkillContent = (): string => {
     const frontmatter: Record<string, unknown> = {
       name: editName,
@@ -177,17 +216,17 @@ const SkillEditorForm = function SkillEditorForm({ skill, onSaved, onClose }: Sk
     try {
       const skillContent = buildSkillContent();
       const env = Object.fromEntries(
-        envRows.flatMap((r) => (r.key.trim().length > 0 ? [[r.key.trim(), r.value] as [string, string]] : [])),
+        runtime.envRows.flatMap((r) => (r.key.trim().length > 0 ? [[r.key.trim(), r.value] as [string, string]] : [])),
       );
       const extension: SkillExtensionConfig = {
         version: 1,
         env,
         runtimePolicy: {
-          python: pythonRuntime,
-          node: nodeRuntime,
+          python: runtime.pythonRuntime,
+          node: runtime.nodeRuntime,
         },
         scriptOverrides: Object.fromEntries(
-          scriptRows.map((s) => [
+          runtime.scriptRows.map((s) => [
             s.relativePath,
             {
               enabled: s.enabled,
@@ -254,7 +293,10 @@ const SkillEditorForm = function SkillEditorForm({ skill, onSaved, onClose }: Sk
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label>Python Runtime</Label>
-            <Select value={pythonRuntime} onValueChange={(v) => setPythonRuntime(v as SkillRuntimePreference)}>
+            <Select
+              value={runtime.pythonRuntime}
+              onValueChange={(v) => dispatchRuntime({ type: "SET_PYTHON_RUNTIME", value: v as SkillRuntimePreference })}
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -267,7 +309,10 @@ const SkillEditorForm = function SkillEditorForm({ skill, onSaved, onClose }: Sk
           </div>
           <div className="space-y-1.5">
             <Label>Node Runtime</Label>
-            <Select value={nodeRuntime} onValueChange={(v) => setNodeRuntime(v as SkillRuntimePreference)}>
+            <Select
+              value={runtime.nodeRuntime}
+              onValueChange={(v) => dispatchRuntime({ type: "SET_NODE_RUNTIME", value: v as SkillRuntimePreference })}
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -288,40 +333,18 @@ const SkillEditorForm = function SkillEditorForm({ skill, onSaved, onClose }: Sk
             Add Variable
           </Button>
         </div>
-        {envRows.map((row) => (
+        {runtime.envRows.map((row) => (
           <div key={row.id} className="grid grid-cols-12 gap-2 items-center">
             <Input
               value={row.key}
-              onChange={(e) =>
-                setEnvRows((p) =>
-                  p.map((r) =>
-                    r.id === row.id
-                      ? {
-                          ...r,
-                          key: e.target.value,
-                        }
-                      : r,
-                  ),
-                )
-              }
+              onChange={(e) => dispatchRuntime({ type: "UPDATE_ENV_ROW", id: row.id, key: e.target.value })}
               className="col-span-5"
               placeholder="Key"
             />
             <Input
               value={row.value}
               type="password"
-              onChange={(e) =>
-                setEnvRows((p) =>
-                  p.map((r) =>
-                    r.id === row.id
-                      ? {
-                          ...r,
-                          value: e.target.value,
-                        }
-                      : r,
-                  ),
-                )
-              }
+              onChange={(e) => dispatchRuntime({ type: "UPDATE_ENV_ROW", id: row.id, value: e.target.value })}
               className="col-span-6"
               placeholder="Value"
             />
@@ -332,9 +355,9 @@ const SkillEditorForm = function SkillEditorForm({ skill, onSaved, onClose }: Sk
         ))}
       </div>
       <Separator />
-      {scriptRows.length > 0 && (
+      {runtime.scriptRows.length > 0 && (
         <div className="space-y-3">
-          {scriptRows.map((script) => (
+          {runtime.scriptRows.map((script) => (
             <div key={script.relativePath} className="border rounded-md p-3 space-y-2">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
@@ -351,16 +374,11 @@ const SkillEditorForm = function SkillEditorForm({ skill, onSaved, onClose }: Sk
                   <Switch
                     checked={script.enabled}
                     onCheckedChange={(v) =>
-                      setScriptRows((p) =>
-                        p.map((s) =>
-                          s.relativePath === script.relativePath
-                            ? {
-                                ...s,
-                                enabled: v,
-                              }
-                            : s,
-                        ),
-                      )
+                      dispatchRuntime({
+                        type: "SET_SCRIPT_ENABLED",
+                        relativePath: script.relativePath,
+                        enabled: v,
+                      })
                     }
                   />
                 </div>
@@ -380,7 +398,7 @@ const SkillEditorForm = function SkillEditorForm({ skill, onSaved, onClose }: Sk
         <Button variant="outline" onClick={onClose}>
           Cancel
         </Button>
-        <Button disabled={saving || !loaded} onClick={handleSave}>
+        <Button disabled={saving || !runtime.loaded} onClick={handleSave}>
           {saving && <Icon icon="lucide:loader-2" className="w-4 h-4 mr-2 animate-spin" />}
           Save
         </Button>

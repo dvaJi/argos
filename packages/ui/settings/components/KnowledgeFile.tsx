@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useReducer } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "#shadcn/components/ui/dialog";
@@ -18,14 +18,47 @@ interface KnowledgeFileProps {
   builtinKnowledgeDetail: BuiltinKnowledgeConfig;
   onHideKnowledgeFile: () => void;
 }
+type KnowledgeSearchState = {
+  open: boolean;
+  loading: boolean;
+  key: string;
+  result: any[];
+  copyId: string;
+};
+type KnowledgeSearchAction =
+  | { type: "OPEN" }
+  | { type: "SET_OPEN"; value: boolean }
+  | { type: "SET_KEY"; value: string }
+  | { type: "SET_LOADING"; value: boolean }
+  | { type: "SET_RESULT"; value: any[] }
+  | { type: "SET_COPY_ID"; value: string };
+const initialKnowledgeSearch: KnowledgeSearchState = {
+  open: false,
+  loading: false,
+  key: "",
+  result: [],
+  copyId: "",
+};
+const knowledgeSearchReducer = (state: KnowledgeSearchState, action: KnowledgeSearchAction): KnowledgeSearchState => {
+  switch (action.type) {
+    case "OPEN":
+      return { open: true, loading: false, key: "", result: [], copyId: "" };
+    case "SET_OPEN":
+      return { ...state, open: action.value };
+    case "SET_KEY":
+      return { ...state, key: action.value };
+    case "SET_LOADING":
+      return { ...state, loading: action.value };
+    case "SET_RESULT":
+      return { ...state, result: action.value };
+    case "SET_COPY_ID":
+      return { ...state, copyId: action.value };
+  }
+};
 export default function KnowledgeFile({ builtinKnowledgeDetail, onHideKnowledgeFile }: KnowledgeFileProps) {
   const [fileList, setFileList] = useState<KnowledgeFileMessage[]>([]);
   const [acceptExts, setAcceptExts] = useState<string[]>([]);
-  const [isSearchDialogOpen, setIsSearchDialogOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [searchKey, setSearchKey] = useState("");
-  const [searchResult, setSearchResult] = useState<any[]>([]);
-  const [copyId, setCopyId] = useState("");
+  const [search, dispatchSearch] = useReducer(knowledgeSearchReducer, initialKnowledgeSearch);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Liveness flag flipped by the load effect; post-await state writes are skipped
   // once the effect is torn down so unmounted loads never write state.
@@ -143,32 +176,28 @@ export default function KnowledgeFile({ builtinKnowledgeDetail, onHideKnowledgeF
     }
   };
   const handleSearch = async () => {
-    if (!searchKey) return;
-    setCopyId("");
-    setLoading(true);
+    if (!search.key) return;
+    dispatchSearch({ type: "SET_COPY_ID", value: "" });
+    dispatchSearch({ type: "SET_LOADING", value: true });
     try {
-      const res = await knowledgeClient.similarityQuery(builtinKnowledgeDetail.id, searchKey);
-      setSearchResult(res || []);
+      const res = await knowledgeClient.similarityQuery(builtinKnowledgeDetail.id, search.key);
+      dispatchSearch({ type: "SET_RESULT", value: res || [] });
     } catch {
       toast({
         title: "Search failed",
         variant: "destructive",
         duration: 3000,
       });
-      setSearchResult([]);
+      dispatchSearch({ type: "SET_RESULT", value: [] });
     }
-    setLoading(false);
+    dispatchSearch({ type: "SET_LOADING", value: false });
   };
   const handleCopy = (content: string, id: string) => {
-    setCopyId(id);
+    dispatchSearch({ type: "SET_COPY_ID", value: id });
     copyRuntimeText(content);
   };
   const openSearchDialog = () => {
-    setIsSearchDialogOpen(true);
-    setSearchKey("");
-    setSearchResult([]);
-    setCopyId("");
-    setLoading(false);
+    dispatchSearch({ type: "OPEN" });
   };
   useEffect(() => {
     loadLiveRef.current = true;
@@ -282,19 +311,23 @@ export default function KnowledgeFile({ builtinKnowledgeDetail, onHideKnowledgeF
         </div>
       </div>
 
-      <Dialog open={isSearchDialogOpen} onOpenChange={setIsSearchDialogOpen}>
+      <Dialog open={search.open} onOpenChange={(open) => dispatchSearch({ type: "SET_OPEN", value: open })}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Search Knowledge Base</DialogTitle>
           </DialogHeader>
           <div className="flex w-full items-center gap-1 relative">
-            <Input value={searchKey} onChange={(e) => setSearchKey(e.target.value)} placeholder="Enter search query" />
-            {searchKey && (
+            <Input
+              value={search.key}
+              onChange={(e) => dispatchSearch({ type: "SET_KEY", value: e.target.value })}
+              placeholder="Enter search query"
+            />
+            {search.key && (
               <Button
                 size="sm"
                 variant="ghost"
                 className="absolute right-16 text-xs text-muted-foreground rounded-full w-6 h-6 flex items-center justify-center hover:bg-zinc-200"
-                onClick={() => setSearchKey("")}
+                onClick={() => dispatchSearch({ type: "SET_KEY", value: "" })}
               >
                 <Icon icon="lucide:x" className="w-4 h-4 text-muted-foreground" />
               </Button>
@@ -305,7 +338,7 @@ export default function KnowledgeFile({ builtinKnowledgeDetail, onHideKnowledgeF
           </div>
           <ScrollArea className="max-h-[calc(100vh-200px)]">
             <div className="relative min-h-[180px]">
-              {loading && (
+              {search.loading && (
                 <div className="absolute h-full w-full flex items-center justify-center">
                   <div className="text-center">
                     <Icon icon="lucide:loader" className="h-6 w-6 animate-spin mx-auto mb-2 text-muted-foreground" />
@@ -313,8 +346,8 @@ export default function KnowledgeFile({ builtinKnowledgeDetail, onHideKnowledgeF
                   </div>
                 </div>
               )}
-              {searchResult.length > 0 &&
-                searchResult.map((item: any) => (
+              {search.result.length > 0 &&
+                search.result.map((item: any) => (
                   <div
                     key={item.id}
                     className="relative px-6 py-4 mt-2 bg-card border border-border rounded-sm bg-secondary"
@@ -333,9 +366,9 @@ export default function KnowledgeFile({ builtinKnowledgeDetail, onHideKnowledgeF
                           />
                         }
                       >
-                        <Icon icon={copyId === item.id ? "lucide:check" : "lucide:copy"} />
+                        <Icon icon={search.copyId === item.id ? "lucide:check" : "lucide:copy"} />
                       </TooltipTrigger>
-                      <TooltipContent>{copyId === item.id ? "Copied" : "Copy"}</TooltipContent>
+                      <TooltipContent>{search.copyId === item.id ? "Copied" : "Copy"}</TooltipContent>
                     </Tooltip>
                     <div className="text-xs">{item.metadata.content}</div>
                     <div className="border-t border-gray-300 pt-2 mt-2 text-xs text-muted-foreground">
@@ -343,7 +376,7 @@ export default function KnowledgeFile({ builtinKnowledgeDetail, onHideKnowledgeF
                     </div>
                   </div>
                 ))}
-              {searchResult.length === 0 && !loading && (
+              {search.result.length === 0 && !search.loading && (
                 <div className="text-center text-muted-foreground py-12">
                   <Icon icon="lucide:book-open-text" className="w-12 h-12 mx-auto mb-4 opacity-50" />
                   <p className="text-sm mt-1">No data</p>
