@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import {
+import type {
   BuiltinKnowledgeConfig,
   IVectorDatabasePresenter,
   KnowledgeFileMessage,

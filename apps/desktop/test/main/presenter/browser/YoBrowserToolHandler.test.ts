@@ -1,12 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { YoBrowserToolHandler } from "#/presenter/browser/YoBrowserToolHandler";
 
-vi.mock("@argos/shared/logger", () => ({
-  default: {
-    warn: vi.fn<(...args: any[]) => any>(),
-    error: vi.fn<(...args: any[]) => any>(),
-  },
-}));
+vi.mock("@argos/shared/logger", async () => {
+  const { mockSharedLogger } = await import("../../../mocks/sharedLogger");
+  return mockSharedLogger();
+});
 
 describe("YoBrowserToolHandler", () => {
   const readyStatus = {

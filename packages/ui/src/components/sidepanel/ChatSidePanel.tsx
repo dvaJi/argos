@@ -5,6 +5,7 @@ import { createBrowserClient } from "#api/BrowserClient";
 import { BrowserPanel } from "./BrowserPanel";
 import { WorkspacePanel } from "./WorkspacePanel";
 import { DiffsPanel } from "./DiffsPanel";
+import { TerminalPanel } from "./TerminalPanel";
 import { WORKSPACE_EVENTS } from "#/events";
 import { openBrowser, useSidepanelStore } from "#/stores/ui/sidepanel";
 interface ChatSidePanelProps {
@@ -277,6 +278,7 @@ export function ChatSidePanel({ sessionId, workspacePath }: ChatSidePanelProps) 
               onOpenWorkspace={() => sidepanelStore.openWorkspace(sessionId)}
               onOpenDiffs={() => sidepanelStore.openDiffs()}
               onOpenBrowser={() => sidepanelStore.openBrowser()}
+              onOpenTerminal={() => sidepanelStore.openTerminal()}
             />
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => sidepanelStore.closePanel()}>
               <Icon icon="lucide:x" className="h-4 w-4" />
@@ -293,6 +295,8 @@ export function ChatSidePanel({ sessionId, workspacePath }: ChatSidePanelProps) 
             />
           ) : sidepanelStore.activeTab === "diffs" ? (
             <DiffsPanel sessionId={sessionId} workspacePath={workspacePath} />
+          ) : sidepanelStore.activeTab === "terminal" ? (
+            <TerminalPanel workspacePath={workspacePath} />
           ) : (
             <BrowserPanel sessionId={sessionId} />
           )}
@@ -308,11 +312,13 @@ const ChatSidePanelTabBar = ({
   onOpenWorkspace,
   onOpenDiffs,
   onOpenBrowser,
+  onOpenTerminal,
 }: {
   activeTab: string;
   onOpenWorkspace: () => void;
   onOpenDiffs: () => void;
   onOpenBrowser: () => void;
+  onOpenTerminal: () => void;
 }) => (
   <div className="flex items-center gap-1 rounded-lg bg-muted p-0.5">
     <button
@@ -335,6 +341,13 @@ const ChatSidePanelTabBar = ({
       onClick={onOpenBrowser}
     >
       Browser
+    </button>
+    <button
+      className={`rounded-md px-2.5 py-1 text-xs transition-colors duration-200 ease-out ${activeTab === "terminal" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
+      type="button"
+      onClick={onOpenTerminal}
+    >
+      Terminal
     </button>
   </div>
 );

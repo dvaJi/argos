@@ -3,7 +3,7 @@
  * Types for the unified right sidepanel workspace experience.
  */
 
-export type SidePanelTab = "workspace" | "browser" | "diffs";
+export type SidePanelTab = "workspace" | "browser" | "diffs" | "terminal";
 
 export type WorkspaceNavSection = "artifacts" | "files" | "git" | "subagents";
 

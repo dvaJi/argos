@@ -8,7 +8,7 @@ const MCP_EVENTS = {
 const NOTIFICATION_EVENTS = {
   SHOW_ERROR: "notification:show-error",
 } as const;
-import {
+import type {
   MCPToolCall,
   MCPToolDefinition,
   MCPToolResponse,

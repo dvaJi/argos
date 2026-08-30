@@ -1,11 +1,11 @@
 ﻿import { describe, expect, it } from "vitest";
 
-import { MemoryPresenter } from "../../../src/main/presenter/memoryPresenter";
+import { MemoryPresenter } from "@argos/memory-runtime";
 import type {
   AgentMemoryRow,
   MemoryPresenterDeps,
   MemoryVectorRecord,
-} from "../../../src/main/presenter/memoryPresenter/types";
+} from "@argos/memory-runtime/memoryPresenter/types";
 
 function createRow(
   overrides: Partial<AgentMemoryRow> & Pick<AgentMemoryRow, "id" | "agent_id" | "kind" | "content">,

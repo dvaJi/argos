@@ -54,6 +54,7 @@ import {
   sessionsUpdatedEvent,
 } from "./events/sessions.events";
 import { skillsCatalogChangedEvent, skillsSessionChangedEvent } from "./events/skills.events";
+import { terminalExitEvent, terminalOutputEvent } from "./events/terminal.events";
 import {
   syncBackupCompletedEvent,
   syncBackupErrorEvent,
@@ -93,6 +94,7 @@ export * from "./events/startup.events";
 export * from "./events/sessions.events";
 export * from "./events/skills.events";
 export * from "./events/sync.events";
+export * from "./events/terminal.events";
 export * from "./events/upgrade.events";
 export * from "./events/window.events";
 export * from "./events/workspace.events";
@@ -139,6 +141,8 @@ export const ARGOS_EVENT_CATALOG = {
   [chatPlanUpdatedEvent.name]: chatPlanUpdatedEvent,
   [skillsCatalogChangedEvent.name]: skillsCatalogChangedEvent,
   [skillsSessionChangedEvent.name]: skillsSessionChangedEvent,
+  [terminalOutputEvent.name]: terminalOutputEvent,
+  [terminalExitEvent.name]: terminalExitEvent,
   [mcpServerStartedEvent.name]: mcpServerStartedEvent,
   [mcpServerStoppedEvent.name]: mcpServerStoppedEvent,
   [mcpConfigChangedEvent.name]: mcpConfigChangedEvent,

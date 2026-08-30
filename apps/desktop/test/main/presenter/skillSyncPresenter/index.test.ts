@@ -8,8 +8,14 @@
  * - Tool scanning integration
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import logger from "@argos/shared/logger";
 import * as fs from "fs";
 import * as path from "path";
+
+vi.mock("@argos/shared/logger", async () => {
+  const { mockSharedLogger } = await import("../../../mocks/sharedLogger");
+  return mockSharedLogger();
+});
 import { SkillSyncPresenter } from "../../../../src/main/presenter/skillSyncPresenter";
 import { ConflictStrategy } from "@argos/shared/types/skillSync";
 import type { ISkillPresenter } from "@argos/shared/presenter";
@@ -237,17 +243,14 @@ describe("SkillSyncPresenter", () => {
           skills: [],
         },
       ]);
-      const consoleWarnSpy = vi.spyOn<(...args: any[]) => any>(console, "warn").mockImplementation(() => {});
-
       const results = await presenter.scanExternalTools();
 
       expect(results).toHaveLength(1);
       expect(toolScanner.scanExternalTools).toHaveBeenCalled();
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect(logger.warn).toHaveBeenCalledWith(
         "[SkillSync] Worker scan failed, falling back to main thread:",
         expect.any(Error),
       );
-      consoleWarnSpy.mockRestore();
     });
   });
 

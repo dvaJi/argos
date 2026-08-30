@@ -1,11 +1,10 @@
 /**
- * Ensure ACP-related processes/PTYs are terminated during shutdown
+ * Ensure ACP-related processes are terminated during shutdown
  */
 
 import { LifecycleHook, LifecycleContext } from "@argos/shared/presenter";
 import { LifecyclePhase } from "@argos/shared/lifecycle";
 import { presenter } from "#/presenter";
-import { killTerminal } from "../../../configPresenter/acpInitHelper";
 
 export const acpCleanupHook: LifecycleHook = {
   name: "acp-cleanup",
@@ -14,12 +13,6 @@ export const acpCleanupHook: LifecycleHook = {
   critical: false,
   execute: async (_context: LifecycleContext) => {
     console.log("[Lifecycle][ACP] acpCleanupHook: shutting down ACP resources");
-
-    try {
-      killTerminal();
-    } catch (error) {
-      console.warn("[Lifecycle][ACP] acpCleanupHook: failed to kill ACP init terminal:", error);
-    }
 
     try {
       const llmPresenter = presenter?.llmproviderPresenter;

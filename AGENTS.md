@@ -159,7 +159,7 @@ The `#/` alias is context-sensitive: a custom Vite plugin (`createPathAliasPlugi
 - Patterns: Presenter pattern in main; EventBus for inter-process events; typed route contracts as renderer-main boundary; two-layer LLM provider (Agent Loop + Provider); integrated MCP tools.
 - File I/O: Bun-runtime code (`apps/daemon/src`, bun-run `scripts/`) uses `Bun.file`/`Bun.write` for reads/writes and `node:fs` for directory APIs. Electron main and shared `packages/*` use `node:fs` only — `Bun.*` is forbidden there. Enforced by the `bun-file-io` rule in `bun run lint`; see the `bun-file-io` skill.
 - Secrets: use `.env` (see `.env.example`); never commit keys.
-- Toolchains: Bun 1.3.14. Windows: enable Developer Mode for symlinks.
+- Toolchains: Bun 1.4.0. Windows: enable Developer Mode for symlinks.
 - Build: Vite 8 with Rolldown; `vite-plugin-electron` multi-env for main/preload/renderer.
 - Runtimes: bundled Bun, ripgrep, uv, rtk in `runtime/` — installed via `bun run installRuntime`.
 

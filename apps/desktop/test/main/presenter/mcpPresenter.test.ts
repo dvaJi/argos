@@ -1,4 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import logger from "@argos/shared/logger";
+
+vi.mock("@argos/shared/logger", async () => {
+  const { mockSharedLogger } = await import("../../mocks/sharedLogger");
+  return mockSharedLogger();
+});
 
 const serverManagerMocks = vi.hoisted(() => ({
   startServer: vi.fn<(...args: any[]) => any>(),
@@ -303,7 +309,6 @@ describe("McpPresenter#shutdown", () => {
 
   it("stops all running clients during shutdown and continues after a stop failure", async () => {
     const presenter = new McpPresenter(createConfigPresenter());
-    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
     serverManagerMocks.getRunningClients.mockResolvedValue([{ serverName: "first" }, { serverName: "second" }]);
     // Order-independent (shutdown stops in parallel): reject only for "first".
     serverManagerMocks.stopServer.mockImplementation(async (serverName: string) => {
@@ -316,11 +321,7 @@ describe("McpPresenter#shutdown", () => {
 
     expect(serverManagerMocks.stopServer).toHaveBeenCalledWith("first");
     expect(serverManagerMocks.stopServer).toHaveBeenCalledWith("second");
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      "[MCP] Failed to stop server first during shutdown:",
-      expect.any(Error),
-    );
-    consoleErrorSpy.mockRestore();
+    expect(logger.error).toHaveBeenCalledWith("[Mcp] Failed to stop server first during shutdown:", expect.any(Error));
   });
 
   it("does not reject when there are no running clients", async () => {

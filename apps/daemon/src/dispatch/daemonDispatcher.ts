@@ -28,6 +28,7 @@ import type {
 } from "@argos/shared/types/agent-interface";
 import type { IConfigPresenter } from "@argos/shared/presenter";
 import { resolveDaemonVersion } from "../version";
+import type { DaemonTerminalRuntime } from "../terminal/daemonTerminalRuntime";
 import { diagnoseDaemonSchema, repairDaemonSchema } from "../host/daemonSchemaDiagnostics";
 import { getPiToolDefinitions } from "../host/piToolCatalog";
 import { aggregateUsageStats, resolveBuiltinModelPrice } from "../host/usageStatsAggregator";
@@ -243,6 +244,12 @@ import {
   skillsListScriptsRoute,
   skillsGetActiveRoute,
   skillsSetActiveRoute,
+  terminalCreateRoute,
+  terminalInputRoute,
+  terminalResizeRoute,
+  terminalKillRoute,
+  terminalListRoute,
+  terminalAttachRoute,
   syncGetBackupStatusRoute,
   syncListBackupsRoute,
   syncStartBackupRoute,
@@ -925,6 +932,7 @@ export function createDaemonDispatcher(
     searchFiles(workspacePath: string, query: string): Promise<unknown[]>;
   },
   knowledgeRuntime?: DaemonKnowledgeRuntimePort,
+  terminalRuntime?: DaemonTerminalRuntime,
 ): RouteDispatcher {
   const settingsHandler = new SettingsRouteHandler(createSettingsRouteAdapter(configPresenter));
   const runtime: {
@@ -3411,6 +3419,45 @@ export function createDaemonDispatcher(
     if (route === pluginsInvokeActionRoute.name) {
       pluginsInvokeActionRoute.input.parse(rawInput);
       throw new Error("Plugin action invocation is not available in headless mode");
+    }
+
+    if (route === terminalCreateRoute.name) {
+      if (!terminalRuntime) throw new Error("Terminal sessions are not available in this daemon runtime");
+      const input = terminalCreateRoute.input.parse(rawInput);
+      return terminalCreateRoute.output.parse(await terminalRuntime.create(input));
+    }
+
+    if (route === terminalInputRoute.name) {
+      if (!terminalRuntime) throw new Error("Terminal sessions are not available in this daemon runtime");
+      const input = terminalInputRoute.input.parse(rawInput);
+      terminalRuntime.sendInput(input.terminalId, input.data);
+      return terminalInputRoute.output.parse({});
+    }
+
+    if (route === terminalResizeRoute.name) {
+      if (!terminalRuntime) throw new Error("Terminal sessions are not available in this daemon runtime");
+      const input = terminalResizeRoute.input.parse(rawInput);
+      terminalRuntime.resize(input.terminalId, input.cols, input.rows);
+      return terminalResizeRoute.output.parse({});
+    }
+
+    if (route === terminalKillRoute.name) {
+      if (!terminalRuntime) throw new Error("Terminal sessions are not available in this daemon runtime");
+      const input = terminalKillRoute.input.parse(rawInput);
+      terminalRuntime.kill(input.terminalId);
+      return terminalKillRoute.output.parse({});
+    }
+
+    if (route === terminalListRoute.name) {
+      if (!terminalRuntime) throw new Error("Terminal sessions are not available in this daemon runtime");
+      terminalListRoute.input.parse(rawInput);
+      return terminalListRoute.output.parse({ terminals: terminalRuntime.list() });
+    }
+
+    if (route === terminalAttachRoute.name) {
+      if (!terminalRuntime) throw new Error("Terminal sessions are not available in this daemon runtime");
+      const input = terminalAttachRoute.input.parse(rawInput);
+      return terminalAttachRoute.output.parse(terminalRuntime.attach(input.terminalId));
     }
 
     throw new Error(`Unknown route: ${route}`);

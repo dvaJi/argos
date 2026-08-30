@@ -177,6 +177,10 @@ export const openDiffs = () => {
   sidepanelStore.setState((prev) => ({ ...prev, open: true, activeTab: "diffs" }));
 };
 
+export const openTerminal = () => {
+  sidepanelStore.setState((prev) => ({ ...prev, open: true, activeTab: "terminal" }));
+};
+
 /** Set the Diffs-tab selection (a file path, or null for "All changes") and mark it ready. */
 export const setDiffsSelection = (selectedPath: string | null) => {
   sidepanelStore.setState((prev) => ({ ...prev, diffsSelectedPath: selectedPath, diffsSelectionReady: true }));
@@ -352,6 +356,7 @@ export function useSidepanelStore() {
     openWorkspace,
     openBrowser,
     openDiffs,
+    openTerminal,
     closePanel,
     toggleWorkspace,
     setViewMode,

@@ -1,4 +1,4 @@
-import { IConfigPresenter, MCPServerConfig } from "@argos/shared/presenter";
+import type { IConfigPresenter, MCPServerConfig } from "@argos/shared/presenter";
 
 type McpRouterListResponse = {
   code: number;

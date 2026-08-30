@@ -1,14 +1,52 @@
 import fs from "fs";
 import path from "path";
-import type { IPty } from "node-pty";
 import { nanoid } from "nanoid";
 import { RequestError } from "@agentclientprotocol/sdk";
 import type * as schema from "@agentclientprotocol/sdk";
 
+/**
+ * Structural subset of the host runtime's PTY APIs — a `Terminal` constructor
+ * plus a `spawn` that accepts a `terminal` option (available in the Bun
+ * daemon's runtime, >= 1.4.0). Resolved via `globalThis` so this package keeps
+ * no runtime-specific global binding and stays stub-able from Node-based
+ * tests.
+ */
+interface PtyTerminal {
+  write(data: string): unknown;
+  resize(cols: number, rows: number): unknown;
+  close(): unknown;
+}
+
+interface PtySubprocess {
+  exited: Promise<number>;
+  kill(): unknown;
+}
+
+interface BunPtyApi {
+  Terminal: new (options: {
+    cols: number;
+    rows: number;
+    data: (terminal: unknown, data: string | Uint8Array) => void;
+  }) => PtyTerminal;
+  spawn: (
+    argv: readonly string[],
+    options: { terminal: PtyTerminal; cwd: string; env: Record<string, string | undefined> },
+  ) => PtySubprocess;
+}
+
+function resolveBunPtyApi(): BunPtyApi {
+  const ptyHost = (globalThis as unknown as { Bun?: Partial<BunPtyApi> }).Bun;
+  if (!ptyHost || typeof ptyHost.Terminal !== "function" || typeof ptyHost.spawn !== "function") {
+    throw new Error("ACP terminals require a Bun >= 1.4.0 host runtime (no PTY Terminal API available)");
+  }
+  return ptyHost as BunPtyApi;
+}
+
 interface TerminalState {
   id: string;
   sessionId: string;
-  ptyProcess: IPty;
+  terminal: PtyTerminal;
+  ptyProcess: PtySubprocess;
   outputBuffer: string;
   maxOutputBytes: number;
   truncated: boolean;
@@ -28,6 +66,9 @@ interface TerminalState {
  * - Wait for command completion
  * - Kill running commands
  * - Release terminal resources
+ *
+ * Terminals run on the host runtime's built-in PTY (`Terminal` + `spawn`
+ * with a `terminal` option).
  *
  * @see https://agentclientprotocol.com/protocol/terminals
  */
@@ -59,6 +100,7 @@ export class AcpTerminalManager {
    * Create a new terminal to execute a command.
    */
   async createTerminal(params: schema.CreateTerminalRequest): Promise<schema.CreateTerminalResponse> {
+    const bun = resolveBunPtyApi();
     const id = `term_${nanoid(12)}`;
     const maxOutputBytes = params.outputByteLimit ?? this.defaultMaxOutputBytes;
     const cwd = this.resolveTerminalCwd(params.cwd);
@@ -75,12 +117,24 @@ export class AcpTerminalManager {
         env[envVar.name] = envVar.value;
       }
     }
+    // Replaces the terminal `name` option of classic node-pty-style PTYs.
+    env.TERM = env.TERM || "xterm-256color";
 
-    const { spawn } = await import("node-pty");
-    const ptyProcess = spawn(params.command, params.args ?? [], {
-      name: "xterm-256color",
+    const decoder = new TextDecoder();
+    const terminal = new bun.Terminal({
       cols: 120,
       rows: 30,
+      data: (_ptyTerminal, data) => {
+        if (state.released) return;
+        const chunk = typeof data === "string" ? data : decoder.decode(data, { stream: true });
+        const nextBuffer = state.outputBuffer + chunk;
+        state.outputBuffer = this.retainTailAtCharBoundary(nextBuffer, state.maxOutputBytes);
+        state.truncated = state.truncated || Buffer.byteLength(nextBuffer, "utf-8") > state.maxOutputBytes;
+      },
+    });
+
+    const ptyProcess = bun.spawn([params.command, ...(params.args ?? [])], {
+      terminal,
       cwd,
       env,
     });
@@ -88,6 +142,7 @@ export class AcpTerminalManager {
     const state: TerminalState = {
       id,
       sessionId: params.sessionId,
+      terminal,
       ptyProcess,
       outputBuffer: "",
       maxOutputBytes,
@@ -99,22 +154,19 @@ export class AcpTerminalManager {
       released: false,
     };
 
-    // Collect output
-    ptyProcess.onData((data: string) => {
-      if (state.released) return;
-      const nextBuffer = state.outputBuffer + data;
-      state.outputBuffer = this.retainTailAtCharBoundary(nextBuffer, state.maxOutputBytes);
-      state.truncated = state.truncated || Buffer.byteLength(nextBuffer, "utf-8") > state.maxOutputBytes;
-    });
-
-    // Handle exit
-    ptyProcess.onExit(({ exitCode, signal }: { exitCode: number; signal?: number | null }) => {
-      state.exitStatus = {
-        exitCode: exitCode ?? null,
-        signal: signal !== undefined && signal !== null ? String(signal) : null,
-      };
-      exitResolve(state.exitStatus);
-    });
+    // Handle exit. Bun's `exited` promise reports the exit code only.
+    void ptyProcess.exited
+      .then((exitCode) => {
+        state.exitStatus = {
+          exitCode: typeof exitCode === "number" ? exitCode : null,
+          signal: null,
+        };
+        exitResolve(state.exitStatus);
+      })
+      .catch(() => {
+        state.exitStatus = { exitCode: null, signal: null };
+        exitResolve(state.exitStatus);
+      });
 
     this.terminals.set(id, state);
     return { terminalId: id };
@@ -176,6 +228,11 @@ export class AcpTerminalManager {
     }
 
     state.released = true;
+    try {
+      state.terminal.close();
+    } catch {
+      // Already closed.
+    }
     this.terminals.delete(params.terminalId);
     return {};
   }

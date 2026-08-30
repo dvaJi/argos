@@ -29,16 +29,20 @@ const createStoreFactory = (): StoreFactory => (options) => {
   };
 };
 
-vi.mock("../../../../src/main/presenter/configPresenter/mcpConfHelper", () => ({
-  McpConfHelper: class MockMcpConfHelper {
-    async getMcpServers() {
-      return {
-        github: { type: "stdio" },
-        memory: { type: "inmemory" },
-      };
-    }
-  },
-}));
+vi.mock("@argos/mcp-runtime", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@argos/mcp-runtime")>();
+  return {
+    ...actual,
+    McpConfHelper: class MockMcpConfHelper {
+      async getMcpServers() {
+        return {
+          github: { type: "stdio" },
+          memory: { type: "inmemory" },
+        };
+      }
+    },
+  };
+});
 
 describe("AcpConfHelper registry-first migration", () => {
   beforeEach(() => {

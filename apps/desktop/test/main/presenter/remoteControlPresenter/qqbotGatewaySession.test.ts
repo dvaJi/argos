@@ -51,9 +51,9 @@ const { wsInstances, MockWebSocket } = vi.hoisted(() => {
   };
 });
 
-vi.mock("undici", () => ({
-  WebSocket: MockWebSocket,
-}));
+// Production uses the standard global WebSocket (Node >= 22 / Bun), so the
+// stub replaces that global instead of a module import.
+vi.stubGlobal("WebSocket", MockWebSocket);
 
 import { QQBotGatewaySession } from "@argos/remote-control-runtime/qqbot/qqbotGatewaySession";
 

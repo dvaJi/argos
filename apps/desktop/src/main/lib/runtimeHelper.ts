@@ -11,6 +11,7 @@ export class RuntimeHelper {
   private bunRuntimePath: string | null = null;
   private uvRuntimePath: string | null = null;
   private ripgrepRuntimePath: string | null = null;
+  private rtkRuntimePath: string | null = null;
   private runtimesInitialized: boolean = false;
 
   private constructor() {
@@ -40,6 +41,7 @@ export class RuntimeHelper {
       this.bunRuntimePath = null;
       this.uvRuntimePath = null;
       this.ripgrepRuntimePath = null;
+      this.rtkRuntimePath = null;
     }
 
     const runtimeBasePath = path.join(app.getAppPath(), "runtime").replace("app.asar", "app.asar.unpacked");
@@ -100,6 +102,16 @@ export class RuntimeHelper {
       }
     }
 
+    // Check if rtk runtime file exists
+    const rtkRuntimePath = path.join(runtimeBasePath, "rtk");
+    if (process.platform === "win32") {
+      const rtkExe = path.join(rtkRuntimePath, "rtk.exe");
+      this.rtkRuntimePath = fs.existsSync(rtkExe) ? rtkRuntimePath : null;
+    } else {
+      const rtkBin = path.join(rtkRuntimePath, "rtk");
+      this.rtkRuntimePath = fs.existsSync(rtkBin) ? rtkRuntimePath : null;
+    }
+
     this.runtimesInitialized = true;
   }
 
@@ -157,6 +169,14 @@ export class RuntimeHelper {
     return this.ripgrepRuntimePath;
   }
 
+  /**
+   * Get RTK runtime path
+   * @returns RTK runtime directory or null if not found
+   */
+  public getRtkRuntimePath(): string | null {
+    return this.rtkRuntimePath;
+  }
+
   public getBundledRuntimeBinPaths(): string[] {
     this.initializeRuntimes();
 
@@ -170,6 +190,9 @@ export class RuntimeHelper {
     }
     if (this.ripgrepRuntimePath) {
       candidates.push(this.ripgrepRuntimePath);
+    }
+    if (this.rtkRuntimePath) {
+      candidates.push(this.rtkRuntimePath);
     }
 
     const seen = new Set<string>();
@@ -309,6 +332,20 @@ export class RuntimeHelper {
           return rgPath;
         }
       }
+    }
+
+    // RTK command handling (all platforms)
+    if (basename === "rtk" || basename === "rtk.exe") {
+      if (!this.rtkRuntimePath) {
+        return command;
+      }
+
+      const rtkCommand = process.platform === "win32" ? "rtk.exe" : "rtk";
+      const rtkPath = path.join(this.rtkRuntimePath, rtkCommand);
+      if (!checkExists || fs.existsSync(rtkPath)) {
+        return rtkPath;
+      }
+      return command;
     }
 
     return command;

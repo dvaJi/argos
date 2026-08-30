@@ -34,7 +34,7 @@ interface FastGptSearchResponse {
 }
 
 // Import the MCPTextContent interface
-import { MCPTextContent } from "@argos/shared/presenter";
+import type { MCPTextContent } from "@argos/shared/presenter";
 
 export class FastGptKnowledgeServer {
   private server: Server;

@@ -32,13 +32,9 @@ const SKILL_EVENTS = {
 } as const;
 import { normalizeSkillAllowedTools } from "./toolNameMapping";
 import type { SkillHostPorts } from "./host/ports";
+import { createLogger } from "@argos/shared/logger";
 
-const logger = {
-  warn: (...args: unknown[]) => console.warn(...args),
-  info: (...args: unknown[]) => console.info(...args),
-  error: (...args: unknown[]) => console.error(...args),
-  debug: (...args: unknown[]) => console.debug(...args),
-};
+const logger = createLogger("SkillPresenter");
 
 interface ExternalSkillSource {
   id: string;
@@ -335,7 +331,7 @@ export class SkillPresenter implements ISkillPresenter {
         maxDepth: SKILL_CONFIG.FOLDER_TREE_MAX_DEPTH,
       });
       for (const warning of workerResult.warnings ?? []) {
-        logger.warn("[Skills] discovery warning:", warning);
+        logger.warn("discovery warning:", warning);
       }
       discoveredSkills = workerResult.skills.map((skill) => ({
         ...skill,
@@ -356,7 +352,7 @@ export class SkillPresenter implements ISkillPresenter {
 
     for (const metadata of [...discoveredSkills, ...externalSkills, ...pluginSkills]) {
       if (this.metadataCache.has(metadata.name)) {
-        logger.warn("[SkillPresenter] Duplicate skill name discovered. Keeping the first entry.", {
+        logger.warn("Duplicate skill name discovered. Keeping the first entry.", {
           name: metadata.name,
           path: metadata.path,
         });
@@ -390,7 +386,7 @@ export class SkillPresenter implements ISkillPresenter {
           continue;
         }
         if (discovered.has(metadata.name)) {
-          logger.warn("[SkillPresenter] Duplicate skill name discovered. Keeping the first entry.", {
+          logger.warn("Duplicate skill name discovered. Keeping the first entry.", {
             name: metadata.name,
             path: metadata.path,
           });
@@ -411,7 +407,7 @@ export class SkillPresenter implements ISkillPresenter {
       const skillPath = path.join(contribution.skillRoot, "SKILL.md");
       const dirName = path.basename(contribution.skillRoot);
       if (!fs.existsSync(skillPath)) {
-        logger.warn("[SkillPresenter] Plugin skill contribution is missing SKILL.md.", {
+        logger.warn("Plugin skill contribution is missing SKILL.md.", {
           ownerPluginId: contribution.ownerPluginId,
           skillRoot: contribution.skillRoot,
         });
@@ -1570,7 +1566,7 @@ export class SkillPresenter implements ISkillPresenter {
         }
       } catch (rollbackError) {
         const rollbackMessage = rollbackError instanceof Error ? rollbackError.message : String(rollbackError);
-        logger.warn("[SkillPresenter] Failed to rollback combined skill save", {
+        logger.warn("Failed to rollback combined skill save", {
           name,
           error,
           rollbackError,
@@ -1683,7 +1679,7 @@ export class SkillPresenter implements ISkillPresenter {
       const content = fs.readFileSync(sidecarPath, "utf-8");
       return sanitizeSkillExtensionConfig(JSON.parse(content));
     } catch (error) {
-      logger.warn("[SkillPresenter] Failed to read skill sidecar, using defaults", {
+      logger.warn("Failed to read skill sidecar, using defaults", {
         name,
         error,
       });
@@ -1767,7 +1763,7 @@ export class SkillPresenter implements ISkillPresenter {
     }
 
     this.legacySkillRetirementWarnings.add(conversationId);
-    logger.warn("[SkillPresenter] Ignoring skill state update for retired legacy conversation.", {
+    logger.warn("Ignoring skill state update for retired legacy conversation.", {
       conversationId,
     });
   }
@@ -1911,7 +1907,7 @@ export class SkillPresenter implements ISkillPresenter {
         if (metadata) {
           const existingMetadata = this.metadataCache.get(metadata.name);
           if (existingMetadata && existingMetadata.path !== metadata.path) {
-            logger.warn("[SkillPresenter] Duplicate skill name discovered. Keeping the first entry.", {
+            logger.warn("Duplicate skill name discovered. Keeping the first entry.", {
               name: metadata.name,
               path: metadata.path,
               existingPath: existingMetadata.path,
@@ -1947,7 +1943,7 @@ export class SkillPresenter implements ISkillPresenter {
         if (metadata) {
           const existingMetadata = this.metadataCache.get(metadata.name);
           if (existingMetadata && existingMetadata.path !== metadata.path) {
-            logger.warn("[SkillPresenter] Duplicate skill name discovered. Keeping the first entry.", {
+            logger.warn("Duplicate skill name discovered. Keeping the first entry.", {
               name: metadata.name,
               path: metadata.path,
               existingPath: existingMetadata.path,
@@ -2098,7 +2094,7 @@ export class SkillPresenter implements ISkillPresenter {
     try {
       entries = fs.readdirSync(currentDir, { withFileTypes: true });
     } catch (error) {
-      logger.warn("[SkillPresenter] Failed to scan skill directory, skipping subtree", {
+      logger.warn("Failed to scan skill directory, skipping subtree", {
         currentDir,
         error,
       });

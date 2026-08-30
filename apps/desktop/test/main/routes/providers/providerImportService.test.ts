@@ -17,44 +17,43 @@ vi.mock("node:fs", async () => {
   };
 });
 
-vi.mock("../../src/main/presenter/sqlitePresenter/dbType", () => {
-  class MockDatabase {
-    private readonly dbPath: string;
+// Stand-in for the SQLite driver. ProviderImportService receives it via the
+// injectable `sqliteReader` port (the same interface the daemon wires to
+// bun:sqlite in production).
+class MockDatabase {
+  private readonly dbPath: string;
 
-    constructor(dbPath: string) {
-      this.dbPath = dbPath;
-      if (!mockSqlite.rowsByPath.has(dbPath)) {
-        throw new Error(`Mock SQLite database is not registered: ${dbPath}`);
-      }
+  constructor(dbPath: string) {
+    this.dbPath = dbPath;
+    if (!mockSqlite.rowsByPath.has(dbPath)) {
+      throw new Error(`Mock SQLite database is not registered: ${dbPath}`);
     }
-
-    prepare(sql: string) {
-      if (sql.includes("sqlite_master")) {
-        return {
-          get: () => ({ name: "providers" }),
-        };
-      }
-
-      if (sql.includes("FROM providers")) {
-        return {
-          all: (...appTypes: string[]) => {
-            const rows = mockSqlite.rowsByPath.get(this.dbPath) ?? [];
-            const allowed = new Set(appTypes);
-            return rows.filter((row) => allowed.size === 0 || allowed.has(String(row.app_type)));
-          },
-        };
-      }
-
-      throw new Error(`Unexpected SQLite query: ${sql}`);
-    }
-
-    close() {}
   }
 
-  return {
-    default: MockDatabase,
-  };
-});
+  prepare(sql: string) {
+    if (sql.includes("sqlite_master")) {
+      return {
+        get: () => ({ name: "providers" }),
+      };
+    }
+
+    if (sql.includes("FROM providers")) {
+      return {
+        all: (...appTypes: string[]) => {
+          const rows = mockSqlite.rowsByPath.get(this.dbPath) ?? [];
+          const allowed = new Set(appTypes);
+          return rows.filter((row) => allowed.size === 0 || allowed.has(String(row.app_type)));
+        },
+      };
+    }
+
+    throw new Error(`Unexpected SQLite query: ${sql}`);
+  }
+
+  close() {}
+}
+
+const createSqliteReader = () => (dbPath: string) => new MockDatabase(dbPath);
 
 const writeFile = (filePath: string, content: string) => {
   mkdirSync(path.dirname(filePath), { recursive: true });
@@ -181,6 +180,7 @@ describe("ProviderImportService", () => {
     homeDir = createHome();
     const configPresenter = createConfigPresenter();
     const service = new ProviderImportService(configPresenter as any, {
+      sqliteReader: createSqliteReader(),
       homeDir,
       platform: "darwin",
     });
@@ -210,6 +210,7 @@ describe("ProviderImportService", () => {
 
     const configPresenter = createConfigPresenter();
     const service = new ProviderImportService(configPresenter as any, {
+      sqliteReader: createSqliteReader(),
       homeDir,
       platform: "darwin",
     });
@@ -243,6 +244,7 @@ describe("ProviderImportService", () => {
 
     const configPresenter = createConfigPresenter();
     const service = new ProviderImportService(configPresenter as any, {
+      sqliteReader: createSqliteReader(),
       homeDir,
       platform: "linux",
     });
@@ -287,6 +289,7 @@ describe("ProviderImportService", () => {
 
     const configPresenter = createConfigPresenter();
     const service = new ProviderImportService(configPresenter as any, {
+      sqliteReader: createSqliteReader(),
       homeDir,
       platform: "win32",
       appDataDir,
@@ -343,6 +346,7 @@ describe("ProviderImportService", () => {
 
     const configPresenter = createConfigPresenter();
     const service = new ProviderImportService(configPresenter as any, {
+      sqliteReader: createSqliteReader(),
       homeDir,
       platform: "win32",
       appDataDir: path.join(homeDir, "AppData", "Roaming"),
@@ -392,6 +396,7 @@ describe("ProviderImportService", () => {
 
     const configPresenter = createConfigPresenter();
     const service = new ProviderImportService(configPresenter as any, {
+      sqliteReader: createSqliteReader(),
       homeDir,
       platform: "darwin",
     });
@@ -435,6 +440,7 @@ describe("ProviderImportService", () => {
 
     const configPresenter = createConfigPresenter();
     const service = new ProviderImportService(configPresenter as any, {
+      sqliteReader: createSqliteReader(),
       homeDir,
       platform: "darwin",
     });
@@ -476,6 +482,7 @@ describe("ProviderImportService", () => {
 
     const configPresenter = createConfigPresenter();
     const service = new ProviderImportService(configPresenter as any, {
+      sqliteReader: createSqliteReader(),
       homeDir,
       platform: "darwin",
     });
@@ -512,6 +519,7 @@ describe("ProviderImportService", () => {
 
     const configPresenter = createConfigPresenter();
     const service = new ProviderImportService(configPresenter as any, {
+      sqliteReader: createSqliteReader(),
       homeDir,
       platform: "darwin",
     });
@@ -555,6 +563,7 @@ describe("ProviderImportService", () => {
 
     const configPresenter = createConfigPresenter();
     const service = new ProviderImportService(configPresenter as any, {
+      sqliteReader: createSqliteReader(),
       homeDir,
       platform: "darwin",
     });
@@ -607,6 +616,7 @@ describe("ProviderImportService", () => {
 
     const configPresenter = createConfigPresenter();
     const service = new ProviderImportService(configPresenter as any, {
+      sqliteReader: createSqliteReader(),
       homeDir,
       platform: "darwin",
     });
@@ -679,6 +689,7 @@ describe("ProviderImportService", () => {
       } as LLM_PROVIDER,
     ]);
     const service = new ProviderImportService(configPresenter as any, {
+      sqliteReader: createSqliteReader(),
       homeDir,
       platform: "darwin",
     });
@@ -720,6 +731,7 @@ describe("ProviderImportService", () => {
 
     const configPresenter = createConfigPresenter();
     const service = new ProviderImportService(configPresenter as any, {
+      sqliteReader: createSqliteReader(),
       homeDir,
       platform: "darwin",
     });
@@ -784,6 +796,7 @@ describe("ProviderImportService", () => {
       } as LLM_PROVIDER,
     ]);
     const service = new ProviderImportService(configPresenter as any, {
+      sqliteReader: createSqliteReader(),
       homeDir,
       platform: "darwin",
     });
@@ -836,6 +849,7 @@ describe("ProviderImportService", () => {
 
     const configPresenter = createConfigPresenter();
     const service = new ProviderImportService(configPresenter as any, {
+      sqliteReader: createSqliteReader(),
       homeDir,
       platform: "darwin",
     });
@@ -930,6 +944,7 @@ describe("ProviderImportService", () => {
       } as LLM_PROVIDER,
     ]);
     const service = new ProviderImportService(configPresenter as any, {
+      sqliteReader: createSqliteReader(),
       homeDir,
       platform: "darwin",
     });
@@ -994,6 +1009,7 @@ describe("ProviderImportService", () => {
 
     const configPresenter = createConfigPresenter();
     const service = new ProviderImportService(configPresenter as any, {
+      sqliteReader: createSqliteReader(),
       homeDir,
       platform: "darwin",
     });
@@ -1026,6 +1042,7 @@ describe("ProviderImportService", () => {
 
     const configPresenter = createConfigPresenter();
     const service = new ProviderImportService(configPresenter as any, {
+      sqliteReader: createSqliteReader(),
       homeDir,
       platform: "darwin",
     });
@@ -1198,6 +1215,7 @@ describe("ProviderImportService", () => {
       },
     ] as LLM_PROVIDER[]);
     const service = new ProviderImportService(configPresenter as any, {
+      sqliteReader: createSqliteReader(),
       homeDir,
       platform: "darwin",
     });
@@ -1296,6 +1314,7 @@ describe("ProviderImportService", () => {
       },
     ] as LLM_PROVIDER[]);
     const service = new ProviderImportService(configPresenter as any, {
+      sqliteReader: createSqliteReader(),
       homeDir,
       platform: "darwin",
     });
@@ -1357,6 +1376,7 @@ describe("ProviderImportService", () => {
       },
     ] as LLM_PROVIDER[]);
     const service = new ProviderImportService(configPresenter as any, {
+      sqliteReader: createSqliteReader(),
       homeDir,
       platform: "darwin",
     });
@@ -1424,6 +1444,7 @@ describe("ProviderImportService", () => {
       },
     ] as LLM_PROVIDER[]);
     const service = new ProviderImportService(configPresenter as any, {
+      sqliteReader: createSqliteReader(),
       homeDir,
       platform: "darwin",
     });
@@ -1481,6 +1502,7 @@ describe("ProviderImportService", () => {
       } as LLM_PROVIDER,
     ]);
     const service = new ProviderImportService(configPresenter as any, {
+      sqliteReader: createSqliteReader(),
       homeDir,
       platform: "darwin",
     });
@@ -1535,6 +1557,7 @@ describe("ProviderImportService", () => {
       } as LLM_PROVIDER,
     ]);
     const service = new ProviderImportService(configPresenter as any, {
+      sqliteReader: createSqliteReader(),
       homeDir,
       platform: "darwin",
     });
@@ -1584,6 +1607,7 @@ describe("ProviderImportService", () => {
       } as LLM_PROVIDER,
     ]);
     const service = new ProviderImportService(configPresenter as any, {
+      sqliteReader: createSqliteReader(),
       homeDir,
       platform: "darwin",
     });
@@ -1636,6 +1660,7 @@ describe("ProviderImportService", () => {
 
     const configPresenter = createConfigPresenter();
     const service = new ProviderImportService(configPresenter as any, {
+      sqliteReader: createSqliteReader(),
       homeDir,
       platform: "darwin",
     });

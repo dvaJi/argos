@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import logger from "@argos/shared/logger";
 import { Presenter } from "#/presenter";
+
+vi.mock("@argos/shared/logger", async () => {
+  const { mockSharedLogger } = await import("../../mocks/sharedLogger");
+  return mockSharedLogger();
+});
 
 vi.mock("electron-updater", () => ({
   default: {
@@ -21,12 +27,11 @@ describe("Presenter startup", () => {
     presenter.mcpPresenter = {
       initialize: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     };
-    const consoleError = vi.spyOn<(...args: any[]) => any>(console, "error").mockImplementation(() => undefined);
 
     await presenter.initializeMcp();
 
     expect(presenter.pluginPresenter.initialize).toHaveBeenCalledOnce();
     expect(presenter.mcpPresenter.initialize).toHaveBeenCalledOnce();
-    expect(consoleError).toHaveBeenCalledWith("[PluginHost] Failed to initialize plugins:", pluginError);
+    expect(logger.error).toHaveBeenCalledWith("[Presenter] [PluginHost] Failed to initialize plugins:", pluginError);
   });
 });

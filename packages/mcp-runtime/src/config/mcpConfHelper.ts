@@ -1,4 +1,4 @@
-import { BuiltinKnowledgeConfig, MCPServerConfig } from "@argos/shared/presenter";
+import type { BuiltinKnowledgeConfig, MCPServerConfig } from "@argos/shared/presenter";
 import { compare } from "compare-versions";
 import type { StoreLike, StoreFactory } from "@argos/backend-core";
 
