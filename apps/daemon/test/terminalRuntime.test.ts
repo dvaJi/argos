@@ -143,7 +143,7 @@ describe("DaemonTerminalRuntime", () => {
     }
   }, 30000);
 
-  test("kill terminates the session and publishes terminal.exit", async () => {
+  test("kill terminates the session, publishes terminal.exit, and disposes the session", async () => {
     const { publisher, runtime, terminalId } = await createRuntime();
     try {
       runtime.kill(terminalId);
@@ -158,19 +158,27 @@ describe("DaemonTerminalRuntime", () => {
 
       const exit = publisher.published.find((event) => event.name === "terminal.exit");
       expect(exit).toBeDefined();
-      expect(runtime.list().find((entry) => entry.terminalId === terminalId)?.exitStatus).not.toBeNull();
+      // User-killed sessions are disposed once the process is gone: no
+      // scrollback retention and nothing for terminal.list to resurrect
+      // after a client reload.
+      expect(runtime.list().find((entry) => entry.terminalId === terminalId)).toBeUndefined();
     } finally {
       runtime.shutdown();
     }
   }, 30000);
 
-  test("kill on an exited terminal disposes the session", async () => {
+  test("naturally exited sessions linger until a client kill disposes them", async () => {
     const { runtime, terminalId } = await createRuntime();
-    runtime.kill(terminalId);
-    await waitFor(() => runtime.list().find((entry) => entry.terminalId === terminalId)?.exitStatus !== null, {
+    // Simulate the shell exiting on its own (not via kill).
+    const sessions = (runtime as unknown as { sessions: Map<string, { proc: { kill(): void } }> }).sessions;
+    sessions.get(terminalId)?.proc.kill();
+    await waitFor(() => runtime.list().find((entry) => entry.terminalId === terminalId)?.exitStatus != null, {
       label: "exit status",
     });
 
+    // Natural exit keeps the session (restartable across reloads)...
+    expect(runtime.list().find((entry) => entry.terminalId === terminalId)).toBeDefined();
+    // ...until the client closes the tab, which disposes it.
     runtime.kill(terminalId);
     expect(runtime.list().find((entry) => entry.terminalId === terminalId)).toBeUndefined();
     runtime.shutdown();
@@ -184,6 +192,34 @@ describe("DaemonTerminalRuntime", () => {
     await expect(runtime.create({ cwd: join(tmpdir(), "argos-missing-dir-xyz") })).rejects.toThrow("not a directory");
     runtime.shutdown();
   });
+
+  test("attach flushes pending output so the replay buffer is fully covered by its seq", async () => {
+    const { publisher, runtime, terminalId } = await createRuntime();
+    try {
+      // Attach immediately after sending input, racing the ~16ms coalescing
+      // window: pending bytes must either be in the buffer (covered by seq)
+      // or not — never both.
+      for (let round = 0; round < 4; round += 1) {
+        const marker = `attach-flush-${round}-${Date.now()}`;
+        runtime.sendInput(terminalId, `echo ${marker}${lineEnd()}`);
+
+        const attached = runtime.attach(terminalId);
+        await waitFor(() => decodeChunks(outputEvents(publisher.published, terminalId)).includes(marker), {
+          label: `marker round ${round}`,
+        });
+
+        const covered = decodeChunks(
+          outputEvents(publisher.published, terminalId).filter(
+            (event) => (event.payload.seq as number) <= attached.seq,
+          ),
+        );
+        const decodedBuffer = Buffer.from(attached.buffer, "base64").toString("utf8");
+        expect(decodedBuffer).toBe(covered);
+      }
+    } finally {
+      runtime.shutdown();
+    }
+  }, 30000);
 
   test("resize on a live terminal updates without error", async () => {
     const { runtime, terminalId } = await createRuntime();

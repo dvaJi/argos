@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
@@ -8,6 +8,14 @@ import { terminalStore, useTerminalStore, type TerminalTab } from "#/stores/ui/t
 import "@xterm/xterm/css/xterm.css";
 
 const TERMINAL_FONT_FAMILY = 'ui-monospace, "Cascadia Mono", Menlo, Consolas, "Liberation Mono", monospace';
+
+// Single shared client: stateless over the bridge, created lazily so importing
+// this module never touches `window.argos` outside the app.
+let sharedTerminalClient: TerminalClient | null = null;
+function getTerminalClient(): TerminalClient {
+  sharedTerminalClient ??= createTerminalClient();
+  return sharedTerminalClient;
+}
 
 function cssVar(name: string, fallback: string): string {
   if (typeof window === "undefined") return fallback;
@@ -201,7 +209,7 @@ interface TerminalPanelProps {
 }
 
 export function TerminalPanel({ workspacePath }: TerminalPanelProps) {
-  const client = useMemo(() => createTerminalClient(), []);
+  const client = getTerminalClient();
   const {
     tabs,
     activeTerminalId,

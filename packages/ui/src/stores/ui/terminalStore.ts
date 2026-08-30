@@ -83,15 +83,18 @@ export function createTerminalStore({ client }: { client: TerminalClient }) {
     try {
       const terminals = await client.list();
       store.setState((prev) => {
-        const restored: TerminalTab[] = terminals
-          .filter((terminal) => !prev.tabs.some((tab) => tab.terminalId === terminal.terminalId))
-          .map((terminal) => ({
+        const knownIds = new Set(prev.tabs.map((tab) => tab.terminalId));
+        const restored: TerminalTab[] = [];
+        for (const terminal of terminals) {
+          if (knownIds.has(terminal.terminalId)) continue;
+          restored.push({
             terminalId: terminal.terminalId,
             shell: terminal.shell,
             cwd: terminal.cwd,
             label: basename(terminal.shell),
             exitStatus: terminal.exitStatus,
-          }));
+          });
+        }
         const tabs = [...prev.tabs, ...restored];
         return {
           ...prev,

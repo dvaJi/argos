@@ -254,6 +254,11 @@ export class DaemonTerminalRuntime {
       this.disposeSession(session);
       return;
     }
+    // Mark as user-initiated so handleExit disposes the session once the
+    // process is actually gone — a closed terminal must not linger in the
+    // map (holding its scrollback) or reappear via terminal.list after a
+    // client reload.
+    session.killed = true;
     try {
       session.proc.kill();
     } catch (error) {
@@ -272,6 +277,10 @@ export class DaemonTerminalRuntime {
 
   attach(terminalId: string): TerminalAttachResult {
     const session = this.getTerminal(terminalId);
+    // Flush pending (coalescing-window) output first so every byte in the
+    // replay buffer is covered by a published event with seq <= the returned
+    // seq — otherwise the client re-renders those bytes when the flush lands.
+    this.flush(session);
     return {
       terminalId: session.terminalId,
       buffer: Buffer.concat(session.scrollbackChunks).toString("base64"),
@@ -367,6 +376,13 @@ export class DaemonTerminalRuntime {
       });
     } catch (error) {
       console.warn(`[Terminal] Failed to publish exit for ${session.terminalId}:`, error);
+    }
+    // A user-killed session is closed for good: release its scrollback and
+    // drop it from the map so terminal.list no longer reports it. Sessions
+    // that exited on their own are kept (with exit status) until the client
+    // closes the tab, so they survive a reload as a restartable entry.
+    if (session.killed) {
+      this.disposeSession(session);
     }
   }
 
