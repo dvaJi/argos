@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Input } from "#shadcn/components/ui/input";
 import { Button } from "#shadcn/components/ui/button";
 import { Badge } from "#shadcn/components/ui/badge";
@@ -55,6 +55,16 @@ const TYPE_ICONS: Record<ModelType, string> = {
   [ModelType.VideoGeneration]: "lucide:clapperboard",
   [ModelType.TTS]: "lucide:volume-2",
 };
+const SORT_OPTIONS: { value: ModelSortKey; label: string }[] = [
+  {
+    value: "status",
+    label: "Status",
+  },
+  {
+    value: "name",
+    label: "Name",
+  },
+];
 const getModelTypeValue = (model: RENDERER_MODEL_META): ModelType => model.type ?? ModelType.Chat;
 const hasModelCapability = (model: RENDERER_MODEL_META, capability: ModelCapabilityKey) => {
   switch (capability) {
@@ -159,6 +169,68 @@ const filterAndSortModels = (models: RENDERER_MODEL_META[], ctx: ModelFilterCont
     ctx.filterSort,
     ctx.statusSortOrder,
   );
+type ModelFacetCounts = {
+  total: number;
+  capabilities: Record<ModelCapabilityKey, number>;
+  types: Partial<Record<ModelType, number>>;
+};
+const buildFacetCounts = (allModels: RENDERER_MODEL_META[]): ModelFacetCounts => {
+  const counts = {
+    total: 0,
+    capabilities: {
+      vision: 0,
+      functionCall: 0,
+      reasoning: 0,
+      search: 0,
+    } as Record<ModelCapabilityKey, number>,
+    types: {} as Partial<Record<ModelType, number>>,
+  };
+  for (const model of allModels) {
+    counts.total += 1;
+    if (model.vision) counts.capabilities.vision += 1;
+    if (model.functionCall) counts.capabilities.functionCall += 1;
+    if (model.reasoning) counts.capabilities.reasoning += 1;
+    if (model.enableSearch) counts.capabilities.search += 1;
+    const type = getModelTypeValue(model);
+    counts.types[type] = (counts.types[type] ?? 0) + 1;
+  }
+  return counts;
+};
+const buildCapabilityFilterOptions = (facetCounts: ModelFacetCounts): FacetOption<ModelCapabilityKey>[] =>
+  CAPABILITY_ORDER.map((capability) => ({
+    value: capability,
+    label: getCapabilityLabel(capability),
+    icon: CAPABILITY_ICONS[capability],
+    count: facetCounts.capabilities[capability],
+  })).filter((option) => option.count > 0);
+const buildTypeFilterOptions = (facetCounts: ModelFacetCounts): FacetOption<ModelType>[] =>
+  TYPE_ORDER.map((type) => ({
+    value: type,
+    label: getModelTypeLabel(type),
+    icon: TYPE_ICONS[type],
+    count: facetCounts.types[type] ?? 0,
+  })).filter((option) => option.count > 0);
+const buildActiveFilterTokens = (
+  selectedCapabilities: ModelCapabilityKey[],
+  selectedTypes: ModelType[],
+): FilterToken[] => {
+  const tokens: FilterToken[] = [];
+  selectedCapabilities.forEach((capability) => {
+    tokens.push({
+      kind: "capability",
+      value: capability,
+      label: getCapabilityLabel(capability),
+    });
+  });
+  selectedTypes.forEach((type) => {
+    tokens.push({
+      kind: "type",
+      value: type,
+      label: getModelTypeLabel(type),
+    });
+  });
+  return tokens;
+};
 interface ProviderModelListProps {
   providerId?: string;
   providerModels: {
@@ -175,6 +247,312 @@ interface ProviderModelListProps {
   onEnabledChange?: (model: RENDERER_MODEL_META, enabled: boolean) => void;
   onSaved?: () => void;
   onConfigChanged?: () => void;
+}
+interface ModelFilterPopoverProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  activeAdvancedFilterCount: number;
+  capabilityFilterOptions: FacetOption<ModelCapabilityKey>[];
+  typeFilterOptions: FacetOption<ModelType>[];
+  selectedCapabilities: ModelCapabilityKey[];
+  selectedTypes: ModelType[];
+  onToggleCapability: (capability: ModelCapabilityKey) => void;
+  onToggleType: (type: ModelType) => void;
+  onClear: () => void;
+}
+function ModelFilterPopover({
+  open,
+  onOpenChange,
+  activeAdvancedFilterCount,
+  capabilityFilterOptions,
+  typeFilterOptions,
+  selectedCapabilities,
+  selectedTypes,
+  onToggleCapability,
+  onToggleType,
+  onClear,
+}: ModelFilterPopoverProps) {
+  const selectedCapabilitySet = new Set(selectedCapabilities);
+  const selectedTypeSet = new Set(selectedTypes);
+  return (
+    <Popover open={open} onOpenChange={onOpenChange}>
+      <PopoverTrigger
+        render={
+          <Button
+            variant="outline"
+            className={`px-3 text-xs ${activeAdvancedFilterCount ? "border-accent-400/40 bg-accent-400/10" : ""}`}
+          />
+        }
+      >
+        <Icon icon="lucide:funnel" className="mr-2 h-4 w-4 text-muted-foreground" />
+        Filter
+        {activeAdvancedFilterCount > 0 && (
+          <Badge variant="secondary" className="ml-2">
+            {activeAdvancedFilterCount}
+          </Badge>
+        )}
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-[320px] p-4">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-sm font-medium">Filter</div>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 px-2 text-xs"
+              disabled={!activeAdvancedFilterCount}
+              onClick={onClear}
+            >
+              Clear
+            </Button>
+          </div>
+
+          {capabilityFilterOptions.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-xs font-medium text-muted-foreground">Capabilities</div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {capabilityFilterOptions.map((option) => (
+                  <Button
+                    key={option.value}
+                    data-testid={`model-capability-filter-${option.value}`}
+                    size="sm"
+                    className="justify-between px-3 text-xs"
+                    variant={selectedCapabilitySet.has(option.value) ? "default" : "outline"}
+                    onClick={() => onToggleCapability(option.value)}
+                  >
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <Icon icon={option.icon} className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">{option.label}</span>
+                    </span>
+                    <span className="ml-2 text-[11px] opacity-70">{option.count}</span>
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {typeFilterOptions.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-xs font-medium text-muted-foreground">Types</div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {typeFilterOptions.map((option) => (
+                  <Button
+                    key={option.value}
+                    data-testid={`model-type-filter-${option.value}`}
+                    size="sm"
+                    className="justify-between px-3 text-xs"
+                    variant={selectedTypeSet.has(option.value) ? "default" : "outline"}
+                    onClick={() => onToggleType(option.value)}
+                  >
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <Icon icon={option.icon} className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">{option.label}</span>
+                    </span>
+                    <span className="ml-2 text-[11px] opacity-70">{option.count}</span>
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+interface ModelSortPopoverProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  currentSortLabel: string;
+  filterSort: ModelSortKey;
+  onSortChange: (sort: ModelSortKey) => void;
+}
+function ModelSortPopover({ open, onOpenChange, currentSortLabel, filterSort, onSortChange }: ModelSortPopoverProps) {
+  return (
+    <Popover open={open} onOpenChange={onOpenChange}>
+      <PopoverTrigger render={<Button variant="outline" className="px-3 text-xs" />}>
+        <Icon icon="lucide:arrow-up-down" className="mr-2 h-4 w-4 text-muted-foreground" />
+        {currentSortLabel}
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-48 p-2">
+        <div className="space-y-1">
+          {SORT_OPTIONS.map((option) => (
+            <Button
+              key={option.value}
+              data-testid={`model-sort-${option.value}`}
+              size="sm"
+              variant="ghost"
+              className="w-full justify-between px-2 text-xs"
+              onClick={() => onSortChange(option.value)}
+            >
+              <span>{option.label}</span>
+              {filterSort === option.value && <Icon icon="lucide:check" className="h-2 w-2" />}
+            </Button>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+interface ModelToolbarMetaProps {
+  activeFilterTokens: FilterToken[];
+  visibleModelCount: number;
+  totalModelCount: number;
+  onRemoveFilterToken: (token: FilterToken) => void;
+  onClearAllFilters: () => void;
+}
+function ModelToolbarMeta({
+  activeFilterTokens,
+  visibleModelCount,
+  totalModelCount,
+  onRemoveFilterToken,
+  onClearAllFilters,
+}: ModelToolbarMetaProps) {
+  return (
+    <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+      {activeFilterTokens.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          {activeFilterTokens.map((token) => (
+            <Button
+              key={`${token.kind}-${token.value}`}
+              size="sm"
+              variant="outline"
+              className="h-7 px-2.5 text-xs"
+              onClick={() => onRemoveFilterToken(token)}
+            >
+              <span>{token.label}</span>
+              <Icon icon="lucide:x" className="ml-1 h-3.5 w-3.5" />
+            </Button>
+          ))}
+          <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={onClearAllFilters}>
+            Clear all
+          </Button>
+        </div>
+      )}
+
+      <div className="text-xs text-muted-foreground">
+        {visibleModelCount} of {totalModelCount} models
+      </div>
+    </div>
+  );
+}
+interface CustomModelsSectionProps {
+  models: RENDERER_MODEL_META[];
+  onEnabledChange: (model: RENDERER_MODEL_META, enabled: boolean) => void;
+  onDeleteModel: (model: RENDERER_MODEL_META) => void;
+  onConfigChanged: () => void;
+}
+function CustomModelsSection({ models, onEnabledChange, onDeleteModel, onConfigChanged }: CustomModelsSectionProps) {
+  return (
+    <div className="relative">
+      <div className="text-xs font-medium text-muted-foreground px-3 py-2">Custom</div>
+      <div className="w-full border border-border/50 overflow-hidden divide-y divide-border bg-card">
+        {models.map((model) => (
+          <ModelConfigItem
+            key={model.id}
+            modelName={model.name}
+            modelId={model.id}
+            providerId={model.providerId}
+            enabled={model.enabled ?? false}
+            isCustomModel={true}
+            vision={model.vision}
+            functionCall={model.functionCall}
+            explicitFunctionCall={model.explicitFunctionCall}
+            reasoning={model.reasoning}
+            enableSearch={model.enableSearch}
+            type={model.type ?? ModelType.Chat}
+            supportedEndpointTypes={model.supportedEndpointTypes}
+            endpointType={model.endpointType}
+            onEnabledChange={(enabled: boolean) => onEnabledChange(model, enabled)}
+            onDeleteModel={() => onDeleteModel(model)}
+            onConfigChanged={onConfigChanged}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+interface ProviderModelGroupProps {
+  providerGroup: { providerId: string; models: RENDERER_MODEL_META[] };
+  providerName: string;
+  showBatchActions: boolean;
+  pendingAction: BatchAction | undefined;
+  onEnabledChange: (model: RENDERER_MODEL_META, enabled: boolean) => void;
+  onEnableAll: () => void;
+  onDisableAll: () => void;
+  onConfigChanged: () => void;
+}
+function ProviderModelGroup({
+  providerGroup,
+  providerName,
+  showBatchActions,
+  pendingAction,
+  onEnabledChange,
+  onEnableAll,
+  onDisableAll,
+  onConfigChanged,
+}: ProviderModelGroupProps) {
+  return (
+    <div key={providerGroup.providerId}>
+      <div className="flex h-9 items-center px-3 text-xs text-muted-foreground">Official</div>
+      {showBatchActions && (
+        <div className="flex h-14 items-center justify-between gap-3 overflow-hidden px-3 py-2 bg-muted/30">
+          <div className="min-w-0 flex-1 truncate text-sm font-medium">{providerName}</div>
+          <div className="flex shrink-0 gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 min-w-8 max-w-[9rem] whitespace-nowrap rounded-lg px-2 text-xs text-normal"
+              disabled={pendingAction !== undefined}
+              title="Enable all"
+              onClick={onEnableAll}
+            >
+              <Icon
+                icon={pendingAction === "enable" ? "lucide:loader-2" : "lucide:check-circle"}
+                className={`h-3.5 w-3.5 shrink-0 sm:mr-1 ${pendingAction === "enable" ? "animate-spin" : ""}`}
+              />
+              <span className="hidden min-w-0 truncate sm:inline">Enable all</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 min-w-8 max-w-[9rem] whitespace-nowrap rounded-lg px-2 text-xs text-normal"
+              disabled={pendingAction !== undefined}
+              title="Disable all"
+              onClick={onDisableAll}
+            >
+              <Icon
+                icon={pendingAction === "disable" ? "lucide:loader-2" : "lucide:x-circle"}
+                className={`h-3.5 w-3.5 shrink-0 sm:mr-1 ${pendingAction === "disable" ? "animate-spin" : ""}`}
+              />
+              <span className="hidden min-w-0 truncate sm:inline">Disable all</span>
+            </Button>
+          </div>
+        </div>
+      )}
+      {providerGroup.models.map((model) => (
+        <div key={model.id} className="h-12 overflow-hidden bg-card">
+          <ModelConfigItem
+            modelName={model.name}
+            modelId={model.id}
+            providerId={model.providerId}
+            enabled={model.enabled ?? false}
+            isCustomModel={false}
+            vision={model.vision}
+            functionCall={model.functionCall}
+            explicitFunctionCall={model.explicitFunctionCall}
+            reasoning={model.reasoning}
+            enableSearch={model.enableSearch}
+            type={model.type ?? ModelType.Chat}
+            supportedEndpointTypes={model.supportedEndpointTypes}
+            endpointType={model.endpointType}
+            onEnabledChange={(enabled: boolean) => onEnabledChange(model, enabled)}
+            onDeleteModel={() => {}}
+            onConfigChanged={onConfigChanged}
+          />
+        </div>
+      ))}
+    </div>
+  );
 }
 export default function ProviderModelList({
   providerModels: providerModelsProp,
@@ -206,73 +584,13 @@ export default function ProviderModelList({
   }, [modelSearchQuery]);
   const normalizedSearchQuery = debouncedSearchQuery.trim().toLowerCase();
   const allModels = [...customModelsProp, ...providerModelsProp.flatMap((p) => p.models)];
-  const facetCounts = (() => {
-    const counts = {
-      total: 0,
-      capabilities: {
-        vision: 0,
-        functionCall: 0,
-        reasoning: 0,
-        search: 0,
-      } as Record<ModelCapabilityKey, number>,
-      types: {} as Partial<Record<ModelType, number>>,
-    };
-    for (const model of allModels) {
-      counts.total += 1;
-      if (model.vision) counts.capabilities.vision += 1;
-      if (model.functionCall) counts.capabilities.functionCall += 1;
-      if (model.reasoning) counts.capabilities.reasoning += 1;
-      if (model.enableSearch) counts.capabilities.search += 1;
-      const type = getModelTypeValue(model);
-      counts.types[type] = (counts.types[type] ?? 0) + 1;
-    }
-    return counts;
-  })();
+  const facetCounts = buildFacetCounts(allModels);
   const totalModelCount = facetCounts.total;
-  const capabilityFilterOptions = CAPABILITY_ORDER.map((capability) => ({
-    value: capability,
-    label: getCapabilityLabel(capability),
-    icon: CAPABILITY_ICONS[capability],
-    count: facetCounts.capabilities[capability],
-  })).filter((option) => option.count > 0);
-  const typeFilterOptions = TYPE_ORDER.map((type) => ({
-    value: type,
-    label: getModelTypeLabel(type),
-    icon: TYPE_ICONS[type],
-    count: facetCounts.types[type] ?? 0,
-  })).filter((option) => option.count > 0);
-  const sortOptions = [
-    {
-      value: "status" as ModelSortKey,
-      label: "Status",
-    },
-    {
-      value: "name" as ModelSortKey,
-      label: "Name",
-    },
-  ];
+  const capabilityFilterOptions = buildCapabilityFilterOptions(facetCounts);
+  const typeFilterOptions = buildTypeFilterOptions(facetCounts);
   const currentSortLabel = filterSort === "status" ? "Status" : "Name";
   const activeAdvancedFilterCount = selectedCapabilities.length + selectedTypes.length;
-  const selectedCapabilitySet = new Set(selectedCapabilities);
-  const selectedTypeSet = new Set(selectedTypes);
-  const activeFilterTokens = (() => {
-    const tokens: FilterToken[] = [];
-    selectedCapabilities.forEach((capability) => {
-      tokens.push({
-        kind: "capability",
-        value: capability,
-        label: getCapabilityLabel(capability),
-      });
-    });
-    selectedTypes.forEach((type) => {
-      tokens.push({
-        kind: "type",
-        value: type,
-        label: getModelTypeLabel(type),
-      });
-    });
-    return tokens;
-  })();
+  const activeFilterTokens = buildActiveFilterTokens(selectedCapabilities, selectedTypes);
   const hasListRefinements = normalizedSearchQuery.length > 0 || activeAdvancedFilterCount > 0;
   const statusSortOrder = buildStatusSortOrder(allModels);
   const filteredProviderModels = providerModelsProp.flatMap((p) => {
@@ -398,170 +716,46 @@ export default function ProviderModelList({
             placeholder="Search models..."
           />
 
-          <Popover open={filterPopoverOpen} onOpenChange={setFilterPopoverOpen}>
-            <PopoverTrigger
-              render={
-                <Button
-                  variant="outline"
-                  className={`px-3 text-xs ${activeAdvancedFilterCount ? "border-accent-400/40 bg-accent-400/10" : ""}`}
-                />
-              }
-            >
-              <Icon icon="lucide:funnel" className="mr-2 h-4 w-4 text-muted-foreground" />
-              Filter
-              {activeAdvancedFilterCount > 0 && (
-                <Badge variant="secondary" className="ml-2">
-                  {activeAdvancedFilterCount}
-                </Badge>
-              )}
-            </PopoverTrigger>
-            <PopoverContent align="end" className="w-[320px] p-4">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="text-sm font-medium">Filter</div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-7 px-2 text-xs"
-                    disabled={!activeAdvancedFilterCount}
-                    onClick={clearAdvancedFilters}
-                  >
-                    Clear
-                  </Button>
-                </div>
+          <ModelFilterPopover
+            open={filterPopoverOpen}
+            onOpenChange={setFilterPopoverOpen}
+            activeAdvancedFilterCount={activeAdvancedFilterCount}
+            capabilityFilterOptions={capabilityFilterOptions}
+            typeFilterOptions={typeFilterOptions}
+            selectedCapabilities={selectedCapabilities}
+            selectedTypes={selectedTypes}
+            onToggleCapability={toggleCapabilityFilter}
+            onToggleType={toggleTypeFilter}
+            onClear={clearAdvancedFilters}
+          />
 
-                {capabilityFilterOptions.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="text-xs font-medium text-muted-foreground">Capabilities</div>
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      {capabilityFilterOptions.map((option) => (
-                        <Button
-                          key={option.value}
-                          data-testid={`model-capability-filter-${option.value}`}
-                          size="sm"
-                          className="justify-between px-3 text-xs"
-                          variant={selectedCapabilitySet.has(option.value) ? "default" : "outline"}
-                          onClick={() => toggleCapabilityFilter(option.value)}
-                        >
-                          <span className="flex min-w-0 items-center gap-1.5">
-                            <Icon icon={option.icon} className="h-3.5 w-3.5 shrink-0" />
-                            <span className="truncate">{option.label}</span>
-                          </span>
-                          <span className="ml-2 text-[11px] opacity-70">{option.count}</span>
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {typeFilterOptions.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="text-xs font-medium text-muted-foreground">Types</div>
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      {typeFilterOptions.map((option) => (
-                        <Button
-                          key={option.value}
-                          data-testid={`model-type-filter-${option.value}`}
-                          size="sm"
-                          className="justify-between px-3 text-xs"
-                          variant={selectedTypeSet.has(option.value) ? "default" : "outline"}
-                          onClick={() => toggleTypeFilter(option.value)}
-                        >
-                          <span className="flex min-w-0 items-center gap-1.5">
-                            <Icon icon={option.icon} className="h-3.5 w-3.5 shrink-0" />
-                            <span className="truncate">{option.label}</span>
-                          </span>
-                          <span className="ml-2 text-[11px] opacity-70">{option.count}</span>
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </PopoverContent>
-          </Popover>
-
-          <Popover open={sortPopoverOpen} onOpenChange={setSortPopoverOpen}>
-            <PopoverTrigger render={<Button variant="outline" className="px-3 text-xs" />}>
-              <Icon icon="lucide:arrow-up-down" className="mr-2 h-4 w-4 text-muted-foreground" />
-              {currentSortLabel}
-            </PopoverTrigger>
-            <PopoverContent align="end" className="w-48 p-2">
-              <div className="space-y-1">
-                {sortOptions.map((option) => (
-                  <Button
-                    key={option.value}
-                    data-testid={`model-sort-${option.value}`}
-                    size="sm"
-                    variant="ghost"
-                    className="w-full justify-between px-2 text-xs"
-                    onClick={() => setSort(option.value)}
-                  >
-                    <span>{option.label}</span>
-                    {filterSort === option.value && <Icon icon="lucide:check" className="h-2 w-2" />}
-                  </Button>
-                ))}
-              </div>
-            </PopoverContent>
-          </Popover>
+          <ModelSortPopover
+            open={sortPopoverOpen}
+            onOpenChange={setSortPopoverOpen}
+            currentSortLabel={currentSortLabel}
+            filterSort={filterSort}
+            onSortChange={setSort}
+          />
 
           <AddCustomModelButton providerId={newProviderModel} onSaved={onConfigChanged} />
         </div>
 
-        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-          {activeFilterTokens.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
-              {activeFilterTokens.map((token) => (
-                <Button
-                  key={`${token.kind}-${token.value}`}
-                  size="sm"
-                  variant="outline"
-                  className="h-7 px-2.5 text-xs"
-                  onClick={() => removeFilterToken(token)}
-                >
-                  <span>{token.label}</span>
-                  <Icon icon="lucide:x" className="ml-1 h-3.5 w-3.5" />
-                </Button>
-              ))}
-              <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={clearAllFilters}>
-                Clear all
-              </Button>
-            </div>
-          )}
-
-          <div className="text-xs text-muted-foreground">
-            {visibleModelCount} of {totalModelCount} models
-          </div>
-        </div>
+        <ModelToolbarMeta
+          activeFilterTokens={activeFilterTokens}
+          visibleModelCount={visibleModelCount}
+          totalModelCount={totalModelCount}
+          onRemoveFilterToken={removeFilterToken}
+          onClearAllFilters={clearAllFilters}
+        />
       </div>
 
       {filteredCustomModels.length > 0 && (
-        <div className="relative">
-          <div className="text-xs font-medium text-muted-foreground px-3 py-2">Custom</div>
-          <div className="w-full border border-border/50 overflow-hidden divide-y divide-border bg-card">
-            {filteredCustomModels.map((model) => (
-              <ModelConfigItem
-                key={model.id}
-                modelName={model.name}
-                modelId={model.id}
-                providerId={model.providerId}
-                enabled={model.enabled ?? false}
-                isCustomModel={true}
-                vision={model.vision}
-                functionCall={model.functionCall}
-                explicitFunctionCall={model.explicitFunctionCall}
-                reasoning={model.reasoning}
-                enableSearch={model.enableSearch}
-                type={model.type ?? ModelType.Chat}
-                supportedEndpointTypes={model.supportedEndpointTypes}
-                endpointType={model.endpointType}
-                onEnabledChange={(enabled: boolean) => onEnabledChange?.(model, enabled)}
-                onDeleteModel={() => void handleDeleteCustomModel(model)}
-                onConfigChanged={onConfigChanged ?? (() => {})}
-              />
-            ))}
-          </div>
-        </div>
+        <CustomModelsSection
+          models={filteredCustomModels}
+          onEnabledChange={(model, enabled) => onEnabledChange?.(model, enabled)}
+          onDeleteModel={(model) => void handleDeleteCustomModel(model)}
+          onConfigChanged={onConfigChanged ?? (() => {})}
+        />
       )}
 
       {isLoading ? (
@@ -572,76 +766,17 @@ export default function ProviderModelList({
       ) : filteredProviderModels.length > 0 ? (
         <ScrollArea className="w-full">
           {filteredProviderModels.map((providerGroup) => (
-            <div key={providerGroup.providerId}>
-              <div className="flex h-9 items-center px-3 text-xs text-muted-foreground">Official</div>
-              {!hasListRefinements && (
-                <div className="flex h-14 items-center justify-between gap-3 overflow-hidden px-3 py-2 bg-muted/30">
-                  <div className="min-w-0 flex-1 truncate text-sm font-medium">
-                    {getProviderName(providerGroup.providerId)}
-                  </div>
-                  <div className="flex shrink-0 gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 min-w-8 max-w-[9rem] whitespace-nowrap rounded-lg px-2 text-xs text-normal"
-                      disabled={isProviderBatchPending(providerGroup.providerId)}
-                      title="Enable all"
-                      onClick={() => void enableAllModels(providerGroup.providerId)}
-                    >
-                      <Icon
-                        icon={
-                          getProviderPendingAction(providerGroup.providerId) === "enable"
-                            ? "lucide:loader-2"
-                            : "lucide:check-circle"
-                        }
-                        className={`h-3.5 w-3.5 shrink-0 sm:mr-1 ${getProviderPendingAction(providerGroup.providerId) === "enable" ? "animate-spin" : ""}`}
-                      />
-                      <span className="hidden min-w-0 truncate sm:inline">Enable all</span>
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 min-w-8 max-w-[9rem] whitespace-nowrap rounded-lg px-2 text-xs text-normal"
-                      disabled={isProviderBatchPending(providerGroup.providerId)}
-                      title="Disable all"
-                      onClick={() => void disableAllModels(providerGroup.providerId)}
-                    >
-                      <Icon
-                        icon={
-                          getProviderPendingAction(providerGroup.providerId) === "disable"
-                            ? "lucide:loader-2"
-                            : "lucide:x-circle"
-                        }
-                        className={`h-3.5 w-3.5 shrink-0 sm:mr-1 ${getProviderPendingAction(providerGroup.providerId) === "disable" ? "animate-spin" : ""}`}
-                      />
-                      <span className="hidden min-w-0 truncate sm:inline">Disable all</span>
-                    </Button>
-                  </div>
-                </div>
-              )}
-              {providerGroup.models.map((model) => (
-                <div key={model.id} className="h-12 overflow-hidden bg-card">
-                  <ModelConfigItem
-                    modelName={model.name}
-                    modelId={model.id}
-                    providerId={model.providerId}
-                    enabled={model.enabled ?? false}
-                    isCustomModel={false}
-                    vision={model.vision}
-                    functionCall={model.functionCall}
-                    explicitFunctionCall={model.explicitFunctionCall}
-                    reasoning={model.reasoning}
-                    enableSearch={model.enableSearch}
-                    type={model.type ?? ModelType.Chat}
-                    supportedEndpointTypes={model.supportedEndpointTypes}
-                    endpointType={model.endpointType}
-                    onEnabledChange={(enabled: boolean) => onEnabledChange?.(model, enabled)}
-                    onDeleteModel={() => {}}
-                    onConfigChanged={onConfigChanged ?? (() => {})}
-                  />
-                </div>
-              ))}
-            </div>
+            <ProviderModelGroup
+              key={providerGroup.providerId}
+              providerGroup={providerGroup}
+              providerName={getProviderName(providerGroup.providerId)}
+              showBatchActions={!hasListRefinements}
+              pendingAction={getProviderPendingAction(providerGroup.providerId)}
+              onEnabledChange={(model, enabled) => onEnabledChange?.(model, enabled)}
+              onEnableAll={() => void enableAllModels(providerGroup.providerId)}
+              onDisableAll={() => void disableAllModels(providerGroup.providerId)}
+              onConfigChanged={onConfigChanged ?? (() => {})}
+            />
           ))}
         </ScrollArea>
       ) : filteredCustomModels.length === 0 ? (

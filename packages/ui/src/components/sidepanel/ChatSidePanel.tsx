@@ -13,6 +13,48 @@ interface ChatSidePanelProps {
 }
 const PANEL_MOTION_MS = 220;
 const FULLSCREEN_MOTION_MS = 180;
+const CHAT_SIDE_PANEL_STYLES = `
+        .chat-side-panel-shell {
+          contain: layout style paint;
+          transition-duration: var(--dc-motion-default);
+          transition-property: width;
+          transition-timing-function: var(--dc-ease-out-express);
+        }
+        .chat-side-panel-surface {
+          backface-visibility: hidden;
+          transform: translateZ(0);
+          transition-duration: var(--dc-motion-default);
+          transition-property: transform, opacity, box-shadow, border-radius;
+          transition-timing-function: var(--dc-ease-out-express);
+          will-change: transform, opacity;
+        }
+        .chat-side-panel-surface--fullscreen-enter {
+          animation: workspace-panel-fullscreen-enter 180ms var(--dc-ease-out-express);
+        }
+        .chat-side-panel-surface--fullscreen-exit {
+          animation: workspace-panel-fullscreen-exit 180ms var(--dc-ease-out-express);
+        }
+        .chat-side-panel-shell--resizing .chat-side-panel-surface {
+          transition: none;
+        }
+        .chat-side-panel-shell--resizing {
+          transition: none;
+        }
+        @keyframes workspace-panel-fullscreen-enter {
+          from { opacity: 0.94; transform: translateZ(0) scale(0.985); }
+          to { opacity: 1; transform: translateZ(0) scale(1); }
+        }
+        @keyframes workspace-panel-fullscreen-exit {
+          from { opacity: 0.96; transform: translateZ(0) scale(1.01); }
+          to { opacity: 1; transform: translateZ(0) scale(1); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .chat-side-panel-shell { transition: none; }
+          .chat-side-panel-surface { transition: none; }
+          .chat-side-panel-surface--fullscreen-enter,
+          .chat-side-panel-surface--fullscreen-exit { animation: none; }
+        }
+      `;
 export function ChatSidePanel({ sessionId, workspacePath }: ChatSidePanelProps) {
   const sidepanelStore = useSidepanelStore();
   // Module-level store action; stable across renders so callbacks depending on
@@ -230,29 +272,12 @@ export function ChatSidePanel({ sessionId, workspacePath }: ChatSidePanelProps) 
           )}
 
           <div className="flex h-11 items-center justify-between border-b px-3">
-            <div className="flex items-center gap-1 rounded-lg bg-muted p-0.5">
-              <button
-                className={`rounded-md px-2.5 py-1 text-xs transition-colors duration-200 ease-out ${sidepanelStore.activeTab === "workspace" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
-                type="button"
-                onClick={() => sidepanelStore.openWorkspace(sessionId)}
-              >
-                Workspace
-              </button>
-              <button
-                className={`rounded-md px-2.5 py-1 text-xs transition-colors duration-200 ease-out ${sidepanelStore.activeTab === "diffs" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
-                type="button"
-                onClick={() => sidepanelStore.openDiffs()}
-              >
-                Diffs
-              </button>
-              <button
-                className={`rounded-md px-2.5 py-1 text-xs transition-colors duration-200 ease-out ${sidepanelStore.activeTab === "browser" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
-                type="button"
-                onClick={() => sidepanelStore.openBrowser()}
-              >
-                Browser
-              </button>
-            </div>
+            <ChatSidePanelTabBar
+              activeTab={sidepanelStore.activeTab}
+              onOpenWorkspace={() => sidepanelStore.openWorkspace(sessionId)}
+              onOpenDiffs={() => sidepanelStore.openDiffs()}
+              onOpenBrowser={() => sidepanelStore.openBrowser()}
+            />
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => sidepanelStore.closePanel()}>
               <Icon icon="lucide:x" className="h-4 w-4" />
             </Button>
@@ -273,48 +298,43 @@ export function ChatSidePanel({ sessionId, workspacePath }: ChatSidePanelProps) 
           )}
         </aside>
       )}
-      <style>{`
-        .chat-side-panel-shell {
-          contain: layout style paint;
-          transition-duration: var(--dc-motion-default);
-          transition-property: width;
-          transition-timing-function: var(--dc-ease-out-express);
-        }
-        .chat-side-panel-surface {
-          backface-visibility: hidden;
-          transform: translateZ(0);
-          transition-duration: var(--dc-motion-default);
-          transition-property: transform, opacity, box-shadow, border-radius;
-          transition-timing-function: var(--dc-ease-out-express);
-          will-change: transform, opacity;
-        }
-        .chat-side-panel-surface--fullscreen-enter {
-          animation: workspace-panel-fullscreen-enter 180ms var(--dc-ease-out-express);
-        }
-        .chat-side-panel-surface--fullscreen-exit {
-          animation: workspace-panel-fullscreen-exit 180ms var(--dc-ease-out-express);
-        }
-        .chat-side-panel-shell--resizing .chat-side-panel-surface {
-          transition: none;
-        }
-        .chat-side-panel-shell--resizing {
-          transition: none;
-        }
-        @keyframes workspace-panel-fullscreen-enter {
-          from { opacity: 0.94; transform: translateZ(0) scale(0.985); }
-          to { opacity: 1; transform: translateZ(0) scale(1); }
-        }
-        @keyframes workspace-panel-fullscreen-exit {
-          from { opacity: 0.96; transform: translateZ(0) scale(1.01); }
-          to { opacity: 1; transform: translateZ(0) scale(1); }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .chat-side-panel-shell { transition: none; }
-          .chat-side-panel-surface { transition: none; }
-          .chat-side-panel-surface--fullscreen-enter,
-          .chat-side-panel-surface--fullscreen-exit { animation: none; }
-        }
-      `}</style>
+      <style>{CHAT_SIDE_PANEL_STYLES}</style>
     </div>
   );
 }
+
+const ChatSidePanelTabBar = ({
+  activeTab,
+  onOpenWorkspace,
+  onOpenDiffs,
+  onOpenBrowser,
+}: {
+  activeTab: string;
+  onOpenWorkspace: () => void;
+  onOpenDiffs: () => void;
+  onOpenBrowser: () => void;
+}) => (
+  <div className="flex items-center gap-1 rounded-lg bg-muted p-0.5">
+    <button
+      className={`rounded-md px-2.5 py-1 text-xs transition-colors duration-200 ease-out ${activeTab === "workspace" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
+      type="button"
+      onClick={onOpenWorkspace}
+    >
+      Workspace
+    </button>
+    <button
+      className={`rounded-md px-2.5 py-1 text-xs transition-colors duration-200 ease-out ${activeTab === "diffs" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
+      type="button"
+      onClick={onOpenDiffs}
+    >
+      Diffs
+    </button>
+    <button
+      className={`rounded-md px-2.5 py-1 text-xs transition-colors duration-200 ease-out ${activeTab === "browser" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
+      type="button"
+      onClick={onOpenBrowser}
+    >
+      Browser
+    </button>
+  </div>
+);

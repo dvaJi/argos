@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { useStore } from "@tanstack/react-store";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
@@ -105,61 +105,29 @@ const normalizeProjectPath = (value: string | null | undefined) => {
   const n = value?.trim();
   return n || null;
 };
-function NewThreadPage() {
-  const { toast } = useToast();
-  const projectState = useStore(projectStore);
-  const sessionState = useStore(sessionStore);
-  const agentState = useStore(agentStore);
-  const modelState = useStore(modelStore);
-  const draftState = useStore(draftStore);
-  const connectionState = useRuntimeConnectionState();
-  const activeMachine = useWorkspaceStore().activeWorkspace;
-  const isDaemonConnected = connectionState.connected;
-  const switchAgentGuide = useGuidedOnboardingStep("switch-agent");
-  const switchModelGuide = useGuidedOnboardingStep("switch-model");
-  const firstChatGuide = useGuidedOnboardingStep("first-chat");
-  const [message, setMessage] = useState("");
-  const [attachedFiles, setAttachedFiles] = useState<MessageFile[]>([]);
-  const pendingSkillsRef = useRef<string[]>([]);
-  const [guideRootEl, setGuideRootEl] = useState<HTMLDivElement | null>(null);
-  const [guideTargets, setGuideTargets] = useState<{
-    agent: HTMLDivElement | null;
-    model: HTMLDivElement | null;
-    firstChat: HTMLDivElement | null;
-  }>({
-    agent: null,
-    model: null,
-    firstChat: null,
+function nextTick(fn: () => void) {
+  Promise.resolve().then(fn);
+}
+async function resolveArgosAgentConfig(agentId: string): Promise<ArgosAgentConfig> {
+  const config = await configClient.resolveArgosAgentConfig(agentId);
+  if (config) return config;
+  const systemPrompt = await configClient.getSetting("default_system_prompt");
+  return normalizeArgosSubagentConfig({
+    defaultModelPreset: undefined,
+    systemPrompt: typeof systemPrompt === "string" ? systemPrompt : "",
+    permissionMode: "full_access",
+    disabledAgentTools: [],
   });
-  const firstChatGuideHostRef = useRef<HTMLDivElement>(null);
-  const composerRef = useRef<ThreadComposerHandle | null>(null);
-  const [acpDraftSessionId, setAcpDraftSessionId] = useState<string | null>(null);
-  const [acpDraftModelSelection, setAcpDraftModelSelection] = useState<ChatModelSelectionRef | null>(null);
-  const lastAcpDraftKeyRef = useRef<string | null>(null);
-  const acpDraftRequestSeqRef = useRef(0);
-  const [isCompletingSwitchAgentGuide, setIsCompletingSwitchAgentGuide] = useState(false);
-  // Liveness flag flipped by the auto-complete effect; post-await state writes
-  // are skipped once the effect is torn down so unmounted completions never
-  // write state.
-  const switchAgentStepLiveRef = useRef(false);
-  const [folderPickerOpen, setFolderPickerOpen] = useState(false);
-  const [worktreeDraft, setWorktreeDraft] = useState<WorktreeDraftConfig>(emptyWorktreeDraft);
-  const [isCreatingWorktree, setIsCreatingWorktree] = useState(false);
-  const currentDraftDefaultsTaskRef = useRef<Promise<void> | null>(null);
-  const cancelEnsureDraftTaskRef = useRef<(() => void) | null>(null);
-  const selectedProjectDirectoryCheckSeqRef = useRef(0);
-  const [selectedProjectDirectoryStatus, setSelectedProjectDirectoryStatus] = useState<
-    "none" | "checking" | "valid" | "invalid"
-  >("none");
-  const prevAgentIdRef = useRef<string | null>(agentState.selectedAgentId);
-  useEffect(() => {
-    const nextId = agentState.selectedAgentId;
-    const prevId = prevAgentIdRef.current;
-    if (nextId && nextId !== prevId) {
-      swapProjectForAgent(nextId, prevId);
-      prevAgentIdRef.current = nextId;
-    }
-  }, [agentState.selectedAgentId]);
+}
+
+/** Derives the agent/project/worktree view state for the new-thread page (module-level, pure over snapshots). */
+function deriveNewThreadContext(input: {
+  agentState: typeof agentStore.state;
+  sessionState: typeof sessionStore.state;
+  projectState: typeof projectStore.state;
+  selectedProjectDirectoryStatus: "none" | "checking" | "valid" | "invalid";
+}) {
+  const { agentState, sessionState, projectState, selectedProjectDirectoryStatus } = input;
   const availableAgents = Array.isArray(agentState.agents) ? agentState.agents : [];
   const enabledAgents = availableAgents.filter((a) => a.enabled);
   const noAgentsEnabled = enabledAgents.length === 0;
@@ -208,47 +176,38 @@ function NewThreadPage() {
     : "";
   const isSelectedInvalidProjectPath = (projectPath: string | null | undefined): boolean =>
     selectedProjectDirectoryInvalid && normalizeProjectPath(projectPath) === selectedProjectPath;
-
-  // A worktree base branch belongs to the selected repository: reset the draft
-  // whenever the project changes so a stale branch from another repo is never
-  // submitted.
-  const prevWorktreeProjectRef = useRef<string | null>(selectedProjectPath);
-  useEffect(() => {
-    if (prevWorktreeProjectRef.current !== selectedProjectPath) {
-      prevWorktreeProjectRef.current = selectedProjectPath;
-      setWorktreeDraft((prev) =>
-        prev.enabled || prev.baseBranch
-          ? {
-              ...emptyWorktreeDraft,
-            }
-          : prev,
-      );
-    }
-  }, [selectedProjectPath]);
   const isAcpWorkdirMissing = isAcpSelectedAgent && !selectedProjectPath;
   const isAcpWorkdirInvalid = isAcpSelectedAgent && Boolean(selectedProjectPath) && selectedProjectDirectoryInvalid;
   const isAcpWorkdirChecking =
     isAcpSelectedAgent && Boolean(selectedProjectPath) && selectedProjectDirectoryStatus === "checking";
   const isAcpWorkdirUnavailable = isAcpWorkdirMissing || isAcpWorkdirInvalid || isAcpWorkdirChecking;
-  const syncGuideTargets = (_context?: string) => {
-    if (typeof document === "undefined") return;
-    const agent =
-      (document.querySelector(
-        '[data-testid="sidebar-agent-button"][data-agent-id="argos"]',
-      ) as HTMLDivElement | null) ??
-      (document.querySelector(
-        '[data-testid="sidebar-agent-button"][data-agent-type="argos"]',
-      ) as HTMLDivElement | null);
-    const model = document.querySelector('[data-testid="app-model-switcher"]') as HTMLDivElement | null;
-    const firstChat =
-      (firstChatGuideHostRef.current?.querySelector('[data-testid="chat-input-box"]') as HTMLDivElement | null) ??
-      firstChatGuideHostRef.current;
-    setGuideTargets({
-      agent,
-      model,
-      firstChat,
-    });
+  return {
+    availableAgents,
+    noAgentsEnabled,
+    isWelcomeState,
+    effectiveAgent,
+    selectedAgent,
+    isAcpSelectedAgent,
+    selectedProjectPath,
+    selectedProjectName,
+    canClearProjectSelection,
+    selectedProjectDirectoryInvalid,
+    selectedProjectUnavailableTooltip,
+    isSelectedInvalidProjectPath,
+    isAcpWorkdirMissing,
+    isAcpWorkdirUnavailable,
   };
+}
+
+/** Resolves the model used for submissions (module-level factory over store snapshots). */
+function createModelResolution(input: {
+  modelState: typeof modelStore.state;
+  draftState: typeof draftStore.state;
+  isAcpSelectedAgent: boolean;
+  selectedAgentId: string;
+  acpDraftModelSelection: ChatModelSelectionRef | null;
+}) {
+  const { modelState, draftState, isAcpSelectedAgent, selectedAgentId, acpDraftModelSelection } = input;
   const ensureEnabledModelsReady = async (): Promise<boolean> => {
     if (modelState.initialized) return true;
     try {
@@ -289,7 +248,7 @@ function NewThreadPage() {
   const resolveSubmissionModelSelection = async (): Promise<ChatModelSelectionRef | null> => {
     if (isAcpSelectedAgent) {
       if (acpDraftModelSelection) return acpDraftModelSelection;
-      const agentId = selectedAgent.id?.trim();
+      const agentId = selectedAgentId?.trim();
       return agentId
         ? {
             providerId: "acp",
@@ -299,7 +258,58 @@ function NewThreadPage() {
     }
     return await resolveModel();
   };
-  const { prepareFiles, handleFilesChange } = useModelAwareAttachments(resolveSubmissionModelSelection);
+  return { resolveModel, resolveSubmissionModelSelection };
+}
+
+type ThreadSubmissionInput = {
+  toast: ReturnType<typeof useToast>["toast"];
+  message: string;
+  attachedFiles: MessageFile[];
+  setMessage: (message: string) => void;
+  setAttachedFiles: (files: MessageFile[]) => void;
+  prepareFiles: (files: MessageFile[]) => Promise<MessageFile[]>;
+  isAcpWorkdirUnavailable: boolean;
+  isDaemonConnected: boolean;
+  isAcpSelectedAgent: boolean;
+  worktreeDraft: WorktreeDraftConfig;
+  isCreatingWorktree: boolean;
+  setIsCreatingWorktree: (value: boolean) => void;
+  selectedProjectPath: string | null;
+  rawSelectedProjectPath: string | null;
+  acpDraftSessionId: string | null;
+  draftState: typeof draftStore.state;
+  resolveModel: () => Promise<ChatModelSelectionRef | null>;
+  agentId: string;
+  firstChatGuideHostRef: RefObject<HTMLDivElement | null>;
+  composerRef: RefObject<ThreadComposerHandle | null>;
+  pendingSkillsRef: RefObject<string[]>;
+};
+
+/** Worktree/ACP/plain submission flow for the new-thread composer. */
+function useThreadSubmission(input: ThreadSubmissionInput) {
+  const {
+    toast,
+    message,
+    attachedFiles,
+    setMessage,
+    setAttachedFiles,
+    prepareFiles,
+    isAcpWorkdirUnavailable,
+    isDaemonConnected,
+    isAcpSelectedAgent,
+    worktreeDraft,
+    isCreatingWorktree,
+    setIsCreatingWorktree,
+    selectedProjectPath,
+    rawSelectedProjectPath,
+    acpDraftSessionId,
+    draftState,
+    resolveModel,
+    agentId,
+    firstChatGuideHostRef,
+    composerRef,
+    pendingSkillsRef,
+  } = input;
   const shouldIgnoreManualCompactionDraft = (text: string): boolean => {
     return !isAcpSelectedAgent && isManualCompactionCommand(text);
   };
@@ -310,7 +320,6 @@ function NewThreadPage() {
       '[data-testid="chat-input-box"]',
     ) as HTMLElement | null;
     const preparedHeroFlight = prepareChatInputHeroFlight(chatInputBoxEl);
-    const agentId = agentState.selectedAgentId ?? effectiveAgent?.agent.id ?? "argos";
     const isAcp = isAcpSelectedAgent;
 
     // If any step after worktree creation fails (or bails early), remove
@@ -333,12 +342,12 @@ function NewThreadPage() {
       // Worktree mode: create the isolated checkout from the selected base
       // branch FIRST, then bind the session to it. The base repo checkout is
       // never touched (server-side `git worktree add -b <branch> <path> <ref>`).
-      let sessionProjectDir = projectState.selectedProjectPath ?? undefined;
+      let sessionProjectDir = rawSelectedProjectPath ?? undefined;
       if (worktreeDraft.reuseWorktreePath) {
         sessionProjectDir = worktreeDraft.reuseWorktreePath;
       } else if (worktreeDraft.enabled) {
         if (isCreatingWorktree) return;
-        const repoPath = projectState.selectedProjectPath;
+        const repoPath = rawSelectedProjectPath;
         if (!repoPath || !worktreeDraft.baseBranch) {
           toast({
             title: "Worktree Not Configured",
@@ -478,45 +487,33 @@ function NewThreadPage() {
       console.error("[NewThreadPage] submit failed:", e);
     }
   };
-  const onPendingSkillsChange = (skills: string[]) => {
-    pendingSkillsRef.current = [...skills];
-  };
-  const clearSelectedProject = () => {
-    selectProject(null, "manual");
-  };
-  const handleSessionSelect = (sessionId: string) => {
-    void selectSession(sessionId);
-  };
-  const openAgentSettings = async () => {
-    await settingsClient.openSettings({
-      routeName: "settings-argos-agents",
-    });
-  };
-  useEffect(() => {
-    if (!selectedProjectPath) {
-      void Promise.resolve().then(() => setSelectedProjectDirectoryStatus("none"));
-      return;
-    }
-    const seq = ++selectedProjectDirectoryCheckSeqRef.current;
-    let cancelled = false;
-    void Promise.resolve()
-      .then(() => {
-        setSelectedProjectDirectoryStatus("checking");
-        return fileClient.isDirectory(selectedProjectPath);
-      })
-      .then((isDir) => {
-        if (cancelled || seq !== selectedProjectDirectoryCheckSeqRef.current) return;
-        setSelectedProjectDirectoryStatus(isDir ? "valid" : "invalid");
-      })
-      .catch((error) => {
-        if (cancelled || seq !== selectedProjectDirectoryCheckSeqRef.current) return;
-        console.warn("[NewThreadPage] Failed to validate selected project directory:", error);
-        setSelectedProjectDirectoryStatus("invalid");
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedProjectPath]);
+  return { submitText, onSubmit, onCommandSubmit };
+}
+
+/** Keeps an ACP draft session in sync with the selected agent + project (module-level hook). */
+function useAcpDraftSession(input: {
+  isAcpSelectedAgent: boolean;
+  selectedAgentId: string;
+  selectedProjectPath: string | null;
+  selectedProjectDirectoryStatus: "none" | "checking" | "valid" | "invalid";
+  permissionMode: "default" | "full_access";
+  currentAgentId: string;
+  currentProjectDir: string;
+}) {
+  const {
+    isAcpSelectedAgent,
+    selectedAgentId,
+    selectedProjectPath,
+    selectedProjectDirectoryStatus,
+    permissionMode,
+    currentAgentId,
+    currentProjectDir,
+  } = input;
+  const [acpDraftSessionId, setAcpDraftSessionId] = useState<string | null>(null);
+  const [acpDraftModelSelection, setAcpDraftModelSelection] = useState<ChatModelSelectionRef | null>(null);
+  const lastAcpDraftKeyRef = useRef<string | null>(null);
+  const acpDraftRequestSeqRef = useRef(0);
+  const cancelEnsureDraftTaskRef = useRef<(() => void) | null>(null);
   const ensureAcpDraftSession = async (agentId: string, projectPath: string) => {
     const projectDir = projectPath.trim();
     if (!projectDir) return;
@@ -527,14 +524,12 @@ function NewThreadPage() {
       const session = await sessionClient.ensureAcpDraftSession({
         agentId,
         projectDir,
-        permissionMode: draftState.permissionMode,
+        permissionMode,
       });
       if (requestSeq !== acpDraftRequestSeqRef.current) return;
       // Compare against the *submission* agent (selected or effective fallback),
       // not `selectedAgentId` — in the welcome state there is no explicit
       // selection yet but the draft still targets the effective agent.
-      const currentAgentId = agentState.selectedAgentId ?? effectiveAgent?.agent.id ?? "argos";
-      const currentProjectDir = projectState.selectedProjectPath?.trim();
       if (currentAgentId !== agentId || currentProjectDir !== projectDir) return;
       const sessionId = typeof session?.id === "string" ? session.id.trim() : "";
       if (!sessionId) {
@@ -575,7 +570,7 @@ function NewThreadPage() {
         lastAcpDraftKeyRef.current = null;
         return;
       }
-      const agentId = selectedAgent.id;
+      const agentId = selectedAgentId;
       const projectPath = selectedProjectPath;
       const draftKey = `${agentId}::${projectPath}`;
       if (lastAcpDraftKeyRef.current === draftKey && acpDraftSessionId) return;
@@ -592,24 +587,32 @@ function NewThreadPage() {
       });
     });
   }, [
-    selectedAgent.id,
+    selectedAgentId,
     selectedProjectPath,
     selectedProjectDirectoryStatus,
     isAcpSelectedAgent,
     acpDraftSessionId,
     ensureAcpDraftSession,
   ]);
-
-  // Latest project-state snapshot for the agent-change effect below, which must
-  // only fire when the selected agent identity changes while always reading the
-  // current project values.
-  const projectStateRef = useRef(projectState);
   useEffect(() => {
-    projectStateRef.current = projectState;
-  }, [projectState]);
+    return () => {
+      cancelEnsureDraftTaskRef.current?.();
+      cancelEnsureDraftTaskRef.current = null;
+    };
+  }, []);
+  return { acpDraftSessionId, acpDraftModelSelection };
+}
+
+/** Applies per-agent draft defaults whenever the agent context changes (module-level hook). */
+function useAgentDraftDefaults(input: { agentId: string; agentType: string }) {
+  const { agentId, agentType } = input;
+  const projectStateRef = useRef(projectStore.state);
+  useEffect(() => {
+    projectStateRef.current = projectStore.state;
+  });
+  const currentDraftDefaultsTaskRef = useRef<Promise<void> | null>(null);
   useEffect(() => {
     const applyDefaults = async () => {
-      const agentId = selectedAgent.id;
       const projectStateNow = projectStateRef.current;
       const globalDefault = normalizeProjectPath(projectStateNow.defaultProjectPath);
       const currentProject = normalizeProjectPath(projectStateNow.selectedProjectPath);
@@ -635,7 +638,7 @@ function NewThreadPage() {
         imageGeneration: undefined,
         videoGeneration: undefined,
       }));
-      if (selectedAgent.type === "acp") {
+      if (agentType === "acp") {
         const resolvedPath = currentProject ?? globalDefault;
         if (!currentProject && globalDefault) selectProject(globalDefault, "default");
         draftStore.setState((s) => ({
@@ -691,13 +694,54 @@ function NewThreadPage() {
       }
     });
     currentDraftDefaultsTaskRef.current = task;
-  }, [selectedAgent.id, selectedAgent.type]);
-  useEffect(() => {
-    draftStore.setState((s) => ({
-      ...s,
-      projectDir: projectState.selectedProjectPath ?? undefined,
-    }));
-  }, [projectState.selectedProjectPath]);
+  }, [agentId, agentType]);
+}
+
+/** Guided-onboarding targets, active step, and step actions for the new-thread surface (module-level hook). */
+function useNewThreadGuides(input: {
+  firstChatGuideHostRef: RefObject<HTMLDivElement | null>;
+  isAcpSelectedAgent: boolean;
+  isWelcomeState: boolean;
+  selectedAgentType: string;
+}) {
+  const { firstChatGuideHostRef, isAcpSelectedAgent, isWelcomeState, selectedAgentType } = input;
+  const switchAgentGuide = useGuidedOnboardingStep("switch-agent");
+  const switchModelGuide = useGuidedOnboardingStep("switch-model");
+  const firstChatGuide = useGuidedOnboardingStep("first-chat");
+  const [guideRootEl, setGuideRootEl] = useState<HTMLDivElement | null>(null);
+  const [guideTargets, setGuideTargets] = useState<{
+    agent: HTMLDivElement | null;
+    model: HTMLDivElement | null;
+    firstChat: HTMLDivElement | null;
+  }>({
+    agent: null,
+    model: null,
+    firstChat: null,
+  });
+  const [isCompletingSwitchAgentGuide, setIsCompletingSwitchAgentGuide] = useState(false);
+  // Liveness flag flipped by the auto-complete effect; post-await state writes
+  // are skipped once the effect is torn down so unmounted completions never
+  // write state.
+  const switchAgentStepLiveRef = useRef(false);
+  const syncGuideTargets = (_context?: string) => {
+    if (typeof document === "undefined") return;
+    const agent =
+      (document.querySelector(
+        '[data-testid="sidebar-agent-button"][data-agent-id="argos"]',
+      ) as HTMLDivElement | null) ??
+      (document.querySelector(
+        '[data-testid="sidebar-agent-button"][data-agent-type="argos"]',
+      ) as HTMLDivElement | null);
+    const model = document.querySelector('[data-testid="app-model-switcher"]') as HTMLDivElement | null;
+    const firstChat =
+      (firstChatGuideHostRef.current?.querySelector('[data-testid="chat-input-box"]') as HTMLDivElement | null) ??
+      firstChatGuideHostRef.current;
+    setGuideTargets({
+      agent,
+      model,
+      firstChat,
+    });
+  };
   useEffect(() => {
     const sync = () => {
       void nextTick(syncGuideTargets);
@@ -705,17 +749,11 @@ function NewThreadPage() {
     window.addEventListener("resize", sync);
     return () => window.removeEventListener("resize", sync);
   }, [syncGuideTargets]);
-  useEffect(() => {
-    return () => {
-      cancelEnsureDraftTaskRef.current?.();
-      cancelEnsureDraftTaskRef.current = null;
-    };
-  }, []);
 
   // Re-measure guide targets whenever guide visibility or the agent context
   // changes — both swap which DOM nodes are valid targets. The context is passed
   // through to make the re-measure trigger explicit.
-  const guideSyncContext = `${switchAgentGuide.showGuide}|${switchModelGuide.showGuide}|${firstChatGuide.showGuide}|${selectedAgent.type}`;
+  const guideSyncContext = `${switchAgentGuide.showGuide}|${switchModelGuide.showGuide}|${firstChatGuide.showGuide}|${selectedAgentType}`;
   useEffect(() => {
     void nextTick(() => syncGuideTargets(guideSyncContext));
   }, [guideSyncContext, syncGuideTargets]);
@@ -854,14 +892,105 @@ function NewThreadPage() {
       }
     }
   };
-  const composerPlaceholder = isAcpWorkdirMissing
-    ? "Pick a project to enable this agent"
-    : "Ask anything. / for commands, @ for context";
-  const submitBlocked = isAcpWorkdirUnavailable || !isDaemonConnected;
+  return {
+    guideRootEl,
+    setGuideRootEl,
+    activeChatGuide,
+    activeChatGuidePrimaryLabel,
+    activeChatGuidePrimaryDisabled,
+    handleActiveChatGuideBack,
+    handleActiveChatGuideExpert,
+    handleActiveChatGuidePrimary,
+  };
+}
 
-  // The one composer + context row shared by the welcome and centered states.
-  const composerBlock = (
-    <div ref={firstChatGuideHostRef} className="flex w-full max-w-4xl flex-col items-stretch">
+function NoAgentsEmptyState({ onManageAgents }: { onManageAgents: () => void }) {
+  return (
+    <div
+      className={`m-auto flex w-full max-w-md flex-col items-center rounded-xl border border-dashed border-border/70 px-6 py-10 text-center ${ENTRANCE_CLASS}`}
+    >
+      <span className="flex h-10 w-10 items-center justify-center rounded-md bg-muted/70 text-muted-foreground">
+        <Icon icon="lucide:bot" aria-hidden="true" className="h-5 w-5" />
+      </span>
+      <p className="mt-3 text-[13px] font-medium text-foreground">No agents set up yet</p>
+      <p className="mt-1 text-xs text-muted-foreground">Install or enable an agent to start chatting.</p>
+      <button
+        data-testid="agent-welcome-manage-action"
+        type="button"
+        className="mt-4 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition duration-150 hover:bg-primary/90 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/60"
+        onClick={onManageAgents}
+      >
+        Manage agents
+      </button>
+    </div>
+  );
+}
+
+type NewThreadProjectOption = (typeof projectStore.state.projects)[number];
+
+/** The one composer + context row shared by the welcome and centered states. */
+function NewThreadComposerBlock(input: {
+  hostRef: RefObject<HTMLDivElement | null>;
+  composerRef: RefObject<ThreadComposerHandle | null>;
+  isAcpWorkdirMissing: boolean;
+  message: string;
+  onMessageChange: (message: string) => void;
+  attachedFiles: MessageFile[];
+  onFilesChange: (files: MessageFile[]) => void;
+  onSubmit: () => void;
+  onCommandSubmit: (command: string) => void;
+  onPendingSkillsChange: (skills: string[]) => void;
+  acpDraftSessionId: string | null;
+  workspacePath: string | null;
+  isAcpSession: boolean;
+  submitBlocked: boolean;
+  isCreatingWorktree: boolean;
+  composerPlaceholder: string;
+  activeMachineName: string | undefined;
+  selectedProjectName: string;
+  selectedProjectDirectoryInvalid: boolean;
+  selectedProjectUnavailableTooltip: string;
+  canClearProjectSelection: boolean;
+  onClearProject: () => void;
+  projects: NewThreadProjectOption[];
+  isSelectedInvalidProjectPath: (projectPath: string | null | undefined) => boolean;
+  onOpenFolder: () => void;
+  worktreeDraft: WorktreeDraftConfig;
+  onWorktreeDraftChange: (draft: WorktreeDraftConfig) => void;
+  worktreeSelectorDisabled: boolean;
+}) {
+  const {
+    hostRef,
+    composerRef,
+    isAcpWorkdirMissing,
+    message,
+    onMessageChange,
+    attachedFiles,
+    onFilesChange,
+    onSubmit,
+    onCommandSubmit,
+    onPendingSkillsChange,
+    acpDraftSessionId,
+    workspacePath,
+    isAcpSession,
+    submitBlocked,
+    isCreatingWorktree,
+    composerPlaceholder,
+    activeMachineName,
+    selectedProjectName,
+    selectedProjectDirectoryInvalid,
+    selectedProjectUnavailableTooltip,
+    canClearProjectSelection,
+    onClearProject,
+    projects,
+    isSelectedInvalidProjectPath,
+    onOpenFolder,
+    worktreeDraft,
+    onWorktreeDraftChange,
+    worktreeSelectorDisabled,
+  } = input;
+  return (
+    <div ref={hostRef} className="flex w-full max-w-4xl flex-col items-stretch">
       {isAcpWorkdirMissing && (
         <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
           <Icon icon="lucide:folder-open" className="h-4 w-4 shrink-0" />
@@ -871,15 +1000,15 @@ function NewThreadPage() {
       <ThreadComposer
         ref={composerRef}
         message={message}
-        onMessageChange={setMessage}
+        onMessageChange={onMessageChange}
         files={attachedFiles}
-        onFilesChange={(files) => void handleFilesChange(files, setAttachedFiles)}
-        onSubmit={() => void onSubmit()}
-        onCommandSubmit={(command) => void onCommandSubmit(command)}
+        onFilesChange={onFilesChange}
+        onSubmit={onSubmit}
+        onCommandSubmit={onCommandSubmit}
         onPendingSkillsChange={onPendingSkillsChange}
         sessionId={acpDraftSessionId}
-        workspacePath={selectedProjectPath}
-        isAcpSession={isAcpSelectedAgent}
+        workspacePath={workspacePath}
+        isAcpSession={isAcpSession}
         submitDisabled={submitBlocked}
         sendDisabled={submitBlocked || isCreatingWorktree}
         isSending={isCreatingWorktree}
@@ -889,7 +1018,7 @@ function NewThreadPage() {
       <div className="mt-4 flex items-center justify-center gap-3 text-xs text-muted-foreground">
         <span role="status" data-testid="new-thread-active-machine" className="inline-flex items-center gap-1.5">
           <Icon icon="lucide:monitor-dot" className="size-3.5" />
-          <span>Running on {activeMachine?.name ?? "This computer"}</span>
+          <span>Running on {activeMachineName ?? "This computer"}</span>
         </span>
         <span aria-hidden="true" className="h-3 w-px bg-border/60" />
         <DropdownMenu>
@@ -920,14 +1049,14 @@ function NewThreadPage() {
               data-testid="new-thread-clear-project"
               className="gap-2 text-xs py-1.5 px-2"
               disabled={!canClearProjectSelection}
-              onClick={clearSelectedProject}
+              onClick={onClearProject}
             >
               <span>No Project</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuLabel className="text-xs">Recent Projects</DropdownMenuLabel>
-              {projectState.projects.slice(0, PROJECT_MENU_LIMIT).map((project) => (
+              {projects.slice(0, PROJECT_MENU_LIMIT).map((project) => (
                 <DropdownMenuItem
                   key={project.path}
                   className="gap-2 text-xs py-1.5 px-2"
@@ -951,16 +1080,16 @@ function NewThreadPage() {
               ))}
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="gap-2 text-xs py-1.5 px-2" onClick={() => setFolderPickerOpen(true)}>
+            <DropdownMenuItem className="gap-2 text-xs py-1.5 px-2" onClick={onOpenFolder}>
               <span>Open Folder</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
         <WorktreeSelector
-          workspacePath={selectedProjectPath}
+          workspacePath={workspacePath}
           value={worktreeDraft}
-          onChange={setWorktreeDraft}
-          disabled={selectedProjectDirectoryStatus !== "valid"}
+          onChange={onWorktreeDraftChange}
+          disabled={worktreeSelectorDisabled}
         />
       </div>
       <ChatStatusBar
@@ -969,6 +1098,198 @@ function NewThreadPage() {
         composerFooterActive
       />
     </div>
+  );
+}
+
+function NewThreadPage() {
+  const { toast } = useToast();
+  const projectState = useStore(projectStore);
+  const sessionState = useStore(sessionStore);
+  const agentState = useStore(agentStore);
+  const modelState = useStore(modelStore);
+  const draftState = useStore(draftStore);
+  const connectionState = useRuntimeConnectionState();
+  const activeMachine = useWorkspaceStore().activeWorkspace;
+  const isDaemonConnected = connectionState.connected;
+  const [message, setMessage] = useState("");
+  const [attachedFiles, setAttachedFiles] = useState<MessageFile[]>([]);
+  const pendingSkillsRef = useRef<string[]>([]);
+  const firstChatGuideHostRef = useRef<HTMLDivElement>(null);
+  const composerRef = useRef<ThreadComposerHandle | null>(null);
+  const [isCreatingWorktree, setIsCreatingWorktree] = useState(false);
+  const [folderPickerOpen, setFolderPickerOpen] = useState(false);
+  const [worktreeDraft, setWorktreeDraft] = useState<WorktreeDraftConfig>(emptyWorktreeDraft);
+  const selectedProjectDirectoryCheckSeqRef = useRef(0);
+  const [selectedProjectDirectoryStatus, setSelectedProjectDirectoryStatus] = useState<
+    "none" | "checking" | "valid" | "invalid"
+  >("none");
+  const prevAgentIdRef = useRef<string | null>(agentState.selectedAgentId);
+  useEffect(() => {
+    const nextId = agentState.selectedAgentId;
+    const prevId = prevAgentIdRef.current;
+    if (nextId && nextId !== prevId) {
+      swapProjectForAgent(nextId, prevId);
+      prevAgentIdRef.current = nextId;
+    }
+  }, [agentState.selectedAgentId]);
+  const {
+    noAgentsEnabled,
+    isWelcomeState,
+    effectiveAgent,
+    selectedAgent,
+    isAcpSelectedAgent,
+    selectedProjectPath,
+    selectedProjectName,
+    canClearProjectSelection,
+    selectedProjectDirectoryInvalid,
+    selectedProjectUnavailableTooltip,
+    isSelectedInvalidProjectPath,
+    isAcpWorkdirMissing,
+    isAcpWorkdirUnavailable,
+  } = deriveNewThreadContext({
+    agentState,
+    sessionState,
+    projectState,
+    selectedProjectDirectoryStatus,
+  });
+  const { acpDraftSessionId, acpDraftModelSelection } = useAcpDraftSession({
+    isAcpSelectedAgent,
+    selectedAgentId: selectedAgent.id,
+    selectedProjectPath,
+    selectedProjectDirectoryStatus,
+    permissionMode: draftState.permissionMode,
+    currentAgentId: agentState.selectedAgentId ?? effectiveAgent?.agent.id ?? "argos",
+    currentProjectDir: projectState.selectedProjectPath?.trim() ?? "",
+  });
+  const { resolveModel, resolveSubmissionModelSelection } = createModelResolution({
+    modelState,
+    draftState,
+    isAcpSelectedAgent,
+    selectedAgentId: selectedAgent.id,
+    acpDraftModelSelection,
+  });
+  const { prepareFiles, handleFilesChange } = useModelAwareAttachments(resolveSubmissionModelSelection);
+  const { onSubmit, onCommandSubmit } = useThreadSubmission({
+    toast,
+    message,
+    attachedFiles,
+    setMessage,
+    setAttachedFiles,
+    prepareFiles,
+    isAcpWorkdirUnavailable,
+    isDaemonConnected,
+    isAcpSelectedAgent,
+    worktreeDraft,
+    isCreatingWorktree,
+    setIsCreatingWorktree,
+    selectedProjectPath,
+    rawSelectedProjectPath: projectState.selectedProjectPath,
+    acpDraftSessionId,
+    draftState,
+    resolveModel,
+    agentId: agentState.selectedAgentId ?? effectiveAgent?.agent.id ?? "argos",
+    firstChatGuideHostRef,
+    composerRef,
+    pendingSkillsRef,
+  });
+  const onPendingSkillsChange = (skills: string[]) => {
+    pendingSkillsRef.current = [...skills];
+  };
+  const clearSelectedProject = () => {
+    selectProject(null, "manual");
+  };
+  const handleSessionSelect = (sessionId: string) => {
+    void selectSession(sessionId);
+  };
+  const openAgentSettings = async () => {
+    await settingsClient.openSettings({
+      routeName: "settings-argos-agents",
+    });
+  };
+  useEffect(() => {
+    if (!selectedProjectPath) {
+      void Promise.resolve().then(() => setSelectedProjectDirectoryStatus("none"));
+      return;
+    }
+    const seq = ++selectedProjectDirectoryCheckSeqRef.current;
+    let cancelled = false;
+    void Promise.resolve()
+      .then(() => {
+        setSelectedProjectDirectoryStatus("checking");
+        return fileClient.isDirectory(selectedProjectPath);
+      })
+      .then((isDir) => {
+        if (cancelled || seq !== selectedProjectDirectoryCheckSeqRef.current) return;
+        setSelectedProjectDirectoryStatus(isDir ? "valid" : "invalid");
+      })
+      .catch((error) => {
+        if (cancelled || seq !== selectedProjectDirectoryCheckSeqRef.current) return;
+        console.warn("[NewThreadPage] Failed to validate selected project directory:", error);
+        setSelectedProjectDirectoryStatus("invalid");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedProjectPath]);
+  useAgentDraftDefaults({ agentId: selectedAgent.id, agentType: selectedAgent.type });
+  useEffect(() => {
+    draftStore.setState((s) => ({
+      ...s,
+      projectDir: projectState.selectedProjectPath ?? undefined,
+    }));
+  }, [projectState.selectedProjectPath]);
+  const {
+    guideRootEl,
+    setGuideRootEl,
+    activeChatGuide,
+    activeChatGuidePrimaryLabel,
+    activeChatGuidePrimaryDisabled,
+    handleActiveChatGuideBack,
+    handleActiveChatGuideExpert,
+    handleActiveChatGuidePrimary,
+  } = useNewThreadGuides({
+    firstChatGuideHostRef,
+    isAcpSelectedAgent,
+    isWelcomeState,
+    selectedAgentType: selectedAgent.type,
+  });
+  const composerPlaceholder = isAcpWorkdirMissing
+    ? "Pick a project to enable this agent"
+    : "Ask anything. / for commands, @ for context";
+  const submitBlocked = isAcpWorkdirUnavailable || !isDaemonConnected;
+
+  // The one composer + context row shared by the welcome and centered states.
+  const composerBlock = (
+    <NewThreadComposerBlock
+      hostRef={firstChatGuideHostRef}
+      composerRef={composerRef}
+      isAcpWorkdirMissing={isAcpWorkdirMissing}
+      message={message}
+      onMessageChange={setMessage}
+      attachedFiles={attachedFiles}
+      onFilesChange={(files) => void handleFilesChange(files, setAttachedFiles)}
+      onSubmit={() => void onSubmit()}
+      onCommandSubmit={(command) => void onCommandSubmit(command)}
+      onPendingSkillsChange={onPendingSkillsChange}
+      acpDraftSessionId={acpDraftSessionId}
+      workspacePath={selectedProjectPath}
+      isAcpSession={isAcpSelectedAgent}
+      submitBlocked={submitBlocked}
+      isCreatingWorktree={isCreatingWorktree}
+      composerPlaceholder={composerPlaceholder}
+      activeMachineName={activeMachine?.name}
+      selectedProjectName={selectedProjectName}
+      selectedProjectDirectoryInvalid={selectedProjectDirectoryInvalid}
+      selectedProjectUnavailableTooltip={selectedProjectUnavailableTooltip}
+      canClearProjectSelection={canClearProjectSelection}
+      onClearProject={clearSelectedProject}
+      projects={projectState.projects}
+      isSelectedInvalidProjectPath={isSelectedInvalidProjectPath}
+      onOpenFolder={() => setFolderPickerOpen(true)}
+      worktreeDraft={worktreeDraft}
+      onWorktreeDraftChange={setWorktreeDraft}
+      worktreeSelectorDisabled={selectedProjectDirectoryStatus !== "valid"}
+    />
   );
   return (
     <div
@@ -980,23 +1301,7 @@ function NewThreadPage() {
 
       <div className="window-no-drag-region relative z-[1] flex h-full w-full flex-1 flex-col px-6 py-10">
         {noAgentsEnabled ? (
-          <div
-            className={`m-auto flex w-full max-w-md flex-col items-center rounded-xl border border-dashed border-border/70 px-6 py-10 text-center ${ENTRANCE_CLASS}`}
-          >
-            <span className="flex h-10 w-10 items-center justify-center rounded-md bg-muted/70 text-muted-foreground">
-              <Icon icon="lucide:bot" aria-hidden="true" className="h-5 w-5" />
-            </span>
-            <p className="mt-3 text-[13px] font-medium text-foreground">No agents set up yet</p>
-            <p className="mt-1 text-xs text-muted-foreground">Install or enable an agent to start chatting.</p>
-            <button
-              data-testid="agent-welcome-manage-action"
-              type="button"
-              className="mt-4 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition duration-150 hover:bg-primary/90 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/60"
-              onClick={() => void openAgentSettings()}
-            >
-              Manage agents
-            </button>
-          </div>
+          <NoAgentsEmptyState onManageAgents={() => void openAgentSettings()} />
         ) : isWelcomeState ? (
           <div className={`mx-auto flex w-full max-w-4xl flex-1 flex-col justify-center ${ENTRANCE_CLASS}`}>
             <div className="mb-3 flex w-full items-center justify-center">
@@ -1054,19 +1359,5 @@ function NewThreadPage() {
       />
     </div>
   );
-}
-function nextTick(fn: () => void) {
-  Promise.resolve().then(fn);
-}
-async function resolveArgosAgentConfig(agentId: string): Promise<ArgosAgentConfig> {
-  const config = await configClient.resolveArgosAgentConfig(agentId);
-  if (config) return config;
-  const systemPrompt = await configClient.getSetting("default_system_prompt");
-  return normalizeArgosSubagentConfig({
-    defaultModelPreset: undefined,
-    systemPrompt: typeof systemPrompt === "string" ? systemPrompt : "",
-    permissionMode: "full_access",
-    disabledAgentTools: [],
-  });
 }
 export default NewThreadPage;

@@ -88,8 +88,6 @@ export default function ModelConfigDialog({
     "voiceai",
   ].some((key) => providerIdLower.includes(key));
   const showTtsSettings = config.type === ModelType.TTS;
-  const showTemperatureControl = true;
-  const showTopPControl = true;
   const loadConfig = async () => {
     if (!providerId) return;
     setModelNameField(modelName ?? "");
@@ -234,6 +232,10 @@ export default function ModelConfigDialog({
       console.error("Failed to save model config:", error);
     }
   };
+  const handleSamplingParamsChange = (value: string) => {
+    setSamplingParamsDraft(value);
+    samplingParamsErrorRef.current = "";
+  };
   const handleReset = () => {
     setShowResetConfirm(true);
   };
@@ -271,98 +273,16 @@ export default function ModelConfigDialog({
               }}
               className="space-y-6"
             >
-              {canEditModelIdentity && (
-                <div className="space-y-2">
-                  <Label htmlFor="modelName">Model Name</Label>
-                  <Input
-                    id="modelName"
-                    value={modelNameField}
-                    type="text"
-                    placeholder="Enter model name"
-                    disabled={!canEditModelIdentity}
-                    className={errors.modelName ? "border-destructive" : ""}
-                    onChange={(e) => setModelNameField(e.target.value)}
-                  />
-                  {errors.modelName && <p className="text-xs text-destructive">{errors.modelName}</p>}
-                </div>
-              )}
-
-              {canEditModelIdentity && (
-                <div className="space-y-2">
-                  <Label htmlFor="modelId">Model ID</Label>
-                  <Input
-                    id="modelId"
-                    value={modelIdField}
-                    type="text"
-                    placeholder="Enter model ID"
-                    disabled={!canEditModelIdentity}
-                    className={errors.modelId ? "border-destructive" : ""}
-                    onChange={(e) => setModelIdField(e.target.value)}
-                  />
-                  {errors.modelId && <p className="text-xs text-destructive">{errors.modelId}</p>}
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <Label htmlFor="maxTokens">Max Output Tokens</Label>
-                <Input
-                  id="maxTokens"
-                  value={config.maxTokens ?? ""}
-                  type="number"
-                  min={1}
-                  max={1000000}
-                  placeholder="Max tokens"
-                  className={errors.maxTokens ? "border-destructive" : ""}
-                  onChange={(e) =>
-                    updateConfig({
-                      maxTokens: Number(e.target.value),
-                    })
-                  }
-                />
-                <p className="text-xs text-muted-foreground">Maximum number of output tokens</p>
-                {errors.maxTokens && <p className="text-xs text-destructive">{errors.maxTokens}</p>}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="contextLength">Context Length</Label>
-                <Input
-                  id="contextLength"
-                  value={config.contextLength ?? ""}
-                  type="number"
-                  min={1}
-                  max={10000000}
-                  placeholder="Context length"
-                  className={errors.contextLength ? "border-destructive" : ""}
-                  onChange={(e) =>
-                    updateConfig({
-                      contextLength: Number(e.target.value),
-                    })
-                  }
-                />
-                <p className="text-xs text-muted-foreground">Maximum context window size</p>
-                {errors.contextLength && <p className="text-xs text-destructive">{errors.contextLength}</p>}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="timeout">Timeout (ms)</Label>
-                <Input
-                  id="timeout"
-                  value={config.timeout ?? ""}
-                  type="number"
-                  step={1000}
-                  min={MODEL_TIMEOUT_MIN_MS}
-                  max={MODEL_TIMEOUT_MAX_MS}
-                  placeholder="Timeout"
-                  className={errors.timeout ? "border-destructive" : ""}
-                  onChange={(e) =>
-                    updateConfig({
-                      timeout: Number(e.target.value),
-                    })
-                  }
-                />
-                <p className="text-xs text-muted-foreground">Request timeout in milliseconds</p>
-                {errors.timeout && <p className="text-xs text-destructive">{errors.timeout}</p>}
-              </div>
+              <ModelConfigCoreFields
+                canEditModelIdentity={canEditModelIdentity}
+                modelNameField={modelNameField}
+                onModelNameChange={setModelNameField}
+                modelIdField={modelIdField}
+                onModelIdChange={setModelIdField}
+                config={config}
+                errors={errors}
+                onChange={updateConfig}
+              />
 
               {showTtsSettings && (
                 <TtsSettingsFields
@@ -375,185 +295,17 @@ export default function ModelConfigDialog({
                 />
               )}
 
-              {showTemperatureControl && (
-                <div className="space-y-2">
-                  <Label htmlFor="temperature">Temperature</Label>
-                  <Input
-                    id="temperature"
-                    value={config.temperature ?? ""}
-                    type="number"
-                    step={0.1}
-                    min={0}
-                    max={2}
-                    placeholder="Temperature"
-                    className={errors.temperature ? "border-destructive" : ""}
-                    onChange={(e) =>
-                      updateConfig({
-                        temperature: Number(e.target.value),
-                      })
-                    }
-                  />
-                  <p className="text-xs text-muted-foreground">Controls randomness (0-2)</p>
-                  {errors.temperature && <p className="text-xs text-destructive">{errors.temperature}</p>}
-                </div>
-              )}
-
-              {showTopPControl && (
-                <div className="space-y-2">
-                  <Label htmlFor="topP">Top P</Label>
-                  <Input
-                    id="topP"
-                    value={topPDraft}
-                    type="text"
-                    placeholder="Use model default"
-                    className={errors.topP ? "border-destructive" : ""}
-                    onChange={(e) => setTopPDraft(e.target.value)}
-                    onBlur={clampTopPDraft}
-                  />
-                  <p className="text-xs text-muted-foreground">Nucleus sampling threshold (0.1-1.0)</p>
-                  {errors.topP && <p className="text-xs text-destructive">{errors.topP}</p>}
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <Label htmlFor="samplingParams">Sampling Parameters (JSON)</Label>
-                <Textarea
-                  id="samplingParams"
-                  value={samplingParamsDraft}
-                  rows={5}
-                  placeholder={'{\n  "temperature": 0.7,\n  "top_p": 0.9\n}'}
-                  className={errors.samplingParams ? "border-destructive" : ""}
-                  onChange={(e) => {
-                    setSamplingParamsDraft(e.target.value);
-                    samplingParamsErrorRef.current = "";
-                  }}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Arbitrary OpenAI-compatible sampling parameters sent as-is to the provider. Pi-runtime models on
-                  vLLM/SGLang servers can also set a thinking-token budget, e.g.{" "}
-                  <code className="rounded bg-muted/60 px-1">{`{ "thinking_token_budget": 4096 }`}</code>.
-                </p>
-                {errors.samplingParams && <p className="text-xs text-destructive">{errors.samplingParams}</p>}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="type">Model Type</Label>
-                <Select
-                  value={config.type}
-                  onValueChange={(value) =>
-                    updateConfig({
-                      type: value as ModelType,
-                    })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Model type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="chat">Chat</SelectItem>
-                    <SelectItem value="embedding">Embedding</SelectItem>
-                    <SelectItem value="rerank">Rerank</SelectItem>
-                    <SelectItem value="imageGeneration">Image Generation</SelectItem>
-                    <SelectItem value="videoGeneration">Video Generation</SelectItem>
-                    <SelectItem value="tts">Text-to-Speech</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">The type of model</p>
-              </div>
-
-              {isOpenAICompatibleProvider && (
-                <div className="space-y-2">
-                  <Label htmlFor="apiEndpoint">API Endpoint</Label>
-                  <Select
-                    value={config.apiEndpoint}
-                    onValueChange={(value) =>
-                      updateConfig({
-                        apiEndpoint: value as ApiEndpointType,
-                      })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="API endpoint" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="chat">Chat</SelectItem>
-                      <SelectItem value="image">Image</SelectItem>
-                      <SelectItem value="video">Video</SelectItem>
-                      <SelectItem value="audio-speech">Audio Speech</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">The API endpoint to use</p>
-                </div>
-              )}
-
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Vision</Label>
-                  <p className="text-xs text-muted-foreground">Enable vision capabilities</p>
-                </div>
-                <Switch
-                  checked={config.vision}
-                  onCheckedChange={(value) =>
-                    updateConfig({
-                      vision: value,
-                    })
-                  }
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Function Calling</Label>
-                  <p className="text-xs text-muted-foreground">Enable function/tool calling</p>
-                </div>
-                <Switch
-                  checked={config.functionCall}
-                  onCheckedChange={(value) =>
-                    updateConfig({
-                      functionCall: value,
-                    })
-                  }
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Reasoning</Label>
-                  <p className="text-xs text-muted-foreground">Enable reasoning capabilities</p>
-                </div>
-                <Switch
-                  checked={config.reasoning}
-                  onCheckedChange={(value) =>
-                    updateConfig({
-                      reasoning: value,
-                    })
-                  }
-                />
-              </div>
-
-              {config.reasoning && (
-                <div className="space-y-2">
-                  <Label htmlFor="reasoningEffort">Reasoning Effort</Label>
-                  <Select
-                    value={config.reasoningEffort}
-                    onValueChange={(value) =>
-                      updateConfig({
-                        reasoningEffort: value as any,
-                      })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Reasoning effort" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="low">Low</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">Controls reasoning depth</p>
-                </div>
-              )}
+              <ModelConfigCapabilityFields
+                config={config}
+                errors={errors}
+                onChange={updateConfig}
+                isOpenAICompatibleProvider={isOpenAICompatibleProvider}
+                topPDraft={topPDraft}
+                onTopPDraftChange={setTopPDraft}
+                onTopPBlur={clampTopPDraft}
+                samplingParamsDraft={samplingParamsDraft}
+                onSamplingParamsChange={handleSamplingParamsChange}
+              />
             </form>
           </div>
 
@@ -571,24 +323,352 @@ export default function ModelConfigDialog({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showResetConfirm} onOpenChange={setShowResetConfirm}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Reset Configuration</DialogTitle>
-            <p className="text-sm text-muted-foreground">
-              Are you sure you want to reset this model configuration to its default values?
-            </p>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setShowResetConfirm(false)}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={() => void confirmReset()}>
-              Reset
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ResetConfirmDialog
+        open={showResetConfirm}
+        onOpenChange={setShowResetConfirm}
+        onConfirm={() => void confirmReset()}
+      />
     </>
   );
 }
+
+const ModelConfigCoreFields = ({
+  canEditModelIdentity,
+  modelNameField,
+  onModelNameChange,
+  modelIdField,
+  onModelIdChange,
+  config,
+  errors,
+  onChange,
+}: {
+  canEditModelIdentity: boolean;
+  modelNameField: string;
+  onModelNameChange: (value: string) => void;
+  modelIdField: string;
+  onModelIdChange: (value: string) => void;
+  config: ModelConfig;
+  errors: Record<string, string>;
+  onChange: (patch: Partial<ModelConfig>) => void;
+}) => (
+  <>
+    {canEditModelIdentity && (
+      <div className="space-y-2">
+        <Label htmlFor="modelName">Model Name</Label>
+        <Input
+          id="modelName"
+          value={modelNameField}
+          type="text"
+          placeholder="Enter model name"
+          disabled={!canEditModelIdentity}
+          className={errors.modelName ? "border-destructive" : ""}
+          onChange={(e) => onModelNameChange(e.target.value)}
+        />
+        {errors.modelName && <p className="text-xs text-destructive">{errors.modelName}</p>}
+      </div>
+    )}
+
+    {canEditModelIdentity && (
+      <div className="space-y-2">
+        <Label htmlFor="modelId">Model ID</Label>
+        <Input
+          id="modelId"
+          value={modelIdField}
+          type="text"
+          placeholder="Enter model ID"
+          disabled={!canEditModelIdentity}
+          className={errors.modelId ? "border-destructive" : ""}
+          onChange={(e) => onModelIdChange(e.target.value)}
+        />
+        {errors.modelId && <p className="text-xs text-destructive">{errors.modelId}</p>}
+      </div>
+    )}
+
+    <div className="space-y-2">
+      <Label htmlFor="maxTokens">Max Output Tokens</Label>
+      <Input
+        id="maxTokens"
+        value={config.maxTokens ?? ""}
+        type="number"
+        min={1}
+        max={1000000}
+        placeholder="Max tokens"
+        className={errors.maxTokens ? "border-destructive" : ""}
+        onChange={(e) =>
+          onChange({
+            maxTokens: Number(e.target.value),
+          })
+        }
+      />
+      <p className="text-xs text-muted-foreground">Maximum number of output tokens</p>
+      {errors.maxTokens && <p className="text-xs text-destructive">{errors.maxTokens}</p>}
+    </div>
+
+    <div className="space-y-2">
+      <Label htmlFor="contextLength">Context Length</Label>
+      <Input
+        id="contextLength"
+        value={config.contextLength ?? ""}
+        type="number"
+        min={1}
+        max={10000000}
+        placeholder="Context length"
+        className={errors.contextLength ? "border-destructive" : ""}
+        onChange={(e) =>
+          onChange({
+            contextLength: Number(e.target.value),
+          })
+        }
+      />
+      <p className="text-xs text-muted-foreground">Maximum context window size</p>
+      {errors.contextLength && <p className="text-xs text-destructive">{errors.contextLength}</p>}
+    </div>
+
+    <div className="space-y-2">
+      <Label htmlFor="timeout">Timeout (ms)</Label>
+      <Input
+        id="timeout"
+        value={config.timeout ?? ""}
+        type="number"
+        step={1000}
+        min={MODEL_TIMEOUT_MIN_MS}
+        max={MODEL_TIMEOUT_MAX_MS}
+        placeholder="Timeout"
+        className={errors.timeout ? "border-destructive" : ""}
+        onChange={(e) =>
+          onChange({
+            timeout: Number(e.target.value),
+          })
+        }
+      />
+      <p className="text-xs text-muted-foreground">Request timeout in milliseconds</p>
+      {errors.timeout && <p className="text-xs text-destructive">{errors.timeout}</p>}
+    </div>
+  </>
+);
+
+const ModelConfigCapabilityFields = ({
+  config,
+  errors,
+  onChange,
+  isOpenAICompatibleProvider,
+  topPDraft,
+  onTopPDraftChange,
+  onTopPBlur,
+  samplingParamsDraft,
+  onSamplingParamsChange,
+}: {
+  config: ModelConfig;
+  errors: Record<string, string>;
+  onChange: (patch: Partial<ModelConfig>) => void;
+  isOpenAICompatibleProvider: boolean;
+  topPDraft: string;
+  onTopPDraftChange: (value: string) => void;
+  onTopPBlur: () => void;
+  samplingParamsDraft: string;
+  onSamplingParamsChange: (value: string) => void;
+}) => (
+  <>
+    <div className="space-y-2">
+      <Label htmlFor="temperature">Temperature</Label>
+      <Input
+        id="temperature"
+        value={config.temperature ?? ""}
+        type="number"
+        step={0.1}
+        min={0}
+        max={2}
+        placeholder="Temperature"
+        className={errors.temperature ? "border-destructive" : ""}
+        onChange={(e) =>
+          onChange({
+            temperature: Number(e.target.value),
+          })
+        }
+      />
+      <p className="text-xs text-muted-foreground">Controls randomness (0-2)</p>
+      {errors.temperature && <p className="text-xs text-destructive">{errors.temperature}</p>}
+    </div>
+
+    <div className="space-y-2">
+      <Label htmlFor="topP">Top P</Label>
+      <Input
+        id="topP"
+        value={topPDraft}
+        type="text"
+        placeholder="Use model default"
+        className={errors.topP ? "border-destructive" : ""}
+        onChange={(e) => onTopPDraftChange(e.target.value)}
+        onBlur={onTopPBlur}
+      />
+      <p className="text-xs text-muted-foreground">Nucleus sampling threshold (0.1-1.0)</p>
+      {errors.topP && <p className="text-xs text-destructive">{errors.topP}</p>}
+    </div>
+
+    <div className="space-y-2">
+      <Label htmlFor="samplingParams">Sampling Parameters (JSON)</Label>
+      <Textarea
+        id="samplingParams"
+        value={samplingParamsDraft}
+        rows={5}
+        placeholder={'{\n  "temperature": 0.7,\n  "top_p": 0.9\n}'}
+        className={errors.samplingParams ? "border-destructive" : ""}
+        onChange={(e) => onSamplingParamsChange(e.target.value)}
+      />
+      <p className="text-xs text-muted-foreground">
+        Arbitrary OpenAI-compatible sampling parameters sent as-is to the provider. Pi-runtime models on vLLM/SGLang
+        servers can also set a thinking-token budget, e.g.{" "}
+        <code className="rounded bg-muted/60 px-1">{`{ "thinking_token_budget": 4096 }`}</code>.
+      </p>
+      {errors.samplingParams && <p className="text-xs text-destructive">{errors.samplingParams}</p>}
+    </div>
+
+    <div className="space-y-2">
+      <Label htmlFor="type">Model Type</Label>
+      <Select
+        value={config.type}
+        onValueChange={(value) =>
+          onChange({
+            type: value as ModelType,
+          })
+        }
+      >
+        <SelectTrigger>
+          <SelectValue placeholder="Model type" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="chat">Chat</SelectItem>
+          <SelectItem value="embedding">Embedding</SelectItem>
+          <SelectItem value="rerank">Rerank</SelectItem>
+          <SelectItem value="imageGeneration">Image Generation</SelectItem>
+          <SelectItem value="videoGeneration">Video Generation</SelectItem>
+          <SelectItem value="tts">Text-to-Speech</SelectItem>
+        </SelectContent>
+      </Select>
+      <p className="text-xs text-muted-foreground">The type of model</p>
+    </div>
+
+    {isOpenAICompatibleProvider && (
+      <div className="space-y-2">
+        <Label htmlFor="apiEndpoint">API Endpoint</Label>
+        <Select
+          value={config.apiEndpoint}
+          onValueChange={(value) =>
+            onChange({
+              apiEndpoint: value as ApiEndpointType,
+            })
+          }
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="API endpoint" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="chat">Chat</SelectItem>
+            <SelectItem value="image">Image</SelectItem>
+            <SelectItem value="video">Video</SelectItem>
+            <SelectItem value="audio-speech">Audio Speech</SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">The API endpoint to use</p>
+      </div>
+    )}
+
+    <div className="flex items-center justify-between">
+      <div className="space-y-0.5">
+        <Label>Vision</Label>
+        <p className="text-xs text-muted-foreground">Enable vision capabilities</p>
+      </div>
+      <Switch
+        checked={config.vision}
+        onCheckedChange={(value) =>
+          onChange({
+            vision: value,
+          })
+        }
+      />
+    </div>
+
+    <div className="flex items-center justify-between">
+      <div className="space-y-0.5">
+        <Label>Function Calling</Label>
+        <p className="text-xs text-muted-foreground">Enable function/tool calling</p>
+      </div>
+      <Switch
+        checked={config.functionCall}
+        onCheckedChange={(value) =>
+          onChange({
+            functionCall: value,
+          })
+        }
+      />
+    </div>
+
+    <div className="flex items-center justify-between">
+      <div className="space-y-0.5">
+        <Label>Reasoning</Label>
+        <p className="text-xs text-muted-foreground">Enable reasoning capabilities</p>
+      </div>
+      <Switch
+        checked={config.reasoning}
+        onCheckedChange={(value) =>
+          onChange({
+            reasoning: value,
+          })
+        }
+      />
+    </div>
+
+    {config.reasoning && (
+      <div className="space-y-2">
+        <Label htmlFor="reasoningEffort">Reasoning Effort</Label>
+        <Select
+          value={config.reasoningEffort}
+          onValueChange={(value) =>
+            onChange({
+              reasoningEffort: value as any,
+            })
+          }
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Reasoning effort" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="low">Low</SelectItem>
+            <SelectItem value="medium">Medium</SelectItem>
+            <SelectItem value="high">High</SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">Controls reasoning depth</p>
+      </div>
+    )}
+  </>
+);
+
+const ResetConfirmDialog = ({
+  open,
+  onOpenChange,
+  onConfirm,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: () => void;
+}) => (
+  <Dialog open={open} onOpenChange={onOpenChange}>
+    <DialogContent className="sm:max-w-[425px]">
+      <DialogHeader>
+        <DialogTitle>Reset Configuration</DialogTitle>
+        <p className="text-sm text-muted-foreground">
+          Are you sure you want to reset this model configuration to its default values?
+        </p>
+      </DialogHeader>
+      <DialogFooter>
+        <Button variant="ghost" onClick={() => onOpenChange(false)}>
+          Cancel
+        </Button>
+        <Button variant="destructive" onClick={onConfirm}>
+          Reset
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+);

@@ -1,4 +1,4 @@
-import { type FC, type FormEvent, useState, useReducer } from "react";
+import { type FC, type FormEvent, type Dispatch, useState, useReducer } from "react";
 import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
 import { Label } from "#shadcn/components/ui/label";
@@ -46,6 +46,21 @@ const validateKeyValueHeaders = (text: string): boolean => {
     if (parts.length < 2 || !parts[0].trim()) return false;
   }
   return true;
+};
+const parseKeyValueHeaders = (text: string): Record<string, string> => {
+  const headers: Record<string, string> = {};
+  if (!text) return headers;
+  for (const line of text.split("\n")) {
+    const trimmedLine = line.trim();
+    if (!trimmedLine) continue;
+    const separatorIndex = trimmedLine.indexOf("=");
+    if (separatorIndex > 0) {
+      const key = trimmedLine.substring(0, separatorIndex).trim();
+      const value = trimmedLine.substring(separatorIndex + 1).trim();
+      if (key) headers[key] = value;
+    }
+  }
+  return headers;
 };
 const maskSensitiveValue = (value: string): string =>
   value.replace(/=(.+)/g, (_, val) => {
@@ -244,23 +259,9 @@ const McpServerForm: FC<McpServerFormProps> = ({
   const showArgsInput = showCommandFields || (isInMemoryType && !isBuildInFileSystem);
   const showFolderSelector = isBuildInFileSystem;
   const showNpmRegistryInput = form.type === "stdio" && ["npx", "node"].includes(form.command.toLowerCase());
-  const parseKeyValueHeaders = (text: string): Record<string, string> => {
-    const headers: Record<string, string> = {};
-    if (!text) return headers;
-    for (const line of text.split("\n")) {
-      const trimmedLine = line.trim();
-      if (!trimmedLine) continue;
-      const separatorIndex = trimmedLine.indexOf("=");
-      if (separatorIndex > 0) {
-        const key = trimmedLine.substring(0, separatorIndex).trim();
-        const value = trimmedLine.substring(separatorIndex + 1).trim();
-        if (key) headers[key] = value;
-      }
-    }
-    return headers;
-  };
   const addArgsRow = () => dispatchForm({ type: "ADD_ARGS_ROW", id: nanoid() });
   const removeArgsRow = (id: string) => dispatchForm({ type: "REMOVE_ARGS_ROW", id });
+  const handleArgsRowChange = (id: string, value: string) => dispatchForm({ type: "UPDATE_ARGS_ROW", id, value });
   const addFolder = async () => {
     try {
       const result = await deviceClient.selectDirectory();
@@ -443,334 +444,57 @@ const McpServerForm: FC<McpServerFormProps> = ({
   };
   if (form.currentStep === "simple") {
     return (
-      <form className="space-y-4 h-full flex flex-col">
-        <ScrollArea className="h-0 grow">
-          <div className="space-y-4 px-4 pb-4">
-            <div className="text-sm">Paste your MCP server JSON configuration below.</div>
-            <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground" htmlFor="json-config">
-                JSON Configuration
-              </Label>
-              <Textarea
-                id="json-config"
-                value={jsonConfig}
-                onChange={(e) => setJsonConfig(e.target.value)}
-                rows={10}
-                placeholder={placeholder}
-              />
-            </div>
-          </div>
-        </ScrollArea>
-        <div className="flex justify-between pt-2 border-t px-4">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => dispatchForm({ type: "SET_CURRENT_STEP", value: "detailed" })}
-          >
-            Manual Setup
-          </Button>
-          <Button type="button" size="sm" onClick={parseJsonConfig}>
-            Parse & Continue
-          </Button>
-        </div>
-      </form>
+      <McpJsonImportStep
+        jsonConfig={jsonConfig}
+        onJsonConfigChange={setJsonConfig}
+        onParse={parseJsonConfig}
+        onManualSetup={() => dispatchForm({ type: "SET_CURRENT_STEP", value: "detailed" })}
+      />
     );
   }
   return (
     <form className="space-y-2 h-full flex flex-col" onSubmit={handleSubmit}>
       <ScrollArea className="h-0 grow">
         <div className="space-y-2 px-4 pb-4">
-          <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground" htmlFor="server-name">
-              Name
-            </Label>
-            <Input
-              id="server-name"
-              value={form.name}
-              onChange={(e) => dispatchForm({ type: "SET_NAME", value: e.target.value })}
-              placeholder="Server name"
-              disabled={editMode || isFieldReadOnly}
-              required
-            />
-          </div>
+          <McpServerIdentityFields
+            form={form}
+            dispatchForm={dispatchForm}
+            editMode={editMode}
+            isFieldReadOnly={isFieldReadOnly}
+            showInMemoryOption={editMode && initialConfig?.type === "inmemory"}
+          />
 
-          <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground" htmlFor="server-icon">
-              Icon
-            </Label>
-            <div className="flex items-center space-x-2">
-              <EmojiPicker
-                modelValue={form.icons}
-                onModelValueChange={(value) => dispatchForm({ type: "SET_ICONS", value })}
-              />
-            </div>
-          </div>
+          <McpServerTransportFields
+            form={form}
+            dispatchForm={dispatchForm}
+            isFieldReadOnly={isFieldReadOnly}
+            showBaseUrl={showBaseUrl}
+            showCommandField={showCommandFields}
+            showFoldersField={showFolderSelector}
+            showArgsField={!showFolderSelector && showArgsInput}
+            showEnvField={showCommandFields || isInMemoryType}
+            isEnvValid={isEnvValid}
+            onAddFolder={addFolder}
+            onRemoveFolder={removeFolder}
+            onAddArgsRow={addArgsRow}
+            onRemoveArgsRow={removeArgsRow}
+            onArgsRowChange={handleArgsRowChange}
+          />
 
-          <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground" htmlFor="server-type">
-              Type
-            </Label>
-            <Select
-              value={form.type}
-              onValueChange={(v) => dispatchForm({ type: "SET_TYPE", value: v as MCPServerTypeOption })}
-              disabled={isFieldReadOnly}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="stdio">stdio</SelectItem>
-                <SelectItem value="sse">SSE</SelectItem>
-                <SelectItem value="http">HTTP</SelectItem>
-                {editMode && initialConfig?.type === "inmemory" && <SelectItem value="inmemory">In-Memory</SelectItem>}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {showBaseUrl && (
-            <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground" htmlFor="server-base-url">
-                Base URL
-              </Label>
-              <Input
-                id="server-base-url"
-                value={form.baseUrl}
-                onChange={(e) => dispatchForm({ type: "SET_BASE_URL", value: e.target.value })}
-                placeholder="https://..."
-                disabled={isFieldReadOnly}
-                required
-              />
-            </div>
-          )}
-
-          {showCommandFields && (
-            <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground" htmlFor="server-command">
-                Command
-              </Label>
-              <Input
-                id="server-command"
-                value={form.command}
-                onChange={(e) => dispatchForm({ type: "SET_COMMAND", value: e.target.value })}
-                placeholder="npx"
-                disabled={isFieldReadOnly}
-                required
-              />
-            </div>
-          )}
-
-          {showFolderSelector && (
-            <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">Accessible Folders</Label>
-              <div className="space-y-2">
-                {form.foldersList.map((folder, index) => (
-                  <div
-                    key={folder}
-                    className="flex items-center justify-between p-2 border border-input rounded-md bg-background"
-                  >
-                    <span className="text-sm truncate flex-1 mr-2" title={folder}>
-                      {folder}
-                    </span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0 hover:bg-destructive hover:text-destructive-foreground"
-                      aria-label={`Remove folder ${folder}`}
-                      onClick={() => removeFolder(index)}
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ))}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="w-full flex items-center gap-2"
-                  onClick={addFolder}
-                >
-                  <Icon icon="lucide:folder-plus" className="h-4 w-4" /> Add Folder
-                </Button>
-                {form.foldersList.length === 0 && (
-                  <div className="text-xs text-muted-foreground text-center py-4">No folders selected</div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {!showFolderSelector && showArgsInput && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs text-muted-foreground">Arguments</Label>
-                <Button type="button" variant="ghost" size="sm" onClick={addArgsRow}>
-                  Add Argument
-                </Button>
-              </div>
-              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                {form.argsRows.map((row, index) => (
-                  <div key={row.id} className="grid grid-cols-12 gap-2 items-center">
-                    <Input
-                      value={row.value}
-                      onChange={(e) => {
-                        dispatchForm({ type: "UPDATE_ARGS_ROW", id: row.id, value: e.target.value });
-                      }}
-                      className="col-span-11"
-                      placeholder="Argument value"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="col-span-1"
-                      aria-label={`Remove argument ${index + 1}`}
-                      onClick={() => removeArgsRow(row.id)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {(showCommandFields || isInMemoryType) && (
-            <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground" htmlFor="server-env">
-                Environment Variables
-              </Label>
-              <Textarea
-                id="server-env"
-                value={form.env}
-                onChange={(e) => dispatchForm({ type: "SET_ENV", value: e.target.value })}
-                rows={5}
-                placeholder='{"KEY": "value"}'
-                className={!isEnvValid ? "border-red-500" : ""}
-              />
-            </div>
-          )}
-
-          <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground" htmlFor="server-description">
-              Description
-            </Label>
-            <Input
-              id="server-description"
-              value={form.descriptions}
-              onChange={(e) => dispatchForm({ type: "SET_DESCRIPTIONS", value: e.target.value })}
-              placeholder="Server description"
-              disabled={isFieldReadOnly}
-            />
-          </div>
-
-          {showNpmRegistryInput && (
-            <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground" htmlFor="npm-registry">
-                Custom NPM Registry
-              </Label>
-              <Input
-                id="npm-registry"
-                value={npmRegistry}
-                onChange={(e) => setNpmRegistry(e.target.value)}
-                placeholder="Leave empty for default"
-              />
-            </div>
-          )}
-
-          <div className="space-y-3">
-            <Label className="text-xs text-muted-foreground">Auto Approve</Label>
-            <div className="flex flex-col space-y-2">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="auto-approve-all"
-                  checked={form.autoApproveAll}
-                  onCheckedChange={(checked) => dispatchForm({ type: "SET_AUTO_APPROVE_ALL", value: Boolean(checked) })}
-                />
-                <label htmlFor="auto-approve-all" className="text-sm font-medium leading-none">
-                  All
-                </label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="auto-approve-read"
-                  checked={form.autoApproveRead}
-                  disabled={form.autoApproveAll}
-                  onCheckedChange={(checked) =>
-                    dispatchForm({ type: "SET_AUTO_APPROVE_READ", value: Boolean(checked) })
-                  }
-                />
-                <label
-                  htmlFor="auto-approve-read"
-                  className="text-sm font-medium leading-none peer-disabled:opacity-70"
-                >
-                  Read
-                </label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="auto-approve-write"
-                  checked={form.autoApproveWrite}
-                  disabled={form.autoApproveAll}
-                  onCheckedChange={(checked) =>
-                    dispatchForm({ type: "SET_AUTO_APPROVE_WRITE", value: Boolean(checked) })
-                  }
-                />
-                <label
-                  htmlFor="auto-approve-write"
-                  className="text-sm font-medium leading-none peer-disabled:opacity-70"
-                >
-                  Write
-                </label>
-              </div>
-            </div>
-          </div>
-
-          {showBaseUrl && (
-            <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground" htmlFor="server-custom-headers">
-                Custom Headers
-              </Label>
-              <div className="relative">
-                <Textarea
-                  id="server-custom-headers"
-                  value={form.customHeaders}
-                  onChange={(e) => dispatchForm({ type: "SET_CUSTOM_HEADERS", value: e.target.value })}
-                  rows={5}
-                  placeholder={customHeadersPlaceholder}
-                  className={[
-                    "transition-opacity duration-200",
-                    !isCustomHeadersFormatValid ? "border-red-500" : "",
-                  ].join(" ")}
-                  disabled={isFieldReadOnly}
-                  onFocus={() => setCustomHeadersFocused(true)}
-                  onBlur={() => setCustomHeadersFocused(false)}
-                />
-                {!customHeadersFocused && form.customHeaders.trim() && (
-                  <div
-                    className={[
-                      "absolute inset-0 bg-background rounded-md border pointer-events-none",
-                      !isCustomHeadersFormatValid ? "border-red-500" : "",
-                    ].join(" ")}
-                  >
-                    <div
-                      className="p-3 text-sm font-mono whitespace-pre-wrap text-muted-foreground select-none overflow-hidden break-all"
-                      style={{
-                        lineHeight: 1.4,
-                        wordBreak: "break-all",
-                      }}
-                    >
-                      {customHeadersDisplayValue}
-                    </div>
-                  </div>
-                )}
-              </div>
-              {!isCustomHeadersFormatValid && <p className="text-xs text-red-500">Invalid Key=Value format</p>}
-              {!customHeadersFocused && form.customHeaders.trim() && (
-                <p className="text-xs text-muted-foreground">Click to edit and view full content</p>
-              )}
-            </div>
-          )}
+          <McpServerExtraFields
+            form={form}
+            dispatchForm={dispatchForm}
+            isFieldReadOnly={isFieldReadOnly}
+            showBaseUrl={showBaseUrl}
+            showNpmRegistryInput={showNpmRegistryInput}
+            npmRegistry={npmRegistry}
+            onNpmRegistryChange={setNpmRegistry}
+            customHeadersFocused={customHeadersFocused}
+            onCustomHeadersFocus={() => setCustomHeadersFocused(true)}
+            onCustomHeadersBlur={() => setCustomHeadersFocused(false)}
+            customHeadersDisplayValue={customHeadersDisplayValue}
+            isCustomHeadersFormatValid={isCustomHeadersFormatValid}
+          />
         </div>
       </ScrollArea>
 
@@ -782,4 +506,430 @@ const McpServerForm: FC<McpServerFormProps> = ({
     </form>
   );
 };
+const McpJsonImportStep = ({
+  jsonConfig,
+  onJsonConfigChange,
+  onParse,
+  onManualSetup,
+}: {
+  jsonConfig: string;
+  onJsonConfigChange: (value: string) => void;
+  onParse: () => void;
+  onManualSetup: () => void;
+}) => (
+  <form className="space-y-4 h-full flex flex-col">
+    <ScrollArea className="h-0 grow">
+      <div className="space-y-4 px-4 pb-4">
+        <div className="text-sm">Paste your MCP server JSON configuration below.</div>
+        <div className="space-y-2">
+          <Label className="text-xs text-muted-foreground" htmlFor="json-config">
+            JSON Configuration
+          </Label>
+          <Textarea
+            id="json-config"
+            value={jsonConfig}
+            onChange={(e) => onJsonConfigChange(e.target.value)}
+            rows={10}
+            placeholder={placeholder}
+          />
+        </div>
+      </div>
+    </ScrollArea>
+    <div className="flex justify-between pt-2 border-t px-4">
+      <Button type="button" variant="outline" size="sm" onClick={onManualSetup}>
+        Manual Setup
+      </Button>
+      <Button type="button" size="sm" onClick={onParse}>
+        Parse & Continue
+      </Button>
+    </div>
+  </form>
+);
+
+const McpServerIdentityFields = ({
+  form,
+  dispatchForm,
+  editMode,
+  isFieldReadOnly,
+  showInMemoryOption,
+}: {
+  form: McpServerFormState;
+  dispatchForm: Dispatch<McpServerFormAction>;
+  editMode: boolean;
+  isFieldReadOnly: boolean;
+  showInMemoryOption: boolean;
+}) => (
+  <>
+    <div className="space-y-2">
+      <Label className="text-xs text-muted-foreground" htmlFor="server-name">
+        Name
+      </Label>
+      <Input
+        id="server-name"
+        value={form.name}
+        onChange={(e) => dispatchForm({ type: "SET_NAME", value: e.target.value })}
+        placeholder="Server name"
+        disabled={editMode || isFieldReadOnly}
+        required
+      />
+    </div>
+
+    <div className="space-y-2">
+      <Label className="text-xs text-muted-foreground" htmlFor="server-icon">
+        Icon
+      </Label>
+      <div className="flex items-center space-x-2">
+        <EmojiPicker
+          modelValue={form.icons}
+          onModelValueChange={(value) => dispatchForm({ type: "SET_ICONS", value })}
+        />
+      </div>
+    </div>
+
+    <div className="space-y-2">
+      <Label className="text-xs text-muted-foreground" htmlFor="server-type">
+        Type
+      </Label>
+      <Select
+        value={form.type}
+        onValueChange={(v) => dispatchForm({ type: "SET_TYPE", value: v as MCPServerTypeOption })}
+        disabled={isFieldReadOnly}
+      >
+        <SelectTrigger className="w-full">
+          <SelectValue placeholder="Select type" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="stdio">stdio</SelectItem>
+          <SelectItem value="sse">SSE</SelectItem>
+          <SelectItem value="http">HTTP</SelectItem>
+          {showInMemoryOption && <SelectItem value="inmemory">In-Memory</SelectItem>}
+        </SelectContent>
+      </Select>
+    </div>
+  </>
+);
+
+const McpServerTransportFields = ({
+  form,
+  dispatchForm,
+  isFieldReadOnly,
+  showBaseUrl,
+  showCommandField,
+  showFoldersField,
+  showArgsField,
+  showEnvField,
+  isEnvValid,
+  onAddFolder,
+  onRemoveFolder,
+  onAddArgsRow,
+  onRemoveArgsRow,
+  onArgsRowChange,
+}: {
+  form: McpServerFormState;
+  dispatchForm: Dispatch<McpServerFormAction>;
+  isFieldReadOnly: boolean;
+  showBaseUrl: boolean;
+  showCommandField: boolean;
+  showFoldersField: boolean;
+  showArgsField: boolean;
+  showEnvField: boolean;
+  isEnvValid: boolean;
+  onAddFolder: () => void;
+  onRemoveFolder: (index: number) => void;
+  onAddArgsRow: () => void;
+  onRemoveArgsRow: (id: string) => void;
+  onArgsRowChange: (id: string, value: string) => void;
+}) => (
+  <>
+    {showBaseUrl && (
+      <div className="space-y-2">
+        <Label className="text-xs text-muted-foreground" htmlFor="server-base-url">
+          Base URL
+        </Label>
+        <Input
+          id="server-base-url"
+          value={form.baseUrl}
+          onChange={(e) => dispatchForm({ type: "SET_BASE_URL", value: e.target.value })}
+          placeholder="https://..."
+          disabled={isFieldReadOnly}
+          required
+        />
+      </div>
+    )}
+
+    {showCommandField && (
+      <div className="space-y-2">
+        <Label className="text-xs text-muted-foreground" htmlFor="server-command">
+          Command
+        </Label>
+        <Input
+          id="server-command"
+          value={form.command}
+          onChange={(e) => dispatchForm({ type: "SET_COMMAND", value: e.target.value })}
+          placeholder="npx"
+          disabled={isFieldReadOnly}
+          required
+        />
+      </div>
+    )}
+
+    {showFoldersField && (
+      <McpServerFoldersField folders={form.foldersList} onAdd={onAddFolder} onRemove={onRemoveFolder} />
+    )}
+
+    {showArgsField && (
+      <McpServerArgsField
+        rows={form.argsRows}
+        onAdd={onAddArgsRow}
+        onRemove={onRemoveArgsRow}
+        onChange={onArgsRowChange}
+      />
+    )}
+
+    {showEnvField && (
+      <div className="space-y-2">
+        <Label className="text-xs text-muted-foreground" htmlFor="server-env">
+          Environment Variables
+        </Label>
+        <Textarea
+          id="server-env"
+          value={form.env}
+          onChange={(e) => dispatchForm({ type: "SET_ENV", value: e.target.value })}
+          rows={5}
+          placeholder='{"KEY": "value"}'
+          className={!isEnvValid ? "border-red-500" : ""}
+        />
+      </div>
+    )}
+  </>
+);
+
+const McpServerFoldersField = ({
+  folders,
+  onAdd,
+  onRemove,
+}: {
+  folders: string[];
+  onAdd: () => void;
+  onRemove: (index: number) => void;
+}) => (
+  <div className="space-y-2">
+    <Label className="text-xs text-muted-foreground">Accessible Folders</Label>
+    <div className="space-y-2">
+      {folders.map((folder, index) => (
+        <div
+          key={folder}
+          className="flex items-center justify-between p-2 border border-input rounded-md bg-background"
+        >
+          <span className="text-sm truncate flex-1 mr-2" title={folder}>
+            {folder}
+          </span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0 hover:bg-destructive hover:text-destructive-foreground"
+            aria-label={`Remove folder ${folder}`}
+            onClick={() => onRemove(index)}
+          >
+            <X className="h-3 w-3" />
+          </Button>
+        </div>
+      ))}
+      <Button type="button" variant="outline" size="sm" className="w-full flex items-center gap-2" onClick={onAdd}>
+        <Icon icon="lucide:folder-plus" className="h-4 w-4" /> Add Folder
+      </Button>
+      {folders.length === 0 && (
+        <div className="text-xs text-muted-foreground text-center py-4">No folders selected</div>
+      )}
+    </div>
+  </div>
+);
+
+const McpServerArgsField = ({
+  rows,
+  onAdd,
+  onRemove,
+  onChange,
+}: {
+  rows: Array<{
+    id: string;
+    value: string;
+  }>;
+  onAdd: () => void;
+  onRemove: (id: string) => void;
+  onChange: (id: string, value: string) => void;
+}) => (
+  <div className="space-y-2">
+    <div className="flex items-center justify-between">
+      <Label className="text-xs text-muted-foreground">Arguments</Label>
+      <Button type="button" variant="ghost" size="sm" onClick={onAdd}>
+        Add Argument
+      </Button>
+    </div>
+    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+      {rows.map((row, index) => (
+        <div key={row.id} className="grid grid-cols-12 gap-2 items-center">
+          <Input
+            value={row.value}
+            onChange={(e) => onChange(row.id, e.target.value)}
+            className="col-span-11"
+            placeholder="Argument value"
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="col-span-1"
+            aria-label={`Remove argument ${index + 1}`}
+            onClick={() => onRemove(row.id)}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+const McpServerExtraFields = ({
+  form,
+  dispatchForm,
+  isFieldReadOnly,
+  showBaseUrl,
+  showNpmRegistryInput,
+  npmRegistry,
+  onNpmRegistryChange,
+  customHeadersFocused,
+  onCustomHeadersFocus,
+  onCustomHeadersBlur,
+  customHeadersDisplayValue,
+  isCustomHeadersFormatValid,
+}: {
+  form: McpServerFormState;
+  dispatchForm: Dispatch<McpServerFormAction>;
+  isFieldReadOnly: boolean;
+  showBaseUrl: boolean;
+  showNpmRegistryInput: boolean;
+  npmRegistry: string;
+  onNpmRegistryChange: (value: string) => void;
+  customHeadersFocused: boolean;
+  onCustomHeadersFocus: () => void;
+  onCustomHeadersBlur: () => void;
+  customHeadersDisplayValue: string;
+  isCustomHeadersFormatValid: boolean;
+}) => (
+  <>
+    <div className="space-y-2">
+      <Label className="text-xs text-muted-foreground" htmlFor="server-description">
+        Description
+      </Label>
+      <Input
+        id="server-description"
+        value={form.descriptions}
+        onChange={(e) => dispatchForm({ type: "SET_DESCRIPTIONS", value: e.target.value })}
+        placeholder="Server description"
+        disabled={isFieldReadOnly}
+      />
+    </div>
+
+    {showNpmRegistryInput && (
+      <div className="space-y-2">
+        <Label className="text-xs text-muted-foreground" htmlFor="npm-registry">
+          Custom NPM Registry
+        </Label>
+        <Input
+          id="npm-registry"
+          value={npmRegistry}
+          onChange={(e) => onNpmRegistryChange(e.target.value)}
+          placeholder="Leave empty for default"
+        />
+      </div>
+    )}
+
+    <div className="space-y-3">
+      <Label className="text-xs text-muted-foreground">Auto Approve</Label>
+      <div className="flex flex-col space-y-2">
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            id="auto-approve-all"
+            checked={form.autoApproveAll}
+            onCheckedChange={(checked) => dispatchForm({ type: "SET_AUTO_APPROVE_ALL", value: Boolean(checked) })}
+          />
+          <label htmlFor="auto-approve-all" className="text-sm font-medium leading-none">
+            All
+          </label>
+        </div>
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            id="auto-approve-read"
+            checked={form.autoApproveRead}
+            disabled={form.autoApproveAll}
+            onCheckedChange={(checked) => dispatchForm({ type: "SET_AUTO_APPROVE_READ", value: Boolean(checked) })}
+          />
+          <label htmlFor="auto-approve-read" className="text-sm font-medium leading-none peer-disabled:opacity-70">
+            Read
+          </label>
+        </div>
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            id="auto-approve-write"
+            checked={form.autoApproveWrite}
+            disabled={form.autoApproveAll}
+            onCheckedChange={(checked) => dispatchForm({ type: "SET_AUTO_APPROVE_WRITE", value: Boolean(checked) })}
+          />
+          <label htmlFor="auto-approve-write" className="text-sm font-medium leading-none peer-disabled:opacity-70">
+            Write
+          </label>
+        </div>
+      </div>
+    </div>
+
+    {showBaseUrl && (
+      <div className="space-y-2">
+        <Label className="text-xs text-muted-foreground" htmlFor="server-custom-headers">
+          Custom Headers
+        </Label>
+        <div className="relative">
+          <Textarea
+            id="server-custom-headers"
+            value={form.customHeaders}
+            onChange={(e) => dispatchForm({ type: "SET_CUSTOM_HEADERS", value: e.target.value })}
+            rows={5}
+            placeholder={customHeadersPlaceholder}
+            className={["transition-opacity duration-200", !isCustomHeadersFormatValid ? "border-red-500" : ""].join(
+              " ",
+            )}
+            disabled={isFieldReadOnly}
+            onFocus={onCustomHeadersFocus}
+            onBlur={onCustomHeadersBlur}
+          />
+          {!customHeadersFocused && form.customHeaders.trim() && (
+            <div
+              className={[
+                "absolute inset-0 bg-background rounded-md border pointer-events-none",
+                !isCustomHeadersFormatValid ? "border-red-500" : "",
+              ].join(" ")}
+            >
+              <div
+                className="p-3 text-sm font-mono whitespace-pre-wrap text-muted-foreground select-none overflow-hidden break-all"
+                style={{
+                  lineHeight: 1.4,
+                  wordBreak: "break-all",
+                }}
+              >
+                {customHeadersDisplayValue}
+              </div>
+            </div>
+          )}
+        </div>
+        {!isCustomHeadersFormatValid && <p className="text-xs text-red-500">Invalid Key=Value format</p>}
+        {!customHeadersFocused && form.customHeaders.trim() && (
+          <p className="text-xs text-muted-foreground">Click to edit and view full content</p>
+        )}
+      </div>
+    )}
+  </>
+);
+
 export default McpServerForm;

@@ -197,13 +197,6 @@ export default function PromptEditorSheet({ open, prompt, onUpdateOpen, onSubmit
       files: prev.files.filter((_, i) => i !== index),
     }));
   };
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return "0 Bytes";
-    const k = 1024;
-    const sizes = ["Bytes", "KB", "MB", "GB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
-  };
   const submit = () => {
     onSubmit({
       ...form,
@@ -229,56 +222,29 @@ export default function PromptEditorSheet({ open, prompt, onUpdateOpen, onSubmit
 
         <ScrollArea className="flex-1 px-6">
           <div className="space-y-6 py-6">
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 border-b border-border pb-2">
-                <Label className="text-sm font-medium text-muted-foreground">Basic Info</Label>
-              </div>
-              <div className="space-y-4">
-                <div>
-                  <Label className="text-sm font-medium">Name</Label>
-                  <Input
-                    value={form.name}
-                    placeholder="Prompt name"
-                    className="mt-2"
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        name: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Description</Label>
-                  <Input
-                    value={form.description}
-                    placeholder="Prompt description"
-                    className="mt-2"
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        description: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-              </div>
-              <div className="flex items-center gap-2 pt-2">
-                <Checkbox
-                  id="prompt-enabled"
-                  checked={form.enabled}
-                  onCheckedChange={(value) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      enabled: value === true,
-                    }))
-                  }
-                />
-                <Label htmlFor="prompt-enabled" className="text-sm">
-                  Enable this prompt
-                </Label>
-              </div>
-            </div>
+            <PromptBasicInfoSection
+              name={form.name}
+              description={form.description}
+              enabled={form.enabled}
+              onNameChange={(name) =>
+                setForm((prev) => ({
+                  ...prev,
+                  name,
+                }))
+              }
+              onDescriptionChange={(description) =>
+                setForm((prev) => ({
+                  ...prev,
+                  description,
+                }))
+              }
+              onEnabledChange={(enabled) =>
+                setForm((prev) => ({
+                  ...prev,
+                  enabled,
+                }))
+              }
+            />
 
             <div className="space-y-4">
               <div className="flex items-center gap-2 border-b border-border pb-2">
@@ -299,150 +265,14 @@ export default function PromptEditorSheet({ open, prompt, onUpdateOpen, onSubmit
               <p className="mt-2 text-xs text-muted-foreground">Use {"{parameterName}"} for dynamic parameters.</p>
             </div>
 
-            <div className="space-y-4">
-              <div className="flex items-center justify-between border-b border-border pb-2">
-                <div className="flex items-center gap-2">
-                  <Icon icon="lucide:settings" className="h-4 w-4 text-primary" />
-                  <Label className="text-sm font-medium text-muted-foreground">Parameters</Label>
-                </div>
-                <Button variant="outline" size="sm" onClick={addParameter}>
-                  <Icon icon="lucide:plus" className="mr-1 h-4 w-4" />
-                  Add Parameter
-                </Button>
-              </div>
-              {form.parameters.length > 0 ? (
-                <div className="space-y-4">
-                  {form.parameters.map((param, index) => (
-                    <div
-                      key={param.id}
-                      className="relative rounded-lg border bg-muted/30 p-4 transition-colors hover:bg-muted/50"
-                    >
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="absolute right-3 top-3 h-7 w-7 border border-border/50 bg-background/80 text-muted-foreground transition-colors duration-200 hover:border-destructive hover:bg-destructive hover:text-destructive-foreground"
-                        title="Delete"
-                        onClick={() => removeParameter(index)}
-                      >
-                        <Icon icon="lucide:trash-2" className="h-3.5 w-3.5" />
-                      </Button>
-                      <div className="space-y-4 pr-12">
-                        <div className="grid grid-cols-1 items-end gap-4 md:grid-cols-3">
-                          <div className="md:col-span-2">
-                            <Label className="text-sm text-muted-foreground">Parameter Name</Label>
-                            <Input
-                              value={param.name}
-                              placeholder="Parameter name"
-                              className="mt-2"
-                              onChange={(e) => updateParameter(index, "name", e.target.value)}
-                            />
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Checkbox
-                              id={`parameter-required-${index}`}
-                              checked={param.required}
-                              onCheckedChange={(value) => updateParameter(index, "required", value === true)}
-                            />
-                            <Label htmlFor={`parameter-required-${index}`} className="whitespace-nowrap text-sm">
-                              Required
-                            </Label>
-                          </div>
-                        </div>
-                        <div>
-                          <Label className="text-sm text-muted-foreground">Description</Label>
-                          <Input
-                            value={param.description}
-                            placeholder="Parameter description"
-                            className="mt-2"
-                            onChange={(e) => updateParameter(index, "description", e.target.value)}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-sm text-muted-foreground">No parameters defined.</div>
-              )}
-            </div>
+            <PromptParametersSection
+              parameters={form.parameters}
+              onAdd={addParameter}
+              onRemove={removeParameter}
+              onUpdate={updateParameter}
+            />
 
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 border-b border-border pb-2">
-                <Icon icon="lucide:paperclip" className="h-4 w-4 text-primary" />
-                <Label className="text-sm font-medium text-muted-foreground">File Management</Label>
-              </div>
-              <div className="space-y-4">
-                <div
-                  className="group cursor-pointer rounded-lg border-2 border-dashed border-muted p-4 transition-colors hover:border-primary/50 hover:bg-muted/20"
-                  onClick={uploadFile}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      uploadFile();
-                    }
-                  }}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="shrink-0 rounded-lg bg-primary/10 p-2 transition-colors group-hover:bg-primary/20">
-                      <Icon icon="lucide:upload" className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">Upload from device</p>
-                      <p className="text-xs text-muted-foreground">Attach files to use with this prompt</p>
-                    </div>
-                  </div>
-                </div>
-                {form.files.length > 0 ? (
-                  <div className="space-y-3">
-                    <Label className="text-sm text-muted-foreground">Uploaded Files</Label>
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                      {form.files.map((file, index) => (
-                        <div
-                          key={file.id}
-                          className="group relative rounded-lg border bg-card p-3 transition-colors hover:bg-muted/50"
-                        >
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="absolute right-2 top-2 h-6 w-6 border border-border/50 bg-background/80 text-muted-foreground opacity-0 transition-opacity duration-200 hover:border-destructive hover:bg-destructive hover:text-destructive-foreground group-hover:opacity-100"
-                            title="Delete"
-                            onClick={() => removeFile(index)}
-                          >
-                            <Icon icon="lucide:trash-2" className="h-3 w-3" />
-                          </Button>
-                          <div className="pr-8">
-                            <div className="mb-2 flex items-center gap-2">
-                              <div className="rounded bg-primary/10 p-1.5">
-                                <Icon icon={getMimeTypeIcon(file.type)} className="h-4 w-4 text-primary" />
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate text-sm font-medium" title={file.name}>
-                                  {file.name}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex items-center justify-between text-xs text-muted-foreground">
-                              <span className="flex-1 truncate whitespace-nowrap rounded bg-muted px-2 py-0.5 text-ellipsis">
-                                {file.type || "unknown"}
-                              </span>
-                              <span className="shrink-0">{formatFileSize(file.size)}</span>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="rounded-lg border-2 border-dashed border-muted bg-muted/20 py-12 text-center text-muted-foreground">
-                    <Icon icon="lucide:folder-open" className="mx-auto mb-3 h-12 w-12 opacity-50" />
-                    <p className="text-sm">No files attached</p>
-                    <p className="mt-1 text-xs text-muted-foreground/70">Upload files to include with this prompt</p>
-                  </div>
-                )}
-              </div>
-            </div>
+            <PromptFilesSection files={form.files} onUpload={uploadFile} onRemove={removeFile} />
           </div>
         </ScrollArea>
 
@@ -462,5 +292,253 @@ export default function PromptEditorSheet({ open, prompt, onUpdateOpen, onSubmit
         </SheetFooter>
       </SheetContent>
     </Sheet>
+  );
+}
+const formatFileSize = (bytes: number) => {
+  if (bytes === 0) return "0 Bytes";
+  const k = 1024;
+  const sizes = ["Bytes", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
+};
+interface PromptBasicInfoSectionProps {
+  name: string;
+  description: string;
+  enabled: boolean;
+  onNameChange: (name: string) => void;
+  onDescriptionChange: (description: string) => void;
+  onEnabledChange: (enabled: boolean) => void;
+}
+
+/** Name / description fields plus the enabled toggle. */
+function PromptBasicInfoSection({
+  name,
+  description,
+  enabled,
+  onNameChange,
+  onDescriptionChange,
+  onEnabledChange,
+}: PromptBasicInfoSectionProps) {
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2 border-b border-border pb-2">
+        <Label className="text-sm font-medium text-muted-foreground">Basic Info</Label>
+      </div>
+      <div className="space-y-4">
+        <div>
+          <Label className="text-sm font-medium">Name</Label>
+          <Input
+            value={name}
+            placeholder="Prompt name"
+            className="mt-2"
+            onChange={(e) => onNameChange(e.target.value)}
+          />
+        </div>
+        <div>
+          <Label className="text-sm font-medium">Description</Label>
+          <Input
+            value={description}
+            placeholder="Prompt description"
+            className="mt-2"
+            onChange={(e) => onDescriptionChange(e.target.value)}
+          />
+        </div>
+      </div>
+      <div className="flex items-center gap-2 pt-2">
+        <Checkbox id="prompt-enabled" checked={enabled} onCheckedChange={(value) => onEnabledChange(value === true)} />
+        <Label htmlFor="prompt-enabled" className="text-sm">
+          Enable this prompt
+        </Label>
+      </div>
+    </div>
+  );
+}
+interface PromptParametersSectionProps {
+  parameters: EditablePromptParameter[];
+  onAdd: () => void;
+  onRemove: (index: number) => void;
+  onUpdate: (index: number, field: keyof PromptParameter, value: string | boolean) => void;
+}
+
+/** Parameter list editor with add/remove and per-row fields. */
+function PromptParametersSection({ parameters, onAdd, onRemove, onUpdate }: PromptParametersSectionProps) {
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between border-b border-border pb-2">
+        <div className="flex items-center gap-2">
+          <Icon icon="lucide:settings" className="h-4 w-4 text-primary" />
+          <Label className="text-sm font-medium text-muted-foreground">Parameters</Label>
+        </div>
+        <Button variant="outline" size="sm" onClick={onAdd}>
+          <Icon icon="lucide:plus" className="mr-1 h-4 w-4" />
+          Add Parameter
+        </Button>
+      </div>
+      {parameters.length > 0 ? (
+        <div className="space-y-4">
+          {parameters.map((param, index) => (
+            <PromptParameterRow key={param.id} param={param} index={index} onRemove={onRemove} onUpdate={onUpdate} />
+          ))}
+        </div>
+      ) : (
+        <div className="text-sm text-muted-foreground">No parameters defined.</div>
+      )}
+    </div>
+  );
+}
+interface PromptParameterRowProps {
+  param: EditablePromptParameter;
+  index: number;
+  onRemove: (index: number) => void;
+  onUpdate: (index: number, field: keyof PromptParameter, value: string | boolean) => void;
+}
+
+/** A single editable prompt-parameter card. */
+function PromptParameterRow({ param, index, onRemove, onUpdate }: PromptParameterRowProps) {
+  return (
+    <div className="relative rounded-lg border bg-muted/30 p-4 transition-colors hover:bg-muted/50">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="absolute right-3 top-3 h-7 w-7 border border-border/50 bg-background/80 text-muted-foreground transition-colors duration-200 hover:border-destructive hover:bg-destructive hover:text-destructive-foreground"
+        title="Delete"
+        onClick={() => onRemove(index)}
+      >
+        <Icon icon="lucide:trash-2" className="h-3.5 w-3.5" />
+      </Button>
+      <div className="space-y-4 pr-12">
+        <div className="grid grid-cols-1 items-end gap-4 md:grid-cols-3">
+          <div className="md:col-span-2">
+            <Label className="text-sm text-muted-foreground">Parameter Name</Label>
+            <Input
+              value={param.name}
+              placeholder="Parameter name"
+              className="mt-2"
+              onChange={(e) => onUpdate(index, "name", e.target.value)}
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id={`parameter-required-${index}`}
+              checked={param.required}
+              onCheckedChange={(value) => onUpdate(index, "required", value === true)}
+            />
+            <Label htmlFor={`parameter-required-${index}`} className="whitespace-nowrap text-sm">
+              Required
+            </Label>
+          </div>
+        </div>
+        <div>
+          <Label className="text-sm text-muted-foreground">Description</Label>
+          <Input
+            value={param.description}
+            placeholder="Parameter description"
+            className="mt-2"
+            onChange={(e) => onUpdate(index, "description", e.target.value)}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+interface PromptFilesSectionProps {
+  files: FileItem[];
+  onUpload: () => void;
+  onRemove: (index: number) => void;
+}
+
+/** Attachment upload zone plus the uploaded-file grid / empty state. */
+function PromptFilesSection({ files, onUpload, onRemove }: PromptFilesSectionProps) {
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2 border-b border-border pb-2">
+        <Icon icon="lucide:paperclip" className="h-4 w-4 text-primary" />
+        <Label className="text-sm font-medium text-muted-foreground">File Management</Label>
+      </div>
+      <div className="space-y-4">
+        <PromptFileUploadZone onUpload={onUpload} />
+        {files.length > 0 ? (
+          <div className="space-y-3">
+            <Label className="text-sm text-muted-foreground">Uploaded Files</Label>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {files.map((file, index) => (
+                <PromptFileCard key={file.id} file={file} onRemove={() => onRemove(index)} />
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-lg border-2 border-dashed border-muted bg-muted/20 py-12 text-center text-muted-foreground">
+            <Icon icon="lucide:folder-open" className="mx-auto mb-3 h-12 w-12 opacity-50" />
+            <p className="text-sm">No files attached</p>
+            <p className="mt-1 text-xs text-muted-foreground/70">Upload files to include with this prompt</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+function PromptFileUploadZone({ onUpload }: { onUpload: () => void }) {
+  return (
+    <div
+      className="group cursor-pointer rounded-lg border-2 border-dashed border-muted p-4 transition-colors hover:border-primary/50 hover:bg-muted/20"
+      onClick={onUpload}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onUpload();
+        }
+      }}
+    >
+      <div className="flex items-center gap-3">
+        <div className="shrink-0 rounded-lg bg-primary/10 p-2 transition-colors group-hover:bg-primary/20">
+          <Icon icon="lucide:upload" className="h-5 w-5 text-primary" />
+        </div>
+        <div>
+          <p className="text-sm font-medium">Upload from device</p>
+          <p className="text-xs text-muted-foreground">Attach files to use with this prompt</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+interface PromptFileCardProps {
+  file: FileItem;
+  onRemove: () => void;
+}
+
+/** One uploaded attachment card with mime-type icon and size. */
+function PromptFileCard({ file, onRemove }: PromptFileCardProps) {
+  return (
+    <div className="group relative rounded-lg border bg-card p-3 transition-colors hover:bg-muted/50">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="absolute right-2 top-2 h-6 w-6 border border-border/50 bg-background/80 text-muted-foreground opacity-0 transition-opacity duration-200 hover:border-destructive hover:bg-destructive hover:text-destructive-foreground group-hover:opacity-100"
+        title="Delete"
+        onClick={onRemove}
+      >
+        <Icon icon="lucide:trash-2" className="h-3 w-3" />
+      </Button>
+      <div className="pr-8">
+        <div className="mb-2 flex items-center gap-2">
+          <div className="rounded bg-primary/10 p-1.5">
+            <Icon icon={getMimeTypeIcon(file.type)} className="h-4 w-4 text-primary" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium" title={file.name}>
+              {file.name}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <span className="flex-1 truncate whitespace-nowrap rounded bg-muted px-2 py-0.5 text-ellipsis">
+            {file.type || "unknown"}
+          </span>
+          <span className="shrink-0">{formatFileSize(file.size)}</span>
+        </div>
+      </div>
+    </div>
   );
 }

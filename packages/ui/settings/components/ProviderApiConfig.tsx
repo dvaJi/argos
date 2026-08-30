@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, type FocusEvent } from "react";
+import { useState, useEffect, type FocusEvent } from "react";
 import { Label } from "#shadcn/components/ui/label";
 import { Input } from "#shadcn/components/ui/input";
 import { Button } from "#shadcn/components/ui/button";
@@ -44,6 +44,265 @@ const EDITABLE_BASE_URL_PROVIDER_IDS = new Set([
   "vertex",
 ]);
 
+const extractRefreshErrorMessage = (error: unknown): string | null => {
+  const rawMessage = error instanceof Error ? error.message : String(error);
+  const normalizedMessage = rawMessage.trim();
+
+  if (!normalizedMessage) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(normalizedMessage) as {
+      error?: { message?: string };
+      message?: string;
+    };
+
+    if (typeof parsed.error?.message === "string" && parsed.error.message.trim()) {
+      return parsed.error.message.trim();
+    }
+
+    if (typeof parsed.message === "string" && parsed.message.trim()) {
+      return parsed.message.trim();
+    }
+  } catch {
+    // ignore JSON parse errors
+  }
+
+  return normalizedMessage;
+};
+
+interface ApiUrlFieldProps {
+  provider: LLM_PROVIDER;
+  apiHost: string;
+  defaultBaseUrl: string;
+  showLockedBaseUrl: boolean;
+  onApiHostInputChange: (value: string) => void;
+  onApiHostCommit: (value: string) => void;
+  onUnlockBaseUrl: () => void;
+  onFillDefaultBaseUrl: () => void;
+  onDeleteProvider: () => void;
+}
+
+function ApiUrlField({
+  provider,
+  apiHost,
+  defaultBaseUrl,
+  showLockedBaseUrl,
+  onApiHostInputChange,
+  onApiHostCommit,
+  onUnlockBaseUrl,
+  onFillDefaultBaseUrl,
+  onDeleteProvider,
+}: ApiUrlFieldProps) {
+  const hasDefaultBaseUrl = defaultBaseUrl.length > 0;
+
+  const handleApiHostBlur = (event: FocusEvent<HTMLInputElement>) => {
+    if (showLockedBaseUrl) return;
+    const target = event.target as HTMLInputElement | null;
+    if (!target) return;
+    onApiHostCommit(target.value);
+  };
+
+  return (
+    <div className="flex flex-col items-start gap-2">
+      <div className="flex justify-between items-center w-full">
+        <Label htmlFor={`${provider.id}-url`} className="flex-1">
+          API URL
+        </Label>
+        {provider.custom && (
+          <Button variant="destructive" size="sm" className="text-xs rounded-lg" onClick={onDeleteProvider}>
+            <Icon icon="lucide:trash-2" className="w-4 h-4 mr-1" />
+            Delete
+          </Button>
+        )}
+      </div>
+      {showLockedBaseUrl ? (
+        <div className="flex w-full items-center gap-2">
+          <div
+            id={`${provider.id}-url`}
+            className="flex h-9 flex-1 items-center rounded-md border border-input bg-muted px-3 text-sm text-muted-foreground"
+          >
+            <span className="truncate">{apiHost || "Enter API URL"}</span>
+          </div>
+          <Button variant="outline" size="sm" className="shrink-0 text-xs" onClick={onUnlockBaseUrl}>
+            Modify
+          </Button>
+        </div>
+      ) : (
+        <Input
+          id={`${provider.id}-url`}
+          value={apiHost}
+          onChange={(e) => onApiHostInputChange(String(e.target.value))}
+          onBlur={handleApiHostBlur}
+          onKeyUp={(e) => {
+            if (e.key === "Enter") onApiHostCommit(apiHost);
+          }}
+          placeholder="Enter API URL"
+        />
+      )}
+      <div className="text-xs text-muted-foreground">
+        {hasDefaultBaseUrl && !showLockedBaseUrl ? (
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <button
+                  type="button"
+                  className="text-xs text-muted-foreground underline decoration-dotted underline-offset-2 transition-colors hover:text-foreground"
+                  aria-label="Fill default URL"
+                  onClick={onFillDefaultBaseUrl}
+                />
+              }
+            >
+              Default: {defaultBaseUrl}
+            </TooltipTrigger>
+            <TooltipContent>Fill with default base URL</TooltipContent>
+          </Tooltip>
+        ) : showLockedBaseUrl ? (
+          <span>Base URL is locked for this provider.</span>
+        ) : (
+          <span>Default: {defaultBaseUrl}</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+interface ApiKeySectionProps {
+  provider: LLM_PROVIDER;
+  apiKey: string;
+  showApiKey: boolean;
+  isRefreshing: boolean;
+  canVerifyProvider: boolean;
+  keyStatus: KeyStatus | null;
+  shouldRefreshProviderDbFirst: boolean;
+  providerApiKeyUrl: string;
+  onApiKeyInputChange: (value: string) => void;
+  onApiKeyCommit: (value: string) => void;
+  onValidateKey: () => void;
+  onToggleShowApiKey: () => void;
+  onVerify: () => void;
+  onRefreshModels: () => void;
+}
+
+function ApiKeySection({
+  provider,
+  apiKey,
+  showApiKey,
+  isRefreshing,
+  canVerifyProvider,
+  keyStatus,
+  shouldRefreshProviderDbFirst,
+  providerApiKeyUrl,
+  onApiKeyInputChange,
+  onApiKeyCommit,
+  onValidateKey,
+  onToggleShowApiKey,
+  onVerify,
+  onRefreshModels,
+}: ApiKeySectionProps) {
+  const handleApiKeyBlur = (event: FocusEvent<HTMLInputElement>) => {
+    const target = event.target as HTMLInputElement | null;
+    if (!target) return;
+    onApiKeyCommit(target.value);
+  };
+
+  return (
+    <div className="flex flex-col items-start gap-4">
+      <div className="flex flex-col gap-2 w-full">
+        <Label htmlFor={`${provider.id}-apikey`} className="w-full">
+          API Key
+        </Label>
+        <div className="relative w-full">
+          <Input
+            data-testid="provider-api-key-input"
+            id={`${provider.id}-apikey`}
+            value={apiKey}
+            onChange={(e) => onApiKeyInputChange(String(e.target.value))}
+            onBlur={handleApiKeyBlur}
+            onKeyUp={(e) => {
+              if (e.key === "Enter") {
+                if (!canVerifyProvider) return;
+                onValidateKey();
+              }
+            }}
+            type={showApiKey ? "text" : "password"}
+            placeholder="Enter API Key"
+            style={{ paddingRight: "2.5rem" }}
+          />
+          <Button
+            variant="ghost"
+            size="sm"
+            className="absolute right-2 top-1/2 transform -translate-y-1/2 h-7 w-7 p-0 hover:bg-transparent"
+            onClick={onToggleShowApiKey}
+          >
+            <Icon
+              icon={showApiKey ? "lucide:eye-off" : "lucide:eye"}
+              className="w-4 h-4 text-muted-foreground hover:text-foreground"
+            />
+          </Button>
+        </div>
+        {keyStatus && (keyStatus.usage !== undefined || keyStatus.limit_remaining !== undefined) && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            {keyStatus.usage !== undefined && (
+              <div className="flex items-center gap-1">
+                <Icon icon="lucide:activity" className="w-3 h-3" />
+                <span>Usage: {keyStatus.usage}</span>
+              </div>
+            )}
+            {keyStatus.limit_remaining !== undefined && (
+              <div className="flex items-center gap-1">
+                <Icon icon="lucide:coins" className="w-3 h-3" />
+                <span>Remaining: {keyStatus.limit_remaining}</span>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+      <div className="flex flex-row gap-2">
+        <Button
+          data-testid="provider-verify-button"
+          variant="outline"
+          size="sm"
+          className="text-xs text-normal rounded-lg"
+          disabled={!canVerifyProvider}
+          onClick={onVerify}
+        >
+          <Icon icon="lucide:check-check" className="w-4 h-4 text-muted-foreground" />
+          Verify
+        </Button>
+        <Button
+          data-testid="provider-refresh-models-button"
+          variant="outline"
+          size="sm"
+          className="text-xs text-normal rounded-lg"
+          disabled={isRefreshing}
+          onClick={onRefreshModels}
+        >
+          <Icon
+            icon={isRefreshing ? "lucide:loader-2" : "lucide:refresh-cw"}
+            className={`w-4 h-4 text-muted-foreground${isRefreshing ? " animate-spin" : ""}`}
+          />
+          {isRefreshing ? "Refreshing..." : "Refresh Models"}
+        </Button>
+      </div>
+      {shouldRefreshProviderDbFirst && (
+        <p className="text-xs leading-5 text-muted-foreground">
+          Refresh models to get the latest metadata and capabilities.
+        </p>
+      )}
+      {!provider.custom && (
+        <div className="text-xs text-muted-foreground">
+          Get your API key from:{" "}
+          <a href={providerApiKeyUrl} target="_blank" className="text-primary">
+            {provider.name}
+          </a>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ProviderApiConfig({
   provider,
   providerWebsites,
@@ -65,7 +324,6 @@ export default function ProviderApiConfig({
   const [baseUrlUnlocked, setBaseUrlUnlocked] = useState(false);
 
   const defaultBaseUrl = providerWebsites?.defaultBaseUrl?.trim() || "";
-  const hasDefaultBaseUrl = defaultBaseUrl.length > 0;
   const isBaseUrlEditableByDefault = provider.custom || EDITABLE_BASE_URL_PROVIDER_IDS.has(provider.id);
   const showLockedBaseUrl = !isBaseUrlEditableByDefault && !baseUrlUnlocked;
   const shouldRefreshProviderDbFirst = isProviderDbBackedProvider(provider.id);
@@ -98,55 +356,14 @@ export default function ProviderApiConfig({
     setBaseUrlUnlocked(false);
   }
 
-  const handleApiKeyBlur = (event: FocusEvent<HTMLInputElement>) => {
-    const target = event.target as HTMLInputElement | null;
-    if (!target) return;
-    onApiKeyChange?.(target.value);
-  };
-
   const handleApiHostChange = (value: string) => {
     onApiHostChange?.(value);
   };
 
-  const handleApiHostBlur = (event: FocusEvent<HTMLInputElement>) => {
-    if (showLockedBaseUrl) return;
-    const target = event.target as HTMLInputElement | null;
-    if (!target) return;
-    handleApiHostChange(target.value);
-  };
-
   const fillDefaultBaseUrl = () => {
-    if (!hasDefaultBaseUrl) return;
+    if (!defaultBaseUrl) return;
     setApiHost(defaultBaseUrl);
     handleApiHostChange(defaultBaseUrl);
-  };
-
-  const extractRefreshErrorMessage = (error: unknown): string | null => {
-    const rawMessage = error instanceof Error ? error.message : String(error);
-    const normalizedMessage = rawMessage.trim();
-
-    if (!normalizedMessage) {
-      return null;
-    }
-
-    try {
-      const parsed = JSON.parse(normalizedMessage) as {
-        error?: { message?: string };
-        message?: string;
-      };
-
-      if (typeof parsed.error?.message === "string" && parsed.error.message.trim()) {
-        return parsed.error.message.trim();
-      }
-
-      if (typeof parsed.message === "string" && parsed.message.trim()) {
-        return parsed.message.trim();
-      }
-    } catch {
-      // ignore JSON parse errors
-    }
-
-    return normalizedMessage;
   };
 
   useEffect(() => {
@@ -223,66 +440,17 @@ export default function ProviderApiConfig({
         </div>
       )}
 
-      <div className="flex flex-col items-start gap-2">
-        <div className="flex justify-between items-center w-full">
-          <Label htmlFor={`${provider.id}-url`} className="flex-1">
-            API URL
-          </Label>
-          {provider.custom && (
-            <Button variant="destructive" size="sm" className="text-xs rounded-lg" onClick={() => onDeleteProvider?.()}>
-              <Icon icon="lucide:trash-2" className="w-4 h-4 mr-1" />
-              Delete
-            </Button>
-          )}
-        </div>
-        {showLockedBaseUrl ? (
-          <div className="flex w-full items-center gap-2">
-            <div
-              id={`${provider.id}-url`}
-              className="flex h-9 flex-1 items-center rounded-md border border-input bg-muted px-3 text-sm text-muted-foreground"
-            >
-              <span className="truncate">{apiHost || "Enter API URL"}</span>
-            </div>
-            <Button variant="outline" size="sm" className="shrink-0 text-xs" onClick={() => setBaseUrlUnlocked(true)}>
-              Modify
-            </Button>
-          </div>
-        ) : (
-          <Input
-            id={`${provider.id}-url`}
-            value={apiHost}
-            onChange={(e) => setApiHost(String(e.target.value))}
-            onBlur={handleApiHostBlur}
-            onKeyUp={(e) => {
-              if (e.key === "Enter") handleApiHostChange(apiHost);
-            }}
-            placeholder="Enter API URL"
-          />
-        )}
-        <div className="text-xs text-muted-foreground">
-          {hasDefaultBaseUrl && !showLockedBaseUrl ? (
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <button
-                    type="button"
-                    className="text-xs text-muted-foreground underline decoration-dotted underline-offset-2 transition-colors hover:text-foreground"
-                    aria-label="Fill default URL"
-                    onClick={fillDefaultBaseUrl}
-                  />
-                }
-              >
-                Default: {defaultBaseUrl}
-              </TooltipTrigger>
-              <TooltipContent>Fill with default base URL</TooltipContent>
-            </Tooltip>
-          ) : showLockedBaseUrl ? (
-            <span>Base URL is locked for this provider.</span>
-          ) : (
-            <span>Default: {defaultBaseUrl}</span>
-          )}
-        </div>
-      </div>
+      <ApiUrlField
+        provider={provider}
+        apiHost={apiHost}
+        defaultBaseUrl={defaultBaseUrl}
+        showLockedBaseUrl={showLockedBaseUrl}
+        onApiHostInputChange={setApiHost}
+        onApiHostCommit={handleApiHostChange}
+        onUnlockBaseUrl={() => setBaseUrlUnlocked(true)}
+        onFillDefaultBaseUrl={fillDefaultBaseUrl}
+        onDeleteProvider={() => onDeleteProvider?.()}
+      />
 
       {provider.id === "github-copilot" ? (
         <GitHubCopilotOAuth
@@ -291,98 +459,22 @@ export default function ProviderApiConfig({
           onAuthError={(error) => onOAuthError?.(error)}
         />
       ) : (
-        <div className="flex flex-col items-start gap-4">
-          <div className="flex flex-col gap-2 w-full">
-            <Label htmlFor={`${provider.id}-apikey`} className="w-full">
-              API Key
-            </Label>
-            <div className="relative w-full">
-              <Input
-                data-testid="provider-api-key-input"
-                id={`${provider.id}-apikey`}
-                value={apiKey}
-                onChange={(e) => setApiKey(String(e.target.value))}
-                onBlur={handleApiKeyBlur}
-                onKeyUp={(e) => {
-                  if (e.key === "Enter") {
-                    if (!canVerifyProvider) return;
-                    onValidateKey?.(apiKey);
-                  }
-                }}
-                type={showApiKey ? "text" : "password"}
-                placeholder="Enter API Key"
-                style={{ paddingRight: "2.5rem" }}
-              />
-              <Button
-                variant="ghost"
-                size="sm"
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 h-7 w-7 p-0 hover:bg-transparent"
-                onClick={() => setShowApiKey(!showApiKey)}
-              >
-                <Icon
-                  icon={showApiKey ? "lucide:eye-off" : "lucide:eye"}
-                  className="w-4 h-4 text-muted-foreground hover:text-foreground"
-                />
-              </Button>
-            </div>
-            {keyStatus && (keyStatus.usage !== undefined || keyStatus.limit_remaining !== undefined) && (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                {keyStatus.usage !== undefined && (
-                  <div className="flex items-center gap-1">
-                    <Icon icon="lucide:activity" className="w-3 h-3" />
-                    <span>Usage: {keyStatus.usage}</span>
-                  </div>
-                )}
-                {keyStatus.limit_remaining !== undefined && (
-                  <div className="flex items-center gap-1">
-                    <Icon icon="lucide:coins" className="w-3 h-3" />
-                    <span>Remaining: {keyStatus.limit_remaining}</span>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-          <div className="flex flex-row gap-2">
-            <Button
-              data-testid="provider-verify-button"
-              variant="outline"
-              size="sm"
-              className="text-xs text-normal rounded-lg"
-              disabled={!canVerifyProvider}
-              onClick={openModelCheckDialog}
-            >
-              <Icon icon="lucide:check-check" className="w-4 h-4 text-muted-foreground" />
-              Verify
-            </Button>
-            <Button
-              data-testid="provider-refresh-models-button"
-              variant="outline"
-              size="sm"
-              className="text-xs text-normal rounded-lg"
-              disabled={isRefreshing}
-              onClick={refreshModels}
-            >
-              <Icon
-                icon={isRefreshing ? "lucide:loader-2" : "lucide:refresh-cw"}
-                className={`w-4 h-4 text-muted-foreground${isRefreshing ? " animate-spin" : ""}`}
-              />
-              {isRefreshing ? "Refreshing..." : "Refresh Models"}
-            </Button>
-          </div>
-          {shouldRefreshProviderDbFirst && (
-            <p className="text-xs leading-5 text-muted-foreground">
-              Refresh models to get the latest metadata and capabilities.
-            </p>
-          )}
-          {!provider.custom && (
-            <div className="text-xs text-muted-foreground">
-              Get your API key from:{" "}
-              <a href={providerApiKeyUrl} target="_blank" className="text-primary">
-                {provider.name}
-              </a>
-            </div>
-          )}
-        </div>
+        <ApiKeySection
+          provider={provider}
+          apiKey={apiKey}
+          showApiKey={showApiKey}
+          isRefreshing={isRefreshing}
+          canVerifyProvider={canVerifyProvider}
+          keyStatus={keyStatus}
+          shouldRefreshProviderDbFirst={shouldRefreshProviderDbFirst}
+          providerApiKeyUrl={providerApiKeyUrl}
+          onApiKeyInputChange={setApiKey}
+          onApiKeyCommit={(value) => onApiKeyChange?.(value)}
+          onValidateKey={() => onValidateKey?.(apiKey)}
+          onToggleShowApiKey={() => setShowApiKey(!showApiKey)}
+          onVerify={openModelCheckDialog}
+          onRefreshModels={refreshModels}
+        />
       )}
     </div>
   );

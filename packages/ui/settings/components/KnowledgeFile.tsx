@@ -229,36 +229,15 @@ export default function KnowledgeFile({ builtinKnowledgeDetail, onHideKnowledgeF
   }, [loadList, loadSupportedExtensions]);
   return (
     <div className="w-full h-full flex flex-col gap-1.5 p-2">
-      <div className="flex flex-row justify-between items-center gap-2">
-        <div className="flex flex-row items-center gap-2">
-          <Icon icon="lucide:book-marked" className="w-4 h-4 text-muted-foreground" />
-          <span className="text-sm font-bold">
-            {builtinKnowledgeDetail.description}
-            <span className="text-xs px-2 py-0.5 rounded-md ml-2 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
-              {builtinKnowledgeDetail.embedding.modelId}
-            </span>
-          </span>
-        </div>
-        <div className="flex flex-row gap-2 shrink-0">
-          {ctrlBtn === "paused" && (
-            <Button variant="outline" size="sm" onClick={() => toggleStatus(true)} title="Resume all paused tasks">
-              <Icon icon="lucide:play" className="w-4 h-4 text-green-500" />
-            </Button>
-          )}
-          {ctrlBtn === "processing" && (
-            <Button variant="outline" size="sm" onClick={() => toggleStatus(false)} title="Pause all running tasks">
-              <Icon icon="lucide:pause" className="w-4 h-4 text-yellow-500" />
-            </Button>
-          )}
-          <Button variant="outline" size="sm" onClick={openSearchDialog}>
-            <Icon icon="lucide:search" className="w-4 h-4" />
-          </Button>
-          <Button variant="outline" size="sm" onClick={onHideKnowledgeFile}>
-            <Icon icon="lucide:corner-down-left" className="w-4 h-4" />
-            Back
-          </Button>
-        </div>
-      </div>
+      <KnowledgeFileHeader
+        description={builtinKnowledgeDetail.description}
+        modelId={builtinKnowledgeDetail.embedding.modelId}
+        ctrlState={ctrlBtn}
+        onResumeAll={() => toggleStatus(true)}
+        onPauseAll={() => toggleStatus(false)}
+        onOpenSearch={openSearchDialog}
+        onHide={onHideKnowledgeFile}
+      />
 
       <div className="bg-card border border-border rounded-lg px-4 pb-2">
         <div className="text-sm p-2">
@@ -268,37 +247,11 @@ export default function KnowledgeFile({ builtinKnowledgeDetail, onHideKnowledgeF
           </span>
         </div>
         <div className="flex flex-col gap-2">
-          <label htmlFor="upload">
-            <div
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => {
-                e.preventDefault();
-                handleDrop(e);
-              }}
-              className="h-20 border border-border rounded-lg text-muted-foreground hover:bg-muted/0 transition-colors"
-            >
-              <div className="flex flex-col items-center justify-center h-full gap-2">
-                <div className="flex items-center gap-1">
-                  <Icon icon="lucide:file-up" className="w-4 h-4" />
-                  <span className="text-sm">Drag files here or click to upload</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Icon icon="lucide:clipboard" className="w-4 h-4" />
-                  <span className="text-sm" title={acceptExts.join(", ")}>
-                    Supports: {acceptExts.slice(0, 5).join(", ")} ({acceptExts.length} types)
-                  </span>
-                </div>
-              </div>
-            </div>
-          </label>
-          <input
-            ref={fileInputRef}
-            multiple
-            type="file"
-            id="upload"
-            onChange={handleChange}
-            accept={acceptExts.map((ext) => "." + ext).join(",")}
-            className="hidden"
+          <FileUploadZone
+            acceptExts={acceptExts}
+            fileInputRef={fileInputRef}
+            onFileChange={handleChange}
+            onDrop={handleDrop}
           />
           {fileList.map((file) => (
             <KnowledgeFileItem
@@ -311,81 +264,199 @@ export default function KnowledgeFile({ builtinKnowledgeDetail, onHideKnowledgeF
         </div>
       </div>
 
-      <Dialog open={search.open} onOpenChange={(open) => dispatchSearch({ type: "SET_OPEN", value: open })}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Search Knowledge Base</DialogTitle>
-          </DialogHeader>
-          <div className="flex w-full items-center gap-1 relative">
-            <Input
-              value={search.key}
-              onChange={(e) => dispatchSearch({ type: "SET_KEY", value: e.target.value })}
-              placeholder="Enter search query"
-            />
-            {search.key && (
-              <Button
-                size="sm"
-                variant="ghost"
-                className="absolute right-16 text-xs text-muted-foreground rounded-full w-6 h-6 flex items-center justify-center hover:bg-zinc-200"
-                onClick={() => dispatchSearch({ type: "SET_KEY", value: "" })}
-              >
-                <Icon icon="lucide:x" className="w-4 h-4 text-muted-foreground" />
-              </Button>
-            )}
-            <Button onClick={handleSearch}>
-              <Icon icon="lucide:search" className="w-4 h-4" />
-            </Button>
-          </div>
-          <ScrollArea className="max-h-[calc(100vh-200px)]">
-            <div className="relative min-h-[180px]">
-              {search.loading && (
-                <div className="absolute h-full w-full flex items-center justify-center">
-                  <div className="text-center">
-                    <Icon icon="lucide:loader" className="h-6 w-6 animate-spin mx-auto mb-2 text-muted-foreground" />
-                    <p className="text-xs text-muted-foreground">Loading...</p>
-                  </div>
-                </div>
-              )}
-              {search.result.length > 0 &&
-                search.result.map((item: any) => (
-                  <div
-                    key={item.id}
-                    className="relative px-6 py-4 mt-2 bg-card border border-border rounded-sm bg-secondary"
-                  >
-                    <div className="absolute right-10 top-1 text-xs text-white p-1 rounded-sm bg-primary-600">
-                      score:{(item.distance * 100).toFixed(2) + "%"}
-                    </div>
-                    <Tooltip>
-                      <TooltipTrigger
-                        render={
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="absolute right-2 top-1 h-6 w-6 flex items-center justify-center rounded-sm hover:bg-primary/80 hover:text-white transition-colors"
-                            onClick={() => handleCopy(item.metadata.content, item.id)}
-                          />
-                        }
-                      >
-                        <Icon icon={search.copyId === item.id ? "lucide:check" : "lucide:copy"} />
-                      </TooltipTrigger>
-                      <TooltipContent>{search.copyId === item.id ? "Copied" : "Copy"}</TooltipContent>
-                    </Tooltip>
-                    <div className="text-xs">{item.metadata.content}</div>
-                    <div className="border-t border-gray-300 pt-2 mt-2 text-xs text-muted-foreground">
-                      Source: {item.metadata.from}
-                    </div>
-                  </div>
-                ))}
-              {search.result.length === 0 && !search.loading && (
-                <div className="text-center text-muted-foreground py-12">
-                  <Icon icon="lucide:book-open-text" className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p className="text-sm mt-1">No data</p>
-                </div>
-              )}
-            </div>
-          </ScrollArea>
-        </DialogContent>
-      </Dialog>
+      <KnowledgeSearchDialog
+        search={search}
+        onSearchOpenChange={(open) => dispatchSearch({ type: "SET_OPEN", value: open })}
+        onSearchKeyChange={(value) => dispatchSearch({ type: "SET_KEY", value })}
+        onClearSearchKey={() => dispatchSearch({ type: "SET_KEY", value: "" })}
+        onSearch={() => void handleSearch()}
+        onCopy={handleCopy}
+      />
     </div>
   );
 }
+const KnowledgeFileHeader = ({
+  description,
+  modelId,
+  ctrlState,
+  onResumeAll,
+  onPauseAll,
+  onOpenSearch,
+  onHide,
+}: {
+  description: string;
+  modelId: string;
+  ctrlState: "processing" | "paused" | null;
+  onResumeAll: () => void;
+  onPauseAll: () => void;
+  onOpenSearch: () => void;
+  onHide: () => void;
+}) => (
+  <div className="flex flex-row justify-between items-center gap-2">
+    <div className="flex flex-row items-center gap-2">
+      <Icon icon="lucide:book-marked" className="w-4 h-4 text-muted-foreground" />
+      <span className="text-sm font-bold">
+        {description}
+        <span className="text-xs px-2 py-0.5 rounded-md ml-2 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
+          {modelId}
+        </span>
+      </span>
+    </div>
+    <div className="flex flex-row gap-2 shrink-0">
+      {ctrlState === "paused" && (
+        <Button variant="outline" size="sm" onClick={onResumeAll} title="Resume all paused tasks">
+          <Icon icon="lucide:play" className="w-4 h-4 text-green-500" />
+        </Button>
+      )}
+      {ctrlState === "processing" && (
+        <Button variant="outline" size="sm" onClick={onPauseAll} title="Pause all running tasks">
+          <Icon icon="lucide:pause" className="w-4 h-4 text-yellow-500" />
+        </Button>
+      )}
+      <Button variant="outline" size="sm" onClick={onOpenSearch}>
+        <Icon icon="lucide:search" className="w-4 h-4" />
+      </Button>
+      <Button variant="outline" size="sm" onClick={onHide}>
+        <Icon icon="lucide:corner-down-left" className="w-4 h-4" />
+        Back
+      </Button>
+    </div>
+  </div>
+);
+const FileUploadZone = ({
+  acceptExts,
+  fileInputRef,
+  onFileChange,
+  onDrop,
+}: {
+  acceptExts: string[];
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
+  onFileChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onDrop: (e: React.DragEvent) => void;
+}) => (
+  <>
+    <label htmlFor="upload">
+      <div
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => {
+          e.preventDefault();
+          onDrop(e);
+        }}
+        className="h-20 border border-border rounded-lg text-muted-foreground hover:bg-muted/0 transition-colors"
+      >
+        <div className="flex flex-col items-center justify-center h-full gap-2">
+          <div className="flex items-center gap-1">
+            <Icon icon="lucide:file-up" className="w-4 h-4" />
+            <span className="text-sm">Drag files here or click to upload</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Icon icon="lucide:clipboard" className="w-4 h-4" />
+            <span className="text-sm" title={acceptExts.join(", ")}>
+              Supports: {acceptExts.slice(0, 5).join(", ")} ({acceptExts.length} types)
+            </span>
+          </div>
+        </div>
+      </div>
+    </label>
+    <input
+      ref={fileInputRef}
+      multiple
+      type="file"
+      id="upload"
+      onChange={onFileChange}
+      accept={acceptExts.map((ext) => "." + ext).join(",")}
+      className="hidden"
+    />
+  </>
+);
+const KnowledgeSearchDialog = ({
+  search,
+  onSearchOpenChange,
+  onSearchKeyChange,
+  onClearSearchKey,
+  onSearch,
+  onCopy,
+}: {
+  search: KnowledgeSearchState;
+  onSearchOpenChange: (open: boolean) => void;
+  onSearchKeyChange: (value: string) => void;
+  onClearSearchKey: () => void;
+  onSearch: () => void;
+  onCopy: (content: string, id: string) => void;
+}) => (
+  <Dialog open={search.open} onOpenChange={onSearchOpenChange}>
+    <DialogContent>
+      <DialogHeader>
+        <DialogTitle>Search Knowledge Base</DialogTitle>
+      </DialogHeader>
+      <div className="flex w-full items-center gap-1 relative">
+        <Input
+          value={search.key}
+          onChange={(e) => onSearchKeyChange(e.target.value)}
+          placeholder="Enter search query"
+        />
+        {search.key && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="absolute right-16 text-xs text-muted-foreground rounded-full w-6 h-6 flex items-center justify-center hover:bg-zinc-200"
+            onClick={onClearSearchKey}
+          >
+            <Icon icon="lucide:x" className="w-4 h-4 text-muted-foreground" />
+          </Button>
+        )}
+        <Button onClick={onSearch}>
+          <Icon icon="lucide:search" className="w-4 h-4" />
+        </Button>
+      </div>
+      <ScrollArea className="max-h-[calc(100vh-200px)]">
+        <div className="relative min-h-[180px]">
+          {search.loading && (
+            <div className="absolute h-full w-full flex items-center justify-center">
+              <div className="text-center">
+                <Icon icon="lucide:loader" className="h-6 w-6 animate-spin mx-auto mb-2 text-muted-foreground" />
+                <p className="text-xs text-muted-foreground">Loading...</p>
+              </div>
+            </div>
+          )}
+          {search.result.length > 0 &&
+            search.result.map((item: any) => (
+              <div
+                key={item.id}
+                className="relative px-6 py-4 mt-2 bg-card border border-border rounded-sm bg-secondary"
+              >
+                <div className="absolute right-10 top-1 text-xs text-white p-1 rounded-sm bg-primary-600">
+                  score:{(item.distance * 100).toFixed(2) + "%"}
+                </div>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-2 top-1 h-6 w-6 flex items-center justify-center rounded-sm hover:bg-primary/80 hover:text-white transition-colors"
+                        onClick={() => onCopy(item.metadata.content, item.id)}
+                      />
+                    }
+                  >
+                    <Icon icon={search.copyId === item.id ? "lucide:check" : "lucide:copy"} />
+                  </TooltipTrigger>
+                  <TooltipContent>{search.copyId === item.id ? "Copied" : "Copy"}</TooltipContent>
+                </Tooltip>
+                <div className="text-xs">{item.metadata.content}</div>
+                <div className="border-t border-gray-300 pt-2 mt-2 text-xs text-muted-foreground">
+                  Source: {item.metadata.from}
+                </div>
+              </div>
+            ))}
+          {search.result.length === 0 && !search.loading && (
+            <div className="text-center text-muted-foreground py-12">
+              <Icon icon="lucide:book-open-text" className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p className="text-sm mt-1">No data</p>
+            </div>
+          )}
+        </div>
+      </ScrollArea>
+    </DialogContent>
+  </Dialog>
+);

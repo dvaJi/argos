@@ -219,6 +219,18 @@ export default function ModelProviderSettingsDetail({
   const handleConfigChanged = () => {
     return modelStore.refreshProviderModels(provider.id);
   };
+  const handleValidateProvider = async () => {
+    if (!provider.enable) return;
+    try {
+      const resp = await providerStore.checkProvider(provider.id);
+      setCheckResult(resp.isOk);
+      setActiveProviderDialog("checkModel");
+      if (resp.isOk) await modelStore.refreshProviderModels(provider.id);
+    } catch {
+      setCheckResult(false);
+      setActiveProviderDialog("checkModel");
+    }
+  };
   const openModelCheckDialog = () => {
     if (!provider.enable) return;
     modelCheckStore.openDialog(provider.id);
@@ -231,19 +243,7 @@ export default function ModelProviderSettingsDetail({
     <section className="w-full h-full">
       <ScrollArea className="w-full h-full">
         <div className="flex flex-col gap-4 p-4">
-          <div className="rounded-lg border border-border bg-card p-4">
-            <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-              <div className="min-w-0">
-                <h2 className="truncate text-lg font-semibold">{provider.name}</h2>
-                <p className="mt-1 truncate text-sm text-muted-foreground">
-                  {provider.baseUrl || "No API URL configured"}
-                </p>
-              </div>
-              <div className="flex shrink-0 flex-wrap items-center gap-2">
-                <Badge variant="outline">{enabledModels.length} models enabled</Badge>
-              </div>
-            </div>
-          </div>
+          <ProviderSummaryHeader provider={provider} enabledModelsCount={enabledModels.length} />
 
           <Tabs
             value={activeTab}
@@ -289,48 +289,15 @@ export default function ModelProviderSettingsDetail({
             </TabsContent>
 
             <TabsContent value="advanced" className="mt-0">
-              <div className="flex flex-col gap-4">
-                <ProviderRateLimitConfig provider={provider} onConfigChanged={handleConfigChanged} />
-
-                {provider.apiType === "vertex" && (
-                  <VertexProviderSettingsDetail
-                    provider={provider as VERTEX_PROVIDER}
-                    onConfigUpdated={handleConfigChanged}
-                    onValidateProvider={async () => {
-                      if (!provider.enable) return;
-                      try {
-                        const resp = await providerStore.checkProvider(provider.id);
-                        setCheckResult(resp.isOk);
-                        setActiveProviderDialog("checkModel");
-                        if (resp.isOk) await modelStore.refreshProviderModels(provider.id);
-                      } catch {
-                        setCheckResult(false);
-                        setActiveProviderDialog("checkModel");
-                      }
-                    }}
-                  />
-                )}
-
-                {provider.id === "azure-openai" && (
-                  <AzureProviderConfig
-                    provider={provider}
-                    initialValue={azureApiVersion}
-                    onApiVersionChange={handleAzureApiVersionChange}
-                  />
-                )}
-
-                {provider.id === "gemini" && (
-                  <GeminiSafetyConfig
-                    provider={provider}
-                    initialSafetyLevels={geminiSafetyLevelsForChild}
-                    onSafetySettingChange={handleSafetySettingChange}
-                  />
-                )}
-
-                {provider.id === "voiceai" && <VoiceAIProviderConfig provider={provider} />}
-
-                {provider.id === "modelscope" && <ModelScopeMcpSync provider={provider} />}
-              </div>
+              <ProviderAdvancedTab
+                provider={provider}
+                azureApiVersion={azureApiVersion}
+                geminiSafetyLevels={geminiSafetyLevelsForChild}
+                onConfigChanged={handleConfigChanged}
+                onAzureApiVersionChange={handleAzureApiVersionChange}
+                onSafetySettingChange={handleSafetySettingChange}
+                onValidateProvider={handleValidateProvider}
+              />
             </TabsContent>
           </Tabs>
         </div>
@@ -347,5 +314,80 @@ export default function ModelProviderSettingsDetail({
         onConfirmDeleteProvider={confirmDeleteProvider}
       />
     </section>
+  );
+}
+
+interface ProviderSummaryHeaderProps {
+  provider: LLM_PROVIDER;
+  enabledModelsCount: number;
+}
+
+function ProviderSummaryHeader({ provider, enabledModelsCount }: ProviderSummaryHeaderProps) {
+  return (
+    <div className="rounded-lg border border-border bg-card p-4">
+      <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
+          <h2 className="truncate text-lg font-semibold">{provider.name}</h2>
+          <p className="mt-1 truncate text-sm text-muted-foreground">{provider.baseUrl || "No API URL configured"}</p>
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <Badge variant="outline">{enabledModelsCount} models enabled</Badge>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface ProviderAdvancedTabProps {
+  provider: LLM_PROVIDER;
+  azureApiVersion: string;
+  geminiSafetyLevels: Record<string, number>;
+  onConfigChanged: () => void | Promise<unknown>;
+  onAzureApiVersionChange: (value: string) => Promise<void>;
+  onSafetySettingChange: (key: SafetyCategoryKey, level: number) => Promise<void>;
+  onValidateProvider: () => Promise<void>;
+}
+
+function ProviderAdvancedTab({
+  provider,
+  azureApiVersion,
+  geminiSafetyLevels,
+  onConfigChanged,
+  onAzureApiVersionChange,
+  onSafetySettingChange,
+  onValidateProvider,
+}: ProviderAdvancedTabProps) {
+  return (
+    <div className="flex flex-col gap-4">
+      <ProviderRateLimitConfig provider={provider} onConfigChanged={onConfigChanged} />
+
+      {provider.apiType === "vertex" && (
+        <VertexProviderSettingsDetail
+          provider={provider as VERTEX_PROVIDER}
+          onConfigUpdated={onConfigChanged}
+          onValidateProvider={onValidateProvider}
+        />
+      )}
+
+      {provider.id === "azure-openai" && (
+        <AzureProviderConfig
+          provider={provider}
+          initialValue={azureApiVersion}
+          onApiVersionChange={onAzureApiVersionChange}
+        />
+      )}
+
+      {provider.id === "gemini" && (
+        <GeminiSafetyConfig
+          provider={provider}
+          initialSafetyLevels={geminiSafetyLevels}
+          onSafetySettingChange={onSafetySettingChange}
+        />
+      )}
+
+      {provider.id === "voiceai" && <VoiceAIProviderConfig provider={provider} />}
+
+      {provider.id === "modelscope" && <ModelScopeMcpSync provider={provider} />}
+    </div>
   );
 }

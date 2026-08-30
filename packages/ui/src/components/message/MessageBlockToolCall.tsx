@@ -38,6 +38,10 @@ type SubagentProgressTask = {
   updatedAt?: number;
   resultSummary?: string;
 };
+type NormalizedSubagentTask = SubagentProgressTask & {
+  sessionId: string | null;
+  targetAgentId: string | null;
+};
 type RawSubagentProgressTask = Partial<SubagentProgressTask> & {
   displayName?: string;
 };
@@ -80,6 +84,406 @@ const CodeBlockNode: FC<{
     </pre>
   );
 };
+type ToolStatusVariant = "error" | "success" | "running" | "neutral";
+const resolveStatusVariant = (status: DisplayAssistantMessageBlock["status"]): ToolStatusVariant => {
+  if (status === "error") return "error";
+  if (status === "success") return "success";
+  if (status === "loading") return "running";
+  return "neutral";
+};
+const resolveExpandedToolTitle = (
+  isExpanded: boolean,
+  toolCall: DisplayAssistantMessageBlock["tool_call"],
+  functionLabel: string,
+): string => {
+  if (!isExpanded || !toolCall) return "";
+  const toolName = functionLabel || "Tool Call";
+  let serverName = toolCall.server_name?.trim() ?? "";
+  if (serverName.includes("/")) serverName = serverName.split("/").pop() ?? "";
+  if (!serverName || serverName === toolName) return toolName;
+  return `${serverName}.${toolName}`;
+};
+const parseJsonParams = (raw: string): { isJson: boolean; value: unknown } => {
+  const trimmed = raw.trim();
+  if (!trimmed)
+    return {
+      isJson: false,
+      value: "",
+    };
+  try {
+    return {
+      isJson: true,
+      value: JSON.parse(trimmed) as unknown,
+    };
+  } catch {
+    return {
+      isJson: false,
+      value: trimmed,
+    };
+  }
+};
+type ToolKind = {
+  isSubagentOrchestrator: boolean;
+  isExecTool: boolean;
+  isProcessTool: boolean;
+};
+const resolveToolKind = (rawToolName: string): ToolKind => ({
+  isSubagentOrchestrator: rawToolName === "subagent_orchestrator",
+  isExecTool: matchesToolContractName(rawToolName, "exec") || matchesToolContractName(rawToolName, "skill_run"),
+  isProcessTool: matchesToolContractName(rawToolName, "process"),
+});
+const resolveShouldAutoExpand = (
+  toolKind: ToolKind,
+  status: DisplayAssistantMessageBlock["status"],
+  parsedParamsRecord: Record<string, unknown> | null,
+): boolean => {
+  if (toolKind.isSubagentOrchestrator) return status === "loading";
+  if (status !== "loading") return false;
+  if (toolKind.isProcessTool) return true;
+  if (!toolKind.isExecTool || !parsedParamsRecord) return false;
+  if (parsedParamsRecord.background === true) return true;
+  const timeoutMs = coerceNumericParam(parsedParamsRecord.timeoutMs);
+  return timeoutMs !== null && timeoutMs >= 10000;
+};
+const resolveSummaryText = (
+  isSubagentOrchestrator: boolean,
+  block: DisplayAssistantMessageBlock,
+  paramsText: string,
+  functionLabel: string,
+): string => {
+  if (isSubagentOrchestrator) {
+    const progress =
+      parseSubagentProgress(block.extra?.subagentProgress) ?? parseSubagentProgress(block.extra?.subagentFinal);
+    if (progress) return `${progress.mode} - ${progress.tasks.length} tasks`;
+  }
+  const raw = paramsText.trim();
+  if (!raw) return "";
+  return summarizeToolCallPreview(raw, {
+    toolName: functionLabel,
+  });
+};
+const resolveSubagentTasks = (block: DisplayAssistantMessageBlock): NormalizedSubagentTask[] => {
+  const progress =
+    parseSubagentProgress(block.extra?.subagentProgress) ?? parseSubagentProgress(block.extra?.subagentFinal);
+  return (progress?.tasks ?? []).map((task, index) => {
+    const slotId = normalizeOptionalText(task.slotId);
+    const displayName = normalizeOptionalText(task.displayName);
+    const normalizedId = normalizeOptionalText(task.taskId) || slotId || `subagent-task-${index + 1}`;
+    const label = displayName || slotId || "Unnamed Task";
+    const title = normalizeOptionalText(task.title);
+    return {
+      ...task,
+      normalizedId,
+      taskId: normalizedId,
+      title,
+      label,
+      slotId: slotId || normalizedId,
+      sessionId: typeof task.sessionId === "string" ? task.sessionId : (task.sessionId ?? null),
+      targetAgentId: typeof task.targetAgentId === "string" ? task.targetAgentId : (task.targetAgentId ?? null),
+      targetAgentName: normalizeOptionalText(task.targetAgentName) || displayName || "Unnamed Agent",
+      status: normalizeOptionalText(task.status) || "running",
+    };
+  });
+};
+const resolveStatusIconName = (statusVariant: ToolStatusVariant, hasToolCall: boolean): string => {
+  if (!hasToolCall) return "lucide:circle-small";
+  switch (statusVariant) {
+    case "error":
+      return "lucide:x";
+    case "success":
+    case "neutral":
+    default:
+      return "lucide:circle-small";
+  }
+};
+const resolveStatusIconClass = (statusVariant: ToolStatusVariant): string => {
+  switch (statusVariant) {
+    case "error":
+      return "text-destructive";
+    case "success":
+      return "text-emerald-500";
+    default:
+      return "text-muted-foreground";
+  }
+};
+type ToolDiffData = {
+  originalCode: string;
+  updatedCode: string;
+  language?: string;
+  replacements?: number;
+};
+const resolveIsDiffTool = (name: string, status: DisplayAssistantMessageBlock["status"]): boolean => {
+  const normalized = name.replace(/[_-]/g, "").toLowerCase();
+  if (status !== "success") return false;
+  return normalized === "edittext" || normalized === "textreplace";
+};
+const resolveDiffData = (isDiffTool: boolean, hasResponse: boolean, responseText: string): ToolDiffData | null => {
+  if (!isDiffTool || !hasResponse) return null;
+  try {
+    const parsed = JSON.parse(responseText) as {
+      success?: boolean;
+      originalCode?: unknown;
+      updatedCode?: unknown;
+      language?: unknown;
+      replacements?: unknown;
+    };
+    if (parsed.success === true && typeof parsed.originalCode === "string" && typeof parsed.updatedCode === "string") {
+      return {
+        originalCode: parsed.originalCode,
+        updatedCode: parsed.updatedCode,
+        language: typeof parsed.language === "string" ? parsed.language : undefined,
+        replacements: typeof parsed.replacements === "number" ? parsed.replacements : undefined,
+      };
+    }
+  } catch {}
+  return null;
+};
+const resolveParamsPath = (paramsText: string): string => {
+  if (!paramsText) return "";
+  try {
+    const parsed = JSON.parse(paramsText) as {
+      path?: unknown;
+    };
+    if (parsed && typeof parsed.path === "string") return parsed.path;
+  } catch {}
+  return "";
+};
+const resolveResponseLayoutClass = (hasDiff: boolean): string => {
+  if (hasDiff) return "flex-1 min-w-0 grid grid-rows-[auto_minmax(0,1fr)_auto] gap-2 min-h-72 max-h-72";
+  return "space-y-2 flex-1 min-w-0";
+};
+const getSubagentStatusClass = (status: string): string => {
+  if (status === "completed") return "bg-emerald-500/10 text-emerald-600";
+  if (status === "error" || status === "cancelled") return "bg-destructive/10 text-destructive";
+  if (status.startsWith("waiting")) return "bg-amber-500/10 text-amber-600";
+  return "bg-muted text-muted-foreground";
+};
+const getSubagentStatusLabel = (status: string): string => {
+  switch (status) {
+    case "completed":
+      return "Completed";
+    case "error":
+      return "Error";
+    case "cancelled":
+      return "Cancelled";
+    case "waiting_permission":
+      return "Waiting Permission";
+    case "waiting_question":
+      return "Waiting Question";
+    case "running":
+      return "Running";
+    case "queued":
+      return "Queued";
+    default:
+      return status;
+  }
+};
+const ToolCallTrigger = ({
+  statusVariant,
+  statusIconName,
+  statusIconClass,
+  displayFunctionName,
+  summaryText,
+  hasImagePreviews,
+  imagePreviewCount,
+  onToggle,
+}: {
+  statusVariant: ToolStatusVariant;
+  statusIconName: string;
+  statusIconClass: string;
+  displayFunctionName: string;
+  summaryText: string;
+  hasImagePreviews: boolean;
+  imagePreviewCount: number;
+  onToggle: () => void;
+}) => (
+  <div
+    data-testid="tool-call-trigger"
+    className="tool-call-pill inline-flex w-fit min-h-7 border rounded-lg items-center gap-2 px-2 py-1.5 text-xs leading-4 transition-colors duration-150 select-none overflow-hidden bg-accent hover:bg-accent/40"
+    onClick={onToggle}
+    role="button"
+    tabIndex={0}
+    onKeyDown={(e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        onToggle();
+      }
+    }}
+  >
+    {statusVariant === "running" && (
+      <span data-testid="tool-call-running-indicator" className="tool-call-status-ring shrink-0" aria-hidden="true" />
+    )}
+    {statusVariant !== "running" && (
+      <Icon icon={statusIconName} className={["w-3.5 h-3.5 shrink-0", statusIconClass].join(" ")} />
+    )}
+    <div className="tool-call-labels flex items-center gap-2 font-mono font-medium min-w-0">
+      <span data-testid="tool-call-name" className="shrink-0 text-xs text-foreground/80 leading-none">
+        {displayFunctionName}
+      </span>
+      {summaryText && (
+        <span data-testid="tool-call-summary" className="tool-call-summary text-[11px]" title={summaryText}>
+          {summaryText}
+        </span>
+      )}
+    </div>
+    {hasImagePreviews && (
+      <span
+        data-testid="tool-call-image-badge"
+        className="inline-flex shrink-0 items-center gap-1 rounded border border-blue-500/20 bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:text-blue-300"
+        title={`${imagePreviewCount} image(s)`}
+      >
+        <Icon icon="lucide:image" className="h-3 w-3" />
+        {imagePreviewCount}
+      </span>
+    )}
+  </div>
+);
+const SubagentTaskList = ({
+  tasks,
+  onOpen,
+}: {
+  tasks: NormalizedSubagentTask[];
+  onOpen: (task: NormalizedSubagentTask) => void;
+}) => (
+  <div className="flex flex-col gap-1.5">
+    {tasks.map((task) => (
+      <button
+        key={task.normalizedId}
+        data-testid="subagent-task-trigger"
+        type="button"
+        disabled={!task.sessionId}
+        className={[
+          "tool-call-pill inline-flex w-full min-h-7 border rounded-lg items-center gap-2 px-2 py-1.5 text-xs leading-4 transition-colors overflow-hidden",
+          task.sessionId ? "bg-background hover:bg-accent/60" : "cursor-default bg-background/80 opacity-70",
+        ].join(" ")}
+        onClick={(e) => {
+          e.stopPropagation();
+          onOpen(task);
+        }}
+      >
+        <span
+          className={[
+            "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium",
+            getSubagentStatusClass(task.status),
+          ].join(" ")}
+        >
+          {getSubagentStatusLabel(task.status)}
+        </span>
+        <span className="shrink-0 font-semibold text-foreground">{task.targetAgentName}</span>
+        <span className="text-muted-foreground">·</span>
+        <span className="min-w-0 flex-1 truncate text-muted-foreground">{task.title || task.label}</span>
+        {task.sessionId && <Icon icon="lucide:chevron-right" className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+      </button>
+    ))}
+  </div>
+);
+const ToolCallParamsSection = ({
+  copyText,
+  onCopy,
+  paramsText,
+}: {
+  copyText: string;
+  onCopy: () => void;
+  paramsText: string;
+}) => (
+  <div className="space-y-2 flex-1 min-w-0">
+    <div className="flex items-center justify-between gap-2">
+      <h5 className="text-xs font-medium text-accent-foreground flex flex-row gap-2 items-center">
+        <Icon icon="lucide:arrow-up-from-dot" className="w-4 h-4 text-foreground" />
+        Parameters
+      </h5>
+      <button
+        className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+        onClick={(e) => {
+          e.stopPropagation();
+          onCopy();
+        }}
+      >
+        <Icon icon="lucide:copy" className="w-3 h-3 inline-block mr-1" />
+        {copyText}
+      </button>
+    </div>
+    <div
+      data-testid="tool-call-params"
+      className="rounded-md border bg-background text-xs p-2 min-h-0 max-h-20 overflow-auto"
+    >
+      {paramsText}
+    </div>
+  </div>
+);
+const ToolCallResponseSection = ({
+  layoutClass,
+  isTerminalTool,
+  copyText,
+  onCopy,
+  diffData,
+  diffLanguage,
+  isDark,
+  responseText,
+}: {
+  layoutClass: string;
+  isTerminalTool: boolean;
+  copyText: string;
+  onCopy: () => void;
+  diffData: ToolDiffData | null;
+  diffLanguage: string | undefined;
+  isDark: boolean;
+  responseText: string;
+}) => (
+  <div className={layoutClass}>
+    <div className="flex items-center justify-between gap-2">
+      <h5 className="text-xs font-medium text-accent-foreground flex flex-row gap-2 items-center">
+        <Icon
+          icon={isTerminalTool ? "lucide:terminal" : "lucide:arrow-down-to-dot"}
+          className="w-4 h-4 text-foreground"
+        />
+        {isTerminalTool ? "Terminal Output" : "Response"}
+      </h5>
+      <button
+        className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+        onClick={(e) => {
+          e.stopPropagation();
+          onCopy();
+        }}
+      >
+        <Icon icon="lucide:copy" className="w-3 h-3 inline-block mr-1" />
+        {copyText}
+      </button>
+    </div>
+    {diffData ? (
+      <>
+        <div className="min-h-0 overflow-auto">
+          <CodeBlockNode
+            node={
+              {
+                code: diffData.updatedCode,
+                language: diffLanguage,
+              } as {
+                code: string;
+                language: string;
+              }
+            }
+            isDark={isDark}
+            showHeader={false}
+          />
+        </div>
+        {diffData.replacements !== undefined && (
+          <div className="text-xs text-muted-foreground">{diffData.replacements} replacement(s)</div>
+        )}
+      </>
+    ) : (
+      <pre
+        className="rounded-md border bg-background text-xs p-2 whitespace-pre-wrap break-words max-h-64 overflow-auto"
+        style={{
+          fontFamily: "var(--dc-code-font-family)",
+          fontSize: "0.85em",
+        }}
+      >
+        {responseText}
+      </pre>
+    )}
+  </div>
+);
 const MessageBlockToolCallBase: FC<MessageBlockToolCallProps> = ({ block }) => {
   const themeStore = useThemeStore();
   const deviceClient = createDeviceClient();
@@ -90,22 +494,10 @@ const MessageBlockToolCallBase: FC<MessageBlockToolCallProps> = ({ block }) => {
   const [responseCopyText, setResponseCopyText] = useState("Copy");
   const paramsCopyResetTimerRef = useRef<number | null>(null);
   const responseCopyResetTimerRef = useRef<number | null>(null);
-  const statusVariant = (() => {
-    if (block.status === "error") return "error";
-    if (block.status === "success") return "success";
-    if (block.status === "loading") return "running";
-    return "neutral";
-  })();
+  const statusVariant = resolveStatusVariant(block.status);
   const functionLabel = block.tool_call?.name ?? "";
   const displayFunctionName = functionLabel || "Tool Call";
-  const expandedToolTitle = (() => {
-    if (!isExpanded || !block.tool_call) return "";
-    const toolName = functionLabel || "Tool Call";
-    let serverName = block.tool_call.server_name?.trim() ?? "";
-    if (serverName.includes("/")) serverName = serverName.split("/").pop() ?? "";
-    if (!serverName || serverName === toolName) return toolName;
-    return `${serverName}.${toolName}`;
-  })();
+  const expandedToolTitle = resolveExpandedToolTitle(isExpanded, block.tool_call, functionLabel);
   const paramsText = block.tool_call?.params ?? "";
   const responseText = block.tool_call?.response ?? "";
   const hasParams = paramsText.trim().length > 0;
@@ -118,147 +510,23 @@ const MessageBlockToolCallBase: FC<MessageBlockToolCallProps> = ({ block }) => {
       preview.mimeType.trim().length > 0,
   );
   const hasImagePreviews = imagePreviews.length > 0;
-  const parsedParams = (() => {
-    const raw = paramsText.trim();
-    if (!raw)
-      return {
-        isJson: false,
-        value: "",
-      };
-    try {
-      return {
-        isJson: true,
-        value: JSON.parse(raw) as unknown,
-      };
-    } catch {
-      return {
-        isJson: false,
-        value: raw,
-      };
-    }
-  })();
+  const parsedParams = parseJsonParams(paramsText);
   const parsedParamsRecord = isRecord(parsedParams.value) ? parsedParams.value : null;
   const rawToolName = block.tool_call?.name?.trim().toLowerCase() ?? "";
-  const isSubagentOrchestrator = rawToolName === "subagent_orchestrator";
-  const isExecTool = (() => {
-    const toolName = rawToolName;
-    return matchesToolContractName(toolName, "exec") || matchesToolContractName(toolName, "skill_run");
-  })();
-  const isProcessTool = matchesToolContractName(rawToolName, "process");
-  const isTerminalTool = isExecTool || isProcessTool;
-  const shouldAutoExpand = (() => {
-    if (isSubagentOrchestrator) return block.status === "loading";
-    if (block.status !== "loading") return false;
-    if (isProcessTool) return true;
-    if (!isExecTool || !parsedParamsRecord) return false;
-    if (parsedParamsRecord.background === true) return true;
-    const timeoutMs = coerceNumericParam(parsedParamsRecord.timeoutMs);
-    return timeoutMs !== null && timeoutMs >= 10000;
-  })();
+  const toolKind = resolveToolKind(rawToolName);
+  const isTerminalTool = toolKind.isExecTool || toolKind.isProcessTool;
+  const shouldAutoExpand = resolveShouldAutoExpand(toolKind, block.status, parsedParamsRecord);
   const toolCallIdentity = block.tool_call?.id ?? `${block.tool_call?.name ?? "tool"}:${block.timestamp}`;
-  const summaryText = (() => {
-    if (isSubagentOrchestrator) {
-      const progress =
-        parseSubagentProgress(block.extra?.subagentProgress) ?? parseSubagentProgress(block.extra?.subagentFinal);
-      if (progress) return `${progress.mode} - ${progress.tasks.length} tasks`;
-    }
-    const raw = paramsText.trim();
-    if (!raw) return "";
-    return summarizeToolCallPreview(raw, {
-      toolName: functionLabel,
-    });
-  })();
-  const subagentTasks = (() => {
-    const progress =
-      parseSubagentProgress(block.extra?.subagentProgress) ?? parseSubagentProgress(block.extra?.subagentFinal);
-    return (progress?.tasks ?? []).map((task, index) => {
-      const slotId = normalizeOptionalText(task.slotId);
-      const displayName = normalizeOptionalText(task.displayName);
-      const normalizedId = normalizeOptionalText(task.taskId) || slotId || `subagent-task-${index + 1}`;
-      const label = displayName || slotId || "Unnamed Task";
-      const title = normalizeOptionalText(task.title);
-      return {
-        ...task,
-        normalizedId,
-        taskId: normalizedId,
-        title,
-        label,
-        slotId: slotId || normalizedId,
-        sessionId: typeof task.sessionId === "string" ? task.sessionId : (task.sessionId ?? null),
-        targetAgentId: typeof task.targetAgentId === "string" ? task.targetAgentId : (task.targetAgentId ?? null),
-        targetAgentName: normalizeOptionalText(task.targetAgentName) || displayName || "Unnamed Agent",
-        status: normalizeOptionalText(task.status) || "running",
-      };
-    });
-  })();
-  const statusIconName = (() => {
-    if (!block.tool_call) return "lucide:circle-small";
-    switch (statusVariant) {
-      case "error":
-        return "lucide:x";
-      case "success":
-      case "neutral":
-      default:
-        return "lucide:circle-small";
-    }
-  })();
-  const statusIconClass = (() => {
-    switch (statusVariant) {
-      case "error":
-        return "text-destructive";
-      case "success":
-        return "text-emerald-500";
-      default:
-        return "text-muted-foreground";
-    }
-  })();
-  const isDiffTool = (() => {
-    const name = block.tool_call?.name ?? "";
-    const normalized = name.replace(/[_-]/g, "").toLowerCase();
-    if (block.status !== "success") return false;
-    return normalized === "edittext" || normalized === "textreplace";
-  })();
-  const diffData = (() => {
-    if (!isDiffTool || !hasResponse) return null;
-    try {
-      const parsed = JSON.parse(responseText) as {
-        success?: boolean;
-        originalCode?: unknown;
-        updatedCode?: unknown;
-        language?: unknown;
-        replacements?: unknown;
-      };
-      if (
-        parsed.success === true &&
-        typeof parsed.originalCode === "string" &&
-        typeof parsed.updatedCode === "string"
-      ) {
-        return {
-          originalCode: parsed.originalCode,
-          updatedCode: parsed.updatedCode,
-          language: typeof parsed.language === "string" ? parsed.language : undefined,
-          replacements: typeof parsed.replacements === "number" ? parsed.replacements : undefined,
-        };
-      }
-    } catch {}
-    return null;
-  })();
-  const paramsPath = (() => {
-    if (!paramsText) return "";
-    try {
-      const parsed = JSON.parse(paramsText) as {
-        path?: unknown;
-      };
-      if (parsed && typeof parsed.path === "string") return parsed.path;
-    } catch {}
-    return "";
-  })();
+  const summaryText = resolveSummaryText(toolKind.isSubagentOrchestrator, block, paramsText, functionLabel);
+  const subagentTasks = resolveSubagentTasks(block);
+  const statusIconName = resolveStatusIconName(statusVariant, Boolean(block.tool_call));
+  const statusIconClass = resolveStatusIconClass(statusVariant);
+  const isDiffTool = resolveIsDiffTool(block.tool_call?.name ?? "", block.status);
+  const diffData = resolveDiffData(isDiffTool, hasResponse, responseText);
+  const paramsPath = resolveParamsPath(paramsText);
   const diffLanguage = diffData?.language || getLanguageFromFilename(paramsPath);
   const hasDiff = Boolean(diffData);
-  const responseLayoutClass = (() => {
-    if (hasDiff) return "flex-1 min-w-0 grid grid-rows-[auto_minmax(0,1fr)_auto] gap-2 min-h-72 max-h-72";
-    return "space-y-2 flex-1 min-w-0";
-  })();
+  const responseLayoutClass = resolveResponseLayoutClass(hasDiff);
   const resetExpansionState = () => {
     setIsExpanded(false);
     setExpansionSource(null);
@@ -350,33 +618,7 @@ const MessageBlockToolCallBase: FC<MessageBlockToolCallProps> = ({ block }) => {
       }, 2000);
     } catch {}
   };
-  const getSubagentStatusClass = (status: string): string => {
-    if (status === "completed") return "bg-emerald-500/10 text-emerald-600";
-    if (status === "error" || status === "cancelled") return "bg-destructive/10 text-destructive";
-    if (status.startsWith("waiting")) return "bg-amber-500/10 text-amber-600";
-    return "bg-muted text-muted-foreground";
-  };
-  const getSubagentStatusLabel = (status: string): string => {
-    switch (status) {
-      case "completed":
-        return "Completed";
-      case "error":
-        return "Error";
-      case "cancelled":
-        return "Cancelled";
-      case "waiting_permission":
-        return "Waiting Permission";
-      case "waiting_question":
-        return "Waiting Question";
-      case "running":
-        return "Running";
-      case "queued":
-        return "Queued";
-      default:
-        return status;
-    }
-  };
-  const handleSubagentSessionOpen = (task: SubagentProgressTask) => {
+  const handleSubagentSessionOpen = (task: NormalizedSubagentTask) => {
     if (!task.sessionId) return;
     void selectSession(task.sessionId);
   };
@@ -394,90 +636,24 @@ const MessageBlockToolCallBase: FC<MessageBlockToolCallProps> = ({ block }) => {
   }, []);
   return (
     <div className="flex flex-col w-full">
-      <div
-        data-testid="tool-call-trigger"
-        className="tool-call-pill inline-flex w-fit min-h-7 border rounded-lg items-center gap-2 px-2 py-1.5 text-xs leading-4 transition-colors duration-150 select-none overflow-hidden bg-accent hover:bg-accent/40"
-        onClick={toggleExpanded}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            toggleExpanded();
-          }
-        }}
-      >
-        {statusVariant === "running" && (
-          <span
-            data-testid="tool-call-running-indicator"
-            className="tool-call-status-ring shrink-0"
-            aria-hidden="true"
-          />
-        )}
-        {statusVariant !== "running" && (
-          <Icon icon={statusIconName} className={["w-3.5 h-3.5 shrink-0", statusIconClass].join(" ")} />
-        )}
-        <div className="tool-call-labels flex items-center gap-2 font-mono font-medium min-w-0">
-          <span data-testid="tool-call-name" className="shrink-0 text-xs text-foreground/80 leading-none">
-            {displayFunctionName}
-          </span>
-          {summaryText && (
-            <span data-testid="tool-call-summary" className="tool-call-summary text-[11px]" title={summaryText}>
-              {summaryText}
-            </span>
-          )}
-        </div>
-        {hasImagePreviews && (
-          <span
-            data-testid="tool-call-image-badge"
-            className="inline-flex shrink-0 items-center gap-1 rounded border border-blue-500/20 bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:text-blue-300"
-            title={`${imagePreviews.length} image(s)`}
-          >
-            <Icon icon="lucide:image" className="h-3 w-3" />
-            {imagePreviews.length}
-          </span>
-        )}
-      </div>
+      <ToolCallTrigger
+        statusVariant={statusVariant}
+        statusIconName={statusIconName}
+        statusIconClass={statusIconClass}
+        displayFunctionName={displayFunctionName}
+        summaryText={summaryText}
+        hasImagePreviews={hasImagePreviews}
+        imagePreviewCount={imagePreviews.length}
+        onToggle={toggleExpanded}
+      />
 
       {isExpanded && (
         <div
           data-testid="tool-call-details"
           className="rounded-lg border bg-muted text-card-foreground px-2 py-3 mt-2 mb-4 w-full"
         >
-          {isSubagentOrchestrator ? (
-            <div className="flex flex-col gap-1.5">
-              {subagentTasks.map((task) => (
-                <button
-                  key={task.normalizedId}
-                  data-testid="subagent-task-trigger"
-                  type="button"
-                  disabled={!task.sessionId}
-                  className={[
-                    "tool-call-pill inline-flex w-full min-h-7 border rounded-lg items-center gap-2 px-2 py-1.5 text-xs leading-4 transition-colors overflow-hidden",
-                    task.sessionId ? "bg-background hover:bg-accent/60" : "cursor-default bg-background/80 opacity-70",
-                  ].join(" ")}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleSubagentSessionOpen(task);
-                  }}
-                >
-                  <span
-                    className={[
-                      "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium",
-                      getSubagentStatusClass(task.status),
-                    ].join(" ")}
-                  >
-                    {getSubagentStatusLabel(task.status)}
-                  </span>
-                  <span className="shrink-0 font-semibold text-foreground">{task.targetAgentName}</span>
-                  <span className="text-muted-foreground">·</span>
-                  <span className="min-w-0 flex-1 truncate text-muted-foreground">{task.title || task.label}</span>
-                  {task.sessionId && (
-                    <Icon icon="lucide:chevron-right" className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                  )}
-                </button>
-              ))}
-            </div>
+          {toolKind.isSubagentOrchestrator ? (
+            <SubagentTaskList tasks={subagentTasks} onOpen={handleSubagentSessionOpen} />
           ) : (
             <div className="flex flex-col gap-4">
               {expandedToolTitle && (
@@ -490,88 +666,26 @@ const MessageBlockToolCallBase: FC<MessageBlockToolCallProps> = ({ block }) => {
               )}
 
               {hasParams && (
-                <div className="space-y-2 flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <h5 className="text-xs font-medium text-accent-foreground flex flex-row gap-2 items-center">
-                      <Icon icon="lucide:arrow-up-from-dot" className="w-4 h-4 text-foreground" />
-                      Parameters
-                    </h5>
-                    <button
-                      className="text-xs text-muted-foreground transition-colors hover:text-foreground"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        void copyParams();
-                      }}
-                    >
-                      <Icon icon="lucide:copy" className="w-3 h-3 inline-block mr-1" />
-                      {paramsCopyText}
-                    </button>
-                  </div>
-                  <div
-                    data-testid="tool-call-params"
-                    className="rounded-md border bg-background text-xs p-2 min-h-0 max-h-20 overflow-auto"
-                  >
-                    {paramsText}
-                  </div>
-                </div>
+                <ToolCallParamsSection
+                  copyText={paramsCopyText}
+                  onCopy={() => void copyParams()}
+                  paramsText={paramsText}
+                />
               )}
 
               {hasParams && hasResponse && <hr className="sm:hidden" />}
 
               {hasResponse && (
-                <div className={responseLayoutClass}>
-                  <div className="flex items-center justify-between gap-2">
-                    <h5 className="text-xs font-medium text-accent-foreground flex flex-row gap-2 items-center">
-                      <Icon
-                        icon={isTerminalTool ? "lucide:terminal" : "lucide:arrow-down-to-dot"}
-                        className="w-4 h-4 text-foreground"
-                      />
-                      {isTerminalTool ? "Terminal Output" : "Response"}
-                    </h5>
-                    <button
-                      className="text-xs text-muted-foreground transition-colors hover:text-foreground"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        void copyResponse();
-                      }}
-                    >
-                      <Icon icon="lucide:copy" className="w-3 h-3 inline-block mr-1" />
-                      {responseCopyText}
-                    </button>
-                  </div>
-                  {diffData ? (
-                    <>
-                      <div className="min-h-0 overflow-auto">
-                        <CodeBlockNode
-                          node={
-                            {
-                              code: diffData.updatedCode,
-                              language: diffLanguage,
-                            } as {
-                              code: string;
-                              language: string;
-                            }
-                          }
-                          isDark={themeStore.isDark}
-                          showHeader={false}
-                        />
-                      </div>
-                      {diffData.replacements !== undefined && (
-                        <div className="text-xs text-muted-foreground">{diffData.replacements} replacement(s)</div>
-                      )}
-                    </>
-                  ) : (
-                    <pre
-                      className="rounded-md border bg-background text-xs p-2 whitespace-pre-wrap break-words max-h-64 overflow-auto"
-                      style={{
-                        fontFamily: "var(--dc-code-font-family)",
-                        fontSize: "0.85em",
-                      }}
-                    >
-                      {responseText}
-                    </pre>
-                  )}
-                </div>
+                <ToolCallResponseSection
+                  layoutClass={responseLayoutClass}
+                  isTerminalTool={isTerminalTool}
+                  copyText={responseCopyText}
+                  onCopy={() => void copyResponse()}
+                  diffData={diffData}
+                  diffLanguage={diffLanguage}
+                  isDark={themeStore.isDark}
+                  responseText={responseText}
+                />
               )}
 
               {hasImagePreviews && <MessageBlockToolCallImagePreview previews={imagePreviews} />}

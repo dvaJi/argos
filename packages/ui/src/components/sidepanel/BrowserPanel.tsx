@@ -348,43 +348,16 @@ export function BrowserPanel({ sessionId }: BrowserPanelProps) {
   }, [browserClient]);
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col bg-background">
-      <div className="flex h-11 items-center gap-2 border-b px-3">
-        <Button
-          variant="outline"
-          size="icon"
-          className="h-7 w-7"
-          aria-label="Back"
-          disabled={!browser.canGoBack}
-          onClick={goBack}
-        >
-          <Icon icon="lucide:arrow-left" className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="outline"
-          size="icon"
-          className="h-7 w-7"
-          aria-label="Forward"
-          disabled={!browser.canGoForward}
-          onClick={goForward}
-        >
-          <Icon icon="lucide:arrow-right" className="h-4 w-4" />
-        </Button>
-        <Button variant="outline" size="icon" className="h-7 w-7" aria-label="Reload" onClick={reloadPage}>
-          <Icon icon="lucide:refresh-ccw" className="h-4 w-4" />
-        </Button>
-        <form className="flex min-w-0 flex-1" onSubmit={navigate}>
-          <Input
-            value={browser.urlInput}
-            onChange={(e) => dispatchBrowser({ type: "SET_URL_INPUT", value: e.target.value })}
-            aria-label="Address"
-            className="h-7 text-xs"
-            placeholder="Enter URL..."
-            autoCapitalize="off"
-            autoComplete="off"
-            spellCheck={false}
-          />
-        </form>
-      </div>
+      <BrowserToolbar
+        canGoBack={browser.canGoBack}
+        canGoForward={browser.canGoForward}
+        onGoBack={goBack}
+        onGoForward={goForward}
+        onReload={reloadPage}
+        url={browser.urlInput}
+        onUrlChange={(value) => dispatchBrowser({ type: "SET_URL_INPUT", value })}
+        onSubmit={navigate}
+      />
       <div ref={containerRef} className="relative min-h-0 flex-1 overflow-hidden">
         {browser.showPlaceholder && (
           <div className="absolute inset-0">
@@ -395,3 +368,61 @@ export function BrowserPanel({ sessionId }: BrowserPanelProps) {
     </div>
   );
 }
+
+const BrowserToolbar = ({
+  canGoBack,
+  canGoForward,
+  onGoBack,
+  onGoForward,
+  onReload,
+  url,
+  onUrlChange,
+  onSubmit,
+}: {
+  canGoBack: boolean;
+  canGoForward: boolean;
+  onGoBack: () => void;
+  onGoForward: () => void;
+  onReload: () => void;
+  url: string;
+  onUrlChange: (value: string) => void;
+  onSubmit: (event: FormEvent) => void;
+}) => (
+  <div className="flex h-11 items-center gap-2 border-b px-3">
+    <Button
+      variant="outline"
+      size="icon"
+      className="h-7 w-7"
+      aria-label="Back"
+      disabled={!canGoBack}
+      onClick={onGoBack}
+    >
+      <Icon icon="lucide:arrow-left" className="h-4 w-4" />
+    </Button>
+    <Button
+      variant="outline"
+      size="icon"
+      className="h-7 w-7"
+      aria-label="Forward"
+      disabled={!canGoForward}
+      onClick={onGoForward}
+    >
+      <Icon icon="lucide:arrow-right" className="h-4 w-4" />
+    </Button>
+    <Button variant="outline" size="icon" className="h-7 w-7" aria-label="Reload" onClick={onReload}>
+      <Icon icon="lucide:refresh-ccw" className="h-4 w-4" />
+    </Button>
+    <form className="flex min-w-0 flex-1" onSubmit={onSubmit}>
+      <Input
+        value={url}
+        onChange={(e) => onUrlChange(e.target.value)}
+        aria-label="Address"
+        className="h-7 text-xs"
+        placeholder="Enter URL..."
+        autoCapitalize="off"
+        autoComplete="off"
+        spellCheck={false}
+      />
+    </form>
+  </div>
+);

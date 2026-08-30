@@ -25,18 +25,16 @@ import { continueGuidedOnboardingFromSettings } from "../lib/guidedOnboardingSet
 import { useRouter, useRouterState } from "@tanstack/react-router";
 const windowClient = createWindowClient();
 const npmRegistryClient = createMcpClient();
-export default function McpSettings() {
-  const languageStore = useLanguageStore();
-  const mcpStore = useMcpStore();
-  const { toast } = useToast();
-  const router = useRouter();
-  const routerState = useRouterState();
-  const mcpServersRef = useRef<McpServersRef | null>(null);
-  const [guideRootEl, setGuideRootEl] = useState<HTMLDivElement | null>(null);
-  const [mcpActionsEl, setMcpActionsEl] = useState<HTMLDivElement | null>(null);
-  const mcpGuide = useGuidedOnboardingStep("mcp");
-  const [isMarketView, setIsMarketView] = useState(false);
-  const [npmAdvancedDialogOpen, setNpmAdvancedDialogOpen] = useState(false);
+const normalizeNpmRegistryUrl = (registry: string) => {
+  const trimmed = registry.trim();
+  return trimmed.endsWith("/") ? trimmed : `${trimmed}/`;
+};
+const useNpmRegistrySettings = (deps: {
+  mcpStore: ReturnType<typeof useMcpStore>;
+  toast: ReturnType<typeof useToast>["toast"];
+  onClearSuccess: () => void;
+}) => {
+  const { mcpStore, toast, onClearSuccess } = deps;
   const [refreshing, setRefreshing] = useState(false);
   const [customRegistryInput, setCustomRegistryInput] = useState("");
   const [npmRegistryStatus, setNpmRegistryStatus] = useState<{
@@ -47,38 +45,6 @@ export default function McpSettings() {
     currentRegistry: null,
     autoDetectEnabled: true,
   });
-  const mcpEnabled = mcpStore.mcpEnabled;
-  const showSkeleton = mcpStore.configLoading && !mcpStore.config.ready;
-  const runningCount = mcpStore.serverList.filter((s) => s.isRunning).length;
-  const builtInCount = mcpStore.serverList.filter((s) => {
-    const config = mcpStore.config.mcpServers[s.name];
-    return config?.type === "inmemory" || config?.source === "argos";
-  }).length;
-  const customCount = Math.max(mcpStore.serverList.length - builtInCount, 0);
-  const showMcpGuide = mcpGuide.showGuide && Boolean(mcpActionsEl);
-  const continueMcpGuide = async (state: any) => {
-    await continueGuidedOnboardingFromSettings({
-      state,
-      router: {
-        navigate: async (opts) => {
-          const normalizedTo = opts.to.replace(/^\/settings/, "") || "/overview";
-          const navigationOptions: any = {
-            to: normalizedTo,
-            replace: opts.replace,
-          };
-          if (opts.params) {
-            navigationOptions.params = opts.params;
-          }
-          await router.navigate(navigationOptions);
-        },
-      },
-      currentRoute: {
-        pathname: routerState.location.pathname,
-        params: routerState.location.pathname.includes("/provider") ? (routerState.location.search as any) : {},
-      },
-      windowClient,
-    });
-  };
   const loadNpmRegistryStatus = async () => {
     try {
       const status = await mcpStore.getNpmRegistryStatus();
@@ -104,34 +70,6 @@ export default function McpSettings() {
       cancelled = true;
     };
   }, []);
-  const handleMcpEnabledChange = async (enabled: boolean) => {
-    await mcpStore.setMcpEnabled(enabled);
-  };
-  const openAddServerDialog = () => {
-    mcpServersRef.current?.openAddServerDialog();
-  };
-  const handleMcpGuidePrimary = async () => {
-    if (mcpGuide.currentStepId !== "mcp") return;
-    const stepStatus = mcpGuide.stepState?.status;
-    if (stepStatus === "completed" || stepStatus === "skipped") return;
-    const state = await mcpGuide.completeStep();
-    await continueMcpGuide(state);
-  };
-  const handleMcpGuideTargetInteract = async () => {
-    await handleMcpGuidePrimary();
-  };
-  const handleMcpGuideBack = async () => {
-    const state = await mcpGuide.activatePreviousStep();
-    await continueMcpGuide(state);
-  };
-  const handleMcpGuideSkip = async () => {
-    const state = await mcpGuide.skipStep();
-    await continueMcpGuide(state);
-  };
-  const handleMcpGuideExpert = async () => {
-    const state = await mcpGuide.forceComplete();
-    await continueMcpGuide(state);
-  };
   const refreshNpmRegistry = async () => {
     try {
       setRefreshing(true);
@@ -167,10 +105,6 @@ export default function McpSettings() {
         variant: "destructive",
       });
     }
-  };
-  const normalizeNpmRegistryUrl = (registry: string) => {
-    const trimmed = registry.trim();
-    return trimmed.endsWith("/") ? trimmed : `${trimmed}/`;
   };
   const validateCustomRegistry = async (registry: string): Promise<boolean> => {
     const reportRegistryTestFailure = (error: unknown) => {
@@ -262,7 +196,7 @@ export default function McpSettings() {
           variant: "destructive",
         });
       }
-      setNpmAdvancedDialogOpen(false);
+      onClearSuccess();
     } catch (error) {
       console.error("Failed to clear custom npm registry:", error);
       toast({
@@ -271,6 +205,94 @@ export default function McpSettings() {
         variant: "destructive",
       });
     }
+  };
+  return {
+    refreshing,
+    customRegistryInput,
+    setCustomRegistryInput,
+    npmRegistryStatus,
+    refreshNpmRegistry,
+    setAutoDetectNpmRegistry,
+    saveCustomNpmRegistry,
+    clearCustomNpmRegistry,
+  };
+};
+export default function McpSettings() {
+  const languageStore = useLanguageStore();
+  const mcpStore = useMcpStore();
+  const { toast } = useToast();
+  const router = useRouter();
+  const routerState = useRouterState();
+  const mcpServersRef = useRef<McpServersRef | null>(null);
+  const [guideRootEl, setGuideRootEl] = useState<HTMLDivElement | null>(null);
+  const [mcpActionsEl, setMcpActionsEl] = useState<HTMLDivElement | null>(null);
+  const mcpGuide = useGuidedOnboardingStep("mcp");
+  const [isMarketView, setIsMarketView] = useState(false);
+  const [npmAdvancedDialogOpen, setNpmAdvancedDialogOpen] = useState(false);
+  const npmRegistry = useNpmRegistrySettings({
+    mcpStore,
+    toast,
+    onClearSuccess: () => setNpmAdvancedDialogOpen(false),
+  });
+  const mcpEnabled = mcpStore.mcpEnabled;
+  const showSkeleton = mcpStore.configLoading && !mcpStore.config.ready;
+  const runningCount = mcpStore.serverList.filter((s) => s.isRunning).length;
+  const builtInCount = mcpStore.serverList.filter((s) => {
+    const config = mcpStore.config.mcpServers[s.name];
+    return config?.type === "inmemory" || config?.source === "argos";
+  }).length;
+  const customCount = Math.max(mcpStore.serverList.length - builtInCount, 0);
+  const showMcpGuide = mcpGuide.showGuide && Boolean(mcpActionsEl);
+  const continueMcpGuide = async (state: any) => {
+    await continueGuidedOnboardingFromSettings({
+      state,
+      router: {
+        navigate: async (opts) => {
+          const normalizedTo = opts.to.replace(/^\/settings/, "") || "/overview";
+          const navigationOptions: any = {
+            to: normalizedTo,
+            replace: opts.replace,
+          };
+          if (opts.params) {
+            navigationOptions.params = opts.params;
+          }
+          await router.navigate(navigationOptions);
+        },
+      },
+      currentRoute: {
+        pathname: routerState.location.pathname,
+        params: routerState.location.pathname.includes("/provider") ? (routerState.location.search as any) : {},
+      },
+      windowClient,
+    });
+  };
+  const handleMcpEnabledChange = async (enabled: boolean) => {
+    await mcpStore.setMcpEnabled(enabled);
+  };
+  const openAddServerDialog = () => {
+    mcpServersRef.current?.openAddServerDialog();
+  };
+  const handleMcpGuidePrimary = async () => {
+    if (mcpGuide.currentStepId !== "mcp") return;
+    const stepStatus = mcpGuide.stepState?.status;
+    if (stepStatus === "completed" || stepStatus === "skipped") return;
+    const state = await mcpGuide.completeStep();
+    await continueMcpGuide(state);
+  };
+  const handleMcpGuideTargetInteract = async () => {
+    await handleMcpGuidePrimary();
+  };
+  const handleMcpGuideBack = async () => {
+    const state = await mcpGuide.activatePreviousStep();
+    await continueMcpGuide(state);
+  };
+  const handleMcpGuideSkip = async () => {
+    const state = await mcpGuide.skipStep();
+    await continueMcpGuide(state);
+  };
+  const handleMcpGuideExpert = async () => {
+    const state = await mcpGuide.forceComplete();
+    await continueMcpGuide(state);
   };
   if (isMarketView) {
     return (
@@ -291,34 +313,15 @@ export default function McpSettings() {
   }
   return (
     <div ref={setGuideRootEl} data-testid="settings-mcp-page" className="w-full h-full min-h-0 flex flex-col">
-      <div className="shrink-0 px-4 pt-4">
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-            <div dir={languageStore.dir} className="min-w-0">
-              <h1 className="text-lg font-semibold">MCP Center</h1>
-              <p className="text-xs text-muted-foreground">Manage MCP servers and tools</p>
-            </div>
-            <div
-              ref={setMcpActionsEl}
-              className="flex shrink-0 items-center gap-3"
-              onClick={() => void handleMcpGuideTargetInteract()}
-            >
-              {mcpEnabled && (
-                <Button size="sm" onClick={openAddServerDialog}>
-                  <Icon icon="lucide:plus" className="size-4" />
-                  Add
-                </Button>
-              )}
-              <Button variant="outline" size="sm" onClick={() => setIsMarketView(true)}>
-                <Icon icon="lucide:shopping-bag" className="size-4" />
-                Market
-              </Button>
-              <Switch dir="ltr" checked={mcpEnabled} onCheckedChange={(v) => void handleMcpEnabledChange(v)} />
-            </div>
-          </div>
-        </div>
-        <Separator className="mt-3" />
-      </div>
+      <McpSettingsHeader
+        dir={languageStore.dir}
+        mcpEnabled={mcpEnabled}
+        onAdd={openAddServerDialog}
+        onOpenMarket={() => setIsMarketView(true)}
+        onEnabledChange={(v) => void handleMcpEnabledChange(v)}
+        onGuideTargetInteract={() => void handleMcpGuideTargetInteract()}
+        onActionsElRef={setMcpActionsEl}
+      />
 
       <div className="min-h-0 flex-1 overflow-hidden">
         {mcpEnabled ? (
@@ -326,97 +329,26 @@ export default function McpSettings() {
             ref={mcpServersRef}
             showFooterAddButton={false}
             statusBar={
-              <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1">
-                <span className="text-xs text-muted-foreground">
-                  Total: <span className="font-medium text-foreground">{mcpStore.serverList.length}</span>
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  Running: <span className="font-medium text-foreground">{runningCount}</span>
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  Built-in: <span className="font-medium text-foreground">{builtInCount}</span>
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  Custom: <span className="font-medium text-foreground">{customCount}</span>
-                </span>
-              </div>
+              <McpStatusBar
+                total={mcpStore.serverList.length}
+                running={runningCount}
+                builtIn={builtInCount}
+                custom={customCount}
+              />
             }
             footerActionsAfter={
-              <Dialog open={npmAdvancedDialogOpen} onOpenChange={setNpmAdvancedDialogOpen}>
-                <DialogTrigger
-                  render={
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 max-w-[18rem] gap-1.5 px-3 text-xs"
-                      title={npmRegistryStatus.currentRegistry || "Default"}
-                    />
-                  }
-                >
-                  <Icon icon="lucide:settings-2" className="h-3.5 w-3.5 shrink-0" />
-                  <span className="hidden text-muted-foreground sm:inline">NPM Registry</span>
-                  <span className="truncate font-mono">{npmRegistryStatus.currentRegistry || "Default"}</span>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-md">
-                  <DialogHeader>
-                    <DialogTitle>NPM Registry</DialogTitle>
-                    <DialogDescription>
-                      Configure advanced npm registry source settings for MCP installs.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="flex flex-col gap-4">
-                    <div className="flex items-center justify-between gap-3 text-sm">
-                      <span className="text-muted-foreground">Current source</span>
-                      <div className="flex min-w-0 items-center gap-2">
-                        <span className="truncate font-mono text-xs">
-                          {npmRegistryStatus.currentRegistry || "Default"}
-                        </span>
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          disabled={refreshing}
-                          onClick={() => void refreshNpmRegistry()}
-                        >
-                          <Icon
-                            icon={refreshing ? "lucide:loader-2" : "lucide:refresh-cw"}
-                            className={refreshing ? "size-4 animate-spin" : "size-4"}
-                          />
-                        </Button>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-sm text-muted-foreground">Auto-detect optimal registry</span>
-                      <Switch
-                        checked={npmRegistryStatus.autoDetectEnabled}
-                        onCheckedChange={(value) => void setAutoDetectNpmRegistry(value)}
-                      />
-                    </div>
-                    <Input
-                      value={customRegistryInput}
-                      onChange={(e) => setCustomRegistryInput(e.target.value)}
-                      placeholder="https://registry.npmjs.org/"
-                      className="font-mono"
-                    />
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        disabled={
-                          !customRegistryInput.trim() || customRegistryInput.trim() === npmRegistryStatus.customRegistry
-                        }
-                        className="flex-1"
-                        onClick={() => void saveCustomNpmRegistry()}
-                      >
-                        Save
-                      </Button>
-                      {npmRegistryStatus.customRegistry && (
-                        <Button variant="outline" className="flex-1" onClick={() => void clearCustomNpmRegistry()}>
-                          Clear
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
+              <NpmRegistryDialog
+                open={npmAdvancedDialogOpen}
+                onOpenChange={setNpmAdvancedDialogOpen}
+                status={npmRegistry.npmRegistryStatus}
+                refreshing={npmRegistry.refreshing}
+                input={npmRegistry.customRegistryInput}
+                onInputChange={npmRegistry.setCustomRegistryInput}
+                onRefresh={() => void npmRegistry.refreshNpmRegistry()}
+                onAutoDetectChange={(value) => void npmRegistry.setAutoDetectNpmRegistry(value)}
+                onSave={() => void npmRegistry.saveCustomNpmRegistry()}
+                onClear={() => void npmRegistry.clearCustomNpmRegistry()}
+              />
             }
           />
         ) : (
@@ -447,3 +379,160 @@ export default function McpSettings() {
     </div>
   );
 }
+const McpSettingsHeader = ({
+  dir,
+  mcpEnabled,
+  onAdd,
+  onOpenMarket,
+  onEnabledChange,
+  onGuideTargetInteract,
+  onActionsElRef,
+}: {
+  dir: string;
+  mcpEnabled: boolean;
+  onAdd: () => void;
+  onOpenMarket: () => void;
+  onEnabledChange: (enabled: boolean) => void;
+  onGuideTargetInteract: () => void;
+  onActionsElRef: (el: HTMLDivElement | null) => void;
+}) => (
+  <div className="shrink-0 px-4 pt-4">
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div dir={dir} className="min-w-0">
+          <h1 className="text-lg font-semibold">MCP Center</h1>
+          <p className="text-xs text-muted-foreground">Manage MCP servers and tools</p>
+        </div>
+        <div ref={onActionsElRef} className="flex shrink-0 items-center gap-3" onClick={onGuideTargetInteract}>
+          {mcpEnabled && (
+            <Button size="sm" onClick={onAdd}>
+              <Icon icon="lucide:plus" className="size-4" />
+              Add
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={onOpenMarket}>
+            <Icon icon="lucide:shopping-bag" className="size-4" />
+            Market
+          </Button>
+          <Switch dir="ltr" checked={mcpEnabled} onCheckedChange={onEnabledChange} />
+        </div>
+      </div>
+    </div>
+    <Separator className="mt-3" />
+  </div>
+);
+const McpStatusBar = ({
+  total,
+  running,
+  builtIn,
+  custom,
+}: {
+  total: number;
+  running: number;
+  builtIn: number;
+  custom: number;
+}) => (
+  <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1">
+    <span className="text-xs text-muted-foreground">
+      Total: <span className="font-medium text-foreground">{total}</span>
+    </span>
+    <span className="text-xs text-muted-foreground">
+      Running: <span className="font-medium text-foreground">{running}</span>
+    </span>
+    <span className="text-xs text-muted-foreground">
+      Built-in: <span className="font-medium text-foreground">{builtIn}</span>
+    </span>
+    <span className="text-xs text-muted-foreground">
+      Custom: <span className="font-medium text-foreground">{custom}</span>
+    </span>
+  </div>
+);
+const NpmRegistryDialog = ({
+  open,
+  onOpenChange,
+  status,
+  refreshing,
+  input,
+  onInputChange,
+  onRefresh,
+  onAutoDetectChange,
+  onSave,
+  onClear,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  status: {
+    currentRegistry: string | null;
+    autoDetectEnabled: boolean;
+    customRegistry?: string;
+  };
+  refreshing: boolean;
+  input: string;
+  onInputChange: (value: string) => void;
+  onRefresh: () => void;
+  onAutoDetectChange: (value: boolean) => void;
+  onSave: () => void;
+  onClear: () => void;
+}) => (
+  <Dialog open={open} onOpenChange={onOpenChange}>
+    <DialogTrigger
+      render={
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 max-w-[18rem] gap-1.5 px-3 text-xs"
+          title={status.currentRegistry || "Default"}
+        />
+      }
+    >
+      <Icon icon="lucide:settings-2" className="h-3.5 w-3.5 shrink-0" />
+      <span className="hidden text-muted-foreground sm:inline">NPM Registry</span>
+      <span className="truncate font-mono">{status.currentRegistry || "Default"}</span>
+    </DialogTrigger>
+    <DialogContent className="sm:max-w-md">
+      <DialogHeader>
+        <DialogTitle>NPM Registry</DialogTitle>
+        <DialogDescription>Configure advanced npm registry source settings for MCP installs.</DialogDescription>
+      </DialogHeader>
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center justify-between gap-3 text-sm">
+          <span className="text-muted-foreground">Current source</span>
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="truncate font-mono text-xs">{status.currentRegistry || "Default"}</span>
+            <Button variant="ghost" size="icon-sm" disabled={refreshing} onClick={onRefresh}>
+              <Icon
+                icon={refreshing ? "lucide:loader-2" : "lucide:refresh-cw"}
+                className={refreshing ? "size-4 animate-spin" : "size-4"}
+              />
+            </Button>
+          </div>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-sm text-muted-foreground">Auto-detect optimal registry</span>
+          <Switch checked={status.autoDetectEnabled} onCheckedChange={onAutoDetectChange} />
+        </div>
+        <Input
+          value={input}
+          onChange={(e) => onInputChange(e.target.value)}
+          placeholder="https://registry.npmjs.org/"
+          className="font-mono"
+        />
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            disabled={!input.trim() || input.trim() === status.customRegistry}
+            className="flex-1"
+            onClick={onSave}
+          >
+            Save
+          </Button>
+          {status.customRegistry && (
+            <Button variant="outline" className="flex-1" onClick={onClear}>
+              Clear
+            </Button>
+          )}
+        </div>
+      </div>
+    </DialogContent>
+  </Dialog>
+);

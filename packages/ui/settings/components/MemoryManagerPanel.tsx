@@ -269,49 +269,13 @@ export function MemoryManagerPanel({
         </div>
       )}
 
-      <div className="mb-2 flex items-center justify-between">
-        <div className="text-xs text-muted-foreground">{memories.length} memories</div>
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 px-2 text-xs"
-            aria-expanded={showAddForm}
-            disabled={memoryDisabled}
-            onClick={() => setShowAddForm((prev) => !prev)}
-          >
-            <Icon icon="lucide:plus" className="mr-1 h-3.5 w-3.5" />
-            Add memory
-          </Button>
-          {memories.length > 0 && (
-            <AlertDialog>
-              <AlertDialogTrigger
-                render={<Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-destructive" />}
-              >
-                <Icon icon="lucide:trash-2" className="mr-1 h-3.5 w-3.5" />
-                Clear all
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Clear all memories?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This permanently removes every memory for this agent. This cannot be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    onClick={handleClear}
-                  >
-                    Clear all
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          )}
-        </div>
-      </div>
+      <MemoryToolbar
+        total={memories.length}
+        addFormOpen={showAddForm}
+        memoryDisabled={memoryDisabled}
+        onToggleAddForm={() => setShowAddForm((prev) => !prev)}
+        onClear={() => void handleClear()}
+      />
 
       {memoryDisabled && (
         <div className="mb-3 rounded-lg bg-muted px-3 py-2 text-[11px] text-muted-foreground">
@@ -320,108 +284,31 @@ export function MemoryManagerPanel({
       )}
 
       {showAddForm && (
-        <div className="mb-3 space-y-2 rounded-lg border border-border px-3 py-2.5">
-          <Textarea
-            value={addContent}
-            onChange={(e) => setAddContent(e.target.value)}
-            className="min-h-16 text-xs"
-            placeholder="Write a durable fact or preference in third person…"
-          />
-          <div className={`grid gap-2 ${addCategorySelected ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
-            {!addCategorySelected && (
-              <Select value={addKind} onValueChange={(v) => setAddKind(v as "episodic" | "semantic")}>
-                <SelectTrigger className="h-8 w-full text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="semantic" className="text-xs">
-                    Semantic
-                  </SelectItem>
-                  <SelectItem value="episodic" className="text-xs">
-                    Episodic
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            )}
-            <Select value={addCategory} onValueChange={(v) => setAddCategory(v ?? "")}>
-              <SelectTrigger className="h-8 w-full text-xs" aria-label="Category">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ADD_CATEGORY_NONE} className="text-xs">
-                  No category
-                </SelectItem>
-                {AGENT_MEMORY_CATEGORIES.map((category) => (
-                  <SelectItem key={category} value={category} className="text-xs">
-                    {categoryLabel(category)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={addImportance} onValueChange={(v) => setAddImportance(v as "low" | "medium" | "high")}>
-              <SelectTrigger className="h-8 w-full text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="low" className="text-xs">
-                  Low
-                </SelectItem>
-                <SelectItem value="medium" className="text-xs">
-                  Medium
-                </SelectItem>
-                <SelectItem value="high" className="text-xs">
-                  High
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex justify-end gap-1.5">
-            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={resetAddForm}>
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              className="h-7 px-3 text-xs"
-              disabled={adding || addContent.trim().length === 0}
-              onClick={handleAdd}
-            >
-              Add memory
-            </Button>
-          </div>
-        </div>
+        <MemoryAddForm
+          content={addContent}
+          onContentChange={setAddContent}
+          kind={addKind}
+          onKindChange={(v) => setAddKind(v as "episodic" | "semantic")}
+          categorySelected={addCategorySelected}
+          category={addCategory}
+          onCategoryChange={(v) => setAddCategory(v ?? "")}
+          importance={addImportance}
+          onImportanceChange={(v) => setAddImportance(v as "low" | "medium" | "high")}
+          adding={adding}
+          contentEmpty={addContent.trim().length === 0}
+          onCancel={resetAddForm}
+          onSubmit={() => void handleAdd()}
+        />
       )}
 
       {(memories.length > 0 || searchActive) && (
-        <div className="mb-3 space-y-1.5">
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              type="search"
-              className="h-8 text-xs sm:flex-1"
-              placeholder="Search memories…"
-            />
-            <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v as CategoryFilter)}>
-              <SelectTrigger className="h-8 text-xs sm:w-44" aria-label="Filter by category">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all" className="text-xs">
-                  All categories
-                </SelectItem>
-                {AGENT_MEMORY_CATEGORIES.map((category) => (
-                  <SelectItem key={category} value={category} className="text-xs">
-                    {categoryLabel(category)}
-                  </SelectItem>
-                ))}
-                <SelectItem value="uncategorized" className="text-xs">
-                  Uncategorized
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          {visibleSearchError && <p className="text-[11px] text-destructive">{visibleSearchError}</p>}
-        </div>
+        <MemorySearchFilterRow
+          searchQuery={searchQuery}
+          onSearchQueryChange={setSearchQuery}
+          categoryFilter={categoryFilter}
+          onCategoryFilterChange={(v) => setCategoryFilter(v as CategoryFilter)}
+          visibleSearchError={visibleSearchError}
+        />
       )}
 
       {loading ? (
@@ -434,59 +321,7 @@ export function MemoryManagerPanel({
         <ScrollArea className="h-[360px] pr-3">
           <ul className="space-y-2">
             {displayedMemories.map((memory) => (
-              <li
-                key={memory.id}
-                className={`flex items-start justify-between gap-3 rounded-lg border border-border px-3 py-2 ${memory.status === "archived" ? "opacity-60" : ""}`}
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="break-words text-sm">{memory.content}</p>
-                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                    <Badge variant="outline" className="text-[10px]">
-                      {memory.kind}
-                    </Badge>
-                    <Badge variant="secondary" className="text-[10px]">
-                      {categoryLabel(memory.category)}
-                    </Badge>
-                    <Badge variant={statusVariant(memory.status)} className="text-[10px]">
-                      {memory.status}
-                    </Badge>
-                    <span className="text-[10px] text-muted-foreground">{formatTime(memory.createdAt)}</span>
-                  </div>
-                </div>
-                <div className="flex shrink-0 items-center gap-1">
-                  <AlertDialog>
-                    <AlertDialogTrigger
-                      render={
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 text-xs text-destructive"
-                          aria-label="Delete permanently"
-                        />
-                      }
-                    >
-                      <Icon icon="lucide:x" className="h-3.5 w-3.5" />
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Delete this memory?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This permanently removes the memory. This cannot be undone.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                          onClick={() => handleDelete(memory.id)}
-                        >
-                          Delete
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
-              </li>
+              <MemoryListItem key={memory.id} memory={memory} onDelete={() => void handleDelete(memory.id)} />
             ))}
           </ul>
         </ScrollArea>
@@ -494,3 +329,250 @@ export function MemoryManagerPanel({
     </div>
   );
 }
+const MemoryToolbar = ({
+  total,
+  addFormOpen,
+  memoryDisabled,
+  onToggleAddForm,
+  onClear,
+}: {
+  total: number;
+  addFormOpen: boolean;
+  memoryDisabled: boolean;
+  onToggleAddForm: () => void;
+  onClear: () => void;
+}) => (
+  <div className="mb-2 flex items-center justify-between">
+    <div className="text-xs text-muted-foreground">{total} memories</div>
+    <div className="flex items-center gap-1">
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-7 px-2 text-xs"
+        aria-expanded={addFormOpen}
+        disabled={memoryDisabled}
+        onClick={onToggleAddForm}
+      >
+        <Icon icon="lucide:plus" className="mr-1 h-3.5 w-3.5" />
+        Add memory
+      </Button>
+      {total > 0 && (
+        <AlertDialog>
+          <AlertDialogTrigger
+            render={<Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-destructive" />}
+          >
+            <Icon icon="lucide:trash-2" className="mr-1 h-3.5 w-3.5" />
+            Clear all
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Clear all memories?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This permanently removes every memory for this agent. This cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={onClear}
+              >
+                Clear all
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+    </div>
+  </div>
+);
+const MemoryAddForm = ({
+  content,
+  onContentChange,
+  kind,
+  onKindChange,
+  categorySelected,
+  category,
+  onCategoryChange,
+  importance,
+  onImportanceChange,
+  adding,
+  contentEmpty,
+  onCancel,
+  onSubmit,
+}: {
+  content: string;
+  onContentChange: (value: string) => void;
+  kind: "episodic" | "semantic";
+  onKindChange: (value: "episodic" | "semantic") => void;
+  categorySelected: boolean;
+  category: string;
+  onCategoryChange: (value: string) => void;
+  importance: "low" | "medium" | "high";
+  onImportanceChange: (value: "low" | "medium" | "high") => void;
+  adding: boolean;
+  contentEmpty: boolean;
+  onCancel: () => void;
+  onSubmit: () => void;
+}) => (
+  <div className="mb-3 space-y-2 rounded-lg border border-border px-3 py-2.5">
+    <Textarea
+      value={content}
+      onChange={(e) => onContentChange(e.target.value)}
+      className="min-h-16 text-xs"
+      placeholder="Write a durable fact or preference in third person…"
+    />
+    <div className={`grid gap-2 ${categorySelected ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
+      {!categorySelected && (
+        <Select value={kind} onValueChange={(v) => onKindChange(v as "episodic" | "semantic")}>
+          <SelectTrigger className="h-8 w-full text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="semantic" className="text-xs">
+              Semantic
+            </SelectItem>
+            <SelectItem value="episodic" className="text-xs">
+              Episodic
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      )}
+      <Select value={category} onValueChange={(v) => onCategoryChange(v ?? "")}>
+        <SelectTrigger className="h-8 w-full text-xs" aria-label="Category">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={ADD_CATEGORY_NONE} className="text-xs">
+            No category
+          </SelectItem>
+          {AGENT_MEMORY_CATEGORIES.map((cat) => (
+            <SelectItem key={cat} value={cat} className="text-xs">
+              {categoryLabel(cat)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Select value={importance} onValueChange={(v) => onImportanceChange(v as "low" | "medium" | "high")}>
+        <SelectTrigger className="h-8 w-full text-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="low" className="text-xs">
+            Low
+          </SelectItem>
+          <SelectItem value="medium" className="text-xs">
+            Medium
+          </SelectItem>
+          <SelectItem value="high" className="text-xs">
+            High
+          </SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+    <div className="flex justify-end gap-1.5">
+      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={onCancel}>
+        Cancel
+      </Button>
+      <Button size="sm" className="h-7 px-3 text-xs" disabled={adding || contentEmpty} onClick={onSubmit}>
+        Add memory
+      </Button>
+    </div>
+  </div>
+);
+const MemorySearchFilterRow = ({
+  searchQuery,
+  onSearchQueryChange,
+  categoryFilter,
+  onCategoryFilterChange,
+  visibleSearchError,
+}: {
+  searchQuery: string;
+  onSearchQueryChange: (value: string) => void;
+  categoryFilter: CategoryFilter;
+  onCategoryFilterChange: (value: CategoryFilter) => void;
+  visibleSearchError: string | null;
+}) => (
+  <div className="mb-3 space-y-1.5">
+    <div className="flex flex-col gap-2 sm:flex-row">
+      <Input
+        value={searchQuery}
+        onChange={(e) => onSearchQueryChange(e.target.value)}
+        type="search"
+        className="h-8 text-xs sm:flex-1"
+        placeholder="Search memories…"
+      />
+      <Select value={categoryFilter} onValueChange={(v) => onCategoryFilterChange(v as CategoryFilter)}>
+        <SelectTrigger className="h-8 text-xs sm:w-44" aria-label="Filter by category">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all" className="text-xs">
+            All categories
+          </SelectItem>
+          {AGENT_MEMORY_CATEGORIES.map((cat) => (
+            <SelectItem key={cat} value={cat} className="text-xs">
+              {categoryLabel(cat)}
+            </SelectItem>
+          ))}
+          <SelectItem value="uncategorized" className="text-xs">
+            Uncategorized
+          </SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+    {visibleSearchError && <p className="text-[11px] text-destructive">{visibleSearchError}</p>}
+  </div>
+);
+const MemoryListItem = ({ memory, onDelete }: { memory: MemoryItem; onDelete: () => void }) => (
+  <li
+    className={`flex items-start justify-between gap-3 rounded-lg border border-border px-3 py-2 ${memory.status === "archived" ? "opacity-60" : ""}`}
+  >
+    <div className="min-w-0 flex-1">
+      <p className="break-words text-sm">{memory.content}</p>
+      <div className="mt-1 flex flex-wrap items-center gap-1.5">
+        <Badge variant="outline" className="text-[10px]">
+          {memory.kind}
+        </Badge>
+        <Badge variant="secondary" className="text-[10px]">
+          {categoryLabel(memory.category)}
+        </Badge>
+        <Badge variant={statusVariant(memory.status)} className="text-[10px]">
+          {memory.status}
+        </Badge>
+        <span className="text-[10px] text-muted-foreground">{formatTime(memory.createdAt)}</span>
+      </div>
+    </div>
+    <div className="flex shrink-0 items-center gap-1">
+      <AlertDialog>
+        <AlertDialogTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs text-destructive"
+              aria-label="Delete permanently"
+            />
+          }
+        >
+          <Icon icon="lucide:x" className="h-3.5 w-3.5" />
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this memory?</AlertDialogTitle>
+            <AlertDialogDescription>This permanently removes the memory. This cannot be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={onDelete}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  </li>
+);

@@ -86,6 +86,213 @@ const fieldDescriptions: Record<string, string> = {
 
 const eventLabels: Record<string, string> = Object.fromEntries(HOOK_EVENT_NAMES.map((name) => [name, name]));
 
+const formatPreview = (value?: string) => {
+  if (!value) return "";
+  return value.length <= PREVIEW_LIMIT ? value : `${value.slice(0, PREVIEW_LIMIT)}…`;
+};
+
+function HookCommandGuide({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  return (
+    <Collapsible open={open} onOpenChange={onOpenChange} className="rounded-md border bg-muted/20">
+      <CollapsibleTrigger
+        render={<Button variant="ghost" className="flex h-auto w-full items-center justify-between p-4" />}
+      >
+        <div className="min-w-0 text-left">
+          <div className="text-sm font-medium">Command Guide</div>
+          <p className="mt-1 text-xs text-muted-foreground">Learn how to configure hook commands</p>
+        </div>
+        <Icon
+          icon={open ? "lucide:chevron-up" : "lucide:chevron-down"}
+          className="ml-3 h-4 w-4 shrink-0 text-muted-foreground"
+        />
+      </CollapsibleTrigger>
+      <CollapsibleContent className="border-t px-4 pb-4">
+        <div className="space-y-4 pt-4">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="space-y-2">
+              <div className="text-xs font-medium text-muted-foreground">Delivery</div>
+              <ul className="space-y-1 text-xs text-muted-foreground">
+                <li>JSON payload via stdin</li>
+                <li>Placeholders in command string</li>
+                <li>Environment variables</li>
+                <li>Metadata only (no content)</li>
+              </ul>
+              <div className="rounded-md border bg-background p-3">
+                <div className="mb-2 text-[11px] font-medium text-muted-foreground">Stdin Preview</div>
+                <pre className="whitespace-pre-wrap break-all text-[11px] leading-5">{stdinPreview}</pre>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="text-xs font-medium text-muted-foreground">Placeholders</div>
+              <p className="text-xs text-muted-foreground">Use these tokens in your command string.</p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {placeholderDocs.map((item) => (
+                  <div key={item.token} className="rounded-md border bg-background p-3">
+                    <div className="text-xs font-medium">
+                      <code>{item.token}</code>
+                    </div>
+                    <div className="mt-1 text-[11px] text-muted-foreground">{fieldDescriptions[item.field]}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="space-y-2">
+              <div className="text-xs font-medium text-muted-foreground">Environment Variables</div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {envDocs.map((item) => (
+                  <div key={item.token} className="rounded-md border bg-background p-3">
+                    <div className="text-xs font-medium">
+                      <code>{item.token}</code>
+                    </div>
+                    <div className="mt-1 text-[11px] text-muted-foreground">{fieldDescriptions[item.field]}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="text-xs font-medium text-muted-foreground">Examples</div>
+              <div className="space-y-2">
+                {commandExamples.map((item) => (
+                  <div key={item.label} className="rounded-md border bg-background p-3">
+                    <div className="mb-2 text-[11px] font-medium text-muted-foreground">{item.label}</div>
+                    <pre className="whitespace-pre-wrap break-all text-[11px] leading-5">{item.command}</pre>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+function HookTestResultView({ result }: { result: HookTestResult }) {
+  return (
+    <div className="space-y-1 text-xs">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className={result?.success ? "text-emerald-600" : "text-destructive"}>
+          {result?.success ? "Success" : "Failed"}
+        </span>
+        <span className="text-muted-foreground">{result?.durationMs ?? 0}ms</span>
+        {result?.exitCode !== undefined && <span className="text-muted-foreground">Exit code: {result?.exitCode}</span>}
+      </div>
+      {result?.error && <div className="break-all text-destructive">{result?.error}</div>}
+      {result?.stdout && (
+        <div className="break-all text-muted-foreground">
+          <span className="font-medium">stdout</span>: {formatPreview(result?.stdout)}
+        </div>
+      )}
+      {result?.stderr && (
+        <div className="break-all text-muted-foreground">
+          <span className="font-medium">stderr</span>: {formatPreview(result?.stderr)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface HookItemRowProps {
+  hook: HookCommandItem;
+  index: number;
+  testing: boolean;
+  testResult: HookTestResult | null;
+  onToggleEnabled: (hookId: string, enabled: boolean) => void;
+  onRunTest: (hookId: string) => void;
+  onRemove: (hookId: string) => void;
+  onFieldChange: (hookId: string, field: "name" | "command", value: string) => void;
+  onEventChange: (hookId: string, eventName: HookEventName, checked: boolean) => void;
+  onPersist: () => void;
+}
+
+function HookItemRow({
+  hook,
+  index,
+  testing,
+  testResult,
+  onToggleEnabled,
+  onRunTest,
+  onRemove,
+  onFieldChange,
+  onEventChange,
+  onPersist,
+}: HookItemRowProps) {
+  return (
+    <div data-testid={`notifications-hook-${hook.id}`} className="rounded-md border p-4">
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-[180px]">
+            <div className="text-sm font-medium">{hook.name || `Hook ${index + 1}`}</div>
+            <div className="text-xs text-muted-foreground">{hook.id}</div>
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span>{hook.enabled ? "Enabled" : "Disabled"}</span>
+              <Switch checked={hook.enabled} onCheckedChange={(value) => onToggleEnabled(hook.id, value)} />
+            </label>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={testing || !hook.command.trim()}
+              onClick={() => onRunTest(hook.id)}
+            >
+              <Icon
+                icon={testing ? "lucide:loader-2" : "lucide:play"}
+                className={`mr-1 h-4 w-4 ${testing ? "animate-spin" : ""}`}
+              />
+              {testing ? "Testing..." : "Test"}
+            </Button>
+            <Button variant="ghost" size="sm" className="text-destructive" onClick={() => onRemove(hook.id)}>
+              <Icon icon="lucide:trash-2" className="mr-1 h-4 w-4" />
+              Delete
+            </Button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">Name</Label>
+            <Input
+              value={hook.name}
+              placeholder="Hook name"
+              onChange={(e) => onFieldChange(hook.id, "name", e.target.value)}
+              onBlur={() => onPersist()}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">Command</Label>
+            <Input
+              value={hook.command}
+              placeholder="Command to execute"
+              onChange={(e) => onFieldChange(hook.id, "command", e.target.value)}
+              onBlur={() => onPersist()}
+            />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label className="text-xs text-muted-foreground">Events</Label>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {HOOK_EVENT_NAMES.map((eventName) => (
+              <label key={`${hook.id}-${eventName}`} className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={hook.events.includes(eventName)}
+                  onCheckedChange={(value) => onEventChange(hook.id, eventName, value === true)}
+                />
+                <span>{eventLabels[eventName] ?? eventName}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {testResult && <HookTestResultView result={testResult} />}
+      </div>
+    </div>
+  );
+}
+
 export default function NotificationsHooksSettings() {
   const { toast } = useToast();
 
@@ -213,11 +420,6 @@ export default function NotificationsHooksSettings() {
     setTesting((prev) => ({ ...prev, [hookId]: false }));
   };
 
-  const formatPreview = (value?: string) => {
-    if (!value) return "";
-    return value.length <= PREVIEW_LIMIT ? value : `${value.slice(0, PREVIEW_LIMIT)}…`;
-  };
-
   useEffect(() => {
     let active = true;
 
@@ -285,83 +487,7 @@ export default function NotificationsHooksSettings() {
               </Button>
             </div>
 
-            <Collapsible open={guideOpen} onOpenChange={setGuideOpen} className="rounded-md border bg-muted/20">
-              <CollapsibleTrigger
-                render={<Button variant="ghost" className="flex h-auto w-full items-center justify-between p-4" />}
-              >
-                <div className="min-w-0 text-left">
-                  <div className="text-sm font-medium">Command Guide</div>
-                  <p className="mt-1 text-xs text-muted-foreground">Learn how to configure hook commands</p>
-                </div>
-                <Icon
-                  icon={guideOpen ? "lucide:chevron-up" : "lucide:chevron-down"}
-                  className="ml-3 h-4 w-4 shrink-0 text-muted-foreground"
-                />
-              </CollapsibleTrigger>
-              <CollapsibleContent className="border-t px-4 pb-4">
-                <div className="space-y-4 pt-4">
-                  <div className="grid gap-4 lg:grid-cols-2">
-                    <div className="space-y-2">
-                      <div className="text-xs font-medium text-muted-foreground">Delivery</div>
-                      <ul className="space-y-1 text-xs text-muted-foreground">
-                        <li>JSON payload via stdin</li>
-                        <li>Placeholders in command string</li>
-                        <li>Environment variables</li>
-                        <li>Metadata only (no content)</li>
-                      </ul>
-                      <div className="rounded-md border bg-background p-3">
-                        <div className="mb-2 text-[11px] font-medium text-muted-foreground">Stdin Preview</div>
-                        <pre className="whitespace-pre-wrap break-all text-[11px] leading-5">{stdinPreview}</pre>
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="text-xs font-medium text-muted-foreground">Placeholders</div>
-                      <p className="text-xs text-muted-foreground">Use these tokens in your command string.</p>
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        {placeholderDocs.map((item) => (
-                          <div key={item.token} className="rounded-md border bg-background p-3">
-                            <div className="text-xs font-medium">
-                              <code>{item.token}</code>
-                            </div>
-                            <div className="mt-1 text-[11px] text-muted-foreground">
-                              {fieldDescriptions[item.field]}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="grid gap-4 lg:grid-cols-2">
-                    <div className="space-y-2">
-                      <div className="text-xs font-medium text-muted-foreground">Environment Variables</div>
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        {envDocs.map((item) => (
-                          <div key={item.token} className="rounded-md border bg-background p-3">
-                            <div className="text-xs font-medium">
-                              <code>{item.token}</code>
-                            </div>
-                            <div className="mt-1 text-[11px] text-muted-foreground">
-                              {fieldDescriptions[item.field]}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="text-xs font-medium text-muted-foreground">Examples</div>
-                      <div className="space-y-2">
-                        {commandExamples.map((item) => (
-                          <div key={item.label} className="rounded-md border bg-background p-3">
-                            <div className="mb-2 text-[11px] font-medium text-muted-foreground">{item.label}</div>
-                            <pre className="whitespace-pre-wrap break-all text-[11px] leading-5">{item.command}</pre>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
+            <HookCommandGuide open={guideOpen} onOpenChange={setGuideOpen} />
 
             {config.hooks.length === 0 ? (
               <div
@@ -373,109 +499,19 @@ export default function NotificationsHooksSettings() {
             ) : (
               <div className="space-y-3">
                 {config.hooks.map((hook, index) => (
-                  <div key={hook.id} data-testid={`notifications-hook-${hook.id}`} className="rounded-md border p-4">
-                    <div className="space-y-4">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div className="min-w-[180px]">
-                          <div className="text-sm font-medium">{hook.name || `Hook ${index + 1}`}</div>
-                          <div className="text-xs text-muted-foreground">{hook.id}</div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <span>{hook.enabled ? "Enabled" : "Disabled"}</span>
-                            <Switch
-                              checked={hook.enabled}
-                              onCheckedChange={(value) => updateHookEnabled(hook.id, value)}
-                            />
-                          </label>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={testing[hook.id] || !hook.command.trim()}
-                            onClick={() => void runHookTest(hook.id)}
-                          >
-                            <Icon
-                              icon={testing[hook.id] ? "lucide:loader-2" : "lucide:play"}
-                              className={`mr-1 h-4 w-4 ${testing[hook.id] ? "animate-spin" : ""}`}
-                            />
-                            {testing[hook.id] ? "Testing..." : "Test"}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-destructive"
-                            onClick={() => removeHook(hook.id)}
-                          >
-                            <Icon icon="lucide:trash-2" className="mr-1 h-4 w-4" />
-                            Delete
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                        <div className="space-y-2">
-                          <Label className="text-xs text-muted-foreground">Name</Label>
-                          <Input
-                            value={hook.name}
-                            placeholder="Hook name"
-                            onChange={(e) => updateHookField(hook.id, "name", e.target.value)}
-                            onBlur={() => void persistConfig()}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label className="text-xs text-muted-foreground">Command</Label>
-                          <Input
-                            value={hook.command}
-                            placeholder="Command to execute"
-                            onChange={(e) => updateHookField(hook.id, "command", e.target.value)}
-                            onBlur={() => void persistConfig()}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label className="text-xs text-muted-foreground">Events</Label>
-                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                          {HOOK_EVENT_NAMES.map((eventName) => (
-                            <label key={`${hook.id}-${eventName}`} className="flex items-center gap-2 text-sm">
-                              <Checkbox
-                                checked={hook.events.includes(eventName)}
-                                onCheckedChange={(value) => updateHookEvent(hook.id, eventName, value === true)}
-                              />
-                              <span>{eventLabels[eventName] ?? eventName}</span>
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-
-                      {testResults[hook.id] && (
-                        <div className="space-y-1 text-xs">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className={testResults[hook.id]?.success ? "text-emerald-600" : "text-destructive"}>
-                              {testResults[hook.id]?.success ? "Success" : "Failed"}
-                            </span>
-                            <span className="text-muted-foreground">{testResults[hook.id]?.durationMs ?? 0}ms</span>
-                            {testResults[hook.id]?.exitCode !== undefined && (
-                              <span className="text-muted-foreground">Exit code: {testResults[hook.id]?.exitCode}</span>
-                            )}
-                          </div>
-                          {testResults[hook.id]?.error && (
-                            <div className="break-all text-destructive">{testResults[hook.id]?.error}</div>
-                          )}
-                          {testResults[hook.id]?.stdout && (
-                            <div className="break-all text-muted-foreground">
-                              <span className="font-medium">stdout</span>: {formatPreview(testResults[hook.id]?.stdout)}
-                            </div>
-                          )}
-                          {testResults[hook.id]?.stderr && (
-                            <div className="break-all text-muted-foreground">
-                              <span className="font-medium">stderr</span>: {formatPreview(testResults[hook.id]?.stderr)}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                  <HookItemRow
+                    key={hook.id}
+                    hook={hook}
+                    index={index}
+                    testing={testing[hook.id] ?? false}
+                    testResult={testResults[hook.id] ?? null}
+                    onToggleEnabled={updateHookEnabled}
+                    onRunTest={(hookId) => void runHookTest(hookId)}
+                    onRemove={removeHook}
+                    onFieldChange={updateHookField}
+                    onEventChange={updateHookEvent}
+                    onPersist={() => void persistConfig()}
+                  />
                 ))}
               </div>
             )}

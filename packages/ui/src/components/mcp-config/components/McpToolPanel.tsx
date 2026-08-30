@@ -80,6 +80,13 @@ const McpToolPanel: FC<McpToolPanelProps> = ({ serverName, open, onOpenChange })
       return false;
     }
   };
+  const handleToolInputChange = (toolName: string, value: string) => {
+    setLocalToolInputs((prev) => ({
+      ...prev,
+      [toolName]: value,
+    }));
+    validateJson(value, toolName);
+  };
   const callTool = async (toolName: string) => {
     if (!validateJson(localToolInputs[toolName], toolName)) return;
     try {
@@ -153,53 +160,13 @@ const McpToolPanel: FC<McpToolPanelProps> = ({ serverName, open, onOpenChange })
         <div className="flex flex-col flex-1 overflow-hidden">
           {showTopSelector && (
             <div className="shrink-0 px-4 py-4">
-              <Select value={selectedToolName} onValueChange={(v) => setSelectedToolName(v ?? "")}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select a tool to debug" />
-                </SelectTrigger>
-                <SelectContent>
-                  {serverTools.map((tool) => (
-                    <SelectItem key={tool.function.name} value={tool.function.name}>
-                      <div className="flex items-center space-x-2">
-                        <Icon icon="lucide:function-square" className="h-3 w-3 text-primary" />
-                        <span>{tool.function.name}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <McpToolTopSelect tools={serverTools} value={selectedToolName} onValueChange={setSelectedToolName} />
             </div>
           )}
 
           <div className="flex-1 flex overflow-hidden min-h-0">
             {!showTopSelector && (
-              <div className="flex w-1/3 border-r flex-col">
-                <div className="p-4 border-b shrink-0">
-                  <h3 className="text-sm font-medium text-foreground">Tool List</h3>
-                </div>
-                <ScrollArea className="flex-1 min-h-0">
-                  <div className="p-2 space-y-1">
-                    {serverTools.map((tool) => (
-                      <Button
-                        key={tool.function.name}
-                        variant="ghost"
-                        className={[
-                          "w-full justify-start h-auto p-3 text-left",
-                          selectedToolName === tool.function.name ? "bg-accent text-accent-foreground" : "",
-                        ].join(" ")}
-                        onClick={() => selectTool(tool)}
-                      >
-                        <div className="flex items-start space-x-2 w-full">
-                          <Icon icon="lucide:function-square" className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium text-sm truncate">{tool.function.name}</div>
-                          </div>
-                        </div>
-                      </Button>
-                    ))}
-                  </div>
-                </ScrollArea>
-              </div>
+              <McpToolListPanel tools={serverTools} selectedToolName={selectedToolName} onSelect={selectTool} />
             )}
 
             <div className="flex-1 flex flex-col overflow-hidden lg:w-2/3 min-h-0">
@@ -229,127 +196,22 @@ const McpToolPanel: FC<McpToolPanelProps> = ({ serverName, open, onOpenChange })
                       </div>
 
                       {toolParametersDescription.length > 0 && (
-                        <div className="border rounded-lg">
-                          <Button
-                            variant="ghost"
-                            className="w-full justify-between p-3 h-auto"
-                            onClick={() => setIsParametersExpanded(!isParametersExpanded)}
-                          >
-                            <span className="font-medium">Parameters ({toolParametersDescription.length})</span>
-                            <Icon
-                              icon={isParametersExpanded ? "lucide:chevron-up" : "lucide:chevron-down"}
-                              className="h-4 w-4"
-                            />
-                          </Button>
-                          {isParametersExpanded && (
-                            <div className="px-3 pb-3 space-y-2">
-                              {toolParametersDescription.map((param) => (
-                                <div key={param.name} className="p-2 bg-muted/30 rounded-md border border-border/30">
-                                  <div className="flex items-center space-x-1 mb-1">
-                                    <code className="text-xs font-mono font-medium text-foreground">{param.name}</code>
-                                    {param.required && (
-                                      <Badge variant="destructive" className="text-xs px-1 py-0">
-                                        Required
-                                      </Badge>
-                                    )}
-                                    <Badge
-                                      variant={
-                                        param.type === "enum" || param.type === "array[enum]" ? "default" : "outline"
-                                      }
-                                      className={[
-                                        "text-xs px-1 py-0",
-                                        param.type === "enum" || param.type === "array[enum]"
-                                          ? "bg-blue-500 text-white"
-                                          : "",
-                                      ].join(" ")}
-                                    >
-                                      {param.type === "enum"
-                                        ? `enum(${param.originalType})`
-                                        : param.type === "array[enum]"
-                                          ? `array[enum(${param.items?.type || "string"})]`
-                                          : param.type}
-                                    </Badge>
-                                  </div>
-                                  {param.description && (
-                                    <p className="text-xs text-muted-foreground">{param.description}</p>
-                                  )}
-                                  {param.enum && param.enum.length > 0 && (
-                                    <div className="mt-1">
-                                      <p className="text-xs font-medium text-foreground mb-1">Allowed values:</p>
-                                      <div className="flex flex-wrap gap-1">
-                                        {param.enum.map((enumValue) => (
-                                          <Badge
-                                            key={enumValue}
-                                            variant="secondary"
-                                            className="text-xs px-1.5 py-0.5 font-mono"
-                                          >
-                                            {enumValue}
-                                          </Badge>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
+                        <McpToolParametersSection
+                          parameters={toolParametersDescription}
+                          expanded={isParametersExpanded}
+                          onToggle={() => setIsParametersExpanded(!isParametersExpanded)}
+                        />
                       )}
 
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <h3 className="text-sm font-medium text-foreground">Input</h3>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 text-xs px-2"
-                            onClick={() => formatToolInput(selectedTool.function.name)}
-                          >
-                            <Icon icon="lucide:align-left" className="mr-1 h-3 w-3" />
-                            Format
-                          </Button>
-                        </div>
-
-                        <div className="relative">
-                          <textarea
-                            value={localToolInputs[selectedTool.function.name] || "{}"}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setLocalToolInputs((prev) => ({
-                                ...prev,
-                                [selectedTool.function.name]: val,
-                              }));
-                              validateJson(val, selectedTool.function.name);
-                            }}
-                            aria-label="Tool input parameters (JSON)"
-                            className={[
-                              "flex h-32 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                              jsonError[selectedTool.function.name] ? "border-destructive" : "",
-                            ].join(" ")}
-                            placeholder="{}"
-                          />
-                          {jsonError[selectedTool.function.name] && (
-                            <div className="absolute right-3 top-3 text-xs text-destructive">Invalid JSON</div>
-                          )}
-                        </div>
-                        <p className="text-xs text-muted-foreground">Enter JSON parameters for the tool</p>
-
-                        <Button
-                          className="w-full"
-                          disabled={
-                            mcpStore.toolLoadingStates[selectedTool.function.name] ||
-                            jsonError[selectedTool.function.name]
-                          }
-                          onClick={() => callTool(selectedTool.function.name)}
-                        >
-                          {mcpStore.toolLoadingStates[selectedTool.function.name] ? (
-                            <Icon icon="lucide:loader" className="mr-2 h-4 w-4 animate-spin" />
-                          ) : (
-                            <Icon icon="lucide:play" className="mr-2 h-4 w-4" />
-                          )}
-                          {mcpStore.toolLoadingStates[selectedTool.function.name] ? "Running..." : "Execute"}
-                        </Button>
-                      </div>
+                      <McpToolInputSection
+                        toolName={selectedTool.function.name}
+                        value={localToolInputs[selectedTool.function.name] || "{}"}
+                        hasJsonError={Boolean(jsonError[selectedTool.function.name])}
+                        loading={Boolean(mcpStore.toolLoadingStates[selectedTool.function.name])}
+                        onValueChange={handleToolInputChange}
+                        onFormat={formatToolInput}
+                        onCall={callTool}
+                      />
 
                       {localToolResults[selectedTool.function.name] && (
                         <McpJsonViewer content={localToolResults[selectedTool.function.name]} title="Result" readonly />
@@ -365,4 +227,193 @@ const McpToolPanel: FC<McpToolPanelProps> = ({ serverName, open, onOpenChange })
     </Sheet>
   );
 };
+type McpToolParameterDescription = {
+  name: string;
+  description: string;
+  type: string;
+  originalType: string;
+  required: boolean;
+  annotations: unknown;
+  enum: string[] | null;
+  items: {
+    type?: string;
+    enum?: string[];
+  } | null;
+};
+
+const McpToolTopSelect = ({
+  tools,
+  value,
+  onValueChange,
+}: {
+  tools: MCPToolDefinition[];
+  value: string;
+  onValueChange: (value: string) => void;
+}) => (
+  <Select value={value} onValueChange={(v) => onValueChange(v ?? "")}>
+    <SelectTrigger className="w-full">
+      <SelectValue placeholder="Select a tool to debug" />
+    </SelectTrigger>
+    <SelectContent>
+      {tools.map((tool) => (
+        <SelectItem key={tool.function.name} value={tool.function.name}>
+          <div className="flex items-center space-x-2">
+            <Icon icon="lucide:function-square" className="h-3 w-3 text-primary" />
+            <span>{tool.function.name}</span>
+          </div>
+        </SelectItem>
+      ))}
+    </SelectContent>
+  </Select>
+);
+
+const McpToolListPanel = ({
+  tools,
+  selectedToolName,
+  onSelect,
+}: {
+  tools: MCPToolDefinition[];
+  selectedToolName: string;
+  onSelect: (tool: MCPToolDefinition) => void;
+}) => (
+  <div className="flex w-1/3 border-r flex-col">
+    <div className="p-4 border-b shrink-0">
+      <h3 className="text-sm font-medium text-foreground">Tool List</h3>
+    </div>
+    <ScrollArea className="flex-1 min-h-0">
+      <div className="p-2 space-y-1">
+        {tools.map((tool) => (
+          <Button
+            key={tool.function.name}
+            variant="ghost"
+            className={[
+              "w-full justify-start h-auto p-3 text-left",
+              selectedToolName === tool.function.name ? "bg-accent text-accent-foreground" : "",
+            ].join(" ")}
+            onClick={() => onSelect(tool)}
+          >
+            <div className="flex items-start space-x-2 w-full">
+              <Icon icon="lucide:function-square" className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-sm truncate">{tool.function.name}</div>
+              </div>
+            </div>
+          </Button>
+        ))}
+      </div>
+    </ScrollArea>
+  </div>
+);
+
+const McpToolParametersSection = ({
+  parameters,
+  expanded,
+  onToggle,
+}: {
+  parameters: McpToolParameterDescription[];
+  expanded: boolean;
+  onToggle: () => void;
+}) => (
+  <div className="border rounded-lg">
+    <Button variant="ghost" className="w-full justify-between p-3 h-auto" onClick={onToggle}>
+      <span className="font-medium">Parameters ({parameters.length})</span>
+      <Icon icon={expanded ? "lucide:chevron-up" : "lucide:chevron-down"} className="h-4 w-4" />
+    </Button>
+    {expanded && (
+      <div className="px-3 pb-3 space-y-2">
+        {parameters.map((param) => (
+          <div key={param.name} className="p-2 bg-muted/30 rounded-md border border-border/30">
+            <div className="flex items-center space-x-1 mb-1">
+              <code className="text-xs font-mono font-medium text-foreground">{param.name}</code>
+              {param.required && (
+                <Badge variant="destructive" className="text-xs px-1 py-0">
+                  Required
+                </Badge>
+              )}
+              <Badge
+                variant={param.type === "enum" || param.type === "array[enum]" ? "default" : "outline"}
+                className={[
+                  "text-xs px-1 py-0",
+                  param.type === "enum" || param.type === "array[enum]" ? "bg-blue-500 text-white" : "",
+                ].join(" ")}
+              >
+                {param.type === "enum"
+                  ? `enum(${param.originalType})`
+                  : param.type === "array[enum]"
+                    ? `array[enum(${param.items?.type || "string"})]`
+                    : param.type}
+              </Badge>
+            </div>
+            {param.description && <p className="text-xs text-muted-foreground">{param.description}</p>}
+            {param.enum && param.enum.length > 0 && (
+              <div className="mt-1">
+                <p className="text-xs font-medium text-foreground mb-1">Allowed values:</p>
+                <div className="flex flex-wrap gap-1">
+                  {param.enum.map((enumValue) => (
+                    <Badge key={enumValue} variant="secondary" className="text-xs px-1.5 py-0.5 font-mono">
+                      {enumValue}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+);
+
+const McpToolInputSection = ({
+  toolName,
+  value,
+  hasJsonError,
+  loading,
+  onValueChange,
+  onFormat,
+  onCall,
+}: {
+  toolName: string;
+  value: string;
+  hasJsonError: boolean;
+  loading: boolean;
+  onValueChange: (toolName: string, value: string) => void;
+  onFormat: (toolName: string) => void;
+  onCall: (toolName: string) => void;
+}) => (
+  <div className="space-y-3">
+    <div className="flex items-center justify-between">
+      <h3 className="text-sm font-medium text-foreground">Input</h3>
+      <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={() => onFormat(toolName)}>
+        <Icon icon="lucide:align-left" className="mr-1 h-3 w-3" />
+        Format
+      </Button>
+    </div>
+
+    <div className="relative">
+      <textarea
+        value={value}
+        onChange={(e) => onValueChange(toolName, e.target.value)}
+        aria-label="Tool input parameters (JSON)"
+        className={[
+          "flex h-32 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+          hasJsonError ? "border-destructive" : "",
+        ].join(" ")}
+        placeholder="{}"
+      />
+      {hasJsonError && <div className="absolute right-3 top-3 text-xs text-destructive">Invalid JSON</div>}
+    </div>
+    <p className="text-xs text-muted-foreground">Enter JSON parameters for the tool</p>
+
+    <Button className="w-full" disabled={loading || hasJsonError} onClick={() => onCall(toolName)}>
+      {loading ? (
+        <Icon icon="lucide:loader" className="mr-2 h-4 w-4 animate-spin" />
+      ) : (
+        <Icon icon="lucide:play" className="mr-2 h-4 w-4" />
+      )}
+      {loading ? "Running..." : "Execute"}
+    </Button>
+  </div>
+);
+
 export default McpToolPanel;
