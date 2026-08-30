@@ -289,6 +289,12 @@ import {
   workspaceWriteFileRoute,
   workspaceCreateEntryRoute,
   workspaceDeletePathRoute,
+  terminalCreateRoute,
+  terminalInputRoute,
+  terminalResizeRoute,
+  terminalKillRoute,
+  terminalListRoute,
+  terminalAttachRoute,
   type SettingsActivityInput,
 } from "@argos/shared-contracts/routes";
 import { DEV_EVENTS } from "#/events";
@@ -1354,6 +1360,37 @@ export async function dispatchArgosRoute(
     case workspaceDeletePathRoute.name: {
       const input = workspaceDeletePathRoute.input.parse(rawInput);
       return workspaceDeletePathRoute.output.parse(await invokeDaemonRoute(workspaceDeletePathRoute.name, input));
+    }
+
+    // Integrated terminal: fully daemon-owned PTY sessions (work in web mode too).
+    case terminalCreateRoute.name: {
+      const input = terminalCreateRoute.input.parse(rawInput);
+      return terminalCreateRoute.output.parse(await invokeDaemonRoute(terminalCreateRoute.name, input));
+    }
+
+    case terminalInputRoute.name: {
+      const input = terminalInputRoute.input.parse(rawInput);
+      return terminalInputRoute.output.parse(await invokeDaemonRoute(terminalInputRoute.name, input));
+    }
+
+    case terminalResizeRoute.name: {
+      const input = terminalResizeRoute.input.parse(rawInput);
+      return terminalResizeRoute.output.parse(await invokeDaemonRoute(terminalResizeRoute.name, input));
+    }
+
+    case terminalKillRoute.name: {
+      const input = terminalKillRoute.input.parse(rawInput);
+      return terminalKillRoute.output.parse(await invokeDaemonRoute(terminalKillRoute.name, input));
+    }
+
+    case terminalListRoute.name: {
+      const input = terminalListRoute.input.parse(rawInput);
+      return terminalListRoute.output.parse(await invokeDaemonRoute(terminalListRoute.name, input));
+    }
+
+    case terminalAttachRoute.name: {
+      const input = terminalAttachRoute.input.parse(rawInput);
+      return terminalAttachRoute.output.parse(await invokeDaemonRoute(terminalAttachRoute.name, input));
     }
 
     case workspaceRenameOrMovePathRoute.name: {

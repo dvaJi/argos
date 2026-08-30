@@ -1,7 +1,15 @@
 import zod from "zod";
 import { defineRouteContract } from "../common";
 
-export const ARGOS_CAPABILITIES = ["chat", "sessions", "project-files", "mcp", "skills", "browser"] as const;
+export const ARGOS_CAPABILITIES = [
+  "chat",
+  "sessions",
+  "project-files",
+  "mcp",
+  "skills",
+  "browser",
+  "terminal",
+] as const;
 export type ArgosCapability = (typeof ARGOS_CAPABILITIES)[number];
 
 export const connectionDescribeEnvironmentRoute = defineRouteContract({

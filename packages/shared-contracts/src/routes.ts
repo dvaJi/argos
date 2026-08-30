@@ -345,6 +345,14 @@ import {
   skillsReadSkillFileRoute,
 } from "./routes/skills.routes";
 import {
+  terminalAttachRoute,
+  terminalCreateRoute,
+  terminalInputRoute,
+  terminalKillRoute,
+  terminalListRoute,
+  terminalResizeRoute,
+} from "./routes/terminal.routes";
+import {
   skillsyncScanExternalToolsRoute,
   skillsyncGetRegisteredToolsRoute,
   skillsyncPreviewImportRoute,
@@ -481,6 +489,7 @@ export * from "./routes/settings.routes";
 export * from "./routes/startup.routes";
 export * from "./routes/sessions.routes";
 export * from "./routes/skills.routes";
+export * from "./routes/terminal.routes";
 export * from "./routes/pi-packages.routes";
 export * from "./routes/sync.routes";
 export * from "./routes/system.routes";
@@ -774,6 +783,12 @@ export const ARGOS_ROUTE_CATALOG = {
   [piPackagesRemoveRoute.name]: piPackagesRemoveRoute,
   [piPackagesGetProjectTrustRoute.name]: piPackagesGetProjectTrustRoute,
   [piPackagesSetProjectTrustRoute.name]: piPackagesSetProjectTrustRoute,
+  [terminalCreateRoute.name]: terminalCreateRoute,
+  [terminalInputRoute.name]: terminalInputRoute,
+  [terminalResizeRoute.name]: terminalResizeRoute,
+  [terminalKillRoute.name]: terminalKillRoute,
+  [terminalListRoute.name]: terminalListRoute,
+  [terminalAttachRoute.name]: terminalAttachRoute,
   [mcpGetServersRoute.name]: mcpGetServersRoute,
   [mcpGetEnabledRoute.name]: mcpGetEnabledRoute,
   [mcpGetClientsRoute.name]: mcpGetClientsRoute,

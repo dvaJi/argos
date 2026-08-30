@@ -14,6 +14,7 @@ import { BunEventPublisher } from "./host/bun-event-publisher";
 import { initializeDatabase } from "./host/db-init";
 import { createDaemonDispatcher } from "./dispatch/daemonDispatcher";
 import { DaemonWorkspacePresenter } from "./workspace/daemonWorkspacePresenter";
+import { DaemonTerminalRuntime } from "./terminal/daemonTerminalRuntime";
 import { ProviderImportService } from "@argos/backend-core";
 import { PiProviderExecutionPort } from "./host/pi-provider-execution";
 import { PiAgentProfileManager } from "./host/piAgentProfileManager";
@@ -799,6 +800,8 @@ export async function startDaemon(options?: {
     pathJoin(paths.getDataDir(), "worktrees"),
   );
 
+  const terminalRuntime = new DaemonTerminalRuntime(eventPublisher);
+
   const dispatcher =
     options?.dispatcher ??
     createDaemonDispatcher(
@@ -820,6 +823,7 @@ export async function startDaemon(options?: {
       orchestrationRuntime,
       workspacePresenter,
       knowledgeRuntime.runtime,
+      terminalRuntime,
     );
   setRouteDispatcher(dispatcher);
 
@@ -1080,6 +1084,12 @@ export async function startDaemon(options?: {
       logger.warn("[daemon] Failed to shut down plugin presenter cleanly");
     }
     try {
+      terminalRuntime.shutdown();
+      logger.info("[daemon] Terminal sessions closed");
+    } catch {
+      logger.warn("[daemon] Failed to shut down terminal sessions cleanly");
+    }
+    try {
       await piProviderExecutionPort.dispose();
     } catch {
       logger.warn("[daemon] Failed to shut down Pi workers cleanly");
@@ -1107,6 +1117,7 @@ export async function startDaemon(options?: {
       await memoryRuntime.presenter.dispose().catch(() => undefined);
       await remoteControlRuntime.destroy();
       await pluginPresenter.shutdown();
+      terminalRuntime.shutdown();
       await piProviderExecutionPort.dispose();
       (server as any).stop();
     },
