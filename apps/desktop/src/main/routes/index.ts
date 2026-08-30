@@ -2550,7 +2550,11 @@ export async function dispatchArgosRoute(
 
     case providersListModelsRoute.name: {
       const input = providersListModelsRoute.input.parse(rawInput);
-      const catalog = await invokeDaemonRoute(modelsGetProviderCatalogRoute.name, { providerId: input.providerId });
+      // The daemon returns the provider catalog wrapped in a `catalog` envelope
+      // (models.getProviderCatalog); this route exposes the flat arrays.
+      const { catalog } = modelsGetProviderCatalogRoute.output.parse(
+        await invokeDaemonRoute(modelsGetProviderCatalogRoute.name, { providerId: input.providerId }),
+      );
       return providersListModelsRoute.output.parse(catalog);
     }
 
