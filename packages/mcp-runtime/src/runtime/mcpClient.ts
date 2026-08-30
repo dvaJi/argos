@@ -27,7 +27,7 @@ const MCP_EVENTS = {
   SAMPLING_REQUEST: "mcp:sampling-request",
 } as const;
 
-import {
+import type {
   PromptListEntry,
   ToolCallResult,
   Tool,

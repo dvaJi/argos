@@ -1,4 +1,4 @@
-import { LLM_PROVIDER_BASE } from "@argos/shared/presenter";
+import type { LLM_PROVIDER_BASE } from "@argos/shared/presenter";
 
 const CHINA_SPECIFIC_PROVIDER_IDS = new Set([
   "302ai",

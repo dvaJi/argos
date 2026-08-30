@@ -2,7 +2,7 @@
  * KnowledgeTaskPresenter - Focused on global task scheduling and sequential execution
  * This class manages a queue of knowledge-related tasks, allowing for efficient processing and management of these tasks.
  */
-import {
+import type {
   IKnowledgeTaskPresenter,
   KnowledgeChunkTask,
   TaskQueueStatus,

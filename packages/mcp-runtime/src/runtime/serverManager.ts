@@ -1,4 +1,4 @@
-import { IConfigPresenter, MCPServerConfig } from "@argos/shared/presenter";
+import type { IConfigPresenter, MCPServerConfig } from "@argos/shared/presenter";
 import { McpClient } from "./mcpClient";
 import axios from "axios";
 import type { McpHostPorts } from "../host/ports";

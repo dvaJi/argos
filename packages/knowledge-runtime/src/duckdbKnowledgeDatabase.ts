@@ -12,7 +12,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { DuckDBConnection, DuckDBInstance, arrayValue } from "@duckdb/node-api";
-import {
+import type {
   IndexOptions,
   VectorInsertOptions,
   QueryOptions,

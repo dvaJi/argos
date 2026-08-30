@@ -80,6 +80,8 @@ interface TerminalSession {
   pendingBytes: number;
   flushTimer: ReturnType<typeof setTimeout> | null;
   exitStatus: TerminalExitStatus | null;
+  /** Set when the client explicitly killed the session (dispose on exit). */
+  killed: boolean;
 }
 
 function resolvePtyTerminalCtor(): PtyTerminalCtor {
@@ -201,6 +203,7 @@ export class DaemonTerminalRuntime {
       pendingBytes: 0,
       flushTimer: null,
       exitStatus: null,
+      killed: false,
     };
 
     const terminal = new ctor({
