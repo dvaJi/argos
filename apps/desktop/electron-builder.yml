@@ -102,6 +102,12 @@ mac:
     - target: dmg
     - target: zip
   artifactName: ${name}-${version}-mac-${arch}.${ext}
+  extraFiles:
+    - from: ./build/managed-helpers/
+      to: Helpers
+      filter: ["**/*"]
+  signIgnore:
+    - /Contents/Helpers/Argos Computer Use[.]app(?:/|)$
 linux:
   target:
     - AppImage

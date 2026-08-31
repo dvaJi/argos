@@ -15,6 +15,7 @@ export interface PluginMcpRuntimeStatus {
   serverId: string;
   enabled: boolean;
   running: boolean;
+  lastError?: string;
 }
 
 export interface PluginActionResult {
@@ -27,6 +28,8 @@ export interface ArgosPluginSettingsApi {
   getPluginId(): string;
   getStatus(): Promise<{
     pluginId: string;
+    platform: string;
+    arch: string;
     enabled: boolean;
     runtime?: PluginRuntimeStatus;
     mcpServers?: PluginMcpRuntimeStatus[];

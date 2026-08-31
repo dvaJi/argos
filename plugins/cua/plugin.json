@@ -1,7 +1,7 @@
 {
   "id": "com.argos.plugins.cua",
   "name": "CUA Computer Use Runtime",
-  "version": "1.0.4-beta.3",
+  "version": "2.0.0",
   "publisher": "Argos",
   "engines": {
     "argos": ">=${app.version}",
@@ -15,6 +15,7 @@
     "skills.register",
     "settings.contribute",
     "shell.openExternal",
+    "shell.openPath",
     "process.execDeclared"
   ],
   "source": {
@@ -25,18 +26,28 @@
   "runtime": {
     "id": "cua-driver",
     "type": "external-helper",
-    "displayName": "Cua Driver",
+    "displayName": "CUA Driver",
+    "adapter": "cua-embedded-v1",
+    "integrityDescriptor": "runtime/${target.platform}/${arch}/integrity.json",
+    "adapterContract": {
+      "hostBundleId": "com.wefonk.argos.computeruse",
+      "driverVersion": "0.19.2",
+      "contractVersion": "0.6.0",
+      "toolsListSchemaVersion": "1",
+      "capabilityVersion": "1",
+      "mcpProtocolVersion": "2025-06-18"
+    },
     "detect": [
-      "plugin:runtime/darwin/${arch}/Argos Computer Use.app/Contents/MacOS/cua-driver",
+      "app-helper:Argos Computer Use.app/Contents/MacOS/argos-cua-driver",
+      "plugin:runtime/darwin/${arch}/Argos Computer Use.app/Contents/MacOS/argos-cua-driver",
       "plugin:runtime/win32/${arch}/cua-driver.exe",
-      "plugin:runtime/linux/${arch}/cua-driver",
-      "/Applications/CuaDriver.app/Contents/MacOS/cua-driver"
+      "plugin:runtime/linux/${arch}/cua-driver"
     ],
     "install": {
       "mode": "user-confirmed",
       "provider": "trycua",
       "strategy": "bundled-plugin-helper",
-      "minVersion": "0.1.0",
+      "minVersion": "0.19.2",
       "guideUrl": "https://cua.ai/docs/cua-driver/guide/getting-started/installation"
     }
   },
@@ -46,19 +57,17 @@
       "displayName": "CUA Driver",
       "transport": "stdio",
       "command": "${runtime.cua-driver.command}",
-      "args": ["mcp"],
-      "env": {
-        "CUA_DRIVER_MCP_MODE": "1",
-        "ARGOS_COMPUTER_USE_APP_PATH": "${runtime.cua-driver.helperAppPath}",
-        "ARGOS_COMPUTER_USE_BINARY_PATH": "${runtime.cua-driver.command}"
-      },
-      "autoApprove": []
+      "args": ["mcp", "--embedded"],
+      "startMode": "onDemand",
+      "surfaces": ["tools"],
+      "toolCatalog": "runtime/${target.platform}/${arch}/tool-catalog.json",
+      "inheritEnv": "minimal"
     }
   ],
   "skills": [
     {
-      "id": "cua-driver",
-      "path": "skills/cua-driver/SKILL.md",
+      "id": "computer-use",
+      "path": "skills/computer-use/SKILL.md",
       "scope": "agent"
     }
   ],
@@ -80,30 +89,60 @@
         "list_windows": "allow",
         "get_screen_size": "allow",
         "get_window_state": "allow",
+        "verify_state": "allow",
+        "get_accessibility_tree": "allow",
+        "get_desktop_state": "allow",
         "get_cursor_position": "allow",
         "get_config": "allow",
         "get_recording_state": "allow",
         "get_agent_cursor_state": "allow",
-        "screenshot": "allow",
+        "check_for_update": "allow",
+        "health_report": "allow",
+        "get_browser_state": "allow",
+        "get_session_state": "allow",
+        "start_session": "allow",
+        "end_session": "allow",
+        "debug_window_info": "deny",
+        "clipboard_read": "deny",
         "launch_app": "ask",
+        "kill_app": "deny",
+        "bring_to_front": "ask",
+        "set_window_frame": "ask",
         "click": "ask",
         "right_click": "ask",
         "double_click": "ask",
         "drag": "ask",
+        "mouse_button_down": "deny",
+        "mouse_button_up": "deny",
+        "mouse_drag": "deny",
+        "parallel_mouse_drag": "ask",
         "scroll": "ask",
         "move_cursor": "ask",
         "type_text": "ask",
         "press_key": "ask",
         "hotkey": "ask",
         "set_value": "ask",
+        "invoke_menu": "ask",
+        "clipboard_write": "ask",
         "set_config": "ask",
-        "set_recording": "ask",
+        "start_recording": "ask",
+        "stop_recording": "ask",
+        "install_ffmpeg": "ask",
         "set_agent_cursor_enabled": "ask",
         "set_agent_cursor_motion": "ask",
-        "set_agent_cursor_style": "ask",
+        "set_agent_cursor_theme": "ask",
         "replay_trajectory": "ask",
         "zoom": "ask",
-        "page": "ask"
+        "page": "ask",
+        "browser_prepare": "ask",
+        "browser_navigate": "ask",
+        "browser_click": "ask",
+        "browser_type": "ask",
+        "browser_dialog": "ask",
+        "browser_set_input_files": "ask",
+        "browser_download": "ask",
+        "browser_pointer": "ask",
+        "escalate_session": "ask"
       }
     }
   ]
