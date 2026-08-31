@@ -76,7 +76,7 @@ image/video/TTS model types.
 
 - **Codex image generation for providers** (v1.1.1-beta.4) — we have image gen; fold in if the Codex runtime (#1788, still pending) ever lands.
 - **Provider/settings UI redesigns** (v1.1.1-beta.2 sidebar) — Vue-specific; our settings redesign is ahead via T3-style work.
-- **Computer Use driver 0.19.x** (snapshot targeting, post-action verification, PiP) — plugin-level; tracked separately (`cua-driver-v0-2-0-sync`).
+- ~~**Computer Use driver 0.19.x** (snapshot targeting, post-action verification, PiP)~~ — **done** (local sync 2026-08-30): full Rust driver v0.19.2 embedded-runtime integration; see `docs/features/cua-plugin-rust-driver/` and `sync-state.md`.
 - **markstream-vue / stream-monaco** — Vue-only, permanent skip.
 - **Source harness internals** (loop runner, compaction service, tool-surface controller, context coordinator, CLI_SURFACE_V3 journal) — **structural skip**; Pi owns this layer.
 - **Feishu/Lark install auth + streaming card delivery** — we carry Telegram/QQBot/Discord/WeChat; add only with user demand.
