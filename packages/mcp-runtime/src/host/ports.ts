@@ -1,4 +1,5 @@
 import type { MCPServerConfig } from "@argos/shared/presenter";
+import type { PluginOwnedServerRegistration, PluginRuntimeStartReason } from "@argos/backend-core";
 
 /** Paths the MCP runtime needs (replaces `app.getPath`/`app.getVersion`). */
 export interface McpPathsPort {
@@ -35,6 +36,20 @@ export interface McpProxyPort {
 }
 
 /**
+ * Plugin-owned MCP runtime supervision (on-demand start, integrity launch
+ * guards, static tool catalogs). Optional — hosts without plugin runtimes
+ * simply omit it.
+ */
+export interface McpPluginRuntimePort {
+  ensureRunning(serverName: string, reason: PluginRuntimeStartReason): Promise<void>;
+  ownsServer(serverName: string): boolean;
+  isServerAvailable(serverName: string): boolean;
+  getOwnerPluginId(serverName: string): string | undefined;
+  getRegistration(serverName: string): PluginOwnedServerRegistration | undefined;
+  getAvailableToolCatalogs(): PluginOwnedServerRegistration[];
+}
+
+/**
  * Host-specific service hooks. All optional — the runtime degrades gracefully
  * when a host cannot provide them (for example, when a host has no sampling
  * UI or no in-memory knowledge servers).
@@ -48,6 +63,8 @@ export interface McpHostServices {
   getCustomModels?(providerId: string): unknown[];
   /** Plugin tool-permission policy (desktop or daemon plugin host). */
   getPluginToolPolicy?(serverId: string, toolName: string): unknown;
+  /** Plugin runtime supervision port (on-demand starts + tool catalogs). */
+  pluginRuntime?: McpPluginRuntimePort;
   /** ACP context for per-agent MCP gating. */
   getSession?(conversationId: string): unknown;
   getAcpAgents?(): Promise<unknown[]>;

@@ -213,7 +213,7 @@ export class ServerManager {
     return clients;
   }
 
-  async startServer(name: string): Promise<void> {
+  async startServer(name: string, configOverride?: Partial<MCPServerConfig>): Promise<void> {
     // If server is already running, no need to start again
     if (this.clients.has(name)) {
       if (this.isServerRunning(name)) {
@@ -231,13 +231,17 @@ export class ServerManager {
       throw new Error(`MCP server ${name} not found`);
     }
 
+    const effectiveConfig: MCPServerConfig = configOverride
+      ? { ...serverConfig, ...configOverride }
+      : serverConfig;
+
     try {
       console.info(`Starting MCP server ${name}...`);
-      const npmRegistry = serverConfig.customNpmRegistry || this.npmRegistry;
+      const npmRegistry = effectiveConfig.customNpmRegistry || this.npmRegistry;
       // Create and save client instance, passing npm registry
       const client = new McpClient(
         name,
-        serverConfig as unknown as Record<string, unknown>,
+        effectiveConfig as unknown as Record<string, unknown>,
         this.ports,
         npmRegistry,
         this.uvRegistry,

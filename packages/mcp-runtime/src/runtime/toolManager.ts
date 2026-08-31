@@ -18,6 +18,14 @@ import type {
   Resource,
 } from "@argos/shared/presenter";
 import type { AgentToolAccessContext } from "@argos/shared/types/presenters/tool.presenter";
+import { CUA_PLUGIN_ID } from "@argos/shared/types/plugin";
+import {
+  appendCuaResultProjections,
+  normalizeCuaToolArguments,
+  validateCuaSnapshotTargetArguments,
+  type PluginOwnedServerRegistration,
+  type PluginToolCatalogTool,
+} from "@argos/backend-core";
 import { ServerManager } from "./serverManager";
 import { McpClient } from "./mcpClient";
 import { jsonrepair } from "jsonrepair";
@@ -36,6 +44,7 @@ export class ToolManager {
   private unsubConfig?: () => void;
   private cachedToolDefinitions: MCPToolDefinition[] | null = null;
   private toolNameToTargetMap: Map<string, { client: McpClient; originalName: string }> | null = null;
+  private catalogToolTargets: Map<string, { serverName: string; tool: PluginToolCatalogTool }> | null = null;
   // Session-scoped permission cache: conversationId -> Set of "serverName:permissionType"
   private sessionPermissions = new Map<string, Set<string>>();
 
@@ -51,12 +60,14 @@ export class ToolManager {
     console.info("MCP client list updated, clearing tool definitions cache and target map.");
     this.cachedToolDefinitions = null;
     this.toolNameToTargetMap = null;
+    this.catalogToolTargets = null;
   };
 
   private handleConfigChange = (): void => {
     console.info("MCP configuration changed, clearing cached data.");
     this.cachedToolDefinitions = null;
     this.toolNameToTargetMap = null;
+    this.catalogToolTargets = null;
   };
 
   private isPluginOwnedClient(client: McpClient): boolean {
@@ -161,6 +172,96 @@ export class ToolManager {
   public async getRunningClients(): Promise<McpClient[]> {
     return this.serverManager.getRunningClients();
   }
+  private appendCatalogToolDefinitions(
+    results: MCPToolDefinition[],
+    toolNameToServerMap: Map<string, string>,
+  ): void {
+    const pluginRuntime = this.ports.services.pluginRuntime;
+    if (!pluginRuntime) {
+      this.catalogToolTargets = new Map();
+      return;
+    }
+
+    if (!this.catalogToolTargets) {
+      this.catalogToolTargets = new Map();
+    } else {
+      this.catalogToolTargets.clear();
+    }
+
+    const catalogRegistrations: PluginOwnedServerRegistration[] = pluginRuntime.getAvailableToolCatalogs();
+    for (const registration of catalogRegistrations) {
+      const catalog = registration.toolCatalog;
+      if (!catalog) {
+        continue;
+      }
+      const renamesForThisServer = new Set<string>();
+      for (const tool of catalog.tools) {
+        const existingServer = toolNameToServerMap.get(tool.name);
+        if (existingServer && existingServer !== registration.serverName) {
+          renamesForThisServer.add(tool.name);
+          toolNameToServerMap.set(tool.name, existingServer);
+        } else if (!existingServer) {
+          toolNameToServerMap.set(tool.name, registration.serverName);
+        }
+      }
+
+      for (const tool of catalog.tools) {
+        if (this.ports.services.getPluginToolPolicy?.(registration.serverName, tool.name) === "deny") {
+          continue;
+        }
+
+        const originalName = tool.name;
+        let finalName = originalName;
+        let finalDescription = tool.description;
+        if (renamesForThisServer.has(originalName)) {
+          finalName = `${registration.serverName}_${originalName}`;
+          finalDescription = `[${registration.serverName}] ${tool.description}`;
+        }
+
+        const namePattern = /^[a-zA-Z0-9_-]+$/;
+        if (!namePattern.test(finalName)) {
+          continue;
+        }
+
+        const properties = (tool.inputSchema.properties || {}) as Record<string, { description?: string }>;
+        const toolProperties: Record<string, { description?: string }> = { ...properties };
+        for (const key in toolProperties) {
+          if (!toolProperties[key].description) {
+            toolProperties[key].description = "Params of " + key;
+          }
+        }
+
+        results.push({
+          type: "function",
+          function: {
+            name: finalName,
+            description: finalDescription,
+            parameters: {
+              type: "object",
+              properties: toolProperties,
+              required: Array.isArray(tool.inputSchema.required) ? tool.inputSchema.required : [],
+            },
+          },
+          server: {
+            name: registration.serverName,
+            icons: "plugin",
+            description: registration.displayName ?? registration.serverName,
+          },
+        });
+
+        this.catalogToolTargets.set(finalName, {
+          serverName: registration.serverName,
+          tool: {
+            name: originalName,
+            description: tool.description,
+            inputSchema: tool.inputSchema as Record<string, unknown>,
+            annotations: tool.annotations,
+          },
+        });
+      }
+    }
+  }
+
   // Get all tool definitions
   public async getAllToolDefinitions(
     enabledTools?: string[],
@@ -182,8 +283,12 @@ export class ToolManager {
 
     if (!clients || clients.length === 0) {
       console.warn("No running MCP clients found.");
-      this.cachedToolDefinitions = [];
-      return [];
+      const catalogOnlyResults: MCPToolDefinition[] = [];
+      const catalogOnlyServerMap = new Map<string, string>();
+      this.toolNameToTargetMap = this.toolNameToTargetMap ?? new Map();
+      this.appendCatalogToolDefinitions(catalogOnlyResults, catalogOnlyServerMap);
+      this.cachedToolDefinitions = catalogOnlyResults;
+      return await this.filterToolDefinitions(catalogOnlyResults, enabledTools, accessContext);
     }
 
     const toolNameToServerMap: Map<string, string> = new Map();
@@ -312,6 +417,7 @@ export class ToolManager {
     }
 
     // Cache results and return
+    this.appendCatalogToolDefinitions(results, toolNameToServerMap);
     this.cachedToolDefinitions = results;
     console.info(`Cached ${results.length} final tool definitions and populated target map.`);
 
@@ -487,14 +593,15 @@ export class ToolManager {
     }
 
     const targetInfo = this.toolNameToTargetMap.get(finalName);
+    const catalogTarget = targetInfo ? undefined : this.catalogToolTargets?.get(finalName);
 
-    if (!targetInfo) {
+    if (!targetInfo && !catalogTarget) {
       console.error(`[ToolManager] Tool '${finalName}' not found for permission check.`);
       return null;
     }
 
-    const { originalName } = targetInfo;
-    const toolServerName = targetInfo.client.serverName;
+    const originalName = targetInfo?.originalName ?? catalogTarget?.tool.name ?? finalName;
+    const toolServerName = targetInfo?.client.serverName ?? catalogTarget?.serverName ?? "";
 
     if (!(await this.isServerAllowedByContext(toolServerName, options?.accessContext))) {
       return null;
@@ -556,7 +663,26 @@ export class ToolManager {
         };
       }
 
-      const targetInfo = this.toolNameToTargetMap.get(finalName);
+      let targetInfo = this.toolNameToTargetMap.get(finalName);
+
+      if (!targetInfo) {
+        const catalogTarget = this.catalogToolTargets?.get(finalName);
+        const pluginRuntime = catalogTarget ? this.ports.services.pluginRuntime : undefined;
+        if (catalogTarget && pluginRuntime) {
+          try {
+            await pluginRuntime.ensureRunning(catalogTarget.serverName, "tool");
+          } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            return {
+              toolCallId: toolCall.id,
+              content: `Error: Plugin runtime for tool '${finalName}' could not be started: ${errorMessage}`,
+              isError: true,
+            };
+          }
+          await this.getAllToolDefinitions(undefined, options?.accessContext);
+          targetInfo = this.toolNameToTargetMap?.get(finalName);
+        }
+      }
 
       if (!targetInfo) {
         console.error(`Tool '${finalName}' not found in the target map.`);
@@ -626,6 +752,30 @@ export class ToolManager {
           // Decide how to handle: return error or proceed with empty args?
           // Let's proceed with empty args for now, mirroring previous behavior.
           args = {};
+        }
+      }
+
+      const isCuaOwnedServer = targetClient.serverConfig?.ownerPluginId === CUA_PLUGIN_ID;
+      if (isCuaOwnedServer) {
+        args = normalizeCuaToolArguments(originalName, args ?? {});
+        const snapshotError = validateCuaSnapshotTargetArguments(originalName, args);
+        if (snapshotError) {
+          return {
+            toolCallId: toolCall.id,
+            content: `Error: ${snapshotError}`,
+            isError: true,
+          };
+        }
+        if (originalName === "launch_app" && process.platform === "win32") {
+          const prepared = await this.prepareCuaWindowsLaunchArgs(targetClient, args);
+          if (!prepared.ok) {
+            return {
+              toolCallId: toolCall.id,
+              content: `Error: ${prepared.error}`,
+              isError: true,
+            };
+          }
+          args = prepared.args;
         }
       }
 
@@ -708,9 +858,18 @@ export class ToolManager {
         formattedContent = JSON.stringify(result.content);
       }
 
+      const projectedContent = isCuaOwnedServer
+        ? appendCuaResultProjections(
+            formattedContent,
+            originalName,
+            (result as { structuredContent?: unknown }).structuredContent,
+            result.isError === true,
+          )
+        : formattedContent;
+
       const response: MCPToolResponse = {
         toolCallId: toolCall.id,
-        content: formattedContent,
+        content: projectedContent,
         isError: result.isError,
       };
 
@@ -901,5 +1060,143 @@ export class ToolManager {
   public destroy(): void {
     this.unsubClientList?.();
     this.unsubConfig?.();
+  }
+
+  private readStringArg(value: unknown): string | undefined {
+    return typeof value === "string" && value.trim() ? value.trim() : undefined;
+  }
+
+  private isWindowsPathLike(value: string): boolean {
+    return /^[a-zA-Z]:[\\/]/.test(value) || value.startsWith("\\\\") || /[\\/]/.test(value);
+  }
+
+  private hasUrlLaunchTargets(args: Record<string, unknown>): boolean {
+    return Array.isArray(args.urls) && args.urls.some((item) => this.readStringArg(item));
+  }
+
+  private async prepareCuaWindowsLaunchArgs(
+    client: McpClient,
+    args: Record<string, unknown>,
+  ): Promise<{ ok: true; args: Record<string, unknown> } | { ok: false; error: string }> {
+    const normalizedArgs = { ...args };
+    const bundleId = this.readStringArg(normalizedArgs.bundle_id);
+    const name = this.readStringArg(normalizedArgs.name);
+
+    if (bundleId && !bundleId.includes("!") && this.isWindowsPathLike(bundleId)) {
+      delete normalizedArgs.bundle_id;
+      if (!this.readStringArg(normalizedArgs.path) && !this.readStringArg(normalizedArgs.launch_path)) {
+        normalizedArgs.path = bundleId;
+      }
+      return { ok: true, args: normalizedArgs };
+    }
+
+    if (
+      this.readStringArg(normalizedArgs.path) ||
+      this.readStringArg(normalizedArgs.launch_path) ||
+      this.readStringArg(normalizedArgs.aumid) ||
+      (bundleId && bundleId.includes("!")) ||
+      this.hasUrlLaunchTargets(normalizedArgs)
+    ) {
+      return { ok: true, args: normalizedArgs };
+    }
+
+    const target = bundleId || name;
+    if (!target) {
+      return { ok: true, args: normalizedArgs };
+    }
+
+    const apps = await this.listCuaWindowsApps(client);
+    if (!apps) {
+      return {
+        ok: false,
+        error:
+          "Unable to validate the Windows app target before launching. Call list_apps first, then retry with a Windows name, path, launch_path, or aumid.",
+      };
+    }
+
+    if (!this.matchesCuaWindowsApp(apps, target)) {
+      return {
+        ok: false,
+        error: `Windows app target '${target}' was not found. Call list_apps first and use a Windows app name, path, launch_path, or aumid. Do not use macOS bundle ids on Windows.`,
+      };
+    }
+
+    return { ok: true, args: normalizedArgs };
+  }
+
+  private async listCuaWindowsApps(client: McpClient): Promise<Array<Record<string, unknown>> | null> {
+    try {
+      const result = (await client.callTool("list_apps", {})) as {
+        structuredContent?: unknown;
+        content?: unknown;
+      };
+      const structured = result.structuredContent;
+      if (structured && typeof structured === "object" && Array.isArray((structured as { apps?: unknown }).apps)) {
+        return (structured as { apps: Array<Record<string, unknown>> }).apps;
+      }
+
+      const parsed = this.parseToolResultJsonObject(result.content);
+      if (parsed && Array.isArray(parsed.apps)) {
+        return parsed.apps as Array<Record<string, unknown>>;
+      }
+    } catch (error) {
+      console.warn("[MCP] Failed to preflight CUA Windows launch target:", error);
+    }
+    return null;
+  }
+
+  private matchesCuaWindowsApp(apps: Array<Record<string, unknown>>, target: string): boolean {
+    const normalizedTarget = this.normalizeWindowsAppIdentifier(target);
+    return apps.some((app) => {
+      const candidates = [app.name, app.bundle_id, app.launch_path, app.path, app.aumid].flatMap((value) =>
+        this.windowsAppIdentifierCandidates(value),
+      );
+      return candidates.some(
+        (candidate) =>
+          candidate === normalizedTarget ||
+          candidate.includes(normalizedTarget) ||
+          normalizedTarget.includes(candidate),
+      );
+    });
+  }
+
+  private windowsAppIdentifierCandidates(value: unknown): string[] {
+    const raw = this.readStringArg(value);
+    if (!raw) {
+      return [];
+    }
+    const normalized = this.normalizeWindowsAppIdentifier(raw);
+    const basename = raw.split(/[\\/]/).pop();
+    return basename && basename !== raw
+      ? [normalized, this.normalizeWindowsAppIdentifier(basename)]
+      : [normalized];
+  }
+
+  private normalizeWindowsAppIdentifier(value: string): string {
+    return value
+      .trim()
+      .replace(/^"|"$/g, "")
+      .toLowerCase();
+  }
+
+  private parseToolResultJsonObject(content: unknown): Record<string, unknown> | null {
+    const text = Array.isArray(content)
+      ? content
+          .map((item) =>
+            item && typeof item === "object" && "text" in item ? String((item as { text?: unknown }).text ?? "") : "",
+          )
+          .join("\n")
+      : typeof content === "string"
+        ? content
+        : "";
+    if (!text.trim()) {
+      return null;
+    }
+    try {
+      const parsed = JSON.parse(text);
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
+    } catch {
+      return null;
+    }
   }
 }

@@ -16,7 +16,7 @@ import {
 import type { CreateMessageRequest, CreateMessageResult } from "@modelcontextprotocol/sdk/types.js";
 import path from "path";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { terminateProcessTree } from "@argos/backend-core";
+import { terminateProcessTree, createMinimalProcessEnvironment } from "@argos/backend-core";
 import type { ChildProcess } from "node:child_process";
 import type { McpHostPorts } from "../host/ports";
 
@@ -263,7 +263,40 @@ export class McpClient {
           (cmd) => command.includes(cmd) || args.some((arg) => arg.includes(cmd)),
         );
 
-        if (isNodeCommand) {
+        if (this.serverConfig.inheritEnv === "minimal") {
+          Object.assign(env, createMinimalProcessEnvironment(process.env, process.platform));
+
+          const existingPaths: string[] = [];
+          if (env.PATH) {
+            existingPaths.push(env.PATH);
+          }
+          if (env.Path) {
+            existingPaths.push(env.Path);
+          }
+
+          const defaultPaths = this.ports.runtime.getDefaultPaths(HOME_DIR);
+          const allPaths = [...existingPaths, ...defaultPaths];
+          const uvRuntimePath = this.ports.runtime.getUvRuntimePath();
+          const bunRuntimePath = this.ports.runtime.getBunRuntimePath();
+          if (process.platform === "win32") {
+            if (uvRuntimePath) {
+              allPaths.unshift(uvRuntimePath);
+            }
+            if (bunRuntimePath) {
+              allPaths.unshift(bunRuntimePath);
+            }
+          } else {
+            if (uvRuntimePath) {
+              allPaths.unshift(uvRuntimePath);
+            }
+            if (bunRuntimePath) {
+              allPaths.unshift(path.dirname(bunRuntimePath));
+            }
+          }
+
+          const { key, value } = this.ports.runtime.normalizePathEnv(allPaths);
+          env[key] = value;
+        } else if (isNodeCommand) {
           // Node.js/UV commands use whitelist processing
           if (process.env) {
             const existingPaths: string[] = [];
