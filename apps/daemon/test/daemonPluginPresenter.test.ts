@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "bun:test";
+import { PluginRuntimeRegistry } from "@argos/mcp-runtime";
 import { DaemonPluginPresenter } from "../src/host/daemonPluginPresenter";
 
 describe("DaemonPluginPresenter", () => {
@@ -38,18 +39,52 @@ describe("DaemonPluginPresenter", () => {
       registerPluginSkill: vi.fn(),
       unregisterPluginSkillsByOwner: vi.fn(),
     };
+    const pluginRuntime = new PluginRuntimeRegistry({
+      isServerRunning: () => false,
+      startServer: vi.fn(),
+      stopServer: vi.fn(),
+    } as never);
 
     const presenter = new DaemonPluginPresenter({
       configPresenter: configPresenter as never,
       mcpPresenter: mcpPresenter as never,
       skillPresenter: skillPresenter as never,
+      pluginRuntime,
       configDir: root,
       dataDir: root,
       appVersion: "1.0.0",
     });
 
-    return { presenter, configPresenter, mcpPresenter, skillPresenter, root };
+    return { presenter, configPresenter, mcpPresenter, skillPresenter, pluginRuntime, root };
   }
+
+  it("skips eager auto-start for on-demand plugin MCP servers", async () => {
+    const { presenter, mcpPresenter, pluginRuntime } = createPresenter();
+
+    pluginRuntime.registerServer({
+      pluginId: "fixture-plugin",
+      serverName: "fixture-server",
+      startMode: "onDemand",
+      surfaces: ["tools"],
+      toolCatalog: {
+        version: "1.0.0-test",
+        tools: [
+          {
+            name: "fixture_tool",
+            description: "fixture",
+            inputSchema: { type: "object", properties: {} },
+            annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true },
+          },
+        ],
+      },
+    });
+
+    await (
+      presenter as unknown as { startPluginMcpServersIfReady(pluginId: string, serverNames: string[]): Promise<void> }
+    ).startPluginMcpServersIfReady("fixture-plugin", ["fixture-server"]);
+
+    expect(mcpPresenter.startServer).not.toHaveBeenCalled();
+  });
 
   it("stops plugin-owned MCP servers during shutdown", async () => {
     const { presenter, mcpPresenter } = createPresenter();
