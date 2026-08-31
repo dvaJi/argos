@@ -129,6 +129,7 @@ export interface ToolCallResult {
     type: string;
     text: string;
   }>;
+  structuredContent?: unknown;
 }
 
 // Interface for tool lists
@@ -1685,6 +1686,8 @@ export interface MCPServerConfig {
   baseUrl?: string;
   customHeaders?: Record<string, string>;
   customNpmRegistry?: string;
+  /** Environment inheritance for stdio spawns; "minimal" passes only essential vars. */
+  inheritEnv?: "legacy" | "minimal";
   type: "sse" | "stdio" | "inmemory" | "http";
   source?: string; // Source identifier: "mcprouter" | "modelscope" | undefined(for manual)
   sourceId?: string; // Source ID: mcprouter uuid or modelscope mcpServer.id
@@ -1819,6 +1822,8 @@ export interface MCPResourceContent {
 export interface IMCPPresenter {
   initialize(): Promise<void>;
   isReady(): boolean;
+  getServerManager?(): unknown;
+  attachPluginRuntimePort?(port: unknown): void;
   getMcpServers(): Promise<Record<string, MCPServerConfig>>;
   getMcpClients(): Promise<McpClient[]>;
   getEnabledMcpServers(): Promise<string[]>;

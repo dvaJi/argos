@@ -2,20 +2,46 @@ import type { JsonValue } from "@argos/shared-contracts/common";
 
 export const OFFICIAL_PLUGIN_SOURCE = "argos-official";
 
+/** The only plugin allowed to declare the embedded runtime adapter. */
+export const CUA_PLUGIN_ID = "com.argos.plugins.cua";
+export const CUA_RUNTIME_ID = "cua-driver";
+
 export type PluginCapability =
   | "runtime.manage"
   | "mcp.register"
   | "skills.register"
   | "settings.contribute"
   | "shell.openExternal"
+  | "shell.openPath"
   | "process.execDeclared";
 
 export type PluginActivationEvent = "onEnable";
 export type PluginResourceKind = "runtime" | "mcpServer" | "skill" | "settings" | "toolPolicy";
 export type PluginRuntimeType = "external-helper";
+export type PluginRuntimeAdapter = "cua-embedded-v1";
+export type PluginMcpStartMode = "eager" | "onDemand";
+export type PluginMcpSurface = "tools" | "prompts" | "resources";
+export type PluginProcessEnvInheritance = "legacy" | "minimal";
 export type PluginRuntimeState = "missing" | "installed" | "running" | "error";
+export type PluginRuntimeLifecycleState =
+  | "registered"
+  | "starting"
+  | "running"
+  | "stopping"
+  | "stopped"
+  | "quarantined"
+  | "error";
 export type PluginTrustState = "trusted" | "untrusted" | "development";
 export type PluginToolPolicyDecision = "allow" | "ask" | "deny";
+
+export interface CuaEmbeddedRuntimeContract {
+  hostBundleId: string;
+  driverVersion: string;
+  contractVersion: string;
+  toolsListSchemaVersion: string;
+  capabilityVersion: string;
+  mcpProtocolVersion: string;
+}
 
 export interface PluginEngineManifest {
   argos: string;
@@ -41,6 +67,9 @@ export interface PluginRuntimeManifest {
   type: PluginRuntimeType;
   displayName: string;
   detect: string[];
+  adapter?: PluginRuntimeAdapter;
+  adapterContract?: CuaEmbeddedRuntimeContract;
+  integrityDescriptor?: string;
   install?: {
     mode: "user-confirmed";
     provider: string;
@@ -57,7 +86,12 @@ export interface PluginMcpServerManifest {
   command: string;
   args: string[];
   env?: Record<string, string>;
-  autoApprove: string[];
+  /** @deprecated MCP permissions are host-owned; retained only for manifest compatibility. */
+  autoApprove?: string[];
+  startMode?: PluginMcpStartMode;
+  surfaces?: PluginMcpSurface[];
+  toolCatalog?: string;
+  inheritEnv?: PluginProcessEnvInheritance;
 }
 
 export interface PluginSkillManifest {
@@ -146,6 +180,9 @@ export interface PluginMcpRuntimeStatus {
   enabled: boolean;
   running: boolean;
   lastError?: string;
+  lifecycleState?: PluginRuntimeLifecycleState;
+  quarantinedAt?: number;
+  integrityError?: string;
 }
 
 export interface PluginSettingsContribution {
@@ -171,6 +208,7 @@ export interface PluginListItem {
   runtime?: PluginRuntimeStatus;
   mcpServers?: PluginMcpRuntimeStatus[];
   settings?: PluginSettingsContribution;
+  activationError?: string;
 }
 
 export interface PluginActionResult {
@@ -193,4 +231,5 @@ export interface PluginSettingsApiStatus {
   enabled: boolean;
   runtime?: PluginRuntimeStatus;
   mcpServers?: PluginMcpRuntimeStatus[];
+  activationError?: string;
 }
