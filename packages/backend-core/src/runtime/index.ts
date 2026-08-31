@@ -15,4 +15,4 @@ export { buildEffectiveTapeView, type TapeEffectiveViewEntry } from "./tapeEffec
 export { extractImageGenerationBlocks, hasImageGenerationBlocks } from "./imageGenerationBlocks";
 export { compactMessages, type CompactionResult } from "./compactionService";
 export * from "./shellEnv";
-export { terminateProcessTree } from "./processTree";
+export { terminateProcessTree, terminateProcessTreeByPid } from "./processTree";
