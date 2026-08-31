@@ -61,6 +61,24 @@ Legend: `fork file` ← `source file` · role
 - `gh pr create` needs `--repo dvaJi/argos` (two remotes confuse gh's default).
 - Base branch: `master` (no `dev`/`main`).
 
+## CUA plugin — Rust driver + embedded runtime (local sync)
+
+- `packages/backend-core/src/cua/*` ← source `src/main/plugin/{cuaEmbeddedAdapter,cuaRuntimeIntegrity,cuaToolAdapter,toolCatalog}.ts` + `src/main/mcp/{processEnvironment,schemaValidation}.ts`
+  · CUA host modules: embedded adapter (private socket + handshake + stdio proxy), integrity parser/verifier, tool arg/result projections, catalog parser, minimal env, bounded JSON-schema clone. Identity: `ARGOS_PLUGIN_ID`, `argos-cua-*` endpoints.
+- `packages/backend-core/src/runtime/processTree.ts` (+`terminateProcessTreeByPid`) ← source `src/main/agent/shared/process/processTree.ts`
+- `packages/mcp-runtime/src/runtime/pluginRuntime.ts` (new, no 1:1 upstream) ← source `src/main/plugin/runtimeSupervisor.ts` concept
+  · Fork keeps a focused registry (single-flight ensureRunning, integrity launch guard, in-memory quarantine, catalogs); source has lifecycle states + persisted safety store (fork: in-memory per host run).
+- `packages/mcp-runtime/src/runtime/{toolManager,serverManager,mcpClient}.ts` ← source `src/main/mcp/{toolManager,toolManager,mcpClient}.ts`
+  · Catalog-backed tool listing without running server; `ensureRunning(..., "tool")` on catalog dispatch; `startServer(name, configOverride)` for the proxy spawn; `inheritEnv: "minimal"` env building; `ToolCallResult.structuredContent` threaded through.
+- `packages/shared/src/types/plugin.ts` + `legacy.presenters.d.ts` ← source `src/shared/types/plugin.ts`
+  · Adapter/contract/startMode/surfaces/toolCatalog/inheritEnv manifest fields, lifecycle status fields, `MCPServerConfig.inheritEnv`.
+- `apps/desktop/src/main/presenter/pluginPresenter/index.ts` + `apps/daemon/src/host/daemonPluginPresenter.ts` ← source `src/main/plugin/index.ts`
+  · Two hosts share the registry; `app-helper:` detect (desktop packaged only), adapter detect branch, registration wiring, permission flow via driver `check_permissions` tool, `runtime.test` action.
+- `scripts/{build-cua-plugin-runtime,package-plugin}.mjs`, `scripts/cua-macos-contract.mjs`, `scripts/cua-tool-catalog-contract.mjs` ← source same paths
+  · Rust release staging (triple checksum), `Argos Computer Use.app` normalize (`com.wefonk.argos.computeruse`, `argos-cua-driver`), RPATH sanitation, `dump-docs` tool catalog, `integrity.json` writer, per-target packaging validation. Build scripts run under Bun → `Bun.file`/`Bun.write` (architecture guard).
+- `plugins/cua/**` ← source `plugins/cua/**`
+  · Manifest (adapter contract + expanded 59-tool policy), `skills/computer-use` (Argos-branded), settings UI (`window.argosPlugin`), Rust `upstream.json` release pin. Vendored Swift source deleted.
+
 ## Settings navigation / plugin targeting
 
 - `apps/desktop/src/shared/settingsNavigation.ts` ← `src/shared/settingsNavigation.ts`

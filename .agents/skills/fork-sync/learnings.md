@@ -210,3 +210,30 @@ mistakes.
 - **Accessibility labels can include extra text**: the settings-panel checkboxes may
   pick up descriptive text in their accessible name, so tests should use flexible
   matchers when targeting those rows.
+
+## 2026-08-30 — CUA Rust driver integration
+
+- The desktop main vitest suite (`test/setup.ts`) globally mocks `fs`/`path`/
+  `electron` (BrowserWindow as arrow fn — NOT constructible; pluginPresenter
+  settings-window tests were latent-broken behind a cwd-wrong skip guard).
+  Fixes used: local `vi.mock("electron")` with a constructible
+  `function MockBrowserWindow` returning `this`, plus `vi.mock("node:fs", actual)`
+  in tests that exercise real fs (`packages/backend-core` modules use
+  `fs.lstatSync` etc.).
+- The `bun-file-io` architecture guard applies to `scripts/*.mjs` run by Bun;
+  the source's node `fs.readFile/writeFile` calls had to become
+  `Bun.file()/Bun.write()` in `build-cua-plugin-runtime.mjs` (the old Swift-era
+  script already did this).
+- The checked-in `plugins/cua/policies/tool-policy.json` is a *stale mirror* of
+  `plugin.json` toolPolicies; packaging rewrites it in catalog order. Keep the
+  two in sync when editing policies (tests assert equality).
+- Scripts that spawn sub-builders must use `process.execPath`, not `'node'` —
+  the repo runs under Bun and dev boxes may not have node on PATH.
+- Master had 68 pre-existing desktop `test:main` failures in this environment
+  (zod eval order in toolPresenter suites, YoBrowser, terminal pty) — compare
+  failure counts against a stashed master before blaming an integration.
+- Upstream deepchat repo now hosts the *Rust* cua-driver under
+  `libs/cua-driver/rust` (tag `cua-driver-rs-v0.19.2`); macOS still ships a
+  helper `.app` wrapper built from the upstream Swift shell for TCC attribution.
+  Host bundle id contract: fork uses `com.wefonk.argos.computeruse`, helper
+  executable `argos-cua-driver`, app `Argos Computer Use.app`.
