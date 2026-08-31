@@ -450,40 +450,35 @@ export class PluginPresenter {
 
       if (adapterContract && verifier) {
         let toolCatalog;
-        try {
-          if (server.toolCatalog) {
-            const catalogPath = this.resolvePluginRelativePath(plugin.root, server.toolCatalog);
-            if (integrityError) {
-              throw new Error(`Runtime integrity descriptor is invalid: ${integrityError}`);
-            }
-            const verifiedCatalogJson = await verifier.verifyCatalog(catalogPath);
-            toolCatalog = parsePluginToolCatalogJson(verifiedCatalogJson, server.toolCatalog);
+        if (server.toolCatalog) {
+          const catalogPath = this.resolvePluginRelativePath(plugin.root, server.toolCatalog);
+          if (integrityError) {
+            throw new Error(`Runtime integrity descriptor is invalid: ${integrityError}`);
           }
-          this.pluginRuntime.registerServer({
-            pluginId: plugin.manifest.id,
-            serverName,
-            displayName: server.displayName,
-            runtimeId: runtimeManifest?.id,
-            startMode: server.startMode ?? "eager",
-            surfaces: server.surfaces ?? ["tools", "prompts", "resources"],
-            toolCatalog,
-            adapter: new CuaEmbeddedRuntimeAdapter({
-              binaryPath: command,
-              platform: this.platform,
-              contract: adapterContract as CuaEmbeddedRuntimeContract,
-              environment: { ARGOS_PLUGIN_ID: plugin.manifest.id },
-            }),
-            launchGuard: verifier,
-          });
-        } catch (error) {
-          this.pluginRuntime.unregisterServer(serverName);
-          integrityError = error instanceof Error ? error.message : String(error);
-          console.warn("[PluginHost] Plugin runtime registration failed:", {
-            pluginId: plugin.manifest.id,
-            serverName,
-            error: integrityError,
-          });
+          const verifiedCatalogJson = await verifier.verifyCatalog(catalogPath);
+          toolCatalog = parsePluginToolCatalogJson(verifiedCatalogJson, server.toolCatalog);
         }
+        this.pluginRuntime.registerServer({
+          pluginId: plugin.manifest.id,
+          serverName,
+          displayName: server.displayName,
+          runtimeId: runtimeManifest?.id,
+          startMode: server.startMode ?? "eager",
+          surfaces: server.surfaces ?? ["tools", "prompts", "resources"],
+          toolCatalog,
+          adapter: new CuaEmbeddedRuntimeAdapter({
+            binaryPath: command,
+            platform: this.platform,
+            contract: adapterContract as CuaEmbeddedRuntimeContract,
+            environment: { ARGOS_PLUGIN_ID: plugin.manifest.id },
+          }),
+          launchGuard: verifier,
+        });
+      } else if (adapterContract) {
+        this.pluginRuntime.unregisterServer(serverName);
+        throw new Error(
+          `Embedded runtime registration failed for "${serverName}": ${integrityError ?? "integrity verifier unavailable"}`,
+        );
       } else {
         this.pluginRuntime.unregisterServer(serverName);
       }

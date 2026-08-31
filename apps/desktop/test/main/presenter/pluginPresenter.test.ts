@@ -850,6 +850,148 @@ describe.skipIf(!fs.existsSync(path.join(repoRoot, "plugins", "cua", "plugin.jso
     expect(presenterSource).toContain("check_permissions");
   });
 
+  it("fails closed when an embedded runtime fails integrity verification", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "argos-cua-embedded-test-"));
+    tempRoots.push(root);
+    const appPath = path.join(root, "app");
+    const userDataPath = path.join(root, "userData");
+    const packageRoot = path.join(appPath, "plugins");
+    const pluginId = "com.argos.plugins.cua";
+    const bundleRelativePath = `Fixture App.app/Contents/MacOS/fixture-driver`;
+    const runtimeRelativePath = `runtime/darwin/${process.arch}/${bundleRelativePath}`;
+    const binaryContent = "#!/bin/sh\necho fixture-driver\n";
+    const catalogContent = `${JSON.stringify({
+      version: "0.19.2",
+      tools: [
+        {
+          name: "click",
+          description: "Click",
+          input_schema: { type: "object", properties: {} },
+          read_only: false,
+          destructive: true,
+          idempotent: false,
+        },
+      ],
+    })}\n`;
+    const descriptor = {
+      schemaVersion: 1,
+      pluginId,
+      runtimeId: "cua-driver",
+      runtimeVersion: "0.19.2",
+      target: `darwin/${process.arch}`,
+      runtimeRoot: `runtime/darwin/${process.arch}`,
+      binaryPath: bundleRelativePath,
+      catalogPath: "tool-catalog.json",
+      files: {
+        [bundleRelativePath]: createHash("sha256").update(binaryContent).digest("hex"),
+        "tool-catalog.json": "0".repeat(64),
+      },
+      executablePaths: [bundleRelativePath],
+      macos: {
+        bundlePath: "Fixture App.app",
+        bundleIdentifier: "com.wefonk.argos.computeruse",
+        signatureType: "ad-hoc",
+        teamId: null,
+        hardenedRuntime: true,
+        entitlements: {
+          "com.apple.security.automation.apple-events": true,
+          "com.apple.security.device.screen-capture": true,
+        },
+      },
+    };
+    const manifest = {
+      id: pluginId,
+      name: "Fixture Embedded Runtime",
+      version: "0.2.3",
+      publisher: "Argos",
+      engines: {
+        argos: ">=0.2.3",
+        platforms: ["darwin"],
+        targets: [`darwin/${process.arch}`],
+      },
+      activationEvents: ["onEnable"],
+      capabilities: ["runtime.manage", "mcp.register"],
+      source: {
+        type: "argos-official",
+        url: "https://github.com/dvaJi/argos/releases/download/v0.2.3/argos-plugin-cua-0.2.3-darwin-x64.dcplugin",
+        publisher: "Argos",
+      },
+      runtime: {
+        id: "cua-driver",
+        type: "external-helper",
+        displayName: "Fixture CUA Driver",
+        detect: [`plugin:${runtimeRelativePath}`],
+        adapter: "cua-embedded-v1",
+        adapterContract: {
+          hostBundleId: "com.wefonk.argos.computeruse",
+          driverVersion: "0.19.2",
+          contractVersion: "0.6.0",
+          toolsListSchemaVersion: "1",
+          capabilityVersion: "1",
+          mcpProtocolVersion: "2025-06-18",
+        },
+        integrityDescriptor: `runtime/darwin/${process.arch}/integrity.json`,
+      },
+      mcpServers: [
+        {
+          id: "cua-driver",
+          displayName: "Fixture CUA Driver",
+          transport: "stdio",
+          command: "${runtime.cua-driver.command}",
+          args: ["mcp", "--embedded"],
+          startMode: "onDemand",
+          surfaces: ["tools"],
+          toolCatalog: `runtime/darwin/${process.arch}/tool-catalog.json`,
+          inheritEnv: "minimal",
+        },
+      ],
+    };
+    const files: Record<string, Uint8Array> = {
+      "plugin.json": new TextEncoder().encode(`${JSON.stringify(manifest, null, 2)}\n`),
+      [runtimeRelativePath]: new TextEncoder().encode(binaryContent),
+      [`runtime/darwin/${process.arch}/tool-catalog.json`]: new TextEncoder().encode(catalogContent),
+      [`runtime/darwin/${process.arch}/integrity.json`]: new TextEncoder().encode(
+        `${JSON.stringify(descriptor, null, 2)}\n`,
+      ),
+    };
+    const checksums = Object.fromEntries(
+      Object.entries(files).map(([filePath, content]) => [
+        filePath,
+        createHash("sha256").update(Buffer.from(content)).digest("hex"),
+      ]),
+    );
+    files["checksums.json"] = new TextEncoder().encode(`${JSON.stringify(checksums, null, 2)}\n`);
+    await mkdir(packageRoot, { recursive: true });
+    await mkdir(userDataPath, { recursive: true });
+    await writeFile(
+      path.join(packageRoot, "argos-plugin-cua-0.2.3-darwin-x64.dcplugin"),
+      Buffer.from(zipSync(files, { level: 6 })),
+    );
+    vi.mocked<(...args: any[]) => any>(app.getPath).mockImplementation((name: string) => {
+      if (name === "userData") {
+        return userDataPath;
+      }
+      if (name === "temp" || name === "home") {
+        return root;
+      }
+      return "/mock/path";
+    });
+
+    const presenter = await createPluginPresenter("darwin", {
+      appPath,
+      arch: process.arch,
+    });
+    vi.clearAllMocks();
+
+    const result = await presenter.enablePlugin(pluginId);
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("integrity mismatch");
+    expect(presenter.__mocks.mcpPresenter.startServer).not.toHaveBeenCalled();
+    const servers = await presenter.__mocks.configPresenter.getMcpServers();
+    expect(servers["cua-driver"]).toBeUndefined();
+  });
+
   it("keeps CUA plugin packaging aligned with the multi-arch bundle flow", async () => {
     const packageJson = JSON.parse(await readRepoFile("package.json"));
     const packageScript = await readRepoFile("scripts/package-plugin.mjs");
