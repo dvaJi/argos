@@ -1,6 +1,7 @@
 import { spawn, type ChildProcess } from "child_process";
 
 const FORCE_KILL_SETTLE_MS = 500;
+const PID_EXIT_POLL_MS = 50;
 
 function hasExited(child: ChildProcess): boolean {
   return child.exitCode !== null || child.signalCode !== null;
@@ -159,4 +160,48 @@ export async function terminateProcessTree(
 
   await signalProcessTree(pid, "SIGKILL");
   return await waitForClose(child, FORCE_KILL_SETTLE_MS);
+}
+
+function isProcessAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === "EPERM";
+  }
+}
+
+async function waitForPidExit(pid: number, timeoutMs: number): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (isProcessAlive(pid)) {
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) {
+      return false;
+    }
+    await new Promise<void>((resolve) => setTimeout(resolve, Math.min(PID_EXIT_POLL_MS, remaining)));
+  }
+  return true;
+}
+
+export async function terminateProcessTreeByPid(
+  pid: number,
+  options: {
+    graceMs?: number;
+  } = {},
+): Promise<boolean> {
+  if (!Number.isSafeInteger(pid) || pid <= 0) {
+    throw new Error(`Cannot terminate invalid process id: ${pid}`);
+  }
+  if (!isProcessAlive(pid)) {
+    return true;
+  }
+
+  const graceMs = Math.max(0, options.graceMs ?? 2000);
+  await signalProcessTree(pid, "SIGTERM");
+  if (await waitForPidExit(pid, graceMs)) {
+    return true;
+  }
+
+  await signalProcessTree(pid, "SIGKILL");
+  return await waitForPidExit(pid, FORCE_KILL_SETTLE_MS);
 }

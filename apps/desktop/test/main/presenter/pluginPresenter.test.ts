@@ -33,8 +33,45 @@ vi.mock("node:fs", async () => {
   };
 });
 
+vi.mock("#/lib/paths", () => ({
+  getPreloadPath: vi.fn((name: string) => `/mock/preload/${name}`),
+}));
+
+vi.mock("electron", () => ({
+  app: {
+    getName: vi.fn(() => "Argos"),
+    getVersion: vi.fn(() => "0.2.3"),
+    getAppPath: vi.fn(() => process.cwd()),
+    getPath: vi.fn((_name: string) => path.join(os.tmpdir(), "argos-plugin-presenter-user-data")),
+    isPackaged: false,
+    on: vi.fn(),
+    quit: vi.fn(),
+  },
+  BrowserWindow: vi.fn(function MockBrowserWindow(this: Record<string, unknown>) {
+    this.loadURL = vi.fn();
+    this.loadFile = vi.fn();
+    this.on = vi.fn();
+    this.show = vi.fn();
+    this.focus = vi.fn();
+    this.close = vi.fn();
+    this.isDestroyed = vi.fn(() => false);
+    this.webContents = {
+      send: vi.fn(),
+      on: vi.fn(),
+      setWindowOpenHandler: vi.fn(),
+    };
+    return this;
+  }) as unknown as new (options?: Record<string, unknown>) => BrowserWindow,
+  shell: {
+    openExternal: vi.fn(),
+    openPath: vi.fn(),
+  },
+}));
+
 const tempRoots: string[] = [];
 const originalCwd = process.cwd();
+const repoRoot = path.resolve(process.cwd(), "../..");
+const readRepoFile = (relativePath: string) => readFile(path.join(repoRoot, relativePath), "utf8");
 
 type CreatePluginPresenterOptions = {
   appPath?: string;
@@ -75,6 +112,12 @@ const createPluginPresenter = async (
   const skillPresenter = {
     unregisterPluginSkillsByOwner: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
   };
+  const { PluginRuntimeRegistry } = await import("@argos/mcp-runtime");
+  const pluginRuntime = new PluginRuntimeRegistry({
+    isServerRunning: () => false,
+    startServer: vi.fn(),
+    stopServer: vi.fn(),
+  } as any);
   const presenter = new PluginPresenter({
     platform,
     arch: options.arch,
@@ -84,6 +127,7 @@ const createPluginPresenter = async (
     configPresenter,
     mcpPresenter,
     skillPresenter,
+    pluginRuntime,
   } as any);
   return Object.assign(presenter, {
     __mocks: {
@@ -300,22 +344,22 @@ const createDirectoryFixture = async (
   };
 };
 
-// These tests read the built-in CUA plugin manifest (plugins/cua/plugin.json),
-// which is only present after `pnpm run plugin:cua:build`. Skip when absent
-// (e.g. fresh checkout, CI without the runtime build) rather than fail.
-describe.skipIf(!fs.existsSync(path.join(process.cwd(), "plugins", "cua", "plugin.json")))("PluginPresenter", () => {
+// These tests read the built-in CUA plugin manifest (plugins/cua/plugin.json).
+// Skip when absent (e.g. fresh checkout, CI without the runtime build) rather
+// than fail; the path resolves from the repository root.
+describe.skipIf(!fs.existsSync(path.join(repoRoot, "plugins", "cua", "plugin.json")))("PluginPresenter", () => {
   afterEach(async () => {
     process.chdir(originalCwd);
     vi.mocked<(...args: any[]) => any>(app.getPath).mockImplementation(() => "/mock/path");
     await Promise.all(tempRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
   });
 
-  it("targets the CUA official plugin by platform and arch", async () => {
-    const darwinPresenter = await createPluginPresenter("darwin", { arch: "arm64" });
-    const winX64Presenter = await createPluginPresenter("win32", { arch: "x64" });
-    const linuxX64Presenter = await createPluginPresenter("linux", { arch: "x64" });
-    const winIa32Presenter = await createPluginPresenter("win32", { arch: "ia32" });
-    const manifest = JSON.parse(await readFile("plugins/cua/plugin.json", "utf8"));
+  it("targets the CUA official plugin by platform and arch", { timeout: 60_000 }, async () => {
+    const darwinPresenter = await createPluginPresenter("darwin", { arch: "arm64", appPath: repoRoot });
+    const winX64Presenter = await createPluginPresenter("win32", { arch: "x64", appPath: repoRoot });
+    const linuxX64Presenter = await createPluginPresenter("linux", { arch: "x64", appPath: repoRoot });
+    const winIa32Presenter = await createPluginPresenter("win32", { arch: "ia32", appPath: repoRoot });
+    const manifest = JSON.parse(await readRepoFile("plugins/cua/plugin.json"));
 
     expect(manifest.engines.platforms).toEqual(["darwin", "win32", "linux"]);
     expect(manifest.engines.targets).toEqual(["darwin/arm64", "darwin/x64", "win32/x64", "win32/arm64", "linux/x64"]);
@@ -679,7 +723,7 @@ describe.skipIf(!fs.existsSync(path.join(process.cwd(), "plugins", "cua", "plugi
     const viteConfigSource = await readFile("vite.config.ts", "utf8");
 
     expect(viteConfigSource).toContain("pluginSettings: resolve");
-    expect(presenterSource).toContain("../preload/pluginSettings.mjs");
+    expect(presenterSource).toContain('getPreloadPath("pluginSettings.mjs")');
     expect(presenterSource).not.toContain("../preload/plugin-settings-preload.mjs");
   });
 
@@ -714,231 +758,247 @@ describe.skipIf(!fs.existsSync(path.join(process.cwd(), "plugins", "cua", "plugi
     expect(presenter.__mocks.mcpPresenter.startServer).toHaveBeenCalledWith("fixture-runtime");
   });
 
-  it("declares the CUA MCP server with plugin helper context", async () => {
-    const manifest = JSON.parse(await readFile("plugins/cua/plugin.json", "utf8"));
-    const mcpConfig = JSON.parse(await readFile("plugins/cua/mcp/cua-driver.json", "utf8"));
+  it("declares the CUA embedded adapter runtime with helper detect preference", async () => {
+    const manifest = JSON.parse(await readRepoFile("plugins/cua/plugin.json"));
+    const mcpConfig = JSON.parse(await readRepoFile("plugins/cua/mcp/cua-driver.json"));
     const server = manifest.mcpServers.find((item: { id: string }) => item.id === "cua-driver");
 
-    expect(manifest.runtime.detect[0]).toBe(
-      "plugin:runtime/darwin/${arch}/Argos Computer Use.app/Contents/MacOS/cua-driver",
-    );
+    expect(manifest.runtime.adapter).toBe("cua-embedded-v1");
+    expect(manifest.runtime.adapterContract).toMatchObject({
+      hostBundleId: "com.wefonk.argos.computeruse",
+      driverVersion: "0.19.2",
+      contractVersion: "0.6.0",
+      mcpProtocolVersion: "2025-06-18",
+    });
+    expect(manifest.runtime.integrityDescriptor).toBe("runtime/${target.platform}/${arch}/integrity.json");
+    expect(manifest.runtime.detect[0]).toBe("app-helper:Argos Computer Use.app/Contents/MacOS/argos-cua-driver");
     expect(manifest.runtime.detect).toEqual([
-      "plugin:runtime/darwin/${arch}/Argos Computer Use.app/Contents/MacOS/cua-driver",
+      "app-helper:Argos Computer Use.app/Contents/MacOS/argos-cua-driver",
+      "plugin:runtime/darwin/${arch}/Argos Computer Use.app/Contents/MacOS/argos-cua-driver",
       "plugin:runtime/win32/${arch}/cua-driver.exe",
       "plugin:runtime/linux/${arch}/cua-driver",
-      "/Applications/CuaDriver.app/Contents/MacOS/cua-driver",
     ]);
-    expect(server.env).toEqual({
-      CUA_DRIVER_MCP_MODE: "1",
-      ARGOS_COMPUTER_USE_APP_PATH: "${runtime.cua-driver.helperAppPath}",
-      ARGOS_COMPUTER_USE_BINARY_PATH: "${runtime.cua-driver.command}",
-    });
-    expect(mcpConfig.env).toEqual(server.env);
+    expect(server.args).toEqual(["mcp", "--embedded"]);
+    expect(server.startMode).toBe("onDemand");
+    expect(server.surfaces).toEqual(["tools"]);
+    expect(server.inheritEnv).toBe("minimal");
+    expect(server.env).toBeUndefined();
+    expect(mcpConfig).toEqual(server);
   });
 
-  it("keeps new CUA cursor style controls permission-gated", async () => {
-    const manifest = JSON.parse(await readFile("plugins/cua/plugin.json", "utf8"));
-    const policy = JSON.parse(await readFile("plugins/cua/policies/tool-policy.json", "utf8"));
-    const registrySource = await readFile(
-      "plugins/cua/vendor/cua-driver/source/Sources/CuaDriverServer/ToolRegistry.swift",
-      "utf8",
-    );
-    const styleToolSource = await readFile(
-      "plugins/cua/vendor/cua-driver/source/Sources/CuaDriverServer/Tools/SetAgentCursorStyleTool.swift",
-      "utf8",
-    );
+  it("keeps destructive CUA tools denied and actions permission-gated", async () => {
+    const manifest = JSON.parse(await readRepoFile("plugins/cua/plugin.json"));
+    const policy = JSON.parse(await readRepoFile("plugins/cua/policies/tool-policy.json", "utf8"));
     const manifestTools = manifest.toolPolicies.find(
       (item: { serverId: string }) => item.serverId === "cua-driver",
     ).tools;
 
-    expect(styleToolSource).toContain('name: "set_agent_cursor_style"');
-    expect(registrySource).toContain("SetAgentCursorStyleTool.handler");
-    expect(manifestTools.set_agent_cursor_style).toBe("ask");
-    expect(policy.tools.set_agent_cursor_style).toBe("ask");
+    expect(manifestTools.click).toBe("ask");
+    expect(manifestTools.type_text).toBe("ask");
+    expect(manifestTools.set_agent_cursor_theme).toBe("ask");
+    expect(manifestTools.kill_app).toBe("deny");
+    expect(manifestTools.clipboard_read).toBe("deny");
+    expect(manifestTools.mouse_drag).toBe("deny");
+    expect(manifestTools.verify_state).toBe("allow");
+    expect(manifestTools.check_permissions).toBe("allow");
+    expect(policy.tools).toEqual(manifestTools);
   });
 
-  it("tracks CUA vendor source as a Argos-owned fork", async () => {
-    const metadata = JSON.parse(await readFile("plugins/cua/vendor/cua-driver/upstream.json", "utf8"));
-    const buildScript = await readFile("scripts/build-cua-plugin-runtime.mjs", "utf8");
+  it("pins the CUA runtime to a checksum-verified upstream Rust release", async () => {
+    const metadata = JSON.parse(await readRepoFile("plugins/cua/vendor/cua-driver/upstream.json"));
+    const buildScript = await readRepoFile("scripts/build-cua-plugin-runtime.mjs");
 
     expect(metadata).toMatchObject({
-      sourceKind: "argos-owned-fork",
+      sourceKind: "upstream-release",
       upstreamRepo: "https://github.com/trycua/cua.git",
-      upstreamSubdir: "libs/cua-driver",
+      upstreamSubdir: "libs/cua-driver/rust",
+      tag: "cua-driver-rs-v0.19.2",
+      version: "0.19.2",
     });
-    expect(metadata.forkPolicy).toContain("Cherry-pick upstream fixes");
-    expect(metadata.lastCherryPick).toMatchObject({
-      sourceTag: metadata.tag,
-      sourceCommit: metadata.commit,
-    });
-    expect(buildScript).toContain("vendorSourceDir");
-    expect(buildScript).toContain("sourceKind");
-    expect(buildScript).toContain("argos-owned-fork");
-    expect(buildScript).toContain("--package-path");
-    expect(buildScript).toContain("vendorSourceDir");
-  });
-
-  it("keeps CUA updates managed by Argos instead of upstream release checks", async () => {
-    const commandSource = await readFile(
-      "plugins/cua/vendor/cua-driver/source/Sources/CuaDriverCLI/CuaDriverCommand.swift",
-      "utf8",
-    );
-
-    expect(commandSource).toContain("Argos packages this cua-driver fork with the app.");
-    expect(commandSource).toContain("Update Argos to receive newer Computer Use helper builds.");
-    expect(commandSource).not.toContain("VersionCheck.fetchLatest");
-    expect(commandSource).not.toContain("Could not reach GitHub");
-    expect(commandSource).not.toContain("Checking for updates");
-  });
-
-  it("keeps CUA default pixel clicks on the upstream auth-signed path", async () => {
-    const mouseInput = await readFile(
-      "plugins/cua/vendor/cua-driver/source/Sources/CuaDriverCore/Input/MouseInput.swift",
-      "utf8",
-    );
-
-    expect(mouseInput).toContain("try clickViaAuthSignedPost(");
-    expect(mouseInput).toContain("private static func clickViaAuthSignedPost");
-    expect(mouseInput).not.toContain("clickViaBackgroundPidPost");
-  });
-
-  it("scopes CUA zoom contexts to pid and window_id", async () => {
-    const registrySource = await readFile(
-      "plugins/cua/vendor/cua-driver/source/Sources/CuaDriverServer/Tools/ImageResizeRegistry.swift",
-      "utf8",
-    );
-    const zoomTool = await readFile(
-      "plugins/cua/vendor/cua-driver/source/Sources/CuaDriverServer/Tools/ZoomTool.swift",
-      "utf8",
-    );
-    const clickTool = await readFile(
-      "plugins/cua/vendor/cua-driver/source/Sources/CuaDriverServer/Tools/ClickTool.swift",
-      "utf8",
-    );
-    const dragTool = await readFile(
-      "plugins/cua/vendor/cua-driver/source/Sources/CuaDriverServer/Tools/DragTool.swift",
-      "utf8",
-    );
-    const stateTool = await readFile(
-      "plugins/cua/vendor/cua-driver/source/Sources/CuaDriverServer/Tools/GetWindowStateTool.swift",
-      "utf8",
-    );
-
-    expect(registrySource).toContain("public struct ImageContextKey");
-    expect(registrySource).toContain("private var ratios: [ImageContextKey: Double]");
-    expect(registrySource).toContain("private var zooms: [ImageContextKey: ZoomContext]");
-    expect(zoomTool).toContain('"window_id"');
-    expect(zoomTool).toContain("capture.captureWindow");
-    expect(zoomTool).toContain("windowId: windowId");
-    expect(stateTool).toContain("setRatio(");
-    expect(stateTool).toContain("windowId: windowId");
-    for (const source of [clickTool, dragTool]) {
-      expect(source).toContain("from_zoom=true but no zoom context for pid");
-      expect(source).toContain("Call `zoom` with the same pid and window_id first.");
-      expect(source).toContain("windowId: windowId");
+    expect(metadata.checksumsSha256).toMatch(/^[a-f0-9]{64}$/);
+    for (const asset of Object.values<any>(metadata.assets)) {
+      expect(asset.sha256).toMatch(/^[a-f0-9]{64}$/);
     }
+    expect(buildScript).toContain("verifyPinnedChecksum");
+    expect(buildScript).toContain("verifyChecksum");
+    expect(buildScript).toContain("writeCuaRuntimeIntegrityDescriptor");
+    expect(buildScript).toContain("dump-docs");
   });
 
-  it("keeps Electron AX enablement internal instead of adding a public tool", async () => {
-    const manifest = JSON.parse(await readFile("plugins/cua/plugin.json", "utf8"));
-    const policy = JSON.parse(await readFile("plugins/cua/policies/tool-policy.json", "utf8"));
-    const registrySource = await readFile(
-      "plugins/cua/vendor/cua-driver/source/Sources/CuaDriverServer/ToolRegistry.swift",
-      "utf8",
-    );
-    const stateSource = await readFile(
-      "plugins/cua/vendor/cua-driver/source/Sources/CuaDriverCore/AppState/AppState.swift",
-      "utf8",
-    );
-    const enablementSource = await readFile(
-      "plugins/cua/vendor/cua-driver/source/Sources/CuaDriverCore/Focus/AXEnablementAssertion.swift",
-      "utf8",
-    );
-    const manifestTools = manifest.toolPolicies.find(
-      (item: { serverId: string }) => item.serverId === "cua-driver",
-    ).tools;
-
-    expect(registrySource).not.toContain("SetElectronAccessibilityTool");
-    expect(manifestTools.set_electron_accessibility).toBeUndefined();
-    expect(policy.tools.set_electron_accessibility).toBeUndefined();
-    expect(stateSource).toContain("activateAccessibilityIfNeeded");
-    expect(enablementSource).toContain("AXManualAccessibility");
-    expect(enablementSource).toContain("AXEnhancedUserInterface");
-  });
-
-  it("keeps the CUA skill instructions MCP-only", async () => {
+  it("keeps the CUA skill instructions tool-first", async () => {
     const files = ["SKILL.md", "README.md", "WEB_APPS.md", "RECORDING.md", "TESTS.md"];
-    const contents = await Promise.all(files.map((file) => readFile(`plugins/cua/skills/cua-driver/${file}`, "utf8")));
+    const contents = await Promise.all(files.map((file) => readRepoFile(`plugins/cua/skills/computer-use/${file}`)));
     const combined = contents.join("\n");
 
     expect(combined).toContain("list_apps");
     expect(combined).toContain("launch_app");
     expect(combined).toContain("get_window_state");
+    expect(combined).toContain("verify_state");
     expect(combined).toContain("check_permissions");
-    expect(combined).toContain("set_agent_cursor_style");
     expect(combined).toContain("Argos Computer Use.app");
-    expect(combined).toContain("AXManualAccessibility");
-    expect(combined).toContain("electron_debugging_port: 9222");
-    expect(combined).toContain("screenshot({ window_id })");
-    expect(combined).toContain("zoom({ pid, window_id");
-    expect(combined).toContain("Repeated zoom calls are a failure signal");
-    expect(combined).not.toContain("Bash");
-    expect(combined).not.toContain("cua-driver <tool");
-    expect(combined).not.toContain("PATH");
-    expect(combined).not.toMatch(/\bserve\b/);
-    expect(combined).not.toContain("open -n -g -a");
-    expect(combined).not.toContain("daemon");
+    expect(combined).toContain("${PLUGIN_ROOT}");
+    expect(combined).toContain("${OWNER_PLUGIN_ID}");
+    expect(combined).not.toContain("DeepChat");
+    expect(combined).not.toContain("deepchat");
   });
 
-  it("uses MCP-mode cache guidance in the CUA driver vendor source", async () => {
-    const clickTool = await readFile(
-      "plugins/cua/vendor/cua-driver/source/Sources/CuaDriverServer/Tools/ClickTool.swift",
-      "utf8",
-    );
-    const rightClickTool = await readFile(
-      "plugins/cua/vendor/cua-driver/source/Sources/CuaDriverServer/Tools/RightClickTool.swift",
-      "utf8",
-    );
+  it("uses the driver permission tool flow for embedded runtime checks", async () => {
+    const presenterSource = await readFile("src/main/presenter/pluginPresenter/index.ts", "utf8");
 
-    for (const source of [clickTool, rightClickTool]) {
-      expect(source).toContain("CUA_DRIVER_MCP_MODE");
-      expect(source).toContain("Call get_window_state with the same pid and window_id");
-    }
+    expect(presenterSource).toContain("checkAdapterRuntimePermissions");
+    expect(presenterSource).toContain('ensureRunning(serverName, "runtime-test")');
+    expect(presenterSource).toContain("check_permissions");
   });
 
-  it("skips install telemetry in the bundled CUA CLI entrypoint", async () => {
-    const source = await readFile(
-      "plugins/cua/vendor/cua-driver/source/Sources/CuaDriverCLI/CuaDriverCommand.swift",
-      "utf8",
+  it("fails closed when an embedded runtime fails integrity verification", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "argos-cua-embedded-test-"));
+    tempRoots.push(root);
+    const appPath = path.join(root, "app");
+    const userDataPath = path.join(root, "userData");
+    const packageRoot = path.join(appPath, "plugins");
+    const pluginId = "com.argos.plugins.cua";
+    const bundleRelativePath = `Fixture App.app/Contents/MacOS/fixture-driver`;
+    const runtimeRelativePath = `runtime/darwin/${process.arch}/${bundleRelativePath}`;
+    const binaryContent = "#!/bin/sh\necho fixture-driver\n";
+    const catalogContent = `${JSON.stringify({
+      version: "0.19.2",
+      tools: [
+        {
+          name: "click",
+          description: "Click",
+          input_schema: { type: "object", properties: {} },
+          read_only: false,
+          destructive: true,
+          idempotent: false,
+        },
+      ],
+    })}\n`;
+    const descriptor = {
+      schemaVersion: 1,
+      pluginId,
+      runtimeId: "cua-driver",
+      runtimeVersion: "0.19.2",
+      target: `darwin/${process.arch}`,
+      runtimeRoot: `runtime/darwin/${process.arch}`,
+      binaryPath: bundleRelativePath,
+      catalogPath: "tool-catalog.json",
+      files: {
+        [bundleRelativePath]: createHash("sha256").update(binaryContent).digest("hex"),
+        "tool-catalog.json": "0".repeat(64),
+      },
+      executablePaths: [bundleRelativePath],
+      macos: {
+        bundlePath: "Fixture App.app",
+        bundleIdentifier: "com.wefonk.argos.computeruse",
+        signatureType: "ad-hoc",
+        teamId: null,
+        hardenedRuntime: true,
+        entitlements: {
+          "com.apple.security.automation.apple-events": true,
+          "com.apple.security.device.screen-capture": true,
+        },
+      },
+    };
+    const manifest = {
+      id: pluginId,
+      name: "Fixture Embedded Runtime",
+      version: "0.2.3",
+      publisher: "Argos",
+      engines: {
+        argos: ">=0.2.3",
+        platforms: ["darwin"],
+        targets: [`darwin/${process.arch}`],
+      },
+      activationEvents: ["onEnable"],
+      capabilities: ["runtime.manage", "mcp.register"],
+      source: {
+        type: "argos-official",
+        url: "https://github.com/dvaJi/argos/releases/download/v0.2.3/argos-plugin-cua-0.2.3-darwin-x64.dcplugin",
+        publisher: "Argos",
+      },
+      runtime: {
+        id: "cua-driver",
+        type: "external-helper",
+        displayName: "Fixture CUA Driver",
+        detect: [`plugin:${runtimeRelativePath}`],
+        adapter: "cua-embedded-v1",
+        adapterContract: {
+          hostBundleId: "com.wefonk.argos.computeruse",
+          driverVersion: "0.19.2",
+          contractVersion: "0.6.0",
+          toolsListSchemaVersion: "1",
+          capabilityVersion: "1",
+          mcpProtocolVersion: "2025-06-18",
+        },
+        integrityDescriptor: `runtime/darwin/${process.arch}/integrity.json`,
+      },
+      mcpServers: [
+        {
+          id: "cua-driver",
+          displayName: "Fixture CUA Driver",
+          transport: "stdio",
+          command: "${runtime.cua-driver.command}",
+          args: ["mcp", "--embedded"],
+          startMode: "onDemand",
+          surfaces: ["tools"],
+          toolCatalog: `runtime/darwin/${process.arch}/tool-catalog.json`,
+          inheritEnv: "minimal",
+        },
+      ],
+    };
+    const files: Record<string, Uint8Array> = {
+      "plugin.json": new TextEncoder().encode(`${JSON.stringify(manifest, null, 2)}\n`),
+      [runtimeRelativePath]: new TextEncoder().encode(binaryContent),
+      [`runtime/darwin/${process.arch}/tool-catalog.json`]: new TextEncoder().encode(catalogContent),
+      [`runtime/darwin/${process.arch}/integrity.json`]: new TextEncoder().encode(
+        `${JSON.stringify(descriptor, null, 2)}\n`,
+      ),
+    };
+    const checksums = Object.fromEntries(
+      Object.entries(files).map(([filePath, content]) => [
+        filePath,
+        createHash("sha256").update(Buffer.from(content)).digest("hex"),
+      ]),
     );
+    files["checksums.json"] = new TextEncoder().encode(`${JSON.stringify(checksums, null, 2)}\n`);
+    await mkdir(packageRoot, { recursive: true });
+    await mkdir(userDataPath, { recursive: true });
+    await writeFile(
+      path.join(packageRoot, "argos-plugin-cua-0.2.3-darwin-x64.dcplugin"),
+      Buffer.from(zipSync(files, { level: 6 })),
+    );
+    vi.mocked<(...args: any[]) => any>(app.getPath).mockImplementation((name: string) => {
+      if (name === "userData") {
+        return userDataPath;
+      }
+      if (name === "temp" || name === "home") {
+        return root;
+      }
+      return "/mock/path";
+    });
 
-    expect(source).not.toContain("recordInstallation()");
-    expect(source).toContain("telemetryEntryEvent(for: original)");
-    expect(source).toContain("TelemetryClient.shared.record(event: entryEvent)");
+    const presenter = await createPluginPresenter("darwin", {
+      appPath,
+      arch: process.arch,
+    });
+    vi.clearAllMocks();
+
+    const result = await presenter.enablePlugin(pluginId);
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("integrity mismatch");
+    expect(presenter.__mocks.mcpPresenter.startServer).not.toHaveBeenCalled();
+    const servers = await presenter.__mocks.configPresenter.getMcpServers();
+    expect(servers["cua-driver"]).toBeUndefined();
   });
 
-  it("wires CUA plugin packaging docs and release gates for both mac architectures", async () => {
-    const packageJson = JSON.parse(await readFile("package.json", "utf8"));
-    const buildWorkflow = await readFile(".github/workflows/build.yml", "utf8");
-    const releaseWorkflow = await readFile(".github/workflows/release.yml", "utf8");
-    const packageScript = await readFile("scripts/package-plugin.mjs", "utf8");
-    const guide = await readFile("docs/guides/plugin-packaging.md", "utf8");
+  it("keeps CUA plugin packaging aligned with the multi-arch bundle flow", async () => {
+    const packageJson = JSON.parse(await readRepoFile("package.json"));
+    const packageScript = await readRepoFile("scripts/package-plugin.mjs");
 
-    expect(packageJson.scripts["plugin:cua:package:mac:arm64"]).toContain("--target-arch arm64");
-    expect(packageJson.scripts["plugin:cua:package:mac:x64"]).toContain("--target-arch x64");
     expect(packageJson.scripts["plugin:cua:build:mac:x64"]).toContain("--arch x64");
-    expect(packageJson.scripts["plugin:cua:bundle:mac:arm64"]).toContain("--target-arch arm64");
-    expect(packageJson.scripts["plugin:cua:bundle:mac:x64"]).toContain("--target-arch x64");
-    expect(packageJson.scripts["build:mac:arm64"]).toContain("plugin:cua:bundle:mac:arm64");
-    expect(buildWorkflow).toContain("pnpm run plugin:cua:bundle:mac:${{ matrix.arch }}");
-    expect(buildWorkflow).toContain("Verify bundled CUA plugin");
-    expect(buildWorkflow).toContain("Contents/Resources/app.asar.unpacked/plugins");
-    expect(releaseWorkflow).toContain("pnpm run plugin:cua:bundle:mac:${{ matrix.arch }}");
-    expect(releaseWorkflow).not.toContain("require_cua_plugin_asset");
-    expect(releaseWorkflow).not.toContain('cp "${dir}/${asset}" release_assets/');
+    expect(packageJson.scripts["build:mac:arm64"]).toContain("plugin:bundle -- --name cua --platform darwin");
     expect(packageScript).toContain("parts[0] === 'runtime'");
     expect(packageScript).toContain("parts[2] !== args.targetArch");
-    expect(guide).toContain("build/bundled-plugins/");
-    expect(guide).toContain("app.asar.unpacked/plugins/");
   });
 });

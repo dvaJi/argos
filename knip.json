@@ -3,7 +3,7 @@
   "workspaces": {
     ".": {
       "entry": [
-        "scripts/{architecture-guard,agent-cleanup-guard,route-catalog-drift-guard,generate-architecture-baseline,build-cua-plugin-runtime,fetch-acp-registry,fetch-provider-db,package-plugin,pre-commit,validate-packaging-inputs}.mjs",
+        "scripts/{architecture-guard,agent-cleanup-guard,route-catalog-drift-guard,generate-architecture-baseline,build-cua-plugin-runtime,cua-macos-contract,cua-tool-catalog-contract,fetch-acp-registry,fetch-provider-db,package-plugin,pre-commit,validate-packaging-inputs}.mjs",
         "scripts/afterPack.js",
         "scripts/notarize.js"
       ],

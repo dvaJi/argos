@@ -23,6 +23,7 @@ import { BUILTIN_ARGOS_AGENT_ID } from "@argos/agent-runtime";
 import { AcpProviderExecutionPort } from "./host/acp-provider-execution";
 import { createDaemonMcpPorts } from "./host/daemonMcpPorts";
 import { DaemonMcpRuntime } from "./host/daemonMcpRuntime";
+import { PluginRuntimeRegistry } from "@argos/mcp-runtime";
 import { DaemonKnowledgeRuntime } from "./host/daemonKnowledgeRuntime";
 import { DaemonSkillRuntime } from "./host/daemonSkillRuntime";
 import { DaemonSyncRuntime } from "./host/daemonSyncRuntime";
@@ -503,6 +504,8 @@ export async function startDaemon(options?: {
     db,
   });
   const mcpRuntime = new DaemonMcpRuntime(configPresenter, mcpPorts);
+  const pluginRuntimeRegistry = new PluginRuntimeRegistry(mcpRuntime.serverManager);
+  mcpPorts.services.pluginRuntime = pluginRuntimeRegistry;
   void mcpRuntime
     .startEnabledServers()
     .then(({ started, failed }) => {
@@ -781,6 +784,7 @@ export async function startDaemon(options?: {
     configPresenter,
     mcpPresenter: mcpRuntime,
     skillPresenter: skillRuntime.presenter,
+    pluginRuntime: pluginRuntimeRegistry,
     configDir: paths.getConfigDir(),
     dataDir: paths.getDataDir(),
     appVersion: resolveDaemonVersion(),
