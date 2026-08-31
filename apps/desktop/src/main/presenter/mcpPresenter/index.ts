@@ -13,7 +13,7 @@ import {
   McpSamplingRequestPayload,
   McpSamplingDecision,
 } from "@argos/shared/presenter";
-import { McpRouterManager, ServerManager, ToolManager } from "@argos/mcp-runtime";
+import { McpRouterManager, ServerManager, ToolManager, type McpPluginRuntimePort } from "@argos/mcp-runtime";
 import { createDesktopMcpPorts } from "./desktopMcpPorts";
 import { eventBus, SendTarget } from "#/eventbus";
 import { MCP_EVENTS, NOTIFICATION_EVENTS } from "#/events";
@@ -30,6 +30,7 @@ export class McpPresenter implements IMCPPresenter {
   private serverManager: ServerManager;
   private toolManager: ToolManager;
   private configPresenter: IConfigPresenter;
+  private mcpPorts: ReturnType<typeof createDesktopMcpPorts>;
   private isInitialized: boolean = false;
   // McpRouter
   private mcprouter?: McpRouterManager;
@@ -45,6 +46,7 @@ export class McpPresenter implements IMCPPresenter {
     this.configPresenter = configPresenter || presenter.configPresenter;
     this.cacheImage = cacheImage;
     const mcpPorts = createDesktopMcpPorts(this.configPresenter);
+    this.mcpPorts = mcpPorts;
     this.serverManager = new ServerManager(this.configPresenter, mcpPorts);
     this.toolManager = new ToolManager(this.configPresenter, this.serverManager, mcpPorts);
     // init mcprouter manager
@@ -63,6 +65,15 @@ export class McpPresenter implements IMCPPresenter {
     return Boolean(config?.ownerPluginId || (config?.source === "plugin" && config?.sourceId));
   }
 
+  /** Attaches plugin runtime supervision (on-demand starts + tool catalogs). */
+  attachPluginRuntimePort(port: McpPluginRuntimePort): void {
+    this.mcpPorts.services.pluginRuntime = port;
+  }
+
+  getServerManager(): ServerManager {
+    return this.serverManager;
+  }
+
   private async isPluginOwnedServerName(serverName: string): Promise<boolean> {
     const servers = await this.configPresenter.getMcpServers();
     return this.isPluginOwnedServerConfig(servers[serverName]);
@@ -77,12 +88,9 @@ export class McpPresenter implements IMCPPresenter {
       // If no configPresenter is provided, get it from presenter
       if (!this.configPresenter.getLanguage) {
         // Recreate managers
-        this.serverManager = new ServerManager(this.configPresenter, createDesktopMcpPorts(this.configPresenter));
-        this.toolManager = new ToolManager(
-          this.configPresenter,
-          this.serverManager,
-          createDesktopMcpPorts(this.configPresenter),
-        );
+        this.mcpPorts = createDesktopMcpPorts(this.configPresenter);
+        this.serverManager = new ServerManager(this.configPresenter, this.mcpPorts);
+        this.toolManager = new ToolManager(this.configPresenter, this.serverManager, this.mcpPorts);
       }
 
       // Load configuration

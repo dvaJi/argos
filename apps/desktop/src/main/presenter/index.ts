@@ -54,6 +54,7 @@ import { AgentSessionPresenter } from "./agentSessionPresenter";
 import { RemoteControlPresenter } from "./remoteControlPresenter";
 import type { RemoteControlPresenterLike } from "./remoteControlPresenter/interface";
 import { PluginPresenter } from "./pluginPresenter";
+import { PluginRuntimeRegistry } from "@argos/mcp-runtime";
 import { AgentRepository } from "./agentRepository";
 import { normalizeArgosSubagentSlots } from "@argos/shared/lib/argosSubagents";
 import { subscribeArgosInternalSessionUpdates } from "./internalSessionEvents";
@@ -194,6 +195,7 @@ export class Presenter implements IPresenter {
   skillSyncPresenter: ISkillSyncPresenter;
   agentSessionPresenter: IAgentSessionPresenter;
   pluginPresenter: PluginPresenter;
+  pluginRuntimeRegistry: PluginRuntimeRegistry;
   hooksNotifications: HooksNotificationsService;
   scheduledTasks: ScheduledTasksService;
   commandPermissionService: CommandPermissionService;
@@ -412,10 +414,15 @@ export class Presenter implements IPresenter {
 
     // Initialize official plugin host. Plugins are activated before MCP startup so managed
     // MCP servers are present when the regular MCP presenter starts enabled servers.
+    this.pluginRuntimeRegistry = new PluginRuntimeRegistry(
+      this.mcpPresenter.getServerManager?.() as ConstructorParameters<typeof PluginRuntimeRegistry>[0],
+    );
+    this.mcpPresenter.attachPluginRuntimePort?.(this.pluginRuntimeRegistry);
     this.pluginPresenter = new PluginPresenter({
       configPresenter: this.configPresenter,
       mcpPresenter: this.mcpPresenter,
       skillPresenter: this.skillPresenter,
+      pluginRuntime: this.pluginRuntimeRegistry,
     });
 
     // Initialize Skill Sync presenter

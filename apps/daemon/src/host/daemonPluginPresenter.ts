@@ -18,7 +18,17 @@ import type {
   PluginToolPolicyDecision,
   RuntimeDependencyRecord,
 } from "@argos/shared/types/plugin";
-import { OFFICIAL_PLUGIN_SOURCE } from "@argos/shared/types/plugin";
+import { OFFICIAL_PLUGIN_SOURCE, type CuaEmbeddedRuntimeContract } from "@argos/shared/types/plugin";
+import {
+  assertPluginManifestLifecycleContract,
+  CuaEmbeddedRuntimeAdapter,
+  CuaRuntimeIntegrityVerifier,
+  parseCuaRuntimeIntegrityDescriptor,
+  parsePluginToolCatalogJson,
+  type CuaRuntimeIntegrityDescriptor,
+  type PluginRuntimeStartReason,
+} from "@argos/backend-core";
+import type { PluginRuntimeRegistry } from "@argos/mcp-runtime";
 import { resolveDaemonVersion } from "../version";
 import { createJsonStoreFactory } from "./jsonStoreFactory";
 
@@ -50,6 +60,13 @@ type PluginPresenterDeps = {
     stopServer(serverName: string): Promise<void>;
     isServerRunning(serverName: string): boolean;
     getServerLastError?(serverName: string): string | undefined;
+    callTool?(toolCall: { id: string; type: string; function: { name: string; arguments: string } }): Promise<
+      | {
+          isError?: boolean;
+          content?: string | Array<{ type: string; text?: string }>;
+        }
+      | undefined
+    >;
   };
   skillPresenter: {
     registerPluginSkill?(input: {
@@ -60,6 +77,7 @@ type PluginPresenterDeps = {
     }): Promise<void> | void;
     unregisterPluginSkillsByOwner?(ownerPluginId: string): Promise<void> | void;
   };
+  pluginRuntime: PluginRuntimeRegistry;
   configDir: string;
   dataDir: string;
   platform?: NodeJS.Platform;
@@ -104,6 +122,7 @@ export class DaemonPluginPresenter {
   private readonly configPresenter: PluginPresenterDeps["configPresenter"];
   private readonly mcpPresenter: PluginPresenterDeps["mcpPresenter"];
   private readonly skillPresenter: PluginPresenterDeps["skillPresenter"];
+  private readonly pluginRuntime: PluginRuntimeRegistry;
   private readonly platform: NodeJS.Platform;
   private readonly arch: NodeJS.Architecture;
   private readonly appVersion: string;
@@ -112,11 +131,13 @@ export class DaemonPluginPresenter {
   private readonly toolPolicyStore: JsonStoreLike<ToolPolicyStoreShape>;
   private officialPlugins = new Map<string, ResolvedOfficialPlugin>();
   private settingsBaseUrl = "";
+  private integrityErrors = new Map<string, string>();
 
   constructor(deps: PluginPresenterDeps) {
     this.configPresenter = deps.configPresenter;
     this.mcpPresenter = deps.mcpPresenter;
     this.skillPresenter = deps.skillPresenter;
+    this.pluginRuntime = deps.pluginRuntime;
     this.platform = deps.platform ?? process.platform;
     this.arch = deps.arch ?? process.arch;
     this.appVersion = deps.appVersion ?? resolveDaemonVersion();
@@ -274,6 +295,15 @@ export class DaemonPluginPresenter {
             ok: true,
             data: (await this.refreshRuntime(pluginId)) as unknown as PluginActionResult["data"],
           };
+        case "runtime.test": {
+          const plugin = await this.getInstalledOrOfficialPluginOrThrow(pluginId);
+          const runtimeId = plugin.manifest.runtime?.id;
+          if (!runtimeId) {
+            throw new Error(`Plugin ${pluginId} does not declare a runtime`);
+          }
+          await this.pluginRuntime.testRuntime(runtimeId);
+          return { ok: true };
+        }
         case "runtime.checkPermissions":
           return {
             ok: true,
@@ -347,6 +377,7 @@ export class DaemonPluginPresenter {
     const plugin = await this.getInstalledOrOfficialPluginOrThrow(pluginId);
     this.assertTrustedOfficialPlugin(plugin.manifest);
     this.assertPlatformSupported(plugin.manifest);
+    assertPluginManifestLifecycleContract(plugin.manifest);
     this.applyDeclaredExecutablePermissions(plugin.manifest, plugin.root);
 
     await this.disableByOwner(pluginId);
@@ -397,6 +428,13 @@ export class DaemonPluginPresenter {
       }
     }
 
+    try {
+      await this.pluginRuntime.stopByOwner(pluginId);
+    } catch (error) {
+      console.warn("[PluginHost] Failed to stop plugin runtime adapters:", { pluginId, error });
+    }
+    this.pluginRuntime.unregisterByOwner(pluginId);
+
     await this.skillPresenter.unregisterPluginSkillsByOwner?.(pluginId);
     this.unregisterToolPolicies(pluginId);
     this.removeResourceRecordsByOwner(pluginId);
@@ -421,6 +459,30 @@ export class DaemonPluginPresenter {
   private async registerMcpServers(plugin: ResolvedOfficialPlugin, runtime?: PluginRuntimeStatus): Promise<string[]> {
     const servers = plugin.manifest.mcpServers ?? [];
     const registeredServerNames: string[] = [];
+    const runtimeManifest = plugin.manifest.runtime;
+    const adapterContract =
+      runtimeManifest?.adapter === "cua-embedded-v1" ? runtimeManifest.adapterContract : undefined;
+    let integrityError: string | undefined;
+    let verifier: CuaRuntimeIntegrityVerifier | undefined;
+
+    if (adapterContract && runtimeManifest?.integrityDescriptor) {
+      try {
+        const descriptor = parseCuaRuntimeIntegrityDescriptor(
+          JSON.parse(fs.readFileSync(path.join(plugin.root, runtimeManifest.integrityDescriptor), "utf8")),
+          runtimeManifest.integrityDescriptor,
+        );
+        verifier = new CuaRuntimeIntegrityVerifier({
+          pluginRoot: plugin.root,
+          binaryPath: runtime?.command ?? "",
+          platform: this.platform,
+          arch: this.arch,
+          runtimeVersion: descriptor.runtimeVersion,
+          descriptor,
+        });
+      } catch (error) {
+        integrityError = error instanceof Error ? error.message : String(error);
+      }
+    }
 
     for (const server of servers) {
       const command = this.resolvePluginTemplate(server.command, plugin, runtime);
@@ -441,13 +503,54 @@ export class DaemonPluginPresenter {
         },
         descriptions: server.displayName,
         icons: "plugin",
-        autoApprove: server.autoApprove,
+        autoApprove: server.autoApprove ?? [],
         enabled: true,
         disable: false,
         source: "plugin",
         sourceId: plugin.manifest.id,
         ownerPluginId: plugin.manifest.id,
+        inheritEnv: server.inheritEnv,
       };
+
+      if (adapterContract && verifier) {
+        let toolCatalog;
+        try {
+          if (server.toolCatalog) {
+            const catalogPath = this.resolvePluginRelativePath(plugin.root, server.toolCatalog);
+            if (integrityError) {
+              throw new Error(`Runtime integrity descriptor is invalid: ${integrityError}`);
+            }
+            const verifiedCatalogJson = await (verifier as CuaRuntimeIntegrityVerifier).verifyCatalog(catalogPath);
+            toolCatalog = parsePluginToolCatalogJson(verifiedCatalogJson, server.toolCatalog);
+          }
+          this.pluginRuntime.registerServer({
+            pluginId: plugin.manifest.id,
+            serverName,
+            displayName: server.displayName,
+            runtimeId: runtimeManifest?.id,
+            startMode: server.startMode ?? "eager",
+            surfaces: server.surfaces ?? ["tools", "prompts", "resources"],
+            toolCatalog,
+            adapter: new CuaEmbeddedRuntimeAdapter({
+              binaryPath: command,
+              platform: this.platform,
+              contract: adapterContract as CuaEmbeddedRuntimeContract,
+              environment: { ARGOS_PLUGIN_ID: plugin.manifest.id },
+            }),
+            launchGuard: verifier,
+          });
+        } catch (error) {
+          this.pluginRuntime.unregisterServer(serverName);
+          integrityError = error instanceof Error ? error.message : String(error);
+          console.warn("[PluginHost] Plugin runtime registration failed:", {
+            pluginId: plugin.manifest.id,
+            serverName,
+            error: integrityError,
+          });
+        }
+      } else {
+        this.pluginRuntime.unregisterServer(serverName);
+      }
 
       if (existing) {
         await this.configPresenter.updateMcpServer(serverName, config);
@@ -465,7 +568,21 @@ export class DaemonPluginPresenter {
       registeredServerNames.push(serverName);
     }
 
+    if (integrityError) {
+      this.setIntegrityError(plugin.manifest.id, integrityError);
+    } else {
+      this.clearIntegrityError(plugin.manifest.id);
+    }
+
     return registeredServerNames;
+  }
+
+  private setIntegrityError(pluginId: string, error: string): void {
+    this.integrityErrors.set(pluginId, error);
+  }
+
+  private clearIntegrityError(pluginId: string): void {
+    this.integrityErrors.delete(pluginId);
   }
 
   private async registerSkills(plugin: ResolvedOfficialPlugin): Promise<void> {
@@ -573,6 +690,37 @@ export class DaemonPluginPresenter {
         continue;
       }
 
+      if (runtime.adapter === "cua-embedded-v1") {
+        if (!path.isAbsolute(command)) {
+          continue;
+        }
+        try {
+          const stat = fs.lstatSync(command);
+          if (!stat.isFile() || stat.isSymbolicLink()) {
+            throw new Error(`CUA runtime candidate must be a regular file: ${command}`);
+          }
+          return {
+            runtimeId: runtime.id,
+            displayName: runtime.displayName,
+            state: "installed",
+            command,
+            helperAppPath: this.resolveHelperAppPath(command),
+            version: runtime.adapterContract?.driverVersion,
+            checkedAt,
+          };
+        } catch (error) {
+          return {
+            runtimeId: runtime.id,
+            displayName: runtime.displayName,
+            state: "error",
+            command,
+            helperAppPath: this.resolveHelperAppPath(command),
+            lastError: error instanceof Error ? error.message : String(error),
+            checkedAt,
+          };
+        }
+      }
+
       try {
         const { stdout } = await execFileAsync(command, ["--version"], {
           timeout: 5000,
@@ -613,6 +761,12 @@ export class DaemonPluginPresenter {
   }
 
   private async checkRuntimePermissions(pluginId: string): Promise<RuntimePermissionCheckResult> {
+    const plugin = await this.getInstalledOrOfficialPluginOrThrow(pluginId);
+    const runtimeManifest = plugin.manifest.runtime;
+    if (runtimeManifest?.adapter === "cua-embedded-v1" && runtimeManifest.integrityDescriptor) {
+      return await this.checkAdapterRuntimePermissions(runtimeManifest.id);
+    }
+
     const runtime = await this.refreshRuntime(pluginId);
     if (!runtime.command) {
       return {
@@ -626,6 +780,56 @@ export class DaemonPluginPresenter {
       return await this.runRuntimePermissionProbe(pluginId, runtime.command);
     } catch (probeError) {
       return await this.runRuntimePermissionToolFallback(pluginId, runtime.command, probeError);
+    }
+  }
+
+  private async checkAdapterRuntimePermissions(serverName: string): Promise<RuntimePermissionCheckResult> {
+    const callTool = this.mcpPresenter.callTool;
+    if (!callTool) {
+      return {
+        accessibility: "unknown",
+        screenRecording: "unknown",
+        error: "MCP tool dispatch is unavailable for the permission check",
+      };
+    }
+    try {
+      await this.pluginRuntime.ensureRunning(serverName, "runtime-test");
+      const result = await callTool({
+        id: `cua-permissions-${Date.now()}`,
+        type: "function",
+        function: { name: "check_permissions", arguments: JSON.stringify({ prompt: false }) },
+      });
+      if (!result || result.isError) {
+        const detail = Array.isArray(result?.content)
+          ? result.content
+              .map((item) => item?.text ?? "")
+              .filter(Boolean)
+              .join("; ")
+          : typeof result?.content === "string"
+            ? result.content
+            : "";
+        throw new Error(detail || `Runtime "${serverName}" permission check failed`);
+      }
+      const output = Array.isArray(result.content)
+        ? result.content
+            .map((item) => item?.text ?? "")
+            .filter(Boolean)
+            .join("\n")
+        : typeof result.content === "string"
+          ? result.content
+          : "";
+      return {
+        accessibility: this.parsePermissionState(output, "Accessibility"),
+        screenRecording: this.parsePermissionState(output, "Screen Recording"),
+        command: serverName,
+        stdout: output ? this.truncateOutput(output) : undefined,
+      };
+    } catch (error) {
+      return {
+        accessibility: "unknown",
+        screenRecording: "unknown",
+        error: `Permission check failed: ${error instanceof Error ? error.message : String(error)}`,
+      };
     }
   }
 
@@ -1062,6 +1266,9 @@ export class DaemonPluginPresenter {
 
   private resolveRuntimeCandidate(candidate: string, pluginRoot: string): string | null {
     candidate = candidate.replaceAll("${arch}", this.arch);
+    if (candidate.startsWith("app-helper:")) {
+      return null;
+    }
     if (candidate.startsWith("plugin:")) {
       return this.resolvePluginRelativePath(pluginRoot, candidate.slice("plugin:".length));
     }
@@ -1095,6 +1302,9 @@ export class DaemonPluginPresenter {
     }
 
     for (const serverName of serverNames) {
+      if (this.pluginRuntime.isOnDemand(serverName)) {
+        continue;
+      }
       try {
         if (!this.mcpPresenter.isServerRunning(serverName)) {
           await this.mcpPresenter.startServer(serverName);
@@ -1116,11 +1326,23 @@ export class DaemonPluginPresenter {
     const statuses: NonNullable<PluginListItem["mcpServers"]> = [];
     for (const server of manifest.mcpServers ?? []) {
       const serverConfig = servers[server.id];
+      const registration = this.pluginRuntime.getRegistration(server.id);
+      const quarantine = this.pluginRuntime.getQuarantine(server.id);
+      const integrityError = quarantine?.reason ?? this.integrityErrors.get(manifest.id);
       statuses.push({
         serverId: server.id,
         enabled: Boolean(serverConfig?.enabled),
         running: this.mcpPresenter.isServerRunning(server.id),
         lastError: serverConfig?.enabled ? this.mcpPresenter.getServerLastError?.(server.id) : undefined,
+        lifecycleState: registration
+          ? this.pluginRuntime.getQuarantine(server.id)
+            ? "quarantined"
+            : this.mcpPresenter.isServerRunning(server.id)
+              ? "running"
+              : "registered"
+          : undefined,
+        quarantinedAt: quarantine?.quarantinedAt,
+        integrityError,
       });
     }
     return statuses;
