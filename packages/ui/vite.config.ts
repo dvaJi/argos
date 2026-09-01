@@ -97,12 +97,23 @@ export default defineConfig(({ mode, command }) => {
       babel({
         presets: [reactCompilerPreset()],
       }),
-      ...(command === "build"
+      // React Scan is an opt-in dev aid (VITE_REACT_SCAN=1). The unpinned unpkg
+      // bundle crashes during SPA navigation (web-vitals inside it throws on
+      // undefined `startTime`), so it is never loaded by default, and production
+      // builds never include it.
+      ...(command === "serve"
         ? [
             {
-              name: "strip-react-scan",
+              name: "inject-react-scan-when-opted-in",
               transformIndexHtml(html: string) {
-                return html.replace(/<script\b[^>]*\bsrc="[^"]*react-scan[^"]*"[^>]*><\/script>\s*/gi, "");
+                const enabled = env.VITE_REACT_SCAN === "1" || process.env.VITE_REACT_SCAN === "1";
+                if (!enabled) {
+                  return html;
+                }
+                return html.replace(
+                  "</head>",
+                  '  <script crossorigin="anonymous" src="https://unpkg.com/react-scan/dist/auto.global.js"></script>\n  </head>',
+                );
               },
             },
           ]
