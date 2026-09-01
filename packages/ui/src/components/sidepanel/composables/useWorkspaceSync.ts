@@ -90,6 +90,10 @@ async function restoreExpandedDirectories(
   requestId: number,
   workspacePath: string | null,
 ): Promise<void> {
+  // Sequential by design (do NOT Promise.all): staleness is re-checked after
+  // every await so a newer sync request cancels pending expansion work before
+  // the next backend call, and depth-first ordering keeps the restored tree
+  // stable.
   for (const node of nodes) {
     if (!node.isDirectory) {
       continue;
