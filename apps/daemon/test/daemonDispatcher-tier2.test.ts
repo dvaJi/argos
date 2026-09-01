@@ -611,6 +611,9 @@ describe("DaemonDispatcher Tier 2 routes no longer return Coming soon", () => {
     it("mcp.callTool delegates to the daemon MCP runtime", async () => {
       const { dispatcher, mcpRuntime } = createTestDispatcher({
         mcpRuntime: {
+          // DaemonMcpRuntime.callTool returns the ADAPTED shape (content string
+          // + rawData). The raw→adapted conversion itself is covered by
+          // daemonMcpRuntimeCallTool.test.ts.
           callTool: vi.fn(async () => ({
             content: "Daemon tool result",
             rawData: { content: [] },

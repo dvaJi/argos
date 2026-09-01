@@ -1,4 +1,4 @@
-import { ServerManager, ToolManager, type McpHostPorts } from "@argos/mcp-runtime";
+import { ServerManager, ToolManager, formatToolCallContent, type McpHostPorts } from "@argos/mcp-runtime";
 import type { MCPServerConfig, MCPToolDefinition, McpClient } from "@argos/shared/presenter";
 import type { DaemonConfigPresenter } from "./daemonConfigPresenter";
 
@@ -151,7 +151,13 @@ export class DaemonMcpRuntime {
   }
 
   async callTool(request: unknown) {
-    return this.toolManager.callTool(request as never, undefined as never);
+    const result = await this.toolManager.callTool(request as never, undefined as never);
+    // Adapt to the mcp.callTool route contract: flatten content to a string and
+    // keep the raw response in rawData (mirrors the desktop McpPresenter).
+    return {
+      content: formatToolCallContent(result),
+      rawData: { ...result } as never,
+    };
   }
 
   /** Execute after the Pi/Argos permission gate has approved this call. */
@@ -166,7 +172,11 @@ export class DaemonMcpRuntime {
         toolCall.conversationId,
       );
     }
-    return this.toolManager.callTool(toolCall);
+    const result = await this.toolManager.callTool(toolCall);
+    return {
+      content: formatToolCallContent(result),
+      rawData: { ...result } as never,
+    };
   }
 
   async listPrompts() {
