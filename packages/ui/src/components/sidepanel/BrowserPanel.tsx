@@ -82,10 +82,11 @@ const browserPanelReducer = (state: BrowserPanelState, action: BrowserPanelActio
       return { ...state, urlInput: action.value };
   }
 };
+// Process-wide singleton; module scope keeps effect dependencies stable.
+const browserClient = createBrowserClient();
 export function BrowserPanel({ sessionId }: BrowserPanelProps) {
   const sidepanelStore = useSidepanelStore();
   const sessionStore = useSessionStore();
-  const browserClient = createBrowserClient();
   const containerRef = useRef<HTMLDivElement>(null);
   const [browser, dispatchBrowser] = useReducer(browserPanelReducer, undefined, createInitialBrowserPanelState);
   const lastSyncedBounds = useRef<Rectangle | null>(null);
@@ -345,7 +346,7 @@ export function BrowserPanel({ sessionId }: BrowserPanelProps) {
       stopStatusChangedListener.current?.();
       stopStatusChangedListener.current = null;
     };
-  }, [browserClient]);
+  }, []);
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col bg-background">
       <BrowserToolbar

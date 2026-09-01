@@ -1,16 +1,19 @@
-import { useState, useEffect, useRef } from "react";
+import { useCallback, useState, useEffect, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { ScrollArea } from "#shadcn/components/ui/scroll-area";
 import { Button } from "#shadcn/components/ui/button";
 import { createUsageClient } from "#api/UsageClient";
 import type { UsageStatsOutput } from "@argos/shared-contracts/routes";
 import UsageNostalgiaCard from "./control-center/UsageNostalgiaCard";
+
+// Process-wide singleton; module scope keeps hook/effect dependencies stable.
+const usageClient = createUsageClient();
+
 export interface DashboardSettingsProps {
   hideNostalgia?: boolean;
   onDashboardLoaded?: (dashboard: UsageStatsOutput) => void;
 }
 export default function DashboardSettings({ hideNostalgia = false, onDashboardLoaded }: DashboardSettingsProps) {
-  const usageClient = createUsageClient();
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [dashboard, setDashboard] = useState<UsageStatsOutput | null>(null);
@@ -18,21 +21,26 @@ export default function DashboardSettings({ hideNostalgia = false, onDashboardLo
   const refreshTimerRef = useRef<number | null>(null);
   const emptyRetryCountRef = useRef(0);
   const loadDashboardRef = useRef<() => Promise<void>>(async () => {});
-  const clearRefreshTimer = () => {
+  // Stable identities: these are effect dependencies, so fresh identities per
+  // render would re-run the mount effect (and reload the dashboard) forever.
+  const clearRefreshTimer = useCallback(() => {
     if (refreshTimerRef.current !== null) {
       window.clearTimeout(refreshTimerRef.current);
       refreshTimerRef.current = null;
     }
-  };
-  const scheduleDashboardRefresh = (delayMs = 1500) => {
-    clearRefreshTimer();
-    refreshTimerRef.current = window.setTimeout(() => {
-      refreshTimerRef.current = null;
-      if (!isDashboardMountedRef.current) return;
-      void loadDashboardRef.current();
-    }, delayMs);
-  };
-  const loadDashboard = async () => {
+  }, []);
+  const scheduleDashboardRefresh = useCallback(
+    (delayMs = 1500) => {
+      clearRefreshTimer();
+      refreshTimerRef.current = window.setTimeout(() => {
+        refreshTimerRef.current = null;
+        if (!isDashboardMountedRef.current) return;
+        void loadDashboardRef.current();
+      }, delayMs);
+    },
+    [clearRefreshTimer],
+  );
+  const loadDashboard = useCallback(async () => {
     if (!isDashboardMountedRef.current) return;
     let shouldFinalize = false;
     try {
@@ -64,7 +72,7 @@ export default function DashboardSettings({ hideNostalgia = false, onDashboardLo
     if (shouldFinalize && isDashboardMountedRef.current) {
       setIsLoading(false);
     }
-  };
+  }, [onDashboardLoaded, scheduleDashboardRefresh, clearRefreshTimer]);
   useEffect(() => {
     loadDashboardRef.current = loadDashboard;
   }, [loadDashboard]);

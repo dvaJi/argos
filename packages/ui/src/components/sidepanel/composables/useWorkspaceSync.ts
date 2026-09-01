@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useCallback, useState, useEffect, useRef } from "react";
 import { createWorkspaceClient } from "#api/WorkspaceClient";
 import type {
   WorkspaceFileNode,
@@ -232,103 +232,111 @@ export function useWorkspaceSync(options: UseWorkspaceSyncOptions) {
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingKindRef = useRef<WorkspaceInvalidationKind | null>(null);
   const stopListenerRef = useRef<(() => void) | null>(null);
-  const isCurrentRequest = (requestId: number, workspacePath: string): boolean => {
+  const isCurrentRequest = useCallback((requestId: number, workspacePath: string): boolean => {
     return (
       requestId === syncRequestIdRef.current &&
       optionsRef.current.active &&
       normalizeWorkspaceKey(optionsRef.current.workspacePath) === normalizeWorkspaceKey(workspacePath)
     );
-  };
-  const restoreExpandedDirectories = async function restoreExpandedDirectories(
-    nodes: WorkspaceFileNode[],
-    expandedDirectories: Set<string>,
-    requestId: number,
-    workspacePath: string,
-  ): Promise<void> {
-    for (const node of nodes) {
-      if (!node.isDirectory) {
-        continue;
+  }, []);
+  const restoreExpandedDirectories = useCallback(
+    async function restoreExpandedDirectories(
+      nodes: WorkspaceFileNode[],
+      expandedDirectories: Set<string>,
+      requestId: number,
+      workspacePath: string,
+    ): Promise<void> {
+      for (const node of nodes) {
+        if (!node.isDirectory) {
+          continue;
+        }
+        const key = normalizeWorkspaceKey(node.path);
+        if (!key || !expandedDirectories.has(key)) {
+          node.expanded = false;
+          continue;
+        }
+        const children = toWorkspaceNodes(await optionsRef.current.workspaceClient.expandDirectory(node.path));
+        if (!isCurrentRequest(requestId, workspacePath)) {
+          return;
+        }
+        node.children = children;
+        node.expanded = true;
+        await restoreExpandedDirectories(children, expandedDirectories, requestId, workspacePath);
+        if (!isCurrentRequest(requestId, workspacePath)) {
+          return;
+        }
       }
-      const key = normalizeWorkspaceKey(node.path);
-      if (!key || !expandedDirectories.has(key)) {
-        node.expanded = false;
-        continue;
-      }
-      const children = toWorkspaceNodes(await optionsRef.current.workspaceClient.expandDirectory(node.path));
-      if (!isCurrentRequest(requestId, workspacePath)) {
+    },
+    [isCurrentRequest],
+  );
+  // Stable identities: these are effect dependencies, so fresh closures per
+  // render would re-run the watcher effect (and reset state) on every commit.
+  const refreshWorkspace = useCallback(
+    async (kind: WorkspaceInvalidationKind): Promise<void> => {
+      const workspacePath = optionsRef.current.workspacePath?.trim() || null;
+      if (!workspacePath || !optionsRef.current.active) {
         return;
       }
-      node.children = children;
-      node.expanded = true;
-      await restoreExpandedDirectories(children, expandedDirectories, requestId, workspacePath);
-      if (!isCurrentRequest(requestId, workspacePath)) {
-        return;
-      }
-    }
-  };
-  const refreshWorkspace = async (kind: WorkspaceInvalidationKind): Promise<void> => {
-    const workspacePath = optionsRef.current.workspacePath?.trim() || null;
-    if (!workspacePath || !optionsRef.current.active) {
-      return;
-    }
-    const requestId = ++syncRequestIdRef.current;
-    if (kind !== "git") {
-      setLoadingFiles(true);
-    }
-    const finishLoadingFiles = () => {
-      if (kind !== "git" && isCurrentRequest(requestId, workspacePath)) {
-        setLoadingFiles(false);
-      }
-    };
-    try {
+      const requestId = ++syncRequestIdRef.current;
       if (kind !== "git") {
-        const expandedDirectories = collectExpandedDirectories(fileTreeRef.current);
-        const nextTree = toWorkspaceNodes(await optionsRef.current.workspaceClient.readDirectory(workspacePath));
+        setLoadingFiles(true);
+      }
+      const finishLoadingFiles = () => {
+        if (kind !== "git" && isCurrentRequest(requestId, workspacePath)) {
+          setLoadingFiles(false);
+        }
+      };
+      try {
+        if (kind !== "git") {
+          const expandedDirectories = collectExpandedDirectories(fileTreeRef.current);
+          const nextTree = toWorkspaceNodes(await optionsRef.current.workspaceClient.readDirectory(workspacePath));
+          if (!isCurrentRequest(requestId, workspacePath)) {
+            finishLoadingFiles();
+            return;
+          }
+          await restoreExpandedDirectories(nextTree, expandedDirectories, requestId, workspacePath);
+          if (!isCurrentRequest(requestId, workspacePath)) {
+            finishLoadingFiles();
+            return;
+          }
+          fileTreeRef.current = nextTree;
+          setFileTree(nextTree);
+        }
+        const nextGitState = await optionsRef.current.workspaceClient.getGitStatus(workspacePath);
         if (!isCurrentRequest(requestId, workspacePath)) {
           finishLoadingFiles();
           return;
         }
-        await restoreExpandedDirectories(nextTree, expandedDirectories, requestId, workspacePath);
-        if (!isCurrentRequest(requestId, workspacePath)) {
-          finishLoadingFiles();
-          return;
+        gitStateRef.current = nextGitState;
+        setGitState(nextGitState);
+        if (kind !== "git") {
+          await loadSelectedPreview({
+            clearIfMissing: true,
+            filePath: optionsRef.current.sessionState.selectedFilePath,
+            optionsRef,
+            previewRequestIdRef,
+            setSelectedFilePreview,
+            setLoadingFilePreview,
+          });
         }
-        fileTreeRef.current = nextTree;
-        setFileTree(nextTree);
-      }
-      const nextGitState = await optionsRef.current.workspaceClient.getGitStatus(workspacePath);
-      if (!isCurrentRequest(requestId, workspacePath)) {
-        finishLoadingFiles();
-        return;
-      }
-      gitStateRef.current = nextGitState;
-      setGitState(nextGitState);
-      if (kind !== "git") {
-        await loadSelectedPreview({
+        await loadSelectedDiff({
           clearIfMissing: true,
-          filePath: optionsRef.current.sessionState.selectedFilePath,
+          filePath: optionsRef.current.sessionState.selectedDiffPath,
+          stateOverride: nextGitState,
           optionsRef,
-          previewRequestIdRef,
-          setSelectedFilePreview,
-          setLoadingFilePreview,
+          gitStateRef,
+          diffRequestIdRef,
+          setSelectedGitDiff,
+          setLoadingGitDiff,
         });
+        finishLoadingFiles();
+      } catch (error) {
+        finishLoadingFiles();
+        throw error;
       }
-      await loadSelectedDiff({
-        clearIfMissing: true,
-        filePath: optionsRef.current.sessionState.selectedDiffPath,
-        stateOverride: nextGitState,
-        optionsRef,
-        gitStateRef,
-        diffRequestIdRef,
-        setSelectedGitDiff,
-        setLoadingGitDiff,
-      });
-      finishLoadingFiles();
-    } catch (error) {
-      finishLoadingFiles();
-      throw error;
-    }
-  };
+    },
+    [isCurrentRequest, restoreExpandedDirectories],
+  );
   const scheduleRefresh = (kind: WorkspaceInvalidationKind): void => {
     if (!optionsRef.current.active) {
       return;
@@ -374,14 +382,14 @@ export function useWorkspaceSync(options: UseWorkspaceSyncOptions) {
     const kind = isInvalidationKind(eventPayload.kind) ? eventPayload.kind : "full";
     scheduleRefresh(kind);
   };
-  const resetWorkspaceState = () => {
+  const resetWorkspaceState = useCallback(() => {
     fileTreeRef.current = [];
     setFileTree([]);
     gitStateRef.current = null;
     setGitState(null);
     setSelectedFilePreview(null);
     setSelectedGitDiff(null);
-  };
+  }, []);
   useEffect(() => {
     void ensureWatcherState({
       workspacePath: options.workspacePath,

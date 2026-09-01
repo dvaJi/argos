@@ -2,6 +2,10 @@ import { useEffect, useEffectEvent, useRef, useState, type RefObject } from "rea
 import { useStore } from "@tanstack/react-store";
 import ChatTopBar from "#/components/chat/ChatTopBar";
 import ChatSearchBar from "#/components/chat/ChatSearchBar";
+
+// Process-wide singletons; module scope keeps hook/effect dependencies stable.
+const chatClient = createChatClient();
+const sessionClient = createSessionClient();
 import MessageList from "#/components/chat/MessageList";
 import type {
   DisplayAssistantMessageBlock,
@@ -227,8 +231,6 @@ function ChatPage({ sessionId }: ChatPageProps) {
   const modelStore = useModelStore();
   const connectionState = useRuntimeConnectionState();
   const isDaemonConnected = connectionState.connected;
-  const chatClient = createChatClient();
-  const sessionClient = createSessionClient();
 
   const activeSession = (sessionState.activeSessionSummary ?? sessionState.bootstrapActiveSession) as
     | import("#/stores/ui/session").UIActiveSessionSummary

@@ -54,6 +54,10 @@ const labelForEffort = (effort?: ReasoningEffort | null) => {
   return hit?.t3Label ?? effort;
 };
 const FALLBACK_EFFORTS: ReasoningEffort[] = ["minimal", "low", "medium", "high"];
+// Clients are process-wide singletons; module scope keeps identities stable so
+// effect dependencies don't change on every render.
+const modelClient = createModelClient();
+const sessionClient = createSessionClient();
 const getEffortOptions = (portrait: ReasoningPortrait | null | undefined): ReasoningEffort[] => {
   if (!portrait || portrait.mode === "budget" || portrait.mode === "level" || portrait.mode === "fixed") return [];
   const opts = portrait?.effortOptions?.filter(isReasoningEffort);
@@ -64,8 +68,6 @@ const getEffortOptions = (portrait: ReasoningPortrait | null | undefined): Reaso
 const supportsEffort = (portrait: ReasoningPortrait | null | undefined): boolean =>
   portrait?.supported !== false && getEffortOptions(portrait).length > 0;
 const ComposerEffortPicker = () => {
-  const modelClient = createModelClient();
-  const sessionClient = createSessionClient();
   const sessionState = useSessionStore();
   void sessionState;
   const draftState = useDraftStore();
@@ -108,7 +110,7 @@ const ComposerEffortPicker = () => {
     return () => {
       cancelled = true;
     };
-  }, [isReasoningUnavailable, effectiveProviderId, effectiveModelId, modelClient]);
+  }, [isReasoningUnavailable, effectiveProviderId, effectiveModelId]);
   const isSessionGenerationSettings = hasActiveSession && Boolean(activeSession?.id);
   const generationReasoningEffort = isSessionGenerationSettings
     ? generationReasoningEffortLoaded
@@ -130,7 +132,7 @@ const ComposerEffortPicker = () => {
     return () => {
       cancelled = true;
     };
-  }, [isSessionGenerationSettings, activeSession?.id, sessionClient]);
+  }, [isSessionGenerationSettings, activeSession?.id]);
   const currentLabel = (() => {
     if (isAcpSession) return "Max";
     if (supportsReasoning === false) return "Max";

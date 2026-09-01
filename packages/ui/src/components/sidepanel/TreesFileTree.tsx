@@ -92,8 +92,10 @@ interface TreesFileTreeProps {
  * Paths are exchanged with Trees as forward-slash relative strings (stable
  * cross-platform identity) and converted to absolute paths at the client boundary.
  */
+// Process-wide singleton; module scope keeps effect dependencies stable.
+const workspaceClient = createWorkspaceClient();
+
 export function TreesFileTree({ workspacePath, sessionId, onInsertFileReference }: TreesFileTreeProps) {
-  const workspaceClient = createWorkspaceClient();
   const sidepanelStore = useSidepanelStore();
   const [paths, setPaths] = useState<string[]>([]);
   const [gitStatus, setGitStatus] = useState<TreesGitStatusEntry[]>([]);
@@ -262,7 +264,7 @@ export function TreesFileTree({ workspacePath, sessionId, onInsertFileReference 
       off?.();
       void workspaceClient.unwatchWorkspace(workspacePath);
     };
-  }, [workspacePath, reload, workspaceClient]);
+  }, [workspacePath, reload]);
   const renderContextMenu = (item: TreesContextItem, context: TreesContextOpenContext) => {
     const isDir = item.kind === "directory";
     const parentRelative = isDir ? item.path : getParentRelative(item.path);

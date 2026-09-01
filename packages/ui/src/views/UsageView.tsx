@@ -442,7 +442,9 @@ function ModelBreakdownTable({
           </TableHeader>
           <TableBody>
             {modelBreakdown.map((item) => (
-              <ModelBreakdownRow key={`${item.id}:${item.label}`} item={item} />
+              // Same model can appear under multiple harnesses; providerId+id
+              // mirrors the daemon's grouping key and is guaranteed unique.
+              <ModelBreakdownRow key={`${item.providerId}:${item.id}`} item={item} />
             ))}
           </TableBody>
         </Table>
@@ -451,8 +453,10 @@ function ModelBreakdownTable({
   );
 }
 
+// Process-wide singleton; module scope keeps the effect dependency stable.
+const usageClient = createUsageClient();
+
 export default function UsageView() {
-  const usageClient = createUsageClient();
   const [window, setWindow] = useState<UsageWindow>("30d");
   const [data, setData] = useState<UsageStatsOutput | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -499,7 +503,7 @@ export default function UsageView() {
     return () => {
       cancelled = true;
     };
-  }, [window, usageClient]);
+  }, [window]);
   const selectWindow = (next: UsageWindow) => {
     setError("");
     setIsLoading(true);

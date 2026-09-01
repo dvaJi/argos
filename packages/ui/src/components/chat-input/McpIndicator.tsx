@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type RefObject } from "react";
+import { useCallback, useState, useEffect, useRef, type RefObject } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "#shadcn/components/ui/popover";
@@ -320,7 +320,9 @@ export default function McpIndicator({
       onToggleSubagents?.(enabled);
     }
   };
-  const refreshAgentTools = () => {
+  // Stable identity: this callback is an effect dependency, so a fresh identity per
+  // render would re-run the effect (and setState) on every commit.
+  const refreshAgentTools = useCallback(() => {
     void loadAgentTools({
       isArgosContext,
       argosSessionId,
@@ -330,7 +332,7 @@ export default function McpIndicator({
       setDisabledToolNames,
       setToolsLoading,
     });
-  };
+  }, [isArgosContext, argosSessionId, workspacePath]);
   useEffect(() => {
     refreshAgentTools();
   }, [refreshAgentTools]);

@@ -1,4 +1,4 @@
-import { type FC, useState, useEffect, useRef } from "react";
+import { type FC, useCallback, useState, useEffect, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { createConfigClient } from "#api/ConfigClient";
 import type { DisplayAssistantMessageBlock } from "#/components/chat/messageListItems";
@@ -97,36 +97,43 @@ const MessageBlockThinkHeaderLabelBase: FC<MessageBlockThinkHeaderLabelProps> = 
 }) => {
   const [displayedDurationMs, setDisplayedDurationMs] = useState(0);
   const updateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const updateDisplayedDuration = () => {
+  // Primitive deps only: the parent re-renders on every stream chunk, so object
+  // identities (reasoningTimeRange) or fresh closures in the dep list would make
+  // the effect re-run on every render and spin the duration state forever.
+  const reasoningStart = reasoningTimeRange?.start;
+  const updateDisplayedDuration = useCallback(() => {
     if (isLoading) {
       const fallbackDuration = Number.isFinite(reasoningDuration) ? reasoningDuration * 1000 : 0;
-      const startTimestamp = reasoningTimeRange?.start ?? Date.now() - fallbackDuration;
+      const startTimestamp = reasoningStart ?? Date.now() - fallbackDuration;
       setDisplayedDurationMs(Math.max(0, Date.now() - startTimestamp));
     } else {
       const normalized = Number.isFinite(reasoningDuration) ? reasoningDuration : 0;
       setDisplayedDurationMs(Math.max(0, Math.round(normalized * 1000)));
     }
-  };
-  const stopTimer = () => {
+  }, [isLoading, reasoningDuration, reasoningStart]);
+  const stopTimer = useCallback(() => {
     if (updateTimer.current !== null) {
       clearTimeout(updateTimer.current);
       updateTimer.current = null;
     }
-  };
-  const scheduleNextUpdate = function scheduleNextUpdate() {
-    stopTimer();
-    if (!isLoading) return;
-    const fallbackDuration = Number.isFinite(reasoningDuration) ? reasoningDuration * 1000 : 0;
-    const startTimestamp = reasoningTimeRange?.start ?? Date.now() - fallbackDuration;
-    const now = Date.now();
-    const elapsed = Math.max(0, now - startTimestamp);
-    const remainder = elapsed % UPDATE_INTERVAL;
-    const delay = Math.max(UPDATE_INTERVAL - remainder, 0) + UPDATE_OFFSET;
-    updateTimer.current = setTimeout(() => {
-      updateDisplayedDuration();
-      scheduleNextUpdate();
-    }, delay);
-  };
+  }, []);
+  const scheduleNextUpdate = useCallback(
+    function scheduleNextUpdate() {
+      stopTimer();
+      if (!isLoading) return;
+      const fallbackDuration = Number.isFinite(reasoningDuration) ? reasoningDuration * 1000 : 0;
+      const startTimestamp = reasoningStart ?? Date.now() - fallbackDuration;
+      const now = Date.now();
+      const elapsed = Math.max(0, now - startTimestamp);
+      const remainder = elapsed % UPDATE_INTERVAL;
+      const delay = Math.max(UPDATE_INTERVAL - remainder, 0) + UPDATE_OFFSET;
+      updateTimer.current = setTimeout(() => {
+        updateDisplayedDuration();
+        scheduleNextUpdate();
+      }, delay);
+    },
+    [isLoading, reasoningDuration, reasoningStart, stopTimer, updateDisplayedDuration],
+  );
   useEffect(() => {
     // Defer the immediate refresh to a microtask so the state update does not
     // run synchronously inside the effect.
