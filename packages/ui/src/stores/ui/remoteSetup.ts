@@ -26,6 +26,16 @@ const remoteSetupStore = new Store<RemoteSetupState>({
 });
 
 export function registerHandlers(handlers: RemoteSetupHandlers): void {
+  const previous = remoteSetupStore.state.handlers;
+  if (
+    previous &&
+    previous.onSave === handlers.onSave &&
+    previous.onSaveAndSwitch === handlers.onSaveAndSwitch &&
+    previous.remoteUrls.length === handlers.remoteUrls.length &&
+    previous.remoteUrls.every((url, index) => url === handlers.remoteUrls[index])
+  ) {
+    return;
+  }
   remoteSetupStore.setState((prev) => ({ ...prev, handlers }));
 }
 
