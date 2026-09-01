@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect, useRef, type RefObject } from "react";
+import { useState, useEffect, useRef, type RefObject } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "#shadcn/components/ui/popover";
@@ -320,9 +320,10 @@ export default function McpIndicator({
       onToggleSubagents?.(enabled);
     }
   };
-  // Stable identity: this callback is an effect dependency, so a fresh identity per
-  // render would re-run the effect (and setState) on every commit.
-  const refreshAgentTools = useCallback(() => {
+  // Module-scope loadAgentTools + primitive-only effect deps: a fresh callback
+  // identity per render would re-run the effect (and setState) on every commit.
+  // Each site therefore calls loadAgentTools with its own render's values.
+  useEffect(() => {
     void loadAgentTools({
       isArgosContext,
       argosSessionId,
@@ -334,26 +335,41 @@ export default function McpIndicator({
     });
   }, [isArgosContext, argosSessionId, workspacePath]);
   useEffect(() => {
-    refreshAgentTools();
-  }, [refreshAgentTools]);
-  useEffect(() => {
     onOpenChange?.(panelOpen);
   }, [panelOpen, onOpenChange]);
   const handlePanelOpenChange = (open: boolean) => {
     setPanelOpen(open);
-    if (open && isArgosContext) refreshAgentTools();
+    if (open && isArgosContext) {
+      void loadAgentTools({
+        isArgosContext,
+        argosSessionId,
+        workspacePath,
+        loadTokenRef: latestLoadTokenRef,
+        setAgentTools,
+        setDisabledToolNames,
+        setToolsLoading,
+      });
+    }
   };
   useEffect(() => {
     const handleSkillChange = (payload: { conversationId?: string | null }) => {
       if (!isArgosContext || !argosSessionId) return;
       if (payload?.conversationId !== argosSessionId) return;
-      refreshAgentTools();
+      void loadAgentTools({
+        isArgosContext,
+        argosSessionId,
+        workspacePath,
+        loadTokenRef: latestLoadTokenRef,
+        setAgentTools,
+        setDisabledToolNames,
+        setToolsLoading,
+      });
     };
     unsubscribeRef.current = skillClient.onSessionChanged(handleSkillChange);
     return () => {
       unsubscribeRef.current?.();
     };
-  }, [isArgosContext, argosSessionId, refreshAgentTools]);
+  }, [isArgosContext, argosSessionId, workspacePath]);
   const triggerTitle = "Advanced Settings";
 
   // ACP sessions have no interactive controls here — the panel would be a

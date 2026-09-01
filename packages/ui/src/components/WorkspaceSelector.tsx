@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Icon } from "@iconify/react";
 import {
   DropdownMenu,
@@ -205,12 +205,10 @@ export default function WorkspaceSelector() {
 
   const activeWorkspace = store.activeWorkspace;
   const workspaces = store.workspaces;
-  // Stable identity across re-renders: the registerHandlers effect keys on this list,
-  // and a fresh array every render would re-trigger the store update on every commit.
-  const remoteUrls = useMemo(
-    () => workspaces.flatMap((workspace) => (workspace.mode === "remote" ? [workspace.remoteUrl] : [])),
-    [workspaces],
-  );
+  // The watcher effect re-runs on every render (fresh array identity), but
+  // registerHandlers is idempotent, so no store update happens unless the
+  // list actually changed.
+  const remoteUrls = workspaces.flatMap((workspace) => (workspace.mode === "remote" ? [workspace.remoteUrl] : []));
 
   useEffect(() => {
     registerHandlers({

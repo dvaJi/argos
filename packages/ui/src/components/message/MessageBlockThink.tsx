@@ -1,4 +1,4 @@
-import { type FC, useCallback, useState, useEffect, useRef } from "react";
+import { type FC, useState, useEffect, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { createConfigClient } from "#api/ConfigClient";
 import type { DisplayAssistantMessageBlock } from "#/components/chat/messageListItems";
@@ -45,7 +45,6 @@ const toReasoningTimeRange = (value: DisplayAssistantMessageBlock["reasoning_tim
     : null;
 };
 const UPDATE_INTERVAL = 1000;
-const UPDATE_OFFSET = 80;
 
 // Shared config client + a single cached read of the "think_collapse" setting.
 // Every mounted think block previously issued its own bridge roundtrip on mount;
@@ -96,62 +95,41 @@ const MessageBlockThinkHeaderLabelBase: FC<MessageBlockThinkHeaderLabelProps> = 
   reasoningDuration,
 }) => {
   const [displayedDurationMs, setDisplayedDurationMs] = useState(0);
-  const updateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Primitive deps only: the parent re-renders on every stream chunk, so object
-  // identities (reasoningTimeRange) or fresh closures in the dep list would make
-  // the effect re-run on every render and spin the duration state forever.
-  const reasoningStart = reasoningTimeRange?.start;
-  const updateDisplayedDuration = useCallback(() => {
-    if (isLoading) {
-      const fallbackDuration = Number.isFinite(reasoningDuration) ? reasoningDuration * 1000 : 0;
+  const updateTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Latest inputs for the ticker; synced in an effect so the interval below can
+  // stay keyed on `isLoading` alone (parent re-renders on every stream chunk
+  // must not restart the timer or re-run its effect).
+  const reasoningInputsRef = useRef({ reasoningDuration, reasoningStart: reasoningTimeRange?.start });
+  useEffect(() => {
+    reasoningInputsRef.current = { reasoningDuration, reasoningStart: reasoningTimeRange?.start };
+  }, [reasoningDuration, reasoningTimeRange]);
+  useEffect(() => {
+    if (!isLoading) {
+      // Defer the final refresh out of the effect (set-state-in-effect).
+      queueMicrotask(() => {
+        const normalized = Number.isFinite(reasoningDuration) ? reasoningDuration : 0;
+        setDisplayedDurationMs(Math.max(0, Math.round(normalized * 1000)));
+      });
+      return;
+    }
+    let cancelled = false;
+    const tick = () => {
+      if (cancelled) return;
+      const { reasoningDuration: duration, reasoningStart } = reasoningInputsRef.current;
+      const fallbackDuration = Number.isFinite(duration) ? duration * 1000 : 0;
       const startTimestamp = reasoningStart ?? Date.now() - fallbackDuration;
       setDisplayedDurationMs(Math.max(0, Date.now() - startTimestamp));
-    } else {
-      const normalized = Number.isFinite(reasoningDuration) ? reasoningDuration : 0;
-      setDisplayedDurationMs(Math.max(0, Math.round(normalized * 1000)));
-    }
-  }, [isLoading, reasoningDuration, reasoningStart]);
-  const stopTimer = useCallback(() => {
-    if (updateTimer.current !== null) {
-      clearTimeout(updateTimer.current);
-      updateTimer.current = null;
-    }
-  }, []);
-  const scheduleNextUpdate = useCallback(
-    function scheduleNextUpdate() {
-      stopTimer();
-      if (!isLoading) return;
-      const fallbackDuration = Number.isFinite(reasoningDuration) ? reasoningDuration * 1000 : 0;
-      const startTimestamp = reasoningStart ?? Date.now() - fallbackDuration;
-      const now = Date.now();
-      const elapsed = Math.max(0, now - startTimestamp);
-      const remainder = elapsed % UPDATE_INTERVAL;
-      const delay = Math.max(UPDATE_INTERVAL - remainder, 0) + UPDATE_OFFSET;
-      updateTimer.current = setTimeout(() => {
-        updateDisplayedDuration();
-        scheduleNextUpdate();
-      }, delay);
-    },
-    [isLoading, reasoningDuration, reasoningStart, stopTimer, updateDisplayedDuration],
-  );
-  useEffect(() => {
-    // Defer the immediate refresh to a microtask so the state update does not
-    // run synchronously inside the effect.
-    queueMicrotask(() => updateDisplayedDuration());
-    if (isLoading) {
-      scheduleNextUpdate();
-    } else {
-      stopTimer();
-    }
-  }, [isLoading, updateDisplayedDuration, scheduleNextUpdate, stopTimer]);
-  useEffect(() => {
-    queueMicrotask(() => updateDisplayedDuration());
-  }, [updateDisplayedDuration]);
-  useEffect(() => {
-    return () => {
-      stopTimer();
     };
-  }, [stopTimer]);
+    queueMicrotask(tick);
+    updateTimer.current = setInterval(tick, UPDATE_INTERVAL);
+    return () => {
+      cancelled = true;
+      if (updateTimer.current !== null) {
+        clearInterval(updateTimer.current);
+        updateTimer.current = null;
+      }
+    };
+  }, [isLoading, reasoningDuration]);
   const text = (() => {
     if (isModeChange) return `Mode changed to ${modeChangeId}`;
     const formatted = formatDuration(displayedDurationMs);

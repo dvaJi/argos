@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ReactRenderer } from "@tiptap/react";
 import type { Editor, Range } from "@tiptap/core";
 import tippy from "tippy.js";
@@ -102,6 +102,61 @@ const workspaceClient = createWorkspaceClient();
 const sessionClient = createSessionClient();
 const skillClient = createSkillClient();
 const cuaPluginClient = createPluginClient();
+
+/**
+ * Fetches ACP session commands for the given session. Module-scope: opaque to
+ * the React Compiler, so the calling effect can depend on plain primitives.
+ * The seq guard discards stale responses after a session switch.
+ */
+async function refreshAcpSessionCommands(args: {
+  acpCommandFetchSeqRef: { current: number };
+  setAcpCommands: (commands: AcpSessionCommand[]) => void;
+  sessionId: string | null;
+  isAcpSession: boolean;
+}): Promise<void> {
+  const fetchSeq = ++args.acpCommandFetchSeqRef.current;
+  if (!args.sessionId || !args.isAcpSession) {
+    args.setAcpCommands([]);
+    return;
+  }
+  try {
+    const commands = await sessionClient.getAcpSessionCommands(args.sessionId);
+    if (fetchSeq !== args.acpCommandFetchSeqRef.current) {
+      return;
+    }
+    args.setAcpCommands(normalizeAcpCommands(commands));
+  } catch (error) {
+    if (fetchSeq !== args.acpCommandFetchSeqRef.current) {
+      return;
+    }
+    console.warn("[ChatInputMentions] Failed to fetch ACP session commands:", error);
+    args.setAcpCommands([]);
+  }
+}
+
+/** Fetches CUA plugin health from the daemon and projects it into composer state. */
+async function fetchCuaPluginStatus(args: { set: (status: CuaPluginStatus | null) => void }): Promise<void> {
+  const { set } = args;
+  try {
+    const plugin: PluginListItem | undefined = await cuaPluginClient.getPlugin(CUA_PLUGIN_ID);
+    if (!plugin) {
+      set({ installed: false, enabled: false });
+      return;
+    }
+    const mcpError = (plugin.mcpServers ?? [])
+      .map((server) => server.lastError)
+      .find((error): error is string => Boolean(error));
+    set({
+      installed: true,
+      enabled: Boolean(plugin.enabled),
+      runtimeState: plugin.runtime?.state,
+      runtimeError: plugin.runtime?.lastError,
+      mcpError,
+    });
+  } catch {
+    // Bridge unavailable (e.g. daemon restarting); keep the last known status.
+  }
+}
 
 type CuaPluginStatus = {
   installed: boolean;
@@ -323,57 +378,6 @@ export function useChatInputMentions(options: UseChatInputMentionsOptions) {
     }
     return sortSlashSuggestionItems(items);
   })();
-  // Stable identity: this callback is an effect dependency, so a fresh identity per
-  // render would re-run the effect (and setState) on every commit.
-  const refreshAcpCommands = useCallback(async () => {
-    const sessionId = options.sessionId;
-    const isAcpSession = options.isAcpSession;
-    const fetchSeq = ++acpCommandFetchSeqRef.current;
-    if (!sessionId || !isAcpSession) {
-      setAcpCommands([]);
-      return;
-    }
-    try {
-      const commands = await sessionClient.getAcpSessionCommands(sessionId);
-      if (fetchSeq !== acpCommandFetchSeqRef.current) {
-        return;
-      }
-      if (options.sessionId !== sessionId || options.isAcpSession !== isAcpSession) {
-        return;
-      }
-      setAcpCommands(normalizeAcpCommands(commands));
-    } catch (error) {
-      if (fetchSeq !== acpCommandFetchSeqRef.current) {
-        return;
-      }
-      console.warn("[ChatInputMentions] Failed to fetch ACP session commands:", error);
-      setAcpCommands([]);
-    }
-  }, [options.sessionId, options.isAcpSession]);
-  const refreshCuaStatus = useCallback(async () => {
-    try {
-      const plugin: PluginListItem | undefined = await cuaPluginClient.getPlugin(CUA_PLUGIN_ID);
-      if (!plugin) {
-        setCuaStatus({ installed: false, enabled: false });
-        return;
-      }
-      const mcpError = (plugin.mcpServers ?? [])
-        .map((server) => server.lastError)
-        .find((error): error is string => Boolean(error));
-      setCuaStatus({
-        installed: true,
-        enabled: Boolean(plugin.enabled),
-        runtimeState: plugin.runtime?.state,
-        runtimeError: plugin.runtime?.lastError,
-        mcpError,
-      });
-    } catch {
-      // Bridge unavailable (e.g. daemon restarting); keep the last known status.
-    }
-  }, []);
-  useEffect(() => {
-    void Promise.resolve().then(() => refreshCuaStatus());
-  }, [refreshCuaStatus]);
   const activateSkill = async (skillName: string) => {
     if (!skillName) return;
     const sessionId = options.sessionId;
@@ -403,7 +407,9 @@ export function useChatInputMentions(options: UseChatInputMentionsOptions) {
   };
   const handleSlashSelection = async (editor: Editor, range: Range, item: SlashSuggestionItem) => {
     if (item.id === CUA_SLASH_ITEM_ID) {
-      const status = cuaStatus ?? { installed: true, enabled: true, runtimeState: "running" };
+      // Unknown status (fetch still in flight or failed) must NOT read as
+      // ready — fall through to the setup/troubleshooting guidance instead.
+      const status = cuaStatus ?? { installed: true, enabled: true, runtimeState: "unknown" };
       const runtimeReady =
         status.installed &&
         status.enabled &&
@@ -612,8 +618,15 @@ export function useChatInputMentions(options: UseChatInputMentionsOptions) {
     void Promise.resolve().then(() => setPendingSkills([]));
   }, [options.sessionId]);
   useEffect(() => {
-    void Promise.resolve().then(() => refreshAcpCommands());
-  }, [refreshAcpCommands]);
+    void Promise.resolve().then(() =>
+      refreshAcpSessionCommands({
+        acpCommandFetchSeqRef,
+        setAcpCommands,
+        sessionId: options.sessionId,
+        isAcpSession: options.isAcpSession,
+      }),
+    );
+  }, [options.sessionId, options.isAcpSession]);
   useEffect(() => {
     if (skills.length === 0) {
       void loadSkills();
