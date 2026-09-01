@@ -170,41 +170,10 @@ const MessageBlockThinkBase: FC<MessageBlockThinkProps> = ({ block, usage, onTog
     onToggleCollapse?.(!newValue);
   };
   return (
-    <div className="overflow-hidden rounded-lg border bg-card text-card-foreground shadow-sm transition-all duration-(--dc-motion-default) ease-(--dc-ease-out-express) motion-reduce:transition-none">
-      <button
-        type="button"
-        className="flex min-h-10 w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors hover:bg-muted/40"
-        onClick={() => handleToggleCollapse(!collapse)}
-        aria-expanded={!collapse}
-      >
-        <Icon
-          icon="lucide:chevron-right"
-          className={`h-3 w-3 shrink-0 text-muted-foreground transition-transform duration-(--dc-motion-fast) ease-(--dc-ease-out-soft) motion-reduce:transition-none ${collapse ? "" : "rotate-90"}`}
-        />
-        <Icon icon="lucide:brain-circuit" className="h-4 w-4 shrink-0 text-muted-foreground" />
-        <span className="min-w-0 flex-1 truncate font-medium text-accent-foreground">
-          <MessageBlockThinkHeaderLabel
-            isModeChange={isModeChange}
-            modeChangeId={modeChangeId}
-            isLoading={block.status === "loading"}
-            reasoningTimeRange={reasoningTimeRange}
-            reasoningDuration={reasoningDuration}
-          />
-        </span>
-        {block.status === "loading" && (
-          <span className="inline-block h-3 w-3 shrink-0 rounded-full border-2 border-muted-foreground border-t-transparent animate-spin" />
-        )}
-      </button>
-
-      <div
-        className={`grid w-full overflow-hidden transition-[grid-template-rows,opacity] duration-(--dc-motion-default) ease-(--dc-ease-out-express) motion-reduce:transition-none ${collapse ? "grid-rows-[0fr] pointer-events-none opacity-0" : "grid-rows-[1fr] opacity-100"}`}
-        aria-hidden={collapse}
-        inert={collapse ? true : undefined}
-      >
-        <div className="min-h-0 overflow-hidden">
-          <div className="border-t bg-muted/20 px-3 py-2.5 text-xs leading-5 wrap-break-word whitespace-pre-wrap text-muted-foreground">
-            {trimmedContent}
-          </div>
+    <div className="overflow-hidden">
+      <div className="min-h-0 overflow-hidden">
+        <div className="text-xs leading-5 wrap-break-word whitespace-pre-wrap text-muted-foreground">
+          {trimmedContent}
         </div>
       </div>
     </div>
