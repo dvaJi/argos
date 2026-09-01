@@ -205,6 +205,9 @@ export default function WorkspaceSelector() {
 
   const activeWorkspace = store.activeWorkspace;
   const workspaces = store.workspaces;
+  // The watcher effect re-runs on every render (fresh array identity), but
+  // registerHandlers is idempotent, so no store update happens unless the
+  // list actually changed.
   const remoteUrls = workspaces.flatMap((workspace) => (workspace.mode === "remote" ? [workspace.remoteUrl] : []));
 
   useEffect(() => {

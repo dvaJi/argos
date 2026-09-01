@@ -11,6 +11,9 @@ import { cn } from "#shadcn/lib/utils";
 import type { AcpAgentDiagnostics, AcpRemoteSessionSummary, AcpDebugRunResult } from "@argos/shared/presenter";
 import { toast } from "#/components/use-toast";
 import { createProviderClient } from "#api/ProviderClient";
+// Process-wide singleton; module scope keeps effect dependencies stable.
+const providerClient = createProviderClient();
+
 interface AcpDiagnosticsProps {
   agentId: string;
   agentName: string;
@@ -231,7 +234,6 @@ export default function AcpDiagnostics({
   autoCheckRequest = 0,
   onAutoCheckHandled,
 }: AcpDiagnosticsProps) {
-  const providerClient = createProviderClient();
   const [diagnostics, setDiagnostics] = useState<AcpAgentDiagnostics | null>(null);
   const [remoteSessions, setRemoteSessions] = useState<AcpRemoteSessionSummary[]>([]);
   const [loading, setLoading] = useState(false);
@@ -275,7 +277,7 @@ export default function AcpDiagnostics({
     return () => {
       cancelled = true;
     };
-  }, [agentId, providerClient, workdir]);
+  }, [agentId, workdir]);
   const runAction = async (action: string, payload: Record<string, unknown> = {}) => {
     setLoading(true);
     try {

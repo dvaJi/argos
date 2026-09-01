@@ -65,6 +65,9 @@ const OPTION_ICON_BY_ID: Record<string, string> = {
   context: "lucide:scan",
   reasoning: "lucide:brain",
 };
+// Process-wide singletons; module scope keeps effect dependencies stable.
+const sessionClient = createSessionClient();
+const providerClient = createProviderClient();
 
 /**
  * ACP agent options (mode / collaboration / model / …) for an ACTIVE session,
@@ -77,8 +80,6 @@ const AcpComposerControls = () => {
   const sessionStoreState = useSessionStore();
   void sessionStoreState;
   const modelStore = useModelStore();
-  const sessionClient = createSessionClient();
-  const providerClient = createProviderClient();
   const hasActiveSession = getHasActiveSession();
   const activeSession = getActiveSession();
   const isAcpActiveSession = hasActiveSession && activeSession?.providerId === "acp";
@@ -136,7 +137,7 @@ const AcpComposerControls = () => {
     return () => {
       unsubscribe?.();
     };
-  }, [sessionClient]);
+  }, []);
   if (!isAcpActiveSession) {
     return null;
   }

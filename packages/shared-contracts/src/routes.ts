@@ -254,6 +254,7 @@ import {
   pluginsEnableRoute,
   pluginsGetRoute,
   pluginsInvokeActionRoute,
+  pluginsInvokeDesktopActionRoute,
   pluginsListRoute,
 } from "./routes/plugins.routes";
 import {
@@ -537,6 +538,7 @@ export const ARGOS_ROUTE_CATALOG = {
   [pluginsEnableRoute.name]: pluginsEnableRoute,
   [pluginsDisableRoute.name]: pluginsDisableRoute,
   [pluginsInvokeActionRoute.name]: pluginsInvokeActionRoute,
+  [pluginsInvokeDesktopActionRoute.name]: pluginsInvokeDesktopActionRoute,
   [fileGetMimeTypeRoute.name]: fileGetMimeTypeRoute,
   [filePrepareFileRoute.name]: filePrepareFileRoute,
   [filePrepareDirectoryRoute.name]: filePrepareDirectoryRoute,

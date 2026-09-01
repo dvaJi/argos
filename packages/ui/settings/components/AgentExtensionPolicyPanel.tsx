@@ -3,6 +3,9 @@ import { Checkbox } from "#shadcn/components/ui/checkbox";
 import { Button } from "#shadcn/components/ui/button";
 import { createMcpClient } from "#api/McpClient";
 
+// Process-wide singleton; module scope keeps effect dependencies stable.
+const mcpClient = createMcpClient();
+
 type AgentExtensionPolicyValue = {
   enabledMcpServerIds?: string[];
 };
@@ -104,7 +107,6 @@ export default function AgentExtensionPolicyPanel({
   onChange,
   disabled = false,
 }: AgentExtensionPolicyPanelProps) {
-  const mcpClient = createMcpClient();
   const [loading, setLoading] = useState(true);
   const [mcpServers, setMcpServers] = useState<
     Array<{ id: string; label: string; pluginId?: string; source?: string; sourceId?: string }>
@@ -138,7 +140,7 @@ export default function AgentExtensionPolicyPanel({
     return () => {
       mounted = false;
     };
-  }, [mcpClient]);
+  }, []);
 
   const normalizedValue = {
     enabledMcpServerIds: Array.isArray(value.enabledMcpServerIds)

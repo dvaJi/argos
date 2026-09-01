@@ -6,6 +6,14 @@ export const OFFICIAL_PLUGIN_SOURCE = "argos-official";
 export const CUA_PLUGIN_ID = "com.argos.plugins.cua";
 export const CUA_RUNTIME_ID = "cua-driver";
 
+/**
+ * Error message the daemon-hosted plugin presenter returns when a plugin action
+ * requires Electron capabilities. Plugin settings hosts match on this constant
+ * and retry the action through the desktop-only
+ * `plugins.invokeDesktopAction` route.
+ */
+export const DESKTOP_ONLY_PLUGIN_ACTION_ERROR = "This plugin action is only supported in the desktop app";
+
 export type PluginCapability =
   | "runtime.manage"
   | "mcp.register"

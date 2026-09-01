@@ -43,8 +43,10 @@ function truncate(value: string, max = 36): string {
   if (value.length <= max) return value;
   return `${value.slice(0, max - 1)}…`;
 }
+// Process-wide singleton; module scope keeps the effect dependency stable.
+const client = createConnectionClient();
+
 export default function ConnectionIndicator() {
-  const client = createConnectionClient();
   const [state, setState] = useState<ConnectionState>(() => {
     try {
       return client.getState();
@@ -59,7 +61,7 @@ export default function ConnectionIndicator() {
   });
   useEffect(() => {
     return client.onStateChange(setState);
-  }, [client]);
+  }, []);
   const status = deriveStatus(state);
   const config = STATUS_CONFIG[status];
   const tooltipLabel =

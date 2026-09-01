@@ -24,6 +24,9 @@ import SettingsPageShell from "./control-center/SettingsPageShell";
 import SettingsSectionCard from "./control-center/SettingsSectionCard";
 import StatusMetricCard from "./control-center/StatusMetricCard";
 import DashboardSettings from "./DashboardSettings";
+// Process-wide singleton; module scope keeps effect dependencies stable.
+const settingsClient = createSettingsClient();
+
 type SettingsRouteName = SettingsNavigationItem["routeName"];
 const settingsItems = getSettingsNavigationItems(getRuntimePlatform());
 const categoryLabels: Record<string, string> = {
@@ -45,7 +48,6 @@ const ACTIVITY_TIMESTAMP_FORMAT = new Intl.DateTimeFormat(undefined, {
 });
 export default function SettingsOverview() {
   const router = useRouter();
-  const settingsClient = createSettingsClient();
   const providerStore = useProviderStore();
   const modelStore = useModelStore();
   const mcpStore = useMcpStore();
@@ -144,7 +146,7 @@ export default function SettingsOverview() {
     return () => {
       cancelled = true;
     };
-  }, [settingsClient]);
+  }, []);
   return (
     <SettingsPageShell
       data-testid="settings-overview-page"

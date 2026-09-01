@@ -1188,6 +1188,13 @@ interface ChatStatusBarProps {
    */
   composerFooterActive?: boolean;
 }
+// Process-wide singletons; module scope keeps effect dependencies stable (the
+// ACP config hook receives sessionClient from here).
+const configClient = createConfigClient();
+const modelClient = createModelClient();
+const onboardingClient = createOnboardingClient();
+const providerClient = createProviderClient();
+const sessionClient = createSessionClient();
 const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
   ({ acpDraftSessionId = null, maxWidthClass = "max-w-2xl", composerFooterActive = false }, ref) => {
     const themeStore = useThemeStore();
@@ -1199,11 +1206,6 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
     const sessionStore = useSessionStore();
     const draftState = useDraftStore();
     const projectStore = useProjectStore();
-    const configClient = createConfigClient();
-    const modelClient = createModelClient();
-    const onboardingClient = createOnboardingClient();
-    const providerClient = createProviderClient();
-    const sessionClient = createSessionClient();
     const [permissionMode, setPermissionMode] = useState<PermissionMode>("full_access");
     const [subagentEnabled, setSubagentEnabled] = useState(false);
     const [isModelPanelOpen, setIsModelPanelOpen] = useState(false);

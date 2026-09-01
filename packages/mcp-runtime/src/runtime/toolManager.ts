@@ -223,12 +223,12 @@ export class ToolManager {
           continue;
         }
 
+        // The plugin tool catalog is deep-frozen for integrity; copy each
+        // property instead of mutating the shared nested objects.
         const properties = (tool.inputSchema.properties || {}) as Record<string, { description?: string }>;
-        const toolProperties: Record<string, { description?: string }> = { ...properties };
-        for (const key in toolProperties) {
-          if (!toolProperties[key].description) {
-            toolProperties[key].description = "Params of " + key;
-          }
+        const toolProperties: Record<string, { description?: string }> = {};
+        for (const [key, property] of Object.entries(properties)) {
+          toolProperties[key] = { description: `Params of ${key}`, ...property };
         }
 
         results.push({

@@ -70,6 +70,8 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
   private readonly contentMapper = new AcpContentMapper();
   /** Invoked after a turn completes successfully (used to drain pending inputs). */
   private turnSettledHandler: ((sessionId: string) => void | Promise<void>) | null = null;
+  /** Sessions whose next settle must NOT drain the pending queue (user pressed STOP). */
+  private drainSuppressedSessions = new Set<string>();
 
   setTurnSettledHandler(handler: (sessionId: string) => void | Promise<void>): void {
     this.turnSettledHandler = handler;
@@ -125,6 +127,9 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
   async sendMessage(sessionId: string, content: string | SendMessageInput): Promise<MessageStartResult> {
     const session = await this.sessionRepository.get(sessionId);
     if (!session) throw new Error(`Session not found: ${sessionId}`);
+    // A fresh user-initiated turn clears any stale cancel suppression so later
+    // settles drain the queue normally again.
+    this.drainSuppressedSessions.delete(sessionId);
 
     const agentId = session.modelId || "";
     const agents = (await this.configPresenter.getAcpAgents()) as Array<{ id: string; name: string }>;
@@ -584,7 +589,11 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
         version: 1,
       });
       // Drain the pending-input lane (steer first, then queue) — the next
-      // drained turn re-triggers this hook when it settles.
+      // drained turn re-triggers this hook when it settles. A user cancel
+      // suppresses the drain once: STOP must not auto-send queued work.
+      if (this.drainSuppressedSessions.delete(sessionId)) {
+        return;
+      }
       await this.turnSettledHandler?.(sessionId);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
@@ -856,6 +865,9 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
   async cancelGeneration(sessionId: string): Promise<void> {
     const active = this.activeTurns.get(sessionId);
     if (active) active.controller.abort();
+    // STOP must not auto-send queued work: suppress the pending-input drain
+    // that the settle hook would otherwise fire for this session.
+    this.drainSuppressedSessions.add(sessionId);
     for (const [toolCallId, pending] of this.pendingPermissions) {
       if (pending.sessionId !== sessionId) continue;
       this.pendingPermissions.delete(toolCallId);

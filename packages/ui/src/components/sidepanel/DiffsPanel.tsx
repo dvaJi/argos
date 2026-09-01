@@ -82,8 +82,10 @@ const fetchWorkspacePatch = async (
  * patch text the presenter already returns. Selecting a file focuses its diff;
  * the default view shows the full staged + unstaged patch for the workspace.
  */
+// Process-wide singleton; module scope keeps effect dependencies stable.
+const workspaceClient = createWorkspaceClient();
+
 export function DiffsPanel({ workspacePath }: DiffsPanelProps) {
-  const workspaceClient = createWorkspaceClient();
   const themeStore = useThemeStore();
   const sidepanelStore = useSidepanelStore();
   // Selection lives in the sidepanel store so chat links can open a file's diff.
@@ -146,7 +148,7 @@ export function DiffsPanel({ workspacePath }: DiffsPanelProps) {
       off?.();
       void workspaceClient.unwatchWorkspace(workspacePath);
     };
-  }, [workspacePath, loadStatus, workspaceClient]);
+  }, [workspacePath, loadStatus]);
 
   // Reset the cached patch when the workspace changes (different session/project).
   const [patchWorkspacePath, setPatchWorkspacePath] = useState(workspacePath);
@@ -161,7 +163,7 @@ export function DiffsPanel({ workspacePath }: DiffsPanelProps) {
     if (!selectionReady) return;
     if (!workspacePath) return;
     void fetchWorkspacePatch(workspaceClient, workspacePath, selectedPath, setPatch, setLoadingPatch);
-  }, [selectedPath, selectionReady, workspacePath, workspaceClient]);
+  }, [selectedPath, selectionReady, workspacePath]);
   const changes = state?.changes ?? [];
 
   // Auto-select the first changed file once status loads (no prior selection),

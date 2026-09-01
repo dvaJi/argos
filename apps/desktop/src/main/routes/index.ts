@@ -112,6 +112,7 @@ import {
   pluginsEnableRoute,
   pluginsGetRoute,
   pluginsInvokeActionRoute,
+  pluginsInvokeDesktopActionRoute,
   pluginsListRoute,
   projectOpenDirectoryRoute,
   projectSelectDirectoryRoute,
@@ -1168,6 +1169,13 @@ export async function dispatchArgosRoute(
     case pluginsInvokeActionRoute.name: {
       const input = pluginsInvokeActionRoute.input.parse(rawInput);
       return pluginsInvokeActionRoute.output.parse({
+        result: await runtime.pluginPresenter.invokeAction(input.pluginId, input.actionId, input.payload),
+      });
+    }
+
+    case pluginsInvokeDesktopActionRoute.name: {
+      const input = pluginsInvokeDesktopActionRoute.input.parse(rawInput);
+      return pluginsInvokeDesktopActionRoute.output.parse({
         result: await runtime.pluginPresenter.invokeAction(input.pluginId, input.actionId, input.payload),
       });
     }

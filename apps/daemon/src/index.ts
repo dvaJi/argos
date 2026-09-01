@@ -328,6 +328,7 @@ export async function startDaemon(options?: {
   }
 
   const piProfiles = new PiAgentProfileManager(paths.getDataDir(), resolveDaemonVersion());
+  const agentWorkspaceDir = pathJoin(paths.getDataDir(), "agent-workspace");
   const piProviderExecutionPort = new PiProviderExecutionPort(
     configPresenter,
     sessionRepository,
@@ -369,6 +370,7 @@ export async function startDaemon(options?: {
         return mcpRuntime.callApprovedTool(request);
       },
     },
+    agentWorkspaceDir,
   );
   const acpProviderExecutionPort = new AcpProviderExecutionPort(configPresenter, sessionRepository, eventPublisher, {
     dataDir: paths.getDataDir(),

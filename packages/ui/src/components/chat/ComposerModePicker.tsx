@@ -49,12 +49,13 @@ const MODE_OPTIONS: ModeOption[] = [
   },
 ];
 const uniqueModeOptions = MODE_OPTIONS.filter((opt, idx, arr) => arr.findIndex((o) => o.label === opt.label) === idx);
+// Process-wide singleton; module scope keeps effect dependencies stable.
+const sessionClient = createSessionClient();
 const ComposerModePicker = () => {
   const sessionState = useSessionStore();
   void sessionState;
   const draftState = useDraftStore();
   void draftState;
-  const sessionClient = createSessionClient();
   const preSessionAgentType = usePreSessionAgentType();
   const hasActiveSession = getHasActiveSession();
   const activeSession = getActiveSession();
@@ -79,7 +80,7 @@ const ComposerModePicker = () => {
     return () => {
       cancelled = true;
     };
-  }, [hasActiveSession, activeSession?.id, draftState.permissionMode, sessionClient]);
+  }, [hasActiveSession, activeSession?.id, draftState.permissionMode]);
   const currentLabel = permissionMode === "default" ? "Supervised" : "Full access";
   const currentIcon = permissionMode === "default" ? "lucide:shield" : "lucide:unlock";
   const handleSelect = async (mode: PermissionMode) => {

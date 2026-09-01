@@ -5,12 +5,76 @@ import { Button } from "#shadcn/components/ui/button";
 import { createUsageClient } from "#api/UsageClient";
 import type { UsageStatsOutput } from "@argos/shared-contracts/routes";
 import UsageNostalgiaCard from "./control-center/UsageNostalgiaCard";
+
+// Process-wide singleton; module scope keeps hook/effect dependencies stable.
+const usageClient = createUsageClient();
+
 export interface DashboardSettingsProps {
   hideNostalgia?: boolean;
   onDashboardLoaded?: (dashboard: UsageStatsOutput) => void;
 }
+
+interface DashboardDeps {
+  onDashboardLoaded?: (dashboard: UsageStatsOutput) => void;
+  isDashboardMountedRef: { current: boolean };
+  emptyRetryCountRef: { current: number };
+  refreshTimerRef: { current: number | null };
+  setDashboard: (dashboard: UsageStatsOutput | null) => void;
+  setErrorMessage: (message: string) => void;
+  setIsLoading: (loading: boolean) => void;
+}
+
+function clearRefreshTimer(deps: DashboardDeps): void {
+  if (deps.refreshTimerRef.current !== null) {
+    window.clearTimeout(deps.refreshTimerRef.current);
+    deps.refreshTimerRef.current = null;
+  }
+}
+
+function scheduleDashboardRefresh(deps: DashboardDeps, delayMs = 1500): void {
+  clearRefreshTimer(deps);
+  deps.refreshTimerRef.current = window.setTimeout(() => {
+    deps.refreshTimerRef.current = null;
+    if (!deps.isDashboardMountedRef.current) return;
+    void loadDashboard(deps);
+  }, delayMs);
+}
+
+async function loadDashboard(deps: DashboardDeps): Promise<void> {
+  if (!deps.isDashboardMountedRef.current) return;
+  let shouldFinalize = false;
+  try {
+    clearRefreshTimer(deps);
+    deps.setIsLoading(true);
+    deps.setErrorMessage("");
+    const nextDashboard = await usageClient.getStats("30d");
+    if (!deps.isDashboardMountedRef.current) return;
+    deps.setDashboard(nextDashboard);
+    deps.onDashboardLoaded?.(nextDashboard);
+
+    // A zero messageCount is a valid result for users with no usage data.
+    // Retry a bounded number of times (covers a just-started session), then
+    // stop — never poll forever while the settings view stays open.
+    const shouldRetryEmptyDashboard = nextDashboard.summary.messageCount === 0 && deps.emptyRetryCountRef.current < 5;
+    if (shouldRetryEmptyDashboard) {
+      deps.emptyRetryCountRef.current += 1;
+      scheduleDashboardRefresh(deps);
+    } else {
+      deps.emptyRetryCountRef.current = 0;
+    }
+    shouldFinalize = true;
+  } catch (error) {
+    if (!deps.isDashboardMountedRef.current) return;
+    deps.setErrorMessage(error instanceof Error ? error.message : "Failed to load dashboard");
+    scheduleDashboardRefresh(deps, 3000);
+    shouldFinalize = true;
+  }
+  if (shouldFinalize && deps.isDashboardMountedRef.current) {
+    deps.setIsLoading(false);
+  }
+}
+
 export default function DashboardSettings({ hideNostalgia = false, onDashboardLoaded }: DashboardSettingsProps) {
-  const usageClient = createUsageClient();
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [dashboard, setDashboard] = useState<UsageStatsOutput | null>(null);
@@ -18,64 +82,34 @@ export default function DashboardSettings({ hideNostalgia = false, onDashboardLo
   const refreshTimerRef = useRef<number | null>(null);
   const emptyRetryCountRef = useRef(0);
   const loadDashboardRef = useRef<() => Promise<void>>(async () => {});
-  const clearRefreshTimer = () => {
-    if (refreshTimerRef.current !== null) {
-      window.clearTimeout(refreshTimerRef.current);
-      refreshTimerRef.current = null;
-    }
+  // Plain bundle passed by argument to the module-scope helpers — never a
+  // dependency, so the mount effect below stays keyed on nothing and cannot
+  // loop. Every field is a stable ref/setter except onDashboardLoaded, which
+  // loadDashboardRef re-syncs.
+  const dashboardDeps: DashboardDeps = {
+    onDashboardLoaded,
+    isDashboardMountedRef,
+    emptyRetryCountRef,
+    refreshTimerRef,
+    setDashboard,
+    setErrorMessage,
+    setIsLoading,
   };
-  const scheduleDashboardRefresh = (delayMs = 1500) => {
-    clearRefreshTimer();
-    refreshTimerRef.current = window.setTimeout(() => {
-      refreshTimerRef.current = null;
-      if (!isDashboardMountedRef.current) return;
-      void loadDashboardRef.current();
-    }, delayMs);
-  };
-  const loadDashboard = async () => {
-    if (!isDashboardMountedRef.current) return;
-    let shouldFinalize = false;
-    try {
-      clearRefreshTimer();
-      setIsLoading(true);
-      setErrorMessage("");
-      const nextDashboard = await usageClient.getStats("30d");
-      if (!isDashboardMountedRef.current) return;
-      setDashboard(nextDashboard);
-      onDashboardLoaded?.(nextDashboard);
-
-      // A zero messageCount is a valid result for users with no usage data.
-      // Retry a bounded number of times (covers a just-started session), then
-      // stop — never poll forever while the settings view stays open.
-      const shouldRetryEmptyDashboard = nextDashboard.summary.messageCount === 0 && emptyRetryCountRef.current < 5;
-      if (shouldRetryEmptyDashboard) {
-        emptyRetryCountRef.current += 1;
-        scheduleDashboardRefresh();
-      } else {
-        emptyRetryCountRef.current = 0;
-      }
-      shouldFinalize = true;
-    } catch (error) {
-      if (!isDashboardMountedRef.current) return;
-      setErrorMessage(error instanceof Error ? error.message : "Failed to load dashboard");
-      scheduleDashboardRefresh(3000);
-      shouldFinalize = true;
-    }
-    if (shouldFinalize && isDashboardMountedRef.current) {
-      setIsLoading(false);
-    }
-  };
+  const dashboardDepsRef = useRef<DashboardDeps>(dashboardDeps);
   useEffect(() => {
-    loadDashboardRef.current = loadDashboard;
-  }, [loadDashboard]);
+    dashboardDepsRef.current = dashboardDeps;
+  });
+  useEffect(() => {
+    loadDashboardRef.current = () => loadDashboard(dashboardDepsRef.current);
+  });
   useEffect(() => {
     isDashboardMountedRef.current = true;
     void loadDashboardRef.current();
     return () => {
       isDashboardMountedRef.current = false;
-      clearRefreshTimer();
+      clearRefreshTimer(dashboardDepsRef.current);
     };
-  }, [clearRefreshTimer]);
+  }, []);
   const hasData = (dashboard?.summary.messageCount ?? 0) > 0;
   return (
     <ScrollArea className="h-full w-full">
@@ -95,7 +129,7 @@ export default function DashboardSettings({ hideNostalgia = false, onDashboardLo
             size="sm"
             className="w-full shrink-0 sm:w-auto"
             disabled={isLoading}
-            onClick={() => void loadDashboard()}
+            onClick={() => void loadDashboard(dashboardDepsRef.current)}
           >
             <Icon icon="lucide:refresh-cw" className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
             Refresh

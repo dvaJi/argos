@@ -13,7 +13,13 @@ import {
   McpSamplingRequestPayload,
   McpSamplingDecision,
 } from "@argos/shared/presenter";
-import { McpRouterManager, ServerManager, ToolManager, type McpPluginRuntimePort } from "@argos/mcp-runtime";
+import {
+  McpRouterManager,
+  ServerManager,
+  ToolManager,
+  formatToolCallContent,
+  type McpPluginRuntimePort,
+} from "@argos/mcp-runtime";
 import { createDesktopMcpPorts } from "./desktopMcpPorts";
 import { eventBus, SendTarget } from "#/eventbus";
 import { MCP_EVENTS, NOTIFICATION_EVENTS } from "#/events";
@@ -551,45 +557,7 @@ export class McpPresenter implements IMCPPresenter {
       cacheImage: this.cacheImage,
     });
 
-    // Format tool call results into strings that are easy for large models to parse
-    let formattedContent = "";
-
-    // Determine content type
-    if (typeof toolCallResult.content === "string") {
-      // Content is already a string
-      formattedContent = toolCallResult.content;
-    } else if (Array.isArray(toolCallResult.content)) {
-      // Content is structured array, needs formatting
-      const contentParts: string[] = [];
-
-      // Process each content item
-      for (const item of toolCallResult.content) {
-        if (item.type === "text") {
-          contentParts.push(item.text);
-        } else if (item.type === "image") {
-          contentParts.push(`[Image: ${item.mimeType}]`);
-        } else if (item.type === "resource") {
-          if ("text" in item.resource && item.resource.text) {
-            contentParts.push(`[Resource: ${item.resource.uri}]\n${item.resource.text}`);
-          } else if ("blob" in item.resource) {
-            contentParts.push(`[Binary Resource: ${item.resource.uri}]`);
-          } else {
-            contentParts.push(`[Resource: ${item.resource.uri}]`);
-          }
-        } else {
-          // Handle other unknown types
-          contentParts.push(JSON.stringify(item));
-        }
-      }
-
-      // Combine all content
-      formattedContent = contentParts.join("\n\n");
-    }
-
-    // Add error marker (if any)
-    if (toolCallResult.isError) {
-      formattedContent = `Error: ${formattedContent}`;
-    }
+    const formattedContent = formatToolCallContent(toolCallResult);
 
     return {
       content: formattedContent,

@@ -45,7 +45,6 @@ const toReasoningTimeRange = (value: DisplayAssistantMessageBlock["reasoning_tim
     : null;
 };
 const UPDATE_INTERVAL = 1000;
-const UPDATE_OFFSET = 80;
 
 // Shared config client + a single cached read of the "think_collapse" setting.
 // Every mounted think block previously issued its own bridge roundtrip on mount;
@@ -96,55 +95,41 @@ const MessageBlockThinkHeaderLabelBase: FC<MessageBlockThinkHeaderLabelProps> = 
   reasoningDuration,
 }) => {
   const [displayedDurationMs, setDisplayedDurationMs] = useState(0);
-  const updateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const updateDisplayedDuration = () => {
-    if (isLoading) {
-      const fallbackDuration = Number.isFinite(reasoningDuration) ? reasoningDuration * 1000 : 0;
-      const startTimestamp = reasoningTimeRange?.start ?? Date.now() - fallbackDuration;
+  const updateTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Latest inputs for the ticker; synced in an effect so the interval below can
+  // stay keyed on `isLoading` alone (parent re-renders on every stream chunk
+  // must not restart the timer or re-run its effect).
+  const reasoningInputsRef = useRef({ reasoningDuration, reasoningStart: reasoningTimeRange?.start });
+  useEffect(() => {
+    reasoningInputsRef.current = { reasoningDuration, reasoningStart: reasoningTimeRange?.start };
+  }, [reasoningDuration, reasoningTimeRange]);
+  useEffect(() => {
+    if (!isLoading) {
+      // Defer the final refresh out of the effect (set-state-in-effect).
+      queueMicrotask(() => {
+        const normalized = Number.isFinite(reasoningDuration) ? reasoningDuration : 0;
+        setDisplayedDurationMs(Math.max(0, Math.round(normalized * 1000)));
+      });
+      return;
+    }
+    let cancelled = false;
+    const tick = () => {
+      if (cancelled) return;
+      const { reasoningDuration: duration, reasoningStart } = reasoningInputsRef.current;
+      const fallbackDuration = Number.isFinite(duration) ? duration * 1000 : 0;
+      const startTimestamp = reasoningStart ?? Date.now() - fallbackDuration;
       setDisplayedDurationMs(Math.max(0, Date.now() - startTimestamp));
-    } else {
-      const normalized = Number.isFinite(reasoningDuration) ? reasoningDuration : 0;
-      setDisplayedDurationMs(Math.max(0, Math.round(normalized * 1000)));
-    }
-  };
-  const stopTimer = () => {
-    if (updateTimer.current !== null) {
-      clearTimeout(updateTimer.current);
-      updateTimer.current = null;
-    }
-  };
-  const scheduleNextUpdate = function scheduleNextUpdate() {
-    stopTimer();
-    if (!isLoading) return;
-    const fallbackDuration = Number.isFinite(reasoningDuration) ? reasoningDuration * 1000 : 0;
-    const startTimestamp = reasoningTimeRange?.start ?? Date.now() - fallbackDuration;
-    const now = Date.now();
-    const elapsed = Math.max(0, now - startTimestamp);
-    const remainder = elapsed % UPDATE_INTERVAL;
-    const delay = Math.max(UPDATE_INTERVAL - remainder, 0) + UPDATE_OFFSET;
-    updateTimer.current = setTimeout(() => {
-      updateDisplayedDuration();
-      scheduleNextUpdate();
-    }, delay);
-  };
-  useEffect(() => {
-    // Defer the immediate refresh to a microtask so the state update does not
-    // run synchronously inside the effect.
-    queueMicrotask(() => updateDisplayedDuration());
-    if (isLoading) {
-      scheduleNextUpdate();
-    } else {
-      stopTimer();
-    }
-  }, [isLoading, updateDisplayedDuration, scheduleNextUpdate, stopTimer]);
-  useEffect(() => {
-    queueMicrotask(() => updateDisplayedDuration());
-  }, [updateDisplayedDuration]);
-  useEffect(() => {
-    return () => {
-      stopTimer();
     };
-  }, [stopTimer]);
+    queueMicrotask(tick);
+    updateTimer.current = setInterval(tick, UPDATE_INTERVAL);
+    return () => {
+      cancelled = true;
+      if (updateTimer.current !== null) {
+        clearInterval(updateTimer.current);
+        updateTimer.current = null;
+      }
+    };
+  }, [isLoading, reasoningDuration]);
   const text = (() => {
     if (isModeChange) return `Mode changed to ${modeChangeId}`;
     const formatted = formatDuration(displayedDurationMs);
@@ -185,41 +170,10 @@ const MessageBlockThinkBase: FC<MessageBlockThinkProps> = ({ block, usage, onTog
     onToggleCollapse?.(!newValue);
   };
   return (
-    <div className="overflow-hidden rounded-lg border bg-card text-card-foreground shadow-sm transition-all duration-(--dc-motion-default) ease-(--dc-ease-out-express) motion-reduce:transition-none">
-      <button
-        type="button"
-        className="flex min-h-10 w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors hover:bg-muted/40"
-        onClick={() => handleToggleCollapse(!collapse)}
-        aria-expanded={!collapse}
-      >
-        <Icon
-          icon="lucide:chevron-right"
-          className={`h-3 w-3 shrink-0 text-muted-foreground transition-transform duration-(--dc-motion-fast) ease-(--dc-ease-out-soft) motion-reduce:transition-none ${collapse ? "" : "rotate-90"}`}
-        />
-        <Icon icon="lucide:brain-circuit" className="h-4 w-4 shrink-0 text-muted-foreground" />
-        <span className="min-w-0 flex-1 truncate font-medium text-accent-foreground">
-          <MessageBlockThinkHeaderLabel
-            isModeChange={isModeChange}
-            modeChangeId={modeChangeId}
-            isLoading={block.status === "loading"}
-            reasoningTimeRange={reasoningTimeRange}
-            reasoningDuration={reasoningDuration}
-          />
-        </span>
-        {block.status === "loading" && (
-          <span className="inline-block h-3 w-3 shrink-0 rounded-full border-2 border-muted-foreground border-t-transparent animate-spin" />
-        )}
-      </button>
-
-      <div
-        className={`grid w-full overflow-hidden transition-[grid-template-rows,opacity] duration-(--dc-motion-default) ease-(--dc-ease-out-express) motion-reduce:transition-none ${collapse ? "grid-rows-[0fr] pointer-events-none opacity-0" : "grid-rows-[1fr] opacity-100"}`}
-        aria-hidden={collapse}
-        inert={collapse ? true : undefined}
-      >
-        <div className="min-h-0 overflow-hidden">
-          <div className="border-t bg-muted/20 px-3 py-2.5 text-xs leading-5 wrap-break-word whitespace-pre-wrap text-muted-foreground">
-            {trimmedContent}
-          </div>
+    <div className="overflow-hidden">
+      <div className="min-h-0 overflow-hidden">
+        <div className="text-xs leading-5 wrap-break-word whitespace-pre-wrap text-muted-foreground">
+          {trimmedContent}
         </div>
       </div>
     </div>
