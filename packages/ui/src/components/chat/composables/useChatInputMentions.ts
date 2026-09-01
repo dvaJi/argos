@@ -134,27 +134,37 @@ async function refreshAcpSessionCommands(args: {
   }
 }
 
-/** Fetches CUA plugin health from the daemon and projects it into composer state. */
-async function fetchCuaPluginStatus(args: { set: (status: CuaPluginStatus | null) => void }): Promise<void> {
+/**
+ * Fetches CUA plugin health from the daemon and projects it into composer
+ * state. Returns the status (null when the daemon is unreachable) so
+ * user-initiated flows can re-check fresh instead of trusting a stale cache.
+ */
+async function fetchCuaPluginStatus(args: {
+  set: (status: CuaPluginStatus | null) => void;
+}): Promise<CuaPluginStatus | null> {
   const { set } = args;
   try {
     const plugin: PluginListItem | undefined = await cuaPluginClient.getPlugin(CUA_PLUGIN_ID);
     if (!plugin) {
-      set({ installed: false, enabled: false });
-      return;
+      const status: CuaPluginStatus = { installed: false, enabled: false };
+      set(status);
+      return status;
     }
     const mcpError = (plugin.mcpServers ?? [])
       .map((server) => server.lastError)
       .find((error): error is string => Boolean(error));
-    set({
+    const status: CuaPluginStatus = {
       installed: true,
       enabled: Boolean(plugin.enabled),
       runtimeState: plugin.runtime?.state,
       runtimeError: plugin.runtime?.lastError,
       mcpError,
-    });
+    };
+    set(status);
+    return status;
   } catch {
     // Bridge unavailable (e.g. daemon restarting); keep the last known status.
+    return null;
   }
 }
 
@@ -407,9 +417,10 @@ export function useChatInputMentions(options: UseChatInputMentionsOptions) {
   };
   const handleSlashSelection = async (editor: Editor, range: Range, item: SlashSuggestionItem) => {
     if (item.id === CUA_SLASH_ITEM_ID) {
-      // Unknown status (fetch still in flight or failed) must NOT read as
-      // ready — fall through to the setup/troubleshooting guidance instead.
-      const status = cuaStatus ?? { installed: true, enabled: true, runtimeState: "unknown" };
+      // Re-check fresh at use: the cached status may be from before the
+      // daemon/bridge was ready (mount-time fetches can fail silently).
+      const status = (await fetchCuaPluginStatus({ set: setCuaStatus })) ??
+        cuaStatus ?? { installed: true, enabled: true, runtimeState: "unknown" };
       const runtimeReady =
         status.installed &&
         status.enabled &&
