@@ -54,3 +54,20 @@ export const pluginsInvokeActionRoute = defineRouteContract({
     result: PluginActionResultSchema,
   }),
 });
+
+// Desktop-only twin of `plugins.invokeAction`. Some plugin actions (opening the
+// permission guide, opening a project URL) need Electron capabilities the daemon
+// does not have; plugin settings pages learn about the daemon refusal via
+// DESKTOP_ONLY_PLUGIN_ACTION_ERROR and retry through this route, which the
+// hybrid bridge routes over IPC to the desktop main plugin presenter.
+export const pluginsInvokeDesktopActionRoute = defineRouteContract({
+  name: "plugins.invokeDesktopAction",
+  input: zod.object({
+    pluginId: zod.string().min(1),
+    actionId: zod.string().min(1),
+    payload: JsonValueSchema.optional(),
+  }) satisfies zod.ZodType<PluginInvokeActionRequest>,
+  output: zod.object({
+    result: PluginActionResultSchema,
+  }),
+});

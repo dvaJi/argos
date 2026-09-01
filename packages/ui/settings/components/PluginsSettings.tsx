@@ -174,7 +174,10 @@ export default function PluginsSettings() {
               );
               return;
             }
-            value = await pluginClient.invokeAction({
+            // Desktop-only plugin actions (permission guide, open project, …)
+            // are refused by the daemon; the client retries them over IPC via
+            // the desktop-only route so they work inside the desktop shell.
+            value = await pluginClient.invokeActionWithDesktopFallback({
               pluginId: request.pluginId,
               actionId,
               payload: payload as PluginInvokeActionRequest["payload"],

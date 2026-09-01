@@ -18,7 +18,11 @@ import type {
   PluginToolPolicyDecision,
   RuntimeDependencyRecord,
 } from "@argos/shared/types/plugin";
-import { OFFICIAL_PLUGIN_SOURCE, type CuaEmbeddedRuntimeContract } from "@argos/shared/types/plugin";
+import {
+  DESKTOP_ONLY_PLUGIN_ACTION_ERROR,
+  OFFICIAL_PLUGIN_SOURCE,
+  type CuaEmbeddedRuntimeContract,
+} from "@argos/shared/types/plugin";
 import {
   assertPluginManifestLifecycleContract,
   CuaEmbeddedRuntimeAdapter,
@@ -310,7 +314,7 @@ export class DaemonPluginPresenter {
           };
         case "runtime.openPermissionGuide":
         case "runtime.openProject":
-          throw new Error("This plugin action is only supported in the desktop app");
+          throw new Error(DESKTOP_ONLY_PLUGIN_ACTION_ERROR);
         case "runtime.uninstallHelper":
           return {
             ok: false,
@@ -778,8 +782,8 @@ export class DaemonPluginPresenter {
   }
 
   private async checkAdapterRuntimePermissions(serverName: string): Promise<RuntimePermissionCheckResult> {
-    const callTool = this.mcpPresenter.callTool;
-    if (!callTool) {
+    const mcpPresenter = this.mcpPresenter;
+    if (typeof mcpPresenter.callTool !== "function") {
       return {
         accessibility: "unknown",
         screenRecording: "unknown",
@@ -788,7 +792,9 @@ export class DaemonPluginPresenter {
     }
     try {
       await this.pluginRuntime.ensureRunning(serverName, "runtime-test");
-      const result = await callTool({
+      // Keep this a method call on the presenter: extracting the function would
+      // drop `this` and crash inside the MCP runtime (`this.toolManager`).
+      const result = await mcpPresenter.callTool({
         id: `cua-permissions-${Date.now()}`,
         type: "function",
         function: { name: "check_permissions", arguments: JSON.stringify({ prompt: false }) },
