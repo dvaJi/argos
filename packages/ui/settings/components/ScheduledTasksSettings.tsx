@@ -22,6 +22,10 @@ import type {
 } from "@argos/shared/scheduledTasks";
 import type { Agent } from "@argos/shared/types/agent-interface";
 import type { RENDERER_MODEL_META } from "@argos/shared/presenter";
+// Process-wide singleton; module scope keeps effect dependencies stable.
+const client = createScheduledTasksClient();
+const configClient = createConfigClient();
+
 type TriggerKind = ScheduledTaskTrigger["kind"];
 type ActionKind = ScheduledTaskAction["kind"];
 type NotifyAction = Extract<
@@ -731,8 +735,6 @@ function TaskListItem({
 
 export default function ScheduledTasksSettings() {
   const { toast } = useToast();
-  const client = createScheduledTasksClient();
-  const configClient = createConfigClient();
   const modelStore = useModelStore();
   const [settings, setSettings] = useState<ScheduledTasksSettings | null>(null);
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -846,7 +848,7 @@ export default function ScheduledTasksSettings() {
     return () => {
       cancelled = true;
     };
-  }, [client, configClient, toast]);
+  }, [toast]);
   const openTaskIdSet = new Set(openTaskIds);
   return (
     <SettingsPageShell
