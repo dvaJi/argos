@@ -13,6 +13,26 @@ export const router = createRouter({
       </div>
     );
   },
+  defaultOnCatch: (props) => {
+    console.error("Route catch:", props);
+    return (
+      <div>
+        <h2>Route catch</h2>
+        <p>{JSON.stringify(props)}</p>
+        <button onClick={() => router.navigate({ to: "/" })}>Go to Home</button>
+      </div>
+    );
+  },
+  defaultErrorComponent: (props) => {
+    console.error("Route error:", props);
+    return (
+      <div>
+        <h2>Route error</h2>
+        <p>{props.error.message}</p>
+        <button onClick={() => router.navigate({ to: "/" })}>Go to Home</button>
+      </div>
+    );
+  },
 });
 
 declare module "@tanstack/react-router" {
