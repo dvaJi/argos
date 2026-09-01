@@ -129,6 +129,8 @@ export function ensureDirectories(paths: BunPathResolver): void {
     paths.getTempDir(),
     paths.getLogsDir(),
     `${paths.getDataDir()}/data`,
+    // Private scratch workspace for the Argos agent when no project is attached.
+    `${paths.getDataDir()}/agent-workspace`,
   ];
 
   for (const dir of dirs) {

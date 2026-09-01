@@ -153,6 +153,8 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
       listTools(sessionId: string): Promise<MCPToolDefinition[]>;
       callTool(request: MCPToolCall): Promise<MCPToolResponse>;
     },
+    /** Argos-owned scratch workspace used when a session has no project dir. */
+    private readonly agentWorkspaceDir: string,
   ) {
     this.utilityPort = new LlmUtilityExecution(configPresenter);
   }
@@ -412,7 +414,27 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
     const settings = this.profiles.readSettings(session.agentId);
     const availableTools = await this.mcp.listTools(sessionId);
     const trustedProjects = Array.isArray(settings.trustedProjects) ? settings.trustedProjects : [];
-    const cwd = session.projectDir || agent?.defaultProjectPath || process.cwd();
+    const projectDir = session.projectDir?.trim() || null;
+    const defaultProjectPath = agent?.defaultProjectPath?.trim() || null;
+    // No project attached: fall back to an Argos-owned scratch workspace
+    // instead of the daemon's cwd, so the agent never litters arbitrary
+    // directories (home, program files, the repo itself) with scripts.
+    const usingScratchWorkspace = !projectDir && !defaultProjectPath;
+    const cwd = projectDir || defaultProjectPath || this.agentWorkspaceDir;
+    if (usingScratchWorkspace) {
+      fs.mkdirSync(cwd, { recursive: true });
+    }
+    // The scratch workspace is created and owned by Argos, so it is trusted by
+    // definition — the agent must not nag for trust confirmation in its own
+    // private workspace.
+    const projectTrusted = usingScratchWorkspace || trustedProjects.includes(path.resolve(cwd));
+    const scratchGuidance = usingScratchWorkspace
+      ? [
+          `Workspace directory: ${cwd}`,
+          "This directory is private to Argos and safe to write. When the task has no attached project, create one-off scripts, notes, and temp files here.",
+          "Do not write files outside this directory unless the user explicitly provides an absolute path.",
+        ].join("\n")
+      : undefined;
     return {
       type: "init",
       sessionId,
@@ -420,7 +442,7 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
       agentDir: profileDir,
       sessionDir: this.profiles.getSessionDir(session.agentId),
       sessionFile: this.sessionRepository.getPiSessionFile(sessionId),
-      systemPrompt: agent?.systemPrompt,
+      systemPrompt: [agent?.systemPrompt, scratchGuidance].filter(Boolean).join("\n\n") || undefined,
       provider: workerProvider(this.configPresenter, provider, session.modelId),
       thinkingLevel: (await this.sessionRepository.getGenerationSettings(sessionId))?.reasoningEffort,
       disabledTools: await this.sessionRepository.getDisabledAgentTools(sessionId),
@@ -428,7 +450,7 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
         process.platform === "win32" && this.configPresenter.getSetting<boolean>("pi_enable_powershell_tool") === true,
       tools: availableTools.filter((tool) => tool.server.name !== "argos-orchestration"),
       orchestrationTools: availableTools.filter((tool) => tool.server.name === "argos-orchestration"),
-      projectTrusted: trustedProjects.includes(path.resolve(cwd)),
+      projectTrusted,
       permissionMode: await this.sessionRepository.getPermissionMode(sessionId),
       profileFingerprint: JSON.stringify(settings),
     };
