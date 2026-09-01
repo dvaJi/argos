@@ -134,6 +134,8 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
   private readonly utilityPort: LlmUtilityExecution;
   /** Invoked after a turn completes successfully (used to drain pending inputs). */
   private turnSettledHandler: ((sessionId: string) => void | Promise<void>) | null = null;
+  /** Sessions whose next settle must NOT drain the pending queue (user pressed STOP). */
+  private drainSuppressedSessions = new Set<string>();
   /** Last partial-snapshot persist per session (see SNAPSHOT_PERSIST_MIN_INTERVAL_MS). */
   private readonly lastSnapshotPersistAt = new Map<string, number>();
   private readonly snapshotPersistTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -166,6 +168,9 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
     const messageId = await this.sessionRepository.addMessage(sessionId, "assistant", JSON.stringify([]));
     const worker = await this.getWorker(sessionId);
     if (worker.turn) throw new Error(`Session ${sessionId} already has an active Pi turn.`);
+    // A fresh user-initiated turn clears any stale cancel suppression so later
+    // settles drain the queue normally again.
+    this.drainSuppressedSessions.delete(sessionId);
 
     let activeTurn!: ActiveTurn;
     const completed = new Promise<void>((resolve, reject) => {
@@ -185,7 +190,11 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
         await completed;
         await this.markDone(sessionId);
         // Drain the pending-input lane (steer first, then queue) — the next
-        // drained turn re-triggers this hook when it settles.
+        // drained turn re-triggers this hook when it settles. A user cancel
+        // suppresses the drain once: STOP must not auto-send queued work.
+        if (this.drainSuppressedSessions.delete(sessionId)) {
+          return;
+        }
         await this.turnSettledHandler?.(sessionId);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -265,6 +274,9 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
   async cancelGeneration(sessionId: string): Promise<void> {
     const worker = this.workers.get(sessionId);
     if (!worker?.turn) return;
+    // STOP must not auto-send queued work: suppress the pending-input drain
+    // that the settle hook would otherwise fire for this session.
+    this.drainSuppressedSessions.add(sessionId);
     this.send(worker.process, { type: "abort", id: worker.turn.commandId });
   }
 
