@@ -9,3 +9,6 @@
       `build-linux`; add post-pack `plugin:verify` steps.
 - [x] **T4** `release.yml`: same changes for its windows / linux jobs.
 - [x] **T5** `bun run format` + `bun run lint`.
+- [x] **T6** Review fixes: `cuda-driver` → `cua-driver` typo; pin generic
+      `build:linux` to x64 (host-arch default could hit unsupported
+      `linux/arm64`).

@@ -8,7 +8,7 @@ scripts already support it end to end:
 1. `scripts/build-cua-plugin-runtime.mjs` accepts `--platform`/`--arch` and maps
    `win32/x64 → windows-x64`, `win32/arm64 → windows-arm64`,
    `linux/x64 → linux-x64` in `targetAssetKeys` (checksum-pinned upstream
-   assets). It stages `runtime/<platform>/<arch>/` with `cuda-driver` executable,
+   assets). It stages `runtime/<platform>/<arch>/` with `cua-driver` executable,
    `tool-catalog.json` (native-target `dump-docs`), and `integrity.json`.
 2. `scripts/plugin.mjs bundle -- --name cua --platform <p> --arch <a>` re-runs
    the native build, then packages `plugins/cua` into
@@ -29,7 +29,9 @@ scripts already support it end to end:
    - `build:win` / `build:win:x64` / `build:win:arm64` /
      `build:linux` / `build:linux:x64`: insert the CUA build step and
      `plugin:bundle -- --name cua --platform win32|linux [--arch …]` after
-     `plugin:bundle:clean`, before electron-builder.
+     `plugin:bundle:clean`, before electron-builder. The generic `build:linux`
+     is pinned to x64 end to end (host-arch default would attempt the
+     upstream-unsupported `linux/arm64` target on arm64 hosts).
    - `build:linux:arm64` unchanged (upstream-unsupported target).
 2. **`.github/workflows/build.yml`**
    - `build-windows`: add `plugin:cua:build:win:<arch>` + `plugin:bundle` steps

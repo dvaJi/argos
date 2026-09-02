@@ -12,7 +12,7 @@ on:
       - v*.*.*
 
 permissions:
-  contents: write
+  contents: read
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
@@ -400,6 +400,13 @@ jobs:
           PLUGIN_ROOT="${APP_DIR}/Contents/Resources/app.asar.unpacked/plugins"
           bun run plugin:verify -- --name cua --platform darwin --arch "$TARGET_ARCH" --plugin-root "$PLUGIN_ROOT"
 
+      - name: Verify daemon version
+        shell: bash
+        run: |
+          version="$(apps/daemon/dist/argos-daemon --version)"
+          test -n "$version"
+          echo "Daemon version: $version"
+
       - name: Stage daemon binary
         shell: bash
         env:
@@ -428,6 +435,8 @@ jobs:
       - build-windows
       - build-linux
       - build-mac
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6

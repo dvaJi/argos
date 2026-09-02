@@ -14,6 +14,9 @@ on:
           - linux
           - mac
 
+permissions:
+  contents: read
+
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
   RTK_INSTALL_GITHUB_TOKEN: ${{ secrets.RTK_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
@@ -185,6 +188,7 @@ jobs:
 
   build-mac:
     needs: preflight
+    if: github.event.inputs.platform == 'all' || contains(github.event.inputs.platform, 'mac')
     runs-on: macos-15
     strategy:
       matrix:
