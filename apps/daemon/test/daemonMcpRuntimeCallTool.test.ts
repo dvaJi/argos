@@ -79,5 +79,6 @@ describe("DaemonMcpRuntime.callTool adaptation", () => {
     expect(preCheckToolPermission).toHaveBeenCalledTimes(1);
     expect(result.content).toBe("[Image: image/png]");
     expect(result.rawData).toMatchObject({ toolCallId: "tool-3" });
+    expect(result.toolCallId).toBe("tool-3");
   });
 });

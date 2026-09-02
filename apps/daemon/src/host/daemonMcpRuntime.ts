@@ -173,7 +173,10 @@ export class DaemonMcpRuntime {
       );
     }
     const result = await this.toolManager.callTool(toolCall);
+    // ProviderExecutionPort.callTool is typed Promise<MCPToolResponse>, so keep
+    // the call id at the top level; the mcp.callTool route strips it via Zod.
     return {
+      toolCallId: result.toolCallId,
       content: formatToolCallContent(result),
       rawData: { ...result } as never,
     };

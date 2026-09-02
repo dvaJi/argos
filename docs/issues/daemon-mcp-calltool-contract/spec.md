@@ -45,3 +45,15 @@ was never caught.
 - `mcp.callTool` / approved-tool routes return `{ content: string, rawData }` for string
   and array content, with the `Error:` prefix on `isError`.
 - Desktop tool-call behavior unchanged (image previews still attached).
+
+## Follow-up: `callApprovedTool` keeps `toolCallId` (PR #84)
+
+The daemon's `ProviderExecutionPort.callTool` dependency
+(`apps/daemon/src/host/pi-provider-execution.ts`) declares
+`Promise<MCPToolResponse>`, which requires `toolCallId`. The
+`{ content, rawData }`-only adaptation made the daemon typecheck fail once the
+pi port consumed it, so `callApprovedTool` additionally returns the top-level
+`toolCallId` (the route output is unchanged — Zod strips the extra key).
+Release-matrix tests were updated for the re-enabled (unsigned) mac release
+job: the remote-machine advert keeps macOS hidden until a standalone install
+path exists, while `release.yml` stages `argos-daemon-darwin-*`.
