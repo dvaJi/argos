@@ -12,7 +12,7 @@ on:
       - v*.*.*
 
 permissions:
-  contents: write
+  contents: read
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
@@ -204,6 +204,8 @@ jobs:
           bun run build
           bun run packaging:validate
           bun run build:daemon
+          bun run plugin:cua:build:win:${{ matrix.arch }}
+          bun run plugin:bundle -- --name cua --platform win32 --arch ${{ matrix.arch }}
           bun x electron-builder --config apps/desktop/electron-builder.yml --win --${{ matrix.arch }} --publish=never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -212,6 +214,10 @@ jobs:
           VITE_PROVIDER_DB_URL: ${{ secrets.CDN_PROVIDER_DB_URL }}
           ARGOS_TARGET_OS: win32
           ARGOS_TARGET_ARCH: ${{ matrix.arch }}
+
+      - name: Verify bundled plugins
+        shell: pwsh
+        run: bun run plugin:verify -- --name cua --platform win32 --arch ${{ matrix.arch }} --plugin-root "dist/${{ matrix.unpacked }}/resources/app.asar.unpacked/plugins"
 
       - name: Stage daemon binary
         shell: bash
@@ -281,6 +287,8 @@ jobs:
         run: |
           bun run build
           bun run build:daemon
+          bun run plugin:cua:build:linux:${{ matrix.arch }}
+          bun run plugin:bundle -- --name cua --platform linux --arch ${{ matrix.arch }}
           bun x electron-builder --config apps/desktop/electron-builder.yml --linux --${{ matrix.arch }} --publish=never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -289,6 +297,9 @@ jobs:
           VITE_PROVIDER_DB_URL: ${{ secrets.CDN_PROVIDER_DB_URL }}
           ARGOS_TARGET_OS: linux
           ARGOS_TARGET_ARCH: ${{ matrix.arch }}
+
+      - name: Verify bundled plugins
+        run: bun run plugin:verify -- --name cua --platform linux --arch ${{ matrix.arch }} --plugin-root "dist/linux-unpacked/resources/app.asar.unpacked/plugins"
 
       - name: Stage daemon binary
         shell: bash
@@ -322,16 +333,12 @@ jobs:
             dist/daemon/**
 
   build-mac:
-    if: false # macOS build temporarily disabled — code signing/notarization not ready
     needs: [resolve-tag, preflight]
     runs-on: macos-15
     strategy:
       matrix:
-        arch: [x64, arm64]
+        arch: [arm64]
         include:
-          - arch: x64
-            platform: mac-x64
-            daemon_os: darwin
           - arch: arm64
             platform: mac-arm64
             daemon_os: darwin
@@ -369,12 +376,10 @@ jobs:
           bun run plugin:bundle -- --name cua --platform darwin --arch ${{ matrix.arch }}
           bun x electron-builder --config apps/desktop/electron-builder.yml --mac --${{ matrix.arch }} --publish=never
         env:
-          CSC_LINK: ${{ secrets.ARGOS_CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.ARGOS_CSC_KEY_PASS }}
-          ARGOS_APPLE_NOTARY_USERNAME: ${{ secrets.ARGOS_APPLE_NOTARY_USERNAME }}
-          ARGOS_APPLE_NOTARY_TEAM_ID: ${{ secrets.ARGOS_APPLE_NOTARY_TEAM_ID }}
-          ARGOS_APPLE_NOTARY_PASSWORD: ${{ secrets.ARGOS_APPLE_NOTARY_PASSWORD }}
-          build_for_release: '2'
+          # Unsigned CI build: ad-hoc signed (arm64) so it runs on Apple Silicon.
+          # No CSC_LINK / notarization: notarize.js early-returns without
+          # build_for_release, and the CUA helper falls back to ad-hoc signing.
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VITE_GITHUB_CLIENT_ID: ${{ secrets.ARGOS_GITHUB_CLIENT_ID }}
           VITE_GITHUB_REDIRECT_URI: ${{ secrets.ARGOS_GITHUB_REDIRECT_URI }}
@@ -394,6 +399,13 @@ jobs:
           fi
           PLUGIN_ROOT="${APP_DIR}/Contents/Resources/app.asar.unpacked/plugins"
           bun run plugin:verify -- --name cua --platform darwin --arch "$TARGET_ARCH" --plugin-root "$PLUGIN_ROOT"
+
+      - name: Verify daemon version
+        shell: bash
+        run: |
+          version="$(apps/daemon/dist/argos-daemon --version)"
+          test -n "$version"
+          echo "Daemon version: $version"
 
       - name: Stage daemon binary
         shell: bash
@@ -422,6 +434,9 @@ jobs:
       - resolve-tag
       - build-windows
       - build-linux
+      - build-mac
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6

@@ -10,24 +10,31 @@ const releaseWorkflow = readFileSync(
 );
 
 describe("remote machine release matrix", () => {
-  test("only advertises platforms with an enabled daemon release job", () => {
+  test("only advertises platforms with a standalone install path", () => {
     for (const commandSet of REMOTE_MACHINE_COMMANDS) {
       const releasePlatform = commandSet.platform === "macos" ? "darwin" : commandSet.platform;
       const hasAssetStaging = releaseWorkflow.includes(`daemon_os: ${releasePlatform}`);
       if (commandSet.available) {
         expect(hasAssetStaging).toBe(true);
       } else {
-        expect(releaseWorkflow).toContain("if: false # macOS build temporarily disabled");
+        // macOS builds are re-enabled (unsigned) and the release job stages an
+        // `argos-daemon-darwin-*` artifact, but the remote-machine advert stays
+        // hidden until a macOS standalone install path ships.
+        expect(commandSet.platform).toBe("macos");
+        expect(commandSet.unavailableReason).toBeTruthy();
       }
     }
   });
 
-  test("runs --version before staging every supported daemon artifact", () => {
+  test("runs --version before staging every staged daemon artifact", () => {
     const versionChecks = releaseWorkflow.match(/- name: Verify daemon version/g) ?? [];
-    const supportedPlatforms = REMOTE_MACHINE_COMMANDS.filter((commandSet) => commandSet.available).length;
+    const stagedPlatforms = [...releaseWorkflow.matchAll(/daemon_os: (\w+)/g)].map((match) => match[1]);
 
-    expect(versionChecks).toHaveLength(supportedPlatforms);
-    expect(releaseWorkflow).toContain("arch: [x64, arm64]");
+    // One version check + staging block per daemon release job (windows,
+    // linux, macos).
+    expect(versionChecks).toHaveLength(3);
+    expect(new Set(stagedPlatforms)).toEqual(new Set(["windows", "linux", "darwin"]));
+    expect(releaseWorkflow).toContain("arch: [arm64]");
     expect(releaseWorkflow).toContain('argos-daemon.exe" --version');
     expect(releaseWorkflow).toContain("apps/daemon/dist/argos-daemon --version");
   });

@@ -14,6 +14,9 @@ on:
           - linux
           - mac
 
+permissions:
+  contents: read
+
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
   RTK_INSTALL_GITHUB_TOKEN: ${{ secrets.RTK_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
@@ -104,6 +107,8 @@ jobs:
           bun run build
           bun run packaging:validate
           bun run build:daemon
+          bun run plugin:cua:build:win:${{ matrix.arch }}
+          bun run plugin:bundle -- --name cua --platform win32 --arch ${{ matrix.arch }}
           bun x electron-builder --config apps/desktop/electron-builder.yml --win --${{ matrix.arch }} --publish=never
         env:
           VITE_GITHUB_CLIENT_ID: ${{ secrets.ARGOS_GITHUB_CLIENT_ID }}
@@ -111,6 +116,10 @@ jobs:
           VITE_PROVIDER_DB_URL: ${{ secrets.CDN_PROVIDER_DB_URL }}
           ARGOS_TARGET_OS: win32
           ARGOS_TARGET_ARCH: ${{ matrix.arch }}
+
+      - name: Verify bundled plugins
+        shell: pwsh
+        run: bun run plugin:verify -- --name cua --platform win32 --arch ${{ matrix.arch }} --plugin-root "dist/${{ matrix.unpacked }}/resources/app.asar.unpacked/plugins"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
@@ -155,6 +164,8 @@ jobs:
         run: |
           bun run build
           bun run build:daemon
+          bun run plugin:cua:build:linux:${{ matrix.arch }}
+          bun run plugin:bundle -- --name cua --platform linux --arch ${{ matrix.arch }}
           bun x electron-builder --config apps/desktop/electron-builder.yml --linux --${{ matrix.arch }} --publish=never
         env:
           VITE_GITHUB_CLIENT_ID: ${{ secrets.ARGOS_GITHUB_CLIENT_ID }}
@@ -162,6 +173,9 @@ jobs:
           VITE_PROVIDER_DB_URL: ${{ secrets.CDN_PROVIDER_DB_URL }}
           ARGOS_TARGET_OS: linux
           ARGOS_TARGET_ARCH: ${{ matrix.arch }}
+
+      - name: Verify bundled plugins
+        run: bun run plugin:verify -- --name cua --platform linux --arch ${{ matrix.arch }} --plugin-root "dist/linux-unpacked/resources/app.asar.unpacked/plugins"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
@@ -174,14 +188,12 @@ jobs:
 
   build-mac:
     needs: preflight
-    if: false # macOS build temporarily disabled — code signing/notarization not ready
+    if: github.event.inputs.platform == 'all' || contains(github.event.inputs.platform, 'mac')
     runs-on: macos-15
     strategy:
       matrix:
-        arch: [x64, arm64]
+        arch: [arm64]
         include:
-          - arch: x64
-            platform: mac-x64
           - arch: arm64
             platform: mac-arm64
     steps:
@@ -216,13 +228,10 @@ jobs:
           bun run plugin:bundle -- --name cua --platform darwin --arch ${{ matrix.arch }}
           bun x electron-builder --config apps/desktop/electron-builder.yml --mac --${{ matrix.arch }} --publish=never
         env:
-          CSC_LINK: ${{ secrets.ARGOS_CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.ARGOS_CSC_KEY_PASS }}
-          CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.ARGOS_CSC_LINK != '' && 'true' || 'false' }}
-          ARGOS_APPLE_NOTARY_USERNAME: ${{ secrets.ARGOS_APPLE_NOTARY_USERNAME }}
-          ARGOS_APPLE_NOTARY_TEAM_ID: ${{ secrets.ARGOS_APPLE_NOTARY_TEAM_ID }}
-          ARGOS_APPLE_NOTARY_PASSWORD: ${{ secrets.ARGOS_APPLE_NOTARY_PASSWORD }}
-          # build_for_release: '2'  # Requires Developer ID Application cert for CUA helper signing
+          # Unsigned CI build: ad-hoc signed (arm64) so it runs on Apple Silicon.
+          # No CSC_LINK / notarization: notarize.js early-returns without
+          # build_for_release, and the CUA helper falls back to ad-hoc signing.
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
           VITE_GITHUB_CLIENT_ID: ${{ secrets.ARGOS_GITHUB_CLIENT_ID }}
           VITE_GITHUB_REDIRECT_URI: ${{ secrets.ARGOS_GITHUB_REDIRECT_URI }}
           NODE_OPTIONS: '--max-old-space-size=4096'
