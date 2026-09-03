@@ -6,3 +6,4 @@
 
 ## Communication & workflow
 - Gives terse, high-level direction ("rewrite X, checkout Y for inspiration") and delegates execution details to the agent. Confidence: 0.6
+- Issues open-ended creative briefs ("build something cool with it") and trusts the agent to exercise design judgment in context — expects intelligent initiative, not a clarifying questions round-trip. Confidence: 0.75

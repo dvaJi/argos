@@ -6,8 +6,9 @@ const GITHUB_URL = "https://github.com/dvaJi/argos";
 const RELEASES_URL = "https://github.com/dvaJi/argos/releases";
 
 const NAV_LINKS = [
-  { label: "Features", href: "/#features" },
   { label: "Providers", href: "/#providers" },
+  { label: "Agents", href: "/#agents" },
+  { label: "Features", href: "/#features" },
   { label: "Docs", href: "/docs" },
   { label: "Download", href: "/#download" },
 ];
@@ -31,7 +32,7 @@ export function SiteHeader() {
             <span className="text-sm font-semibold tracking-tight text-white">Argos</span>
           </Link>
 
-          <div className="hidden items-center gap-0.5 md:flex">
+          <div className="hidden items-center gap-0.5 lg:flex">
             {NAV_LINKS.map((link) => (
               <a
                 key={link.href}
@@ -64,7 +65,7 @@ export function SiteHeader() {
 
             <button
               type="button"
-              className="flex h-10 w-10 items-center justify-center rounded-full text-white transition-colors duration-300 hover:bg-white/5 md:hidden"
+              className="flex h-10 w-10 items-center justify-center rounded-full text-white transition-colors duration-300 hover:bg-white/5 lg:hidden"
               onClick={() => setMobileOpen((v) => !v)}
               aria-label="Toggle menu"
               aria-expanded={mobileOpen}
@@ -76,7 +77,7 @@ export function SiteHeader() {
       </header>
 
       <div
-        className={`fixed inset-0 z-40 bg-ink/90 backdrop-blur-2xl transition-opacity duration-500 md:hidden ${mobileOpen ? "opacity-100" : "pointer-events-none opacity-0"}`}
+        className={`fixed inset-0 z-40 bg-ink/90 backdrop-blur-2xl transition-opacity duration-500 lg:hidden ${mobileOpen ? "opacity-100" : "pointer-events-none opacity-0"}`}
         onClick={() => setMobileOpen(false)}
       >
         <div className="flex h-full flex-col items-center justify-center gap-7">

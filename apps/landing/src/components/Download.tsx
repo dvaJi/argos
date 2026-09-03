@@ -1,4 +1,5 @@
 import { Command, SquaresFour, TerminalWindow } from "@phosphor-icons/react";
+import { CopyCommand } from "~/components/CopyCommand";
 import { Reveal } from "~/components/Reveal";
 
 const RELEASES_URL = "https://github.com/dvaJi/argos/releases";
@@ -11,8 +12,9 @@ const PLATFORMS = [
 ] as const;
 
 const DAEMON_INSTALLS = [
-  { command: `curl -fsSL ${INSTALL_RAW}/install.sh | sh`, label: "Linux / macOS" },
+  { command: `curl -fsSL ${INSTALL_RAW}/install.sh | sh`, label: "macOS / Linux" },
   { command: `irm ${INSTALL_RAW}/install.ps1 | iex`, label: "Windows" },
+  { command: "brew install dvaJi/tap/argos-daemon", label: "Homebrew" },
 ] as const;
 
 export function Download() {
@@ -54,31 +56,31 @@ export function Download() {
         <Reveal delay={120} className="surface mt-6 p-7 sm:p-9">
           <div className="text-center">
             <h3 className="text-lg font-semibold text-white">Run it headless</h3>
-            <p className="mt-2 text-sm text-slate-500">
-              Desktop is all most users need. Install Argos Server separately only when another machine should run
-              agents and host project files.
+            <p className="mx-auto mt-2 max-w-lg text-sm text-slate-500">
+              Desktop is all most users need. Install Argos Server only when another machine should run agents and host
+              project files.
             </p>
           </div>
           <div className="mt-7 space-y-2.5">
             {DAEMON_INSTALLS.map((item) => (
-              <div
+              <CopyCommand
                 key={item.command}
-                className="flex flex-col gap-1 rounded-xl bg-white/[0.02] px-4 py-3 ring-1 ring-white/[0.06] sm:flex-row sm:items-center sm:justify-between"
-              >
-                <code className="break-all font-mono text-[13px] text-slate-300">{item.command}</code>
-                <span className="shrink-0 text-xs text-slate-600">{item.label}</span>
-              </div>
+                command={item.command}
+                label={item.label}
+                className="w-full rounded-xl px-4 py-2.5"
+              />
             ))}
           </div>
-          <p className="mt-6 text-center text-xs text-slate-600">
-            Before deploying on a VPS, read the{" "}
+          <p className="mt-6 text-center text-xs leading-relaxed text-slate-600">
+            Then run <code className="font-mono text-slate-500">argos-daemon --web --pair</code> to serve the web
+            workspace. Deploying on a VPS? Read the{" "}
             <a
-              href="https://github.com/dvaJi/argos/blob/master/docs/guides/remote-machines.md"
+              href="/docs"
               className="text-slate-400 underline decoration-white/10 underline-offset-4 transition-colors duration-300 hover:text-white"
             >
-              remote machine guide
-            </a>
-            .
+              daemon handbook
+            </a>{" "}
+            first.
           </p>
         </Reveal>
       </div>

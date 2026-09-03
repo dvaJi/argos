@@ -9,19 +9,19 @@ export const Route = createRootRoute({
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       {
-        title: "Argos - Powerful Open-Source AI Agent Platform",
+        title: "Argos - The Open-Source Control Plane for AI Coding Agents",
       },
       {
         name: "description",
         content:
-          "Argos unifies models, tools, and agents: multi-LLM chat, MCP tool calling, Skills, ACP integration, and remote control. Use it as a desktop app or a self-hosted web workspace.",
+          "Run agents, models, MCP tools, and skills in one open-source workspace. 40+ providers, ACP agents, remote control, desktop app or self-hosted server. Bring your own keys.",
       },
       { name: "theme-color", content: "#050507" },
-      { property: "og:title", content: "Argos - Open-Source AI Agent Platform" },
+      { property: "og:title", content: "Argos - The Open-Source Control Plane for AI Coding Agents" },
       {
         property: "og:description",
         content:
-          "Multi-LLM chat, MCP tools, Skills, ACP agents, and remote control in an open-source desktop or web workspace.",
+          "Run agents, models, MCP tools, and skills in one open-source workspace. Desktop app or self-hosted server, with your own keys.",
       },
       { property: "og:type", content: "website" },
       { property: "og:image", content: "/icon.png" },
