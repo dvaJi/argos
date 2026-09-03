@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { Agents } from "~/components/Agents";
 import { Download } from "~/components/Download";
 import { Features } from "~/components/Features";
 import { Footer } from "~/components/Footer";
@@ -18,6 +19,7 @@ function LandingPage() {
       <main>
         <Hero />
         <Providers />
+        <Agents />
         <Features />
         <Spotlight />
         <Download />

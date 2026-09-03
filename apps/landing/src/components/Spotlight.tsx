@@ -1,13 +1,23 @@
-import { Article, ArrowsClockwise, Browsers, Code, GitBranch, PaintBrush } from "@phosphor-icons/react";
+import {
+  ArrowsLeftRight,
+  ChatCenteredDots,
+  Desktop,
+  LinkSimple,
+  Pulse,
+  StopCircle,
+  type Icon,
+} from "@phosphor-icons/react";
 import { Reveal } from "~/components/Reveal";
 
-const DETAILS = [
-  { icon: Article, label: "Markdown & rich rendering" },
-  { icon: Code, label: "Syntax-highlighted code" },
-  { icon: PaintBrush, label: "Mermaid & Artifacts" },
-  { icon: Browsers, label: "Multi-window & tabs" },
-  { icon: ArrowsClockwise, label: "Retry & regenerate" },
-  { icon: GitBranch, label: "Fork conversations" },
+const CHANNELS = ["Telegram", "Discord", "Feishu / Lark", "QQBot", "WeChat iLink"];
+
+const DETAILS: { icon: Icon; label: string }[] = [
+  { icon: LinkSimple, label: "Pair over a one-time URL" },
+  { icon: ChatCenteredDots, label: "Answer pending prompts" },
+  { icon: ArrowsLeftRight, label: "Switch models remotely" },
+  { icon: StopCircle, label: "Stop a runaway generation" },
+  { icon: Pulse, label: "Check runtime status" },
+  { icon: Desktop, label: "Open the session on desktop" },
 ];
 
 export function Spotlight() {
@@ -16,12 +26,21 @@ export function Spotlight() {
       <div className="mx-auto max-w-6xl px-6">
         <Reveal className="max-w-2xl">
           <h2 className="text-balance text-4xl font-bold tracking-[-0.03em] text-white sm:text-5xl">
-            A workspace built for real work
+            Step away. Stay in the loop.
           </h2>
           <p className="mt-5 max-w-xl text-lg leading-relaxed text-slate-400">
-            One window for every conversation. Inline source highlighting, artifacts, diagrams, and multi-modal input,
-            with the room to run several agents in parallel.
+            A session does not stop when you leave your desk. Drive it from a paired browser or your messaging app.
           </p>
+          <div className="mt-6 flex flex-wrap gap-2">
+            {CHANNELS.map((channel) => (
+              <span
+                key={channel}
+                className="rounded-full border border-white/[0.08] bg-white/[0.02] px-3 py-1.5 font-mono text-xs text-slate-300"
+              >
+                {channel}
+              </span>
+            ))}
+          </div>
         </Reveal>
 
         <Reveal delay={80} className="mt-12">

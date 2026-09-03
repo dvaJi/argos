@@ -12,13 +12,16 @@ export function Footer() {
             <img src="/icon.png" alt="" className="h-8 w-8 rounded-md" />
             <div>
               <p className="text-sm font-semibold text-white">Argos</p>
-              <p className="text-xs text-slate-500">Open-source AI agent platform</p>
+              <p className="text-xs text-slate-500">Open-source control plane for AI coding agents</p>
             </div>
           </div>
 
-          <nav className="flex items-center gap-6 text-sm text-slate-500">
+          <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-sm text-slate-500">
             <a href="/#features" className="transition-colors duration-300 hover:text-white">
               Features
+            </a>
+            <a href="/#agents" className="transition-colors duration-300 hover:text-white">
+              Agents
             </a>
             <a href="/#providers" className="transition-colors duration-300 hover:text-white">
               Providers
