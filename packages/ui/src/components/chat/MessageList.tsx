@@ -4,6 +4,9 @@ import { useMessageCapture } from "#/composables/message/useMessageCapture";
 import { useThemeStore } from "#/stores/theme";
 import { type DisplayAssistantMessageBlock, type DisplayMessage, type MessageListItem } from "./messageListItems";
 import MessageListRow from "./MessageListRow";
+import LoadingState from "../primitives/LoadingState";
+import Presence from "../primitives/Presence";
+
 interface MessageListProps {
   messages: MessageListItem[];
   conversationId?: string;
@@ -81,7 +84,7 @@ const MessageList: FC<MessageListProps> = ({
     });
   };
   return (
-    <div data-testid="chat-message-list" className="chat-message-list w-full min-w-0">
+    <div data-testid="chat-message-list" className="chat-message-list w-full min-w-0 relative">
       <div className="mx-auto w-full max-w-5xl space-y-1 px-6 py-6">
         {allRenderedMessages.map((item) => (
           <MessageListRow
@@ -101,6 +104,10 @@ const MessageList: FC<MessageListProps> = ({
             onMeasure={onMeasure}
           />
         ))}
+
+        <Presence show={isGenerating} className="absolute bottom-5 left-16 w-full">
+          <LoadingState />
+        </Presence>
 
         {ephemeralRateLimitBlock && (
           <div data-rate-limit-indicator="true" className="pl-11 pr-11 pt-1">
