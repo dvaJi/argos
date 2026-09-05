@@ -1,6 +1,7 @@
 import ComposerModelPicker from "./ComposerModelPicker";
 import ComposerEffortPicker from "./ComposerEffortPicker";
 import ComposerModePicker from "./ComposerModePicker";
+import ComposerAdvancedSettings from "../chat-input/ComposerAdvancedSettings";
 import AcpComposerControls from "./AcpComposerControls";
 import { Separator } from "#shadcn/components/ui/separator";
 import { useSessionStore, getActiveSession, getHasActiveSession } from "#/stores/ui/session";
@@ -29,6 +30,10 @@ const ComposerFooterBar = () => {
           <ComposerEffortPicker />
           <Separator orientation="vertical" className="mx-1 h-4 bg-border/60" />
           <ComposerModePicker />
+          <Separator orientation="vertical" className="mx-1 h-4 bg-border/60" />
+          {/* Advanced settings (tools / sub-agents / MCP) — renders nothing
+              for ACP contexts. */}
+          <ComposerAdvancedSettings />
         </>
       )}
     </div>

@@ -2,8 +2,8 @@ import { useState, useEffect, useRef, type RefObject } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "#shadcn/components/ui/popover";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#shadcn/components/ui/select";
 import { Switch } from "#shadcn/components/ui/switch";
+import { Tooltip, TooltipContent, TooltipTrigger } from "#shadcn/components/ui/tooltip";
 import { createSettingsClient } from "#api/SettingsClient";
 import { createSessionClient } from "#api/SessionClient";
 import { createSkillClient } from "#api/SkillClient";
@@ -17,7 +17,7 @@ import {
   getEnabledServerCount,
 } from "#/stores/mcp";
 import { useSessionStore, type UIActiveSessionSummary, type UISession } from "#/stores/ui/session";
-import { draftStore as draftStoreRef } from "#/stores/ui/draft";
+import { draftStore as draftStoreRef, useDraftStore } from "#/stores/ui/draft";
 import { useAgentStore, selectedAgent as getSelectedAgent } from "#/stores/ui/agent";
 import { useProjectStore } from "#/stores/ui/project";
 type ToolGroupItem =
@@ -36,11 +36,6 @@ type ToolGroup = {
   name: string;
   label: string;
   items: ToolGroupItem[];
-};
-type SystemPromptMenuOption = {
-  id: string;
-  label: string;
-  disabled?: boolean;
 };
 const GROUP_LABELS: Record<string, string> = {
   "agent-filesystem": "File System",
@@ -145,30 +140,15 @@ async function loadAgentTools(args: LoadAgentToolsArgs): Promise<void> {
   }
   if (loadToken === loadTokenRef.current) setToolsLoading(false);
 }
-interface McpIndicatorProps {
-  showSystemPromptSection?: boolean;
-  systemPromptOptions?: SystemPromptMenuOption[];
-  selectedSystemPromptId?: string;
-  showCustomSystemPromptBadge?: boolean;
-  showSubagentToggle?: boolean;
-  subagentEnabled?: boolean;
-  subagentTogglePending?: boolean;
-  onSelectSystemPrompt?: (optionId: string) => void;
-  onOpenChange?: (open: boolean) => void;
-  onToggleSubagents?: (enabled: boolean) => void;
-}
-export default function McpIndicator({
-  showSystemPromptSection = false,
-  systemPromptOptions = [],
-  selectedSystemPromptId = "empty",
-  showSubagentToggle = false,
-  subagentEnabled = false,
-  subagentTogglePending = false,
-  onSelectSystemPrompt,
-  onOpenChange,
-  onToggleSubagents,
-}: McpIndicatorProps) {
+/**
+ * Self-contained composer footer control ("Advanced Settings"): agent tools,
+ * sub-agents (pre-session draft; no in-session persistence target yet) and
+ * MCP servers for argos sessions. Renders nothing for ACP contexts â€” their
+ * config lives in the ACP advanced settings in the status bar.
+ */
+export default function ComposerAdvancedSettings() {
   const mcpStore = useMcpStore();
+  const draftState = useDraftStore();
   const agentStore = useAgentStore();
   const { activeSessionId, activeSessionSummary, sessions, bootstrapActiveSession } = useSessionStore();
   const { projects, selectedProjectPath } = useProjectStore();
@@ -207,6 +187,11 @@ export default function McpIndicator({
     }
     return projects.find((project) => project.path === selectedProjectPath)?.path?.trim() || null;
   })();
+  // Sub-agents persist with the pre-session draft (read at submit time by the
+  // new-thread page). There is no in-session persistence target yet, so the
+  // row is only offered before a session starts.
+  const showSubagents = isArgosContext && activeSessionId === null;
+  const subagentEnabled = draftState.subagentEnabled;
   const groupedAgentTools = (() => {
     const groups = new Map<string, ToolGroupItem[]>();
     for (const tool of agentTools) {
@@ -220,7 +205,7 @@ export default function McpIndicator({
       });
       groups.set(tool.server.name, existing);
     }
-    if (showSubagentToggle) {
+    if (showSubagents) {
       const existing = groups.get("agent-core") ?? [];
       existing.push({
         kind: "subagent",
@@ -248,8 +233,7 @@ export default function McpIndicator({
   const isToolPending = (toolName: string) => pendingToolNames.includes(toolName);
   const isGroupItemEnabled = (item: ToolGroupItem) =>
     item.kind === "subagent" ? subagentEnabled : isToolEnabled(item.toolName);
-  const isGroupItemPending = (item: ToolGroupItem) =>
-    item.kind === "subagent" ? subagentTogglePending : isToolPending(item.toolName);
+  const isGroupItemPending = (item: ToolGroupItem) => (item.kind === "subagent" ? false : isToolPending(item.toolName));
   const visibleTools = getVisibleTools();
   const getServerToolsCount = (serverName: string) =>
     visibleTools.filter((tool) => tool.server.name === serverName).length;
@@ -292,20 +276,15 @@ export default function McpIndicator({
   };
   const toggleGroupItem = async (item: ToolGroupItem) => {
     if (item.kind === "subagent") {
-      if (!isArgosContext || subagentTogglePending) return;
-      onToggleSubagents?.(!subagentEnabled);
+      if (!isArgosContext) return;
+      draftStoreRef.setState((prev) => ({ ...prev, subagentEnabled: !prev.subagentEnabled }));
       return;
     }
     await toggleAgentTool(item.toolName);
   };
   const setGroupEnabled = async (group: ToolGroup, enabled: boolean) => {
     const pendingToolNameSet = new Set(pendingToolNames);
-    if (
-      !isArgosContext ||
-      group.items.some((item) =>
-        item.kind === "subagent" ? subagentTogglePending : pendingToolNameSet.has(item.toolName),
-      )
-    ) {
+    if (!isArgosContext || group.items.some((item) => item.kind === "tool" && pendingToolNameSet.has(item.toolName))) {
       return;
     }
     const groupToolNames = group.items.flatMap((item) => (item.kind === "tool" ? [item.toolName] : []));
@@ -316,8 +295,8 @@ export default function McpIndicator({
     }
     const nextList = Array.from(next).sort();
     await persistDisabledTools(nextList, groupToolNames);
-    if (group.items.some((item) => item.kind === "subagent") && subagentEnabled !== enabled) {
-      onToggleSubagents?.(enabled);
+    if (group.items.some((item) => item.kind === "subagent")) {
+      draftStoreRef.setState((prev) => ({ ...prev, subagentEnabled: enabled }));
     }
   };
   // Module-scope loadAgentTools + primitive-only effect deps: a fresh callback
@@ -334,9 +313,6 @@ export default function McpIndicator({
       setToolsLoading,
     });
   }, [isArgosContext, argosSessionId, workspacePath]);
-  useEffect(() => {
-    onOpenChange?.(panelOpen);
-  }, [panelOpen, onOpenChange]);
   const handlePanelOpenChange = (open: boolean) => {
     setPanelOpen(open);
     if (open && isArgosContext) {
@@ -372,39 +348,36 @@ export default function McpIndicator({
   }, [isArgosContext, argosSessionId, workspacePath]);
   const triggerTitle = "Advanced Settings";
 
-  // ACP sessions have no interactive controls here — the panel would be a
-  // read-only list of MCP servers (already visible in Settings → MCP).
+  // ACP sessions have no interactive controls here â€” the panel would be a
+  // read-only list of MCP servers (already visible in Settings â†’ MCP).
   // Render nothing for ACP contexts.
   if (!isArgosContext) {
     return null;
   }
   return (
     <Popover open={panelOpen} onOpenChange={handlePanelOpenChange}>
-      <PopoverTrigger
-        render={
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground backdrop-blur-lg"
-            title={triggerTitle}
-            aria-label={triggerTitle}
-          />
-        }
-      >
-        <Icon icon="lucide:sliders-horizontal" className="h-3.5 w-3.5" />
-      </PopoverTrigger>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground"
+              title={triggerTitle}
+              aria-label={triggerTitle}
+            />
+          }
+        >
+          <Icon icon="lucide:sliders-horizontal" className="h-4 w-4" />
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>{triggerTitle}</p>
+        </TooltipContent>
+      </Tooltip>
 
-      <PopoverContent align="end" className="w-80 overflow-hidden p-0">
+      <PopoverContent align="start" className="w-80 overflow-hidden p-0">
         <AdvancedSettingsPanelHeader onOpenSettings={openSettings} />
         <div className="max-h-[24rem] overflow-y-auto">
-          {showSystemPromptSection && (
-            <SystemPromptMenuSection
-              options={systemPromptOptions}
-              selectedId={selectedSystemPromptId}
-              onSelect={onSelectSystemPrompt}
-            />
-          )}
-
           <AgentToolsSection
             loading={toolsLoading}
             groups={groupedAgentTools}
@@ -449,32 +422,6 @@ function AdvancedSettingsPanelHeader({ onOpenSettings }: AdvancedSettingsPanelHe
           <Icon icon="lucide:settings-2" className="h-3.5 w-3.5" />
         </Button>
       </div>
-    </div>
-  );
-}
-interface SystemPromptMenuSectionProps {
-  options: SystemPromptMenuOption[];
-  selectedId: string;
-  onSelect?: (optionId: string) => void;
-}
-
-/** System prompt picker block at the top of the panel. */
-function SystemPromptMenuSection({ options, selectedId, onSelect }: SystemPromptMenuSectionProps) {
-  return (
-    <div className="border-b px-3 py-3">
-      <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">System Prompt</div>
-      <Select value={selectedId} onValueChange={(v) => onSelect?.(v ?? "")}>
-        <SelectTrigger className="mt-3 h-8 text-xs">
-          <SelectValue placeholder="Select system prompt" />
-        </SelectTrigger>
-        <SelectContent>
-          {options.map((option) => (
-            <SelectItem key={option.id} value={option.id} disabled={option.disabled}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
     </div>
   );
 }
