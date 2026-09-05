@@ -4,7 +4,7 @@ import { Icon } from "@iconify/react";
 import type { DisplayAssistantMessageBlock } from "#/components/chat/messageListItems";
 import { FoldContentRow } from "./FoldContentRow";
 import { FoldGroupRow } from "./FoldGroupRow";
-import { DURATION_LABELS, type FoldGroup, isReasoningBlock } from "./MessageTurnFold.shared";
+import { DURATION_LABELS, collapseFoldBlocks, type FoldGroup, isReasoningBlock } from "./MessageTurnFold.shared";
 import { formatActivityDuration } from "./messageActivityGroups";
 import { uiSettingsStore } from "#/stores/uiSettingsStore";
 
@@ -19,58 +19,6 @@ interface MessageTurnFoldProps {
   durationMs: number;
   onToggleCollapse?: (isCollapsed: boolean) => void;
 }
-
-/**
- * Collapse all work between content (narrative) blocks into a single row —
- * t3code `deriveMessagesTimelineRows` groups consecutive work entries
- * regardless of kind ("Used 1 tool and ran 1 command"). Reasoning is part of
- * the work stream, so it folds into the same group instead of splitting it.
- * Content blocks break the run and stay as their own rows; other non-activity
- * blocks that render nothing inside the fold (placeholder actions, plans) are
- * skipped entirely so they don't split a run into size-1 groups.
- */
-const collapseFoldBlocks = (
-  blocks: DisplayAssistantMessageBlock[],
-): Array<
-  | FoldGroup
-  | {
-      kind: "content";
-      block: DisplayAssistantMessageBlock;
-    }
-> => {
-  const items: Array<
-    | FoldGroup
-    | {
-        kind: "content";
-        block: DisplayAssistantMessageBlock;
-      }
-  > = [];
-  for (const block of blocks) {
-    if (block.type === "content") {
-      items.push({
-        kind: "content",
-        block,
-      });
-      continue;
-    }
-    if (block.type !== "tool_call" && !isReasoningBlock(block)) {
-      // Invisible inside the fold (MessageBlockContent would render nothing
-      // meaningful here) — must not split a run.
-      continue;
-    }
-    const last = items.at(-1);
-    if (last && "blocks" in last) {
-      last.blocks.push(block);
-    } else {
-      // Start (or restart after a content boundary) an activity group.
-      items.push({
-        kind: "activity",
-        blocks: [block],
-      });
-    }
-  }
-  return items;
-};
 
 /**
  * Stable per-block key: prefer the block id or tool_call id, else derive a
@@ -158,15 +106,28 @@ export const MessageTurnFold: FC<MessageTurnFoldProps> = ({
         onClick={toggleExpanded}
         className="inline-flex max-w-full min-w-0 items-center gap-1 self-start rounded-sm text-xs leading-4 text-muted-foreground tabular-nums select-none transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
-        <Icon
-          icon="hugeicons:arrow-right-01"
-          className={`h-[14px] w-[14px] shrink-0 transition-transform duration-(--dc-motion-fast) ease-(--dc-ease-out-soft) motion-reduce:transition-none ${isExpanded ? "rotate-90" : "rotate-0"}`}
-        />
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="var(--primary)">
+          <path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8z" />
+        </svg>
         <span className="min-w-0 truncate">{label}</span>
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="var(--muted-foreground)"
+          strokeWidth="2.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="transition-transform duration-300"
+          style={{ transform: isExpanded ? "rotate(180deg)" : "rotate(0)" }}
+        >
+          <path d="M6 9l6 6 6-6" />
+        </svg>
       </button>
 
       <div
-        className={`grid w-full overflow-hidden transition-[grid-template-rows,opacity] duration-(--dc-motion-default) ease-(--dc-ease-out-express) motion-reduce:transition-none ${isExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] pointer-events-none opacity-0"}`}
+        className={`grid w-full overflow-hidden transition-[grid-template-rows,opacity] duration-(--dc-motion-default) ease-(--dc-ease-out-express) motion-reduce:transition-none ${isExpanded ? "grid-rows-[1fr] opacity-100 pl-2" : "grid-rows-[0fr] pointer-events-none opacity-0"}`}
         aria-hidden={!isExpanded}
         inert={isExpanded ? undefined : true}
       >

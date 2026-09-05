@@ -71,8 +71,6 @@ const FOLD_KIND_ICON: Record<FoldRowKind, string> = {
   tool: "hugeicons:wrench-01",
   reasoning: "hugeicons:brain-01",
 };
-const pluralize = (count: number, singular: string, plural?: string): string =>
-  count === 1 ? singular : (plural ?? `${singular}s`);
 const toolRowMeta = (block: DisplayAssistantMessageBlock): ToolRowMeta => {
   const name = block.tool_call?.name?.trim() || "tool";
   const params = parseToolParams(block.tool_call?.params);
@@ -125,79 +123,28 @@ const sumReasoningMs = (blocks: DisplayAssistantMessageBlock[]): number => {
 const thoughtLabel = (totalMs: number): string =>
   totalMs > 0 ? `Thought for ${formatActivityDuration(totalMs, DURATION_LABELS)}` : "Thought";
 
-/** Aggregate heading for a collapsed group (t3code "Ran 8 commands" /
- *  "Used 1 tool and ran 1 command"). Composes per-kind counts for mixed runs
- *  and appends the folded thought time when reasoning is present. */
+/** Heading for a fold group. Groups hold either a run of thinking blocks
+ *  ("Thought for Xs") or a single action, so the per-action label covers
+ *  every reachable case. */
 const groupHeading = (group: FoldGroup): string => {
   const blocks = group.blocks;
-  const reasoningMs = sumReasoningMs(blocks);
-  const hasReasoning = blocks.some(isReasoningBlock);
   const toolBlocks = blocks.filter((block) => block.type === "tool_call");
-
-  // A group that is only thinking renders a single "Thought for …" row.
-  if (toolBlocks.length === 0 && hasReasoning) {
-    return thoughtLabel(reasoningMs);
+  if (toolBlocks.length === 0) {
+    return thoughtLabel(sumReasoningMs(blocks));
   }
-  let commands = 0;
-  let reads = 0;
-  let writes = 0;
-  let tools = 0;
-  let firstWriteVerb: string | null = null;
-  for (const block of toolBlocks) {
-    switch (toolRowKind(block)) {
-      case "command":
-        commands += 1;
-        break;
-      case "read":
-        reads += 1;
-        break;
-      case "write": {
-        writes += 1;
-        const name = block.tool_call?.name ?? "";
-        firstWriteVerb ??= /(remove|delete)/i.test(name)
-          ? "Removed"
-          : /(create|write|mkdir)/i.test(name)
-            ? "Created"
-            : "Edited";
-        break;
-      }
-      default:
-        tools += 1;
-        break;
-    }
-  }
-  const parts: string[] = [];
-  if (commands > 0) parts.push(`Ran ${commands} ${pluralize(commands, "command")}`);
-  if (writes > 0) parts.push(`${firstWriteVerb ?? "Edited"} ${writes} ${pluralize(writes, "file")}`);
-  if (reads > 0) parts.push(`Read ${reads} ${pluralize(reads, "file")}`);
-  if (tools > 0) parts.push(`Used ${tools} ${pluralize(tools, "tool")}`);
-  if (hasReasoning && parts.length > 0) {
-    parts.push(thoughtLabel(reasoningMs));
-  }
-  return parts.join(" · ") || "Worked";
+  const firstTool = toolBlocks[0];
+  return firstTool ? toolRowMeta(firstTool).heading : "Worked";
 };
 
-/** Icon for a group: pure reasoning shows the brain; mixed work shows the
- *  icon of its most common tool kind (t3code picks the row's entry tone). */
+/** Icon for a group: pure reasoning shows the brain; an action shows its
+ *  per-kind icon. */
 const groupIcon = (group: FoldGroup): string => {
   const toolBlocks = group.blocks.filter((block) => block.type === "tool_call");
   if (toolBlocks.length === 0) {
     return FOLD_KIND_ICON.reasoning;
   }
-  const counts: Partial<Record<FoldRowKind, number>> = {};
-  for (const block of toolBlocks) {
-    const kind = toolRowKind(block);
-    counts[kind] = (counts[kind] ?? 0) + 1;
-  }
-  let leaderKind: FoldRowKind = "tool";
-  let leaderCount = 0;
-  (Object.keys(counts) as FoldRowKind[]).forEach((kind) => {
-    if ((counts[kind] ?? 0) > leaderCount) {
-      leaderKind = kind;
-      leaderCount = counts[kind] ?? 0;
-    }
-  });
-  return FOLD_KIND_ICON[leaderKind];
+  const firstTool = toolBlocks[0];
+  return FOLD_KIND_ICON[firstTool ? toolRowKind(firstTool) : "tool"];
 };
 const groupBodyParts = (group: FoldGroup): string[] => {
   return group.blocks.flatMap((block) => {
