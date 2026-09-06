@@ -1,5 +1,38 @@
 # Changelog
 
+## v0.4.0 (2026-09-05)
+
+### Integrated terminal
+- Added VS Code-style terminal tabs in the right dock, powered by a daemon PTY runtime (Bun.Terminal, Bun 1.4): multi-terminal tabs, gap-free scrollback replay after reloads, resize, and exit/restart — works in browser/remote mode too
+- ACP agent terminals migrated from node-pty to the host PTY, fixing agent terminals on Windows
+- Terminal shells are now reliably terminated when closing a tab or shutting down the daemon (interactive shells ignore SIGTERM)
+
+### Computer use (CUA)
+- The CUA plugin now runs on an embedded Rust driver runtime with on-demand supervision and fail-closed startup errors
+- Added a `/computer-use` slash command and bundled the CUA runtime into Windows/Linux builds
+- Re-enabled unsigned macOS arm64 builds
+
+### Workspace and sessions
+- Git worktree sessions with a worktree/branch picker, plus a trees + diffs sidepanel
+- Added a usage dashboard with local harness tracking
+- Turn changed-files widget, grouped turn fold blocks, and a hide-thinking setting
+- The daemon recovers interrupted turns on restart and reliably delivers steering input
+- Resilient daemon reconnect, session status indicators, and settings redesigns
+
+### Chat UX
+- Per-action rows in the turn fold, markdown tables, and styled inline code
+- New presence animation for loading states (pixel-grid primitive)
+- Composer cleanup: duplicated model/mode controls removed, ACP session controls moved to the composer footer, slimmer status bar
+- Fixed a memory panel infinite loading loop and a composer that went dead after session restore
+
+### Platform and daemon
+- Daemon-hosted knowledge base and daemon-owned state (pre-v1 legacy cleanup)
+- Landing page rewritten agent-first with a vgpu shader background
+- Renamed the Orchestrator agent to Orchi, with a logo
+- Pi 0.84.3 (compaction failure handling, PowerShell support), ACP SDK 1.4.0, Electron 44
+- Stability: workspace selector render loop, `mcp.callTool` contract alignment, markdown link guards, safe agent scratch workspace fallback
+- Adopted React Compiler lint rules and resolved react-doctor findings across the UI
+
 ## v0.3.0 (2026-08-10)
 
 ### Agents and orchestration
