@@ -31,7 +31,17 @@ interface PtySpawnOptions {
 
 interface PtySubprocess {
   exited: Promise<number>;
-  kill(): unknown;
+  kill(signal?: string): unknown;
+}
+
+/**
+ * Signal used to terminate PTY children. Interactive shells (bash) ignore
+ * SIGTERM once fully initialized, so the default `proc.kill()` SIGTERM races
+ * shell startup and can leave the shell alive — SIGKILL cannot be ignored
+ * (Windows maps any kill to TerminateProcess).
+ */
+function killPtyProcess(proc: PtySubprocess): void {
+  proc.kill(process.platform === "win32" ? undefined : "SIGKILL");
 }
 
 export interface TerminalCreateInput {
@@ -263,7 +273,7 @@ export class DaemonTerminalRuntime {
     // client reload.
     session.killed = true;
     try {
-      session.proc.kill();
+      killPtyProcess(session.proc);
     } catch (error) {
       console.warn(`[Terminal] Failed to kill terminal ${terminalId}:`, error);
     }
@@ -295,7 +305,7 @@ export class DaemonTerminalRuntime {
   shutdown(): void {
     for (const session of Array.from(this.sessions.values())) {
       try {
-        if (!session.exitStatus) session.proc.kill();
+        if (!session.exitStatus) killPtyProcess(session.proc);
       } catch {
         // Already dead.
       }
