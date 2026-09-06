@@ -19,7 +19,8 @@ import { useEffect, useState } from "react";
  * ───────────────────────────────────────────────────────── */
 
 const chevron = Array.from({ length: 9 }, (_, i) => {
-  const r = Math.floor(i / 3), c = i % 3;
+  const r = Math.floor(i / 3),
+    c = i % 3;
   return (c + Math.abs(r - 1)) * 90;
 });
 
@@ -35,15 +36,7 @@ const PATTERNS: Record<string, { delays: (number | null)[]; dur: number; round: 
   Orbit: { delays: orbit, dur: 950, round: false },
 };
 
-function LoaderGrid({
-  delays,
-  dur,
-  round,
-}: {
-  delays: (number | null)[];
-  dur: number;
-  round: boolean;
-}) {
+function LoaderGrid({ delays, dur, round }: { delays: (number | null)[]; dur: number; round: boolean }) {
   return (
     <span aria-hidden className="grid shrink-0 grid-cols-[repeat(3,4px)] gap-[1.5px]">
       {delays.map((delay, index) => (
