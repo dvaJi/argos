@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Badge } from "#shadcn/components/ui/badge";
@@ -54,7 +54,9 @@ export function MemoryManagerPanel({
   client,
 }: MemoryManagerPanelProps) {
   const { toast } = useToast();
-  const memoryClient = client ?? createMemoryClient();
+  // Stable client: a fresh instance per render would churn identities through
+  // every callback below.
+  const memoryClient = useMemo(() => client ?? createMemoryClient(), [client]);
   const [memories, setMemories] = useState<MemoryItem[]>([]);
   const [status, setStatus] = useState<MemoryStatusDto | null>(null);
   const [loading, setLoading] = useState(false);
@@ -150,14 +152,22 @@ export function MemoryManagerPanel({
       setLoading(false);
     }
   };
+  // The refresh effect must run only when the agent changes. Calling `refresh`
+  // through a ref keeps the effect deps to `[agentId]` — a direct dependency
+  // (or a compiler-filled `onRefresh` dep) re-triggers the effect on every
+  // render, which loops "Loading…" at fetch cadence.
+  const refreshRef = useRef(refresh);
+  useEffect(() => {
+    refreshRef.current = refresh;
+  });
   useEffect(() => {
     panelLiveRef.current = true;
     if (!agentId) return;
-    void refresh();
+    void refreshRef.current();
     return () => {
       panelLiveRef.current = false;
     };
-  }, [agentId, refresh]);
+  }, [agentId]);
   const onRunSearch = useEffectEvent(runSearch);
   useEffect(() => {
     const query = searchQuery.trim();

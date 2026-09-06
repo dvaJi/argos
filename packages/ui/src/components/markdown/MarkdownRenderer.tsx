@@ -19,6 +19,7 @@ import { useUiSettingsStore, getFormattedCodeFontFamily } from "#/stores/uiSetti
 import { nanoid } from "nanoid";
 import { LinkNode } from "./LinkNode";
 import { CodeBlock, type CodeBlockNodeData } from "./CodeBlock";
+import { MarkdownTable } from "./MarkdownTable";
 import { MermaidBlock } from "./MermaidBlock";
 import { useMarkdownLinkNavigation } from "./useMarkdownLinkNavigation";
 import type { MarkdownLinkContext } from "./linkTypes";
@@ -202,10 +203,14 @@ export function MarkdownRenderer({
       }
       return <pre className="not-prose my-[0.65rem] overflow-auto font-mono text-[0.75rem] leading-5">{children}</pre>;
     },
+    // Tables render through MarkdownTable: a scrollable card with sticky
+    // headers and a chrome row (collapse preview + copy as GFM markdown).
+    table: ({ children }: { children?: ReactNode }) => <MarkdownTable>{children}</MarkdownTable>,
     code: ({
       className: codeClassName,
+      node: _node,
       children,
-      ..._rest
+      ...rest
     }: HTMLAttributes<HTMLElement> & {
       children?: ReactNode;
       node?: unknown;
@@ -252,8 +257,10 @@ export function MarkdownRenderer({
           />
         );
       }
+      // Inline code: a bare <code> with no attributes of its own — all
+      // styling lives in CSS (`:not(pre) > code` in code-highlight.css).
       return (
-        <code className={codeClassName} {..._rest}>
+        <code className={codeClassName} {...rest}>
           {children}
         </code>
       );
