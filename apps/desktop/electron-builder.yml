@@ -101,7 +101,7 @@ mac:
   target:
     - target: dmg
     - target: zip
-  artifactName: ${name}-${version}-mac-${arch}.${ext}
+  artifactName: argos-${version}-mac-${arch}.${ext}
   extraFiles:
     - from: ./build/managed-helpers/
       to: Helpers
@@ -115,7 +115,7 @@ linux:
   executableName: argos
   maintainer: dvaJi
   category: Utility
-  artifactName: ${name}-${version}-linux-${arch}.${ext}
+  artifactName: argos-${version}-linux-${arch}.${ext}
   mimeTypes:
     - x-scheme-handler/argos
 npmRebuild: true
