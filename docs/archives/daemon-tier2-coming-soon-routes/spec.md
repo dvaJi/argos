@@ -1,5 +1,14 @@
 # Daemon Tier 2 Routes Throwing “Coming soon” — Specification
 
+## Status
+
+Completed by the daemon-ownership refactor (#67, `3067711a`): the
+`TIER2_PREFIXES` fallthrough and the generic "Coming soon" rejection no longer
+exist — `daemonDispatcher.ts` handles daemon-owned routes explicitly and ends
+with `Unknown route: <name>` for anything else. Archived 2026-09-06 after
+verification (`grep -R "requires additional runtime services" apps/daemon`
+returns no matches).
+
 ## Problem
 
 `apps/daemon/src/dispatch/daemonDispatcher.ts` rejects every route matching the
