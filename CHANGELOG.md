@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.4.0 (2026-09-05)
+## v0.4.0 (2026-09-06)
 
 ### Integrated terminal
 - Added VS Code-style terminal tabs in the right dock, powered by a daemon PTY runtime (Bun.Terminal, Bun 1.4): multi-terminal tabs, gap-free scrollback replay after reloads, resize, and exit/restart — works in browser/remote mode too
