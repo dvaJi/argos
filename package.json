@@ -99,6 +99,7 @@
     "build:daemon": "bun scripts/run-daemon-build.mjs",
     "distro:bump-tap": "bun scripts/bump-tap.mjs",
     "distro:check": "bun scripts/distro-check.mjs",
+    "release:sync-version": "bun scripts/sync-release-version.mjs",
     "release:ff": "bun scripts/release-fast-forward.mjs",
     "build:unpack": "bun run build && bun x electron-builder --config apps/desktop/electron-builder.yml --dir",
     "plugin:validate": "bun scripts/plugin.mjs validate",

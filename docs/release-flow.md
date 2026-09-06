@@ -32,7 +32,11 @@ download the standalone daemon.
 
 1. Prepare release metadata on `master`.
 
-   - Update the version, `CHANGELOG.md`, and any release notes on `master`.
+   - Update the root `package.json` version, then run
+     `bun run release:sync-version` to propagate it to `apps/desktop` (artifact
+     names and auto-update metadata derive from it).
+   - Add the `## vX.Y.Z (YYYY-MM-DD)` section to `CHANGELOG.md` (release notes
+     are extracted from it; the sync script verifies it exists).
    - Run the required local checks before cutting a release branch.
 
 2. Cut the review branch from the release-ready commit on `master`.

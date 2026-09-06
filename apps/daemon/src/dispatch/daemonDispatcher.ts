@@ -1017,7 +1017,7 @@ export function createDaemonDispatcher(
       return systemConsumePendingProviderInstallRoute.output.parse({ preview: null });
     }
 
-    // === MCP config/CRUD routes (runtime routes stay TIER2-rejected) ===
+    // === MCP config/CRUD routes (runtime routes are handled further down) ===
     if (route === mcpGetServersRoute.name) {
       mcpGetServersRoute.input.parse(rawInput);
       return mcpGetServersRoute.output.parse({ servers: await configPresenter.getMcpServers() });

@@ -134,6 +134,9 @@ jobs:
 
       - uses: ./.github/actions/setup-build
 
+      - name: Validate release version metadata
+        run: bun scripts/sync-release-version.mjs --check
+
       - name: Build and validate packaging inputs
         run: |
           bun run build

@@ -68,12 +68,27 @@ platforms.forEach((platform) => {
   if (platform.includes('arm')) {
     arch = 'arm64'
   }
-  if (os === 'windows') {
-    platformData.githubUrl = `https://github.com/dvaJi/argos/releases/download/v${params.version}/Argos-${params.version}-windows-${arch}.exe`
+// Asset names match the electron-builder templates in
+// ../../electron-builder.yml (and the files attached to each GitHub release):
+//   windows: argos-<version>-windows-<arch>.exe   (arch: x64 | arm64)
+//   mac:     argos-<version>-mac-<arch>.dmg       (arch: x64 | arm64; arm64 only is built today)
+//   linux:   argos-<version>-linux-x86_64.AppImage (AppImage publishes x86_64, not x64)
+//            argos-<version>-linux-x64.tar.gz
+function assetDownloadUrl(os, arch) {
+  const base = `https://github.com/dvaJi/argos/releases/download/v${params.version}`;
+  if (os === 'windows') return `${base}/argos-${params.version}-windows-${arch}.exe`;
+  if (os === 'mac') return `${base}/argos-${params.version}-mac-${arch}.dmg`;
+  // AppImage artifacts publish with the x86_64 arch label.
+  const appImageArch = arch === 'x64' ? 'x86_64' : arch;
+  return `${base}/argos-${params.version}-linux-${appImageArch}.AppImage`;
+}
+
+if (os === 'windows') {
+    platformData.githubUrl = assetDownloadUrl('windows', arch);
   } else if (os === 'mac') {
-    platformData.githubUrl = `https://github.com/dvaJi/argos/releases/download/v${params.version}/Argos-${params.version}-mac-${arch}.dmg`
+    platformData.githubUrl = assetDownloadUrl('mac', arch);
   } else if (os === 'linux') {
-    platformData.githubUrl = `https://github.com/dvaJi/argos/releases/download/v${params.version}/Argos-${params.version}-linux-${arch}.tar.gz`
+    platformData.githubUrl = assetDownloadUrl('linux', arch);
   }
   // Write file
   const outputPath = path.join(process.cwd(), `${platform}.json`)
