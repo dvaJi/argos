@@ -169,9 +169,12 @@ describe("DaemonTerminalRuntime", () => {
 
   test("naturally exited sessions linger until a client kill disposes them", async () => {
     const { runtime, terminalId } = await createRuntime();
-    // Simulate the shell exiting on its own (not via kill).
-    const sessions = (runtime as unknown as { sessions: Map<string, { proc: { kill(): void } }> }).sessions;
-    sessions.get(terminalId)?.proc.kill();
+    // Simulate the shell exiting on its own (not via kill). SIGKILL keeps the
+    // simulation deterministic: interactive bash ignores SIGTERM once fully
+    // initialized, so a plain kill() races shell startup in CI.
+    const sessions = (runtime as unknown as { sessions: Map<string, { proc: { kill(signal?: string): void } }> })
+      .sessions;
+    sessions.get(terminalId)?.proc.kill("SIGKILL");
     await waitFor(() => runtime.list().find((entry) => entry.terminalId === terminalId)?.exitStatus != null, {
       label: "exit status",
     });
