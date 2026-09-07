@@ -13,6 +13,57 @@ import { usePreSessionAgentType } from "#/composables/chat/usePreSessionAgentTyp
 import ModelIcon from "#/components/icons/ModelIcon";
 import AgentAvatar from "#/components/icons/AgentAvatar";
 import { useThemeStore } from "#/stores/theme";
+import { toggleFavorite, useModelFavorites, favoriteKey } from "#/stores/ui/modelFavorites";
+import { filterFavoriteModels, filterModelGroups, selectFavoriteModels } from "./composerModelPickerData";
+
+type ModelRowProps = {
+  providerId: string;
+  model: { id: string; name?: string };
+  selected: boolean;
+  isDark: boolean;
+  favorited: boolean;
+  onSelect: () => void;
+  onToggleFavorite: () => void;
+};
+
+/**
+ * A selectable provider-model row. A `div` with button semantics (not a real
+ * `<button>`) so the favorite star can be a nested control; the star stops
+ * propagation so toggling never selects.
+ */
+const ModelRow = ({ providerId, model, selected, isDark, favorited, onSelect, onToggleFavorite }: ModelRowProps) => (
+  <div
+    role="button"
+    tabIndex={0}
+    className={`group flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent ${selected ? "bg-accent" : ""}`}
+    onClick={onSelect}
+    onKeyDown={(event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        onSelect();
+      }
+    }}
+  >
+    <ModelIcon modelId={providerId} customClass="h-4 w-4 shrink-0" isDark={isDark} />
+    <span className="flex-1 truncate">{model.name || model.id}</span>
+    <button
+      type="button"
+      tabIndex={-1}
+      aria-label={favorited ? "Remove from favorites" : "Add to favorites"}
+      title={favorited ? "Remove from favorites" : "Add to favorites"}
+      className={`h-6 w-6 shrink-0 rounded p-0.5 hover:text-foreground ${favorited ? "text-amber-400" : "text-transparent group-hover:text-muted-foreground"}`}
+      onClick={(event) => {
+        event.stopPropagation();
+        onToggleFavorite();
+      }}
+      onKeyDown={(event) => event.stopPropagation()}
+    >
+      <Icon icon="lucide:star" className={`h-3.5 w-3.5 ${favorited ? "fill-current" : ""}`} />
+    </button>
+    {selected && <Icon icon="lucide:check" className="h-3.5 w-3.5 text-primary" />}
+  </div>
+);
+
 const ComposerModelPicker = () => {
   const modelStore = useModelStore();
   const agentState = useAgentStore();
@@ -25,6 +76,7 @@ const ComposerModelPicker = () => {
   const preSessionAgentType = usePreSessionAgentType();
   const [open, setOpen] = useState(false);
   const [keyword, setKeyword] = useState("");
+  const favoriteKeys = useModelFavorites();
   const hasActiveSession = getHasActiveSession();
   const activeSession = getActiveSession();
   const isAcpAgent = (() => {
@@ -64,21 +116,8 @@ const ComposerModelPicker = () => {
     // enabledModels drives the group list; recompute when it changes (models
     // can become available after init without `initialized` flipping again).
   })();
-  const filteredGroups = (() => {
-    const kw = keyword.trim().toLowerCase();
-    if (!kw) return modelGroups;
-    return modelGroups.flatMap((g) => {
-      const models = g.models.filter((m) => `${m.name} ${m.id} ${g.providerName}`.toLowerCase().includes(kw));
-      return models.length > 0
-        ? [
-            {
-              ...g,
-              models,
-            },
-          ]
-        : [];
-    });
-  })();
+  const filteredGroups = filterModelGroups(modelGroups, keyword);
+  const favoriteModels = filterFavoriteModels(selectFavoriteModels(modelGroups, favoriteKeys), keyword);
   const filteredAcpAgents = (() => {
     const kw = keyword.trim().toLowerCase();
     if (!kw) return acpAgents;
@@ -209,31 +248,50 @@ const ComposerModelPicker = () => {
               ) : (
                 <div className="py-8 text-center text-sm text-muted-foreground">No agents found</div>
               )
-            ) : filteredGroups.length > 0 ? (
-              filteredGroups.map((group) => (
-                <div key={group.providerId} className="mb-3">
-                  <div className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    {group.providerName}
+            ) : filteredGroups.length > 0 || favoriteModels.length > 0 ? (
+              <>
+                {favoriteModels.length > 0 && (
+                  <div className="mb-3">
+                    <div className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Favorites
+                    </div>
+                    {favoriteModels.map((favorite) => (
+                      <ModelRow
+                        key={`fav:${favorite.providerId}:${favorite.id}`}
+                        providerId={favorite.providerId}
+                        model={{ id: favorite.id, name: favorite.name }}
+                        selected={isSelected(favorite.providerId, favorite.id)}
+                        isDark={themeStore.isDark}
+                        favorited
+                        onSelect={() => void handleSelectProviderModel(favorite.providerId, favorite.id)}
+                        onToggleFavorite={() => toggleFavorite(favorite.providerId, favorite.id)}
+                      />
+                    ))}
                   </div>
-                  {group.models.slice(0, 12).map((model) => (
-                    <button
-                      key={`${group.providerId}:${model.id}`}
-                      type="button"
-                      className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent ${isSelected(group.providerId, model.id) ? "bg-accent" : ""}`}
-                      onClick={() => void handleSelectProviderModel(group.providerId, model.id)}
-                    >
-                      <ModelIcon modelId={group.providerId} customClass="h-4 w-4 shrink-0" isDark={themeStore.isDark} />
-                      <span className="flex-1 truncate">{model.name || model.id}</span>
-                      {isSelected(group.providerId, model.id) && (
-                        <Icon icon="lucide:check" className="h-3.5 w-3.5 text-primary" />
-                      )}
-                    </button>
-                  ))}
-                  {group.models.length > 12 && (
-                    <div className="px-2 py-1 text-xs text-muted-foreground">{group.models.length - 12} more…</div>
-                  )}
-                </div>
-              ))
+                )}
+                {filteredGroups.map((group) => (
+                  <div key={group.providerId} className="mb-3">
+                    <div className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      {group.providerName}
+                    </div>
+                    {group.models.slice(0, 12).map((model) => (
+                      <ModelRow
+                        key={`${group.providerId}:${model.id}`}
+                        providerId={group.providerId}
+                        model={model}
+                        selected={isSelected(group.providerId, model.id)}
+                        isDark={themeStore.isDark}
+                        favorited={favoriteKeys.includes(favoriteKey(group.providerId, model.id))}
+                        onSelect={() => void handleSelectProviderModel(group.providerId, model.id)}
+                        onToggleFavorite={() => toggleFavorite(group.providerId, model.id)}
+                      />
+                    ))}
+                    {group.models.length > 12 && (
+                      <div className="px-2 py-1 text-xs text-muted-foreground">{group.models.length - 12} more…</div>
+                    )}
+                  </div>
+                ))}
+              </>
             ) : (
               <div className="py-8 text-center text-sm text-muted-foreground">No models found</div>
             )}
