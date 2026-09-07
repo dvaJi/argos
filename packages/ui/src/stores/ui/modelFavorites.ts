@@ -37,7 +37,7 @@ export const toggleFavorite = (providerId: string, modelId: string): void => {
     ? modelFavoritesStore.state.favorites.filter((entry) => entry !== key)
     : [...modelFavoritesStore.state.favorites, key];
   persistFavorites(next);
-  modelFavoritesStore.setState({ favorites: next });
+  modelFavoritesStore.setState((prev) => ({ ...prev, favorites: next }));
 };
 
 export function useModelFavorites(): string[] {

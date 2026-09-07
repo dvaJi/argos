@@ -6,7 +6,7 @@ const storageKey = "composer-model-favorites:v1";
 
 beforeEach(() => {
   localStorage.clear();
-  modelFavoritesStore.setState({ favorites: [] });
+  modelFavoritesStore.setState((prev) => ({ ...prev, favorites: [] }));
 });
 
 describe("modelFavoritesStore", () => {
