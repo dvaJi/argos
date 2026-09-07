@@ -8,9 +8,13 @@ const { mockUtilityProcessFork } = vi.hoisted(() => ({
   mockUtilityProcessFork: vi.fn<(...args: any[]) => any>(),
 }));
 
-vi.mock("child_process", () => ({
-  spawn: vi.fn<(...args: any[]) => any>(),
-}));
+vi.mock("child_process", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("child_process")>();
+  return {
+    ...actual,
+    spawn: vi.fn<(...args: any[]) => any>(),
+  };
+});
 
 vi.mock("electron", () => ({
   app: {

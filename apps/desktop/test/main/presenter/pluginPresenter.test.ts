@@ -369,41 +369,51 @@ describe.skipIf(!fs.existsSync(path.join(repoRoot, "plugins", "cua", "plugin.jso
     expect((await winIa32Presenter.listPlugins()).map((plugin) => plugin.id)).not.toContain("com.argos.plugins.cua");
   });
 
-  it("lists bundled official plugins as installed and enables them by materializing the package", async () => {
-    const fixture = await createBundledFixture();
-    const presenter = await createPluginPresenter("darwin", fixture.appPath);
+  // The bundled fixture ships a darwin `#!/bin/sh` helper that `enablePlugin`
+  // executes to probe its version — a POSIX script cannot run on a Windows
+  // host, so these exercise darwin behavior on POSIX hosts only. (Windows
+  // plugins use .exe helpers and would need a win32 fixture.)
+  const skipOnWindows = process.platform === "win32";
 
-    const plugins = await presenter.listPlugins();
-    const plugin = plugins.find((item) => item.id === fixture.pluginId);
-    expect(plugin).toMatchObject({
-      id: fixture.pluginId,
-      installed: true,
-      enabled: false,
-      trusted: true,
-      trustState: "trusted",
-    });
+  it(
+    "lists bundled official plugins as installed and enables them by materializing the package",
+    { skip: skipOnWindows },
+    async () => {
+      const fixture = await createBundledFixture();
+      const presenter = await createPluginPresenter("darwin", fixture.appPath);
 
-    const result = await presenter.enablePlugin(fixture.pluginId);
-    expect(result.ok).toBe(true);
-    expect(result.status).toMatchObject({
-      id: fixture.pluginId,
-      installed: true,
-      enabled: true,
-      runtime: {
-        state: "installed",
-        version: "fixture-runtime 1.0.0",
-      },
-    });
-    expect(fs.existsSync(path.join(fixture.userDataPath, "plugins", fixture.pluginId, "plugin.json"))).toBe(true);
+      const plugins = await presenter.listPlugins();
+      const plugin = plugins.find((item) => item.id === fixture.pluginId);
+      expect(plugin).toMatchObject({
+        id: fixture.pluginId,
+        installed: true,
+        enabled: false,
+        trusted: true,
+        trustState: "trusted",
+      });
 
-    const disabled = await presenter.disablePlugin(fixture.pluginId);
-    expect(disabled.ok).toBe(true);
-    expect(disabled.status).toMatchObject({
-      id: fixture.pluginId,
-      installed: true,
-      enabled: false,
-    });
-  });
+      const result = await presenter.enablePlugin(fixture.pluginId);
+      expect(result.ok).toBe(true);
+      expect(result.status).toMatchObject({
+        id: fixture.pluginId,
+        installed: true,
+        enabled: true,
+        runtime: {
+          state: "installed",
+          version: "fixture-runtime 1.0.0",
+        },
+      });
+      expect(fs.existsSync(path.join(fixture.userDataPath, "plugins", fixture.pluginId, "plugin.json"))).toBe(true);
+
+      const disabled = await presenter.disablePlugin(fixture.pluginId);
+      expect(disabled.ok).toBe(true);
+      expect(disabled.status).toMatchObject({
+        id: fixture.pluginId,
+        installed: true,
+        enabled: false,
+      });
+    },
+  );
 
   it("restores plugin settings from the installed manifest when stored resources are missing", async () => {
     const fixture = await createBundledFixture({ includeSettings: true });
@@ -555,56 +565,60 @@ describe.skipIf(!fs.existsSync(path.join(repoRoot, "plugins", "cua", "plugin.jso
     );
   });
 
-  it("refreshes stale same-version installs before startup activation and preserves config", async () => {
-    const fixture = await createDirectoryFixture();
-    const presenter = await createPluginPresenter("darwin", fixture.appPath);
-    const config = {
-      appId: "cli_fixture_app_id",
-      appSecret: "fixture-secret",
-      brand: "telegram",
-      preset: "preset.default",
-    };
-    await writeFile(path.join(fixture.installedRoot, "config.json"), `${JSON.stringify(config)}\n`);
-    (presenter as any).store.set("installations", [
-      {
-        pluginId: fixture.pluginId,
-        version: "0.2.3",
-        path: fixture.installedRoot,
+  it(
+    "refreshes stale same-version installs before startup activation and preserves config",
+    { skip: skipOnWindows },
+    async () => {
+      const fixture = await createDirectoryFixture();
+      const presenter = await createPluginPresenter("darwin", fixture.appPath);
+      const config = {
+        appId: "cli_fixture_app_id",
+        appSecret: "fixture-secret",
+        brand: "telegram",
+        preset: "preset.default",
+      };
+      await writeFile(path.join(fixture.installedRoot, "config.json"), `${JSON.stringify(config)}\n`);
+      (presenter as any).store.set("installations", [
+        {
+          pluginId: fixture.pluginId,
+          version: "0.2.3",
+          path: fixture.installedRoot,
+          enabled: true,
+          trusted: true,
+          source: "argos-official",
+          installedAt: Date.now(),
+          updatedAt: Date.now(),
+        },
+      ]);
+
+      await presenter.initialize();
+
+      const installedManifest = JSON.parse(await readFile(path.join(fixture.installedRoot, "plugin.json"), "utf8"));
+      const configAfterRefresh = JSON.parse(await readFile(path.join(fixture.installedRoot, "config.json"), "utf8"));
+      const servers = await presenter.__mocks.configPresenter.getMcpServers();
+
+      expect(installedManifest.settingsContributions).toEqual([
+        {
+          id: "fixture-settings",
+          title: "Fixture Settings",
+          placement: "plugins",
+          entry: "settings/index.html",
+          preloadTypes: "types/settings-preload.d.ts",
+        },
+      ]);
+      expect(installedManifest.mcpServers[0].args).toEqual(["${plugin.root}/mcp/serve.mjs"]);
+      expect(fs.existsSync(path.join(fixture.installedRoot, "mcp", "serve.mjs"))).toBe(true);
+      expect(fs.existsSync(path.join(fixture.installedRoot, "mcp", "legacy.mjs"))).toBe(false);
+      expect(configAfterRefresh).toMatchObject(config);
+      expect(servers["fixture-tools"]).toMatchObject({
+        args: [path.join(fixture.installedRoot, "mcp", "serve.mjs")],
+        source: "plugin",
+        sourceId: fixture.pluginId,
         enabled: true,
-        trusted: true,
-        source: "argos-official",
-        installedAt: Date.now(),
-        updatedAt: Date.now(),
-      },
-    ]);
-
-    await presenter.initialize();
-
-    const installedManifest = JSON.parse(await readFile(path.join(fixture.installedRoot, "plugin.json"), "utf8"));
-    const configAfterRefresh = JSON.parse(await readFile(path.join(fixture.installedRoot, "config.json"), "utf8"));
-    const servers = await presenter.__mocks.configPresenter.getMcpServers();
-
-    expect(installedManifest.settingsContributions).toEqual([
-      {
-        id: "fixture-settings",
-        title: "Fixture Settings",
-        placement: "plugins",
-        entry: "settings/index.html",
-        preloadTypes: "types/settings-preload.d.ts",
-      },
-    ]);
-    expect(installedManifest.mcpServers[0].args).toEqual(["${plugin.root}/mcp/serve.mjs"]);
-    expect(fs.existsSync(path.join(fixture.installedRoot, "mcp", "serve.mjs"))).toBe(true);
-    expect(fs.existsSync(path.join(fixture.installedRoot, "mcp", "legacy.mjs"))).toBe(false);
-    expect(configAfterRefresh).toMatchObject(config);
-    expect(servers["fixture-tools"]).toMatchObject({
-      args: [path.join(fixture.installedRoot, "mcp", "serve.mjs")],
-      source: "plugin",
-      sourceId: fixture.pluginId,
-      enabled: true,
-    });
-    expect(presenter.__mocks.mcpPresenter.startServer).toHaveBeenCalledWith("fixture-tools");
-  });
+      });
+      expect(presenter.__mocks.mcpPresenter.startServer).toHaveBeenCalledWith("fixture-tools");
+    },
+  );
 
   it("syncs dev directory installs even when only the plugin files changed", async () => {
     const fixture = await createDirectoryFixture();
@@ -745,7 +759,7 @@ describe.skipIf(!fs.existsSync(path.join(repoRoot, "plugins", "cua", "plugin.jso
     expect(presenterSource).not.toContain("if (!(await this.configPresenter.getMcpEnabled()))");
   });
 
-  it("starts plugin MCP servers even when the global MCP switch is off", async () => {
+  it("starts plugin MCP servers even when the global MCP switch is off", { skip: skipOnWindows }, async () => {
     const fixture = await createBundledFixture();
     const presenter = await createPluginPresenter("darwin", {
       appPath: fixture.appPath,

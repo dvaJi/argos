@@ -184,9 +184,13 @@ export const createCuaEmbeddedEndpoint = (
   }
 
   const filename = `argos-cua-${pid}-${suffix}.sock`;
-  const preferred = path.resolve(temporaryDirectory, filename);
-  const endpoint = Buffer.byteLength(preferred) < UNIX_SOCKET_PATH_LIMIT ? preferred : path.join("/tmp", filename);
-  if (!path.isAbsolute(endpoint) || Buffer.byteLength(endpoint) >= UNIX_SOCKET_PATH_LIMIT) {
+  // POSIX sockets are always addressed with POSIX separators, even when this
+  // runs on a Windows host (the platform argument, not the host, decides the
+  // path shape — `path.resolve`/`path.join` would graft the host drive on).
+  const preferred = path.posix.join(temporaryDirectory, filename);
+  const endpoint =
+    Buffer.byteLength(preferred) < UNIX_SOCKET_PATH_LIMIT ? preferred : path.posix.join("/tmp", filename);
+  if (!endpoint.startsWith("/") || Buffer.byteLength(endpoint) >= UNIX_SOCKET_PATH_LIMIT) {
     throw new Error(`CUA embedded Unix socket path exceeds ${UNIX_SOCKET_PATH_LIMIT - 1} bytes`);
   }
   return endpoint;
@@ -610,14 +614,16 @@ export class CuaEmbeddedRuntimeAdapter implements PluginRuntimeAdapterInstance {
       return;
     }
 
-    const resolved = path.resolve(endpoint);
-    const allowedDirectories = new Set([path.resolve(os.tmpdir()), "/tmp"]);
+    // POSIX socket paths are validated with POSIX semantics so a Windows host
+    // can still reason about a POSIX-target endpoint (tests, cross-checks).
+    const resolved = path.posix.normalize(endpoint);
+    const allowedDirectories = new Set([path.posix.normalize(os.tmpdir()), "/tmp"]);
     if (
-      !path.isAbsolute(endpoint) ||
+      !endpoint.startsWith("/") ||
       resolved !== endpoint ||
       Buffer.byteLength(endpoint) >= UNIX_SOCKET_PATH_LIMIT ||
-      !allowedDirectories.has(path.dirname(endpoint)) ||
-      !CUA_ENDPOINT_NAME_PATTERN.test(path.basename(endpoint))
+      !allowedDirectories.has(path.posix.dirname(endpoint)) ||
+      !CUA_ENDPOINT_NAME_PATTERN.test(path.posix.basename(endpoint))
     ) {
       throw new Error(`CUA embedded socket is outside the managed namespace: ${endpoint}`);
     }
