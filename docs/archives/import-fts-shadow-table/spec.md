@@ -1,5 +1,13 @@
 # Issue: FTS5 Shadow Table Error During Incremental Import
 
+## Status
+
+Obsolete (archived 2026-09-07): the legacy `DataImporter` / `importData.ts`
+path described here was removed wholesale by the pre-v1 legacy cleanup
+(~250 dead files pruned). No current code imports sqlite shadow tables; kept
+for the FTS5 gotcha: shadow tables carry a real `CREATE TABLE` statement, so
+`sql IS NULL` does not identify them — exclude by virtual-table prefix.
+
 ## Symptom
 Incremental (increment) import of a backup throws an error and rolls back:
 

@@ -21,7 +21,7 @@ The UI is extracted from the desktop shell (CodeNomad-style): the desktop app is
 - Install: `bun install` + `bun run installRuntime` (first time).
 - Dev: `bun run dev` (HMR). Inspect: `bun run dev:inspect`; Linux: `bun run dev:linux`.
 - Preview: `bun run start`.
-- Type check: `bun run typecheck` (or `typecheck:node` / `typecheck:web`). Uses TypeScript 7 (`tsc`, the native Go-rewrite compiler).
+- Type check: `bun run typecheck` (covers `@argos/desktop` and `@argos/ui`; or `typecheck:node` / `typecheck:web`). Uses TypeScript 7 (`tsc`, the native Go-rewrite compiler).
 - Lint: `bun run lint` (runs `agent-cleanup-guard`, `architecture-guard`, then `oxlint`).
 - Format: `bun run format` (oxfmt). Check: `bun run format:check`.
 - After completing a feature, always run `bun run format` and `bun run lint`.

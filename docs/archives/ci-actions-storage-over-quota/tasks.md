@@ -11,5 +11,9 @@
 
 ## Todo
 
-- [ ] Lint guard pass
-- [ ] Open PR
+- [x] Lint guard pass
+- [x] Open PR
+      (Both closed 2026-09-06: remediations verified present on `master` —
+      `retention-days: 7` ×6 in `build.yml`/`release.yml`, no `github.sha` in
+      the turbo cache key — and repo lint is green. The remediation commits
+      landed directly on `master`.)
