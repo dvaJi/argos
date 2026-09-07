@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.5.0 (2026-09-07)
+
+### Composer
+- Added model favorites: star any provider model in the composer picker and reach it from a pinned Favorites section (per-device, survives reloads)
+
+### Reliability
+- Daemon configuration is now written atomically and corrupt files are preserved with a loud log line instead of silently resetting all settings (the "lost API keys" failure mode)
+
+### Models and agents
+- Refreshed the bundled provider catalog: 216 providers (+10) and 9,658 models (+179)
+- Refreshed the bundled ACP registry: 39 agents (+antigravity-acp, devin, harn)
+
+### Developer experience
+- Root `bun run typecheck` now covers `@argos/ui` (UI type errors no longer surface only in CI)
+- Windows desktop test suite fully green again (CUA runtime and plugin presenter fixes); release preflight validates version metadata before building
+
+### Housekeeping
+- Archived 65+ resolved SDD issue records; `docs/issues/` now tracks only open work
+
 ## v0.4.0 (2026-09-06)
 
 ### Integrated terminal
