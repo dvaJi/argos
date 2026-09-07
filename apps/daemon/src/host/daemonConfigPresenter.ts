@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { readFileSync, renameSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -132,8 +132,29 @@ export class DaemonConfigPresenter {
     try {
       // bun-file-io-exception: presenter loads config synchronously in its constructor.
       const raw = readFileSync(this.filePath, "utf-8");
-      return { ...DEFAULTS, ...JSON.parse(raw) };
-    } catch {
+      const parsed: unknown = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        throw new Error("config.json does not contain a JSON object");
+      }
+      return { ...DEFAULTS, ...(parsed as Store) };
+    } catch (error) {
+      // A truncated/corrupt config must never be silently discarded: preserve
+      // the raw bytes beside the live file so the state stays recoverable, and
+      // make the reset visible in the logs.
+      const preservedPath = `${this.filePath}.corrupt-${Date.now()}`;
+      try {
+        // bun-file-io-exception: presenter preserves raw config bytes synchronously in its constructor.
+        writeFileSync(preservedPath, readFileSync(this.filePath));
+        console.error(
+          `[daemon-config] ${this.filePath} failed to load (${(error as Error).message}). ` +
+            `Raw file preserved at ${preservedPath}; starting with defaults.`,
+        );
+      } catch (preserveError) {
+        console.error(
+          `[daemon-config] ${this.filePath} failed to load (${(error as Error).message}) and could not be ` +
+            `preserved: ${(preserveError as Error).message}. Starting with defaults.`,
+        );
+      }
       return { ...DEFAULTS };
     }
   }
@@ -141,7 +162,13 @@ export class DaemonConfigPresenter {
   private save(): void {
     mkdirSync(dirname(this.filePath), { recursive: true });
     // bun-file-io-exception: presenter persists synchronously from sync setters.
-    writeFileSync(this.filePath, JSON.stringify(this.store, null, 2), "utf-8");
+    // Atomic replace (temp file + rename): a crash mid-write must never
+    // truncate the live config — the previous file stays intact until the new
+    // one is fully written.
+    const tmpPath = `${this.filePath}.tmp`;
+    // bun-file-io-exception: presenter persists synchronously from sync setters.
+    writeFileSync(tmpPath, JSON.stringify(this.store, null, 2), "utf-8");
+    renameSync(tmpPath, this.filePath);
   }
 
   getSetting<T>(key: string): T | undefined {
