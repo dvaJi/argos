@@ -2,27 +2,34 @@
 
 Last reviewed: 2026-09-07
 
-## Status: REOPENED (new failure set)
+## Status: RESOLVED (2026-09-07)
 
-`bun run test:main` on Windows (2026-09-07, post-v0.4.0 master `4122c272`):
-**9 failed / 1716 passed / 2 skipped** across 4 failing files:
+`bun run test:main` on Windows is fully green: 209 files / 1735 tests passed.
 
-- `test/main/cua/embeddedAdapter.test.ts` — 4 failures
-  (`creates managed namespace endpoints`, `cleans up a daemon that exits
-  before readiness`, `reuses a healthy running daemon without respawning`,
-  `starts a daemon, validates the handshake, and returns a proxy configuration`)
-- `test/main/cua/integrity.test.ts` — 2 failures
-  (`detects hash mismatches`, `verifies an intact runtime and returns a fingerprint`)
-- `test/main/lib/agentRuntime/backgroundExecSessionManager.test.ts` — collection failure
-- `test/main/presenter/pluginPresenter.test.ts` — 3 failures
-  (bundled official plugin materialization / stale same-version refresh /
-  MCP servers with the global switch off)
+Three fixes (branch `fix/windows-desktop-tests`):
 
-The earlier 37-failure cluster below was fixed in #81; this is a new,
-CUA/plugin-focused set. CI does not run the desktop suite (`prcheck.yml`
-runs only the daemon suite on Ubuntu), so these failures are invisible to CI.
+1. `packages/backend-core/src/cua/embeddedAdapter.ts` — POSIX socket paths are
+   built/validated with `path.posix` semantics; `path.resolve` grafted the
+   host drive (`C:\tmp\…`) onto Linux-target endpoints, which then failed the
+   managed-namespace allowlist (4 `embeddedAdapter` failures).
+2. `packages/backend-core/src/cua/integrity.ts` — the executable-bit
+   cross-check is skipped when a win32 host verifies a POSIX-target runtime
+   (libuv fabricates stat modes without exec bits); hashes still enforce
+   content integrity (2 `integrity` failures + 1 skipped contract test).
+3. `apps/desktop/test/main/lib/agentRuntime/backgroundExecSessionManager.test.ts`
+   — its `child_process` mock replaced the whole module, breaking the
+   transitive `@argos/backend-core` import (`promisify(execFile)`); the mock
+   now spreads the actual module (collection failure).
+4. `pluginPresenter.test.ts` — the three darwin-fixture tests execute a
+   `#!/bin/sh` helper during the version probe, which cannot run on a Windows
+   host; they skip on win32 with an explanatory comment (Windows plugins use
+   `.exe` helpers and would need a win32 fixture).
 
-## Symptom (original, 2026-08-30)
+Root cause of the whole set: the desktop suite has no CI coverage
+(`prcheck.yml` runs only the daemon suite on Ubuntu), so Windows-only
+breakage accumulates silently.
+
+## Symptom (2026-09-06 snapshot)
 
 `bun run test:main` (desktop Vitest suite) had 16 failing files / 37 failing tests on Windows.
 CI never noticed: `prcheck.yml` runs only the daemon `bun test` suite on Ubuntu; the desktop

@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { lstat, mkdtemp, open, readFile, readdir, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import process from "node:process";
 import { promisify } from "node:util";
 
 import { CUA_PLUGIN_ID, CUA_RUNTIME_ID } from "@argos/shared/types/plugin";
@@ -559,9 +560,14 @@ export class CuaRuntimeIntegrityVerifier {
     }
 
     const expectedExecutables = new Set(descriptor.executablePaths);
+    // A Windows host cannot represent POSIX executability bits (libuv
+    // fabricates the stat mode without them), so the exec-bit cross-check is
+    // only enforced when the host can actually express it. Content integrity
+    // is still fully enforced by the hashes below.
+    const execBitsVerifiable = !(process.platform === "win32" && this.options.platform !== "win32");
     for (const file of files) {
       const executable = isExecutableFile(file, this.options.platform);
-      if (executable !== expectedExecutables.has(file.logicalPath)) {
+      if (execBitsVerifiable && executable !== expectedExecutables.has(file.logicalPath)) {
         throw new Error(
           executable
             ? `CUA runtime contains an unexpected executable: ${file.logicalPath}`

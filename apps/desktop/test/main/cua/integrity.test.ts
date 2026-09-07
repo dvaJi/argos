@@ -119,20 +119,27 @@ describe("CuaRuntimeIntegrityVerifier", () => {
     await expect(verifier.verify()).rejects.toThrow(/integrity mismatch for cua-driver/);
   });
 
-  it("enforces the executable-bit contract", async () => {
-    const { pluginRoot, binaryPath, descriptor } = await stageRuntime();
-    await chmod(binaryPath, 0o644);
-    const verifier = new CuaRuntimeIntegrityVerifier({
-      pluginRoot,
-      binaryPath,
-      platform: "linux",
-      arch: "x64",
-      runtimeVersion: "0.19.2",
-      descriptor,
-    });
+  it(
+    "enforces the executable-bit contract",
+    // The contract is defined by POSIX mode bits, which a Windows host cannot
+    // represent (libuv fabricates the mode) — see the host guard in
+    // `CuaRuntimeIntegrityVerifier.verify`.
+    { skip: process.platform === "win32" },
+    async () => {
+      const { pluginRoot, binaryPath, descriptor } = await stageRuntime();
+      await chmod(binaryPath, 0o644);
+      const verifier = new CuaRuntimeIntegrityVerifier({
+        pluginRoot,
+        binaryPath,
+        platform: "linux",
+        arch: "x64",
+        runtimeVersion: "0.19.2",
+        descriptor,
+      });
 
-    await expect(verifier.verify()).rejects.toThrow(/declared executable is not executable/);
-  });
+      await expect(verifier.verify()).rejects.toThrow(/declared executable is not executable/);
+    },
+  );
 
   it("detects an unexpected extra executable", async () => {
     const { pluginRoot, binaryPath, descriptor } = await stageRuntime();
