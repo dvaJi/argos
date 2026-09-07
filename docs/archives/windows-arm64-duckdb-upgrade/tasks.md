@@ -40,7 +40,7 @@ Plan: [plan.md](./plan.md)
   Owner: Maintainer
   Effort: S
   Status: Completed
-- [ ] `T3.3` Re-run Windows ARM64 CI after scoping the E2E workflow to launch-only coverage.
+- [x] `T3.3` Re-run Windows ARM64 CI after scoping the E2E workflow to launch-only coverage.
   Owner: Maintainer
   Effort: S
-  Status: Pending
+  Status: Completed (run 34068893604, 2026-09-06 — all steps green, including the DuckDB/VSS arm64 smoke)
