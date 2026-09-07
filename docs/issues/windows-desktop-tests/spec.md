@@ -1,8 +1,28 @@
 # Windows desktop test failures — triage & resolution
 
-Last reviewed: 2026-08-30
+Last reviewed: 2026-09-07
 
-## Symptom
+## Status: REOPENED (new failure set)
+
+`bun run test:main` on Windows (2026-09-07, post-v0.4.0 master `4122c272`):
+**9 failed / 1716 passed / 2 skipped** across 4 failing files:
+
+- `test/main/cua/embeddedAdapter.test.ts` — 4 failures
+  (`creates managed namespace endpoints`, `cleans up a daemon that exits
+  before readiness`, `reuses a healthy running daemon without respawning`,
+  `starts a daemon, validates the handshake, and returns a proxy configuration`)
+- `test/main/cua/integrity.test.ts` — 2 failures
+  (`detects hash mismatches`, `verifies an intact runtime and returns a fingerprint`)
+- `test/main/lib/agentRuntime/backgroundExecSessionManager.test.ts` — collection failure
+- `test/main/presenter/pluginPresenter.test.ts` — 3 failures
+  (bundled official plugin materialization / stale same-version refresh /
+  MCP servers with the global switch off)
+
+The earlier 37-failure cluster below was fixed in #81; this is a new,
+CUA/plugin-focused set. CI does not run the desktop suite (`prcheck.yml`
+runs only the daemon suite on Ubuntu), so these failures are invisible to CI.
+
+## Symptom (original, 2026-08-30)
 
 `bun run test:main` (desktop Vitest suite) had 16 failing files / 37 failing tests on Windows.
 CI never noticed: `prcheck.yml` runs only the daemon `bun test` suite on Ubuntu; the desktop
