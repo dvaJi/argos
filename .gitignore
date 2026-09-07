@@ -28,4 +28,5 @@ test-results/
 .turbo/cache/*
 .turbo\cache
 
-*.local.jsonapps/desktop/build/*.json
+*.local.json
+apps/desktop/build/*.json
