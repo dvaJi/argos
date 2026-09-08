@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Badge } from "#shadcn/components/ui/badge";
@@ -99,7 +99,7 @@ function ToolchainCard({
               </Button>
             )
           ) : null}
-          {status.explicit ? (
+          {status.explicit || status.source === "managed" ? (
             <Button size="sm" variant="ghost" disabled={busy} onClick={() => onRevert(status.tool)}>
               Revert
             </Button>
@@ -168,33 +168,37 @@ function ToolchainCard({
 
 export default function ToolchainsSettings() {
   const [tools, setTools] = useState<ToolchainStatus[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const pollRef = useRef<number | null>(null);
 
-  const refresh = useCallback(async () => {
+  const refresh = async () => {
     try {
       const result = await toolchainClient.list();
       setTools(result.tools);
+      setLoadError(null);
       return result.tools;
     } catch (error) {
-      toast({
-        title: "Could not load toolchains",
-        description: error instanceof Error ? error.message : String(error),
-        variant: "destructive",
-      });
+      // Fail visible: keep the previous snapshot (if any) on screen and show
+      // an explicit retry path instead of skeletons forever.
+      setLoadError(error instanceof Error ? error.message : String(error));
+      setTools((current) => current ?? []);
       return [];
     }
+  };
+
+  const refreshEvent = useEffectEvent(() => void refresh());
+
+  useEffect(() => {
+    queueMicrotask(() => refreshEvent());
   }, []);
 
-  useEffect(() => {
-    queueMicrotask(() => void refresh());
-  }, [refresh]);
-
   // Poll while any install is in flight so progress phases stay live.
+  const installing = tools?.some((tool) => tool.install != null && tool.install.phase !== "idle");
+  const pollTick = useEffectEvent(() => void refresh());
   useEffect(() => {
-    const installing = tools?.some((tool) => tool.install != null && tool.install.phase !== "idle");
     if (installing && pollRef.current == null) {
-      pollRef.current = window.setInterval(() => void refresh(), 1500);
+      pollRef.current = window.setInterval(() => pollTick(), 1500);
     } else if (!installing && pollRef.current != null) {
       window.clearInterval(pollRef.current);
       pollRef.current = null;
@@ -205,26 +209,23 @@ export default function ToolchainsSettings() {
         pollRef.current = null;
       }
     };
-  }, [tools, refresh]);
+  }, [installing]);
 
-  const run = useCallback(
-    async (action: () => Promise<unknown>, successTitle: string) => {
-      setBusy(true);
-      try {
-        await action();
-        await refresh();
-        toast({ title: successTitle });
-      } catch (error) {
-        toast({
-          title: "Action failed",
-          description: error instanceof Error ? error.message : String(error),
-          variant: "destructive",
-        });
-      }
-      setBusy(false);
-    },
-    [refresh],
-  );
+  const run = async (action: () => Promise<unknown>, successTitle: string) => {
+    setBusy(true);
+    try {
+      await action();
+      await refresh();
+      toast({ title: successTitle });
+    } catch (error) {
+      toast({
+        title: "Action failed",
+        description: error instanceof Error ? error.message : String(error),
+        variant: "destructive",
+      });
+    }
+    setBusy(false);
+  };
 
   return (
     <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-6">
@@ -236,13 +237,20 @@ export default function ToolchainsSettings() {
         </p>
       </div>
 
-      {tools == null ? (
+      {tools == null && !loadError ? (
         <div className="flex flex-col gap-3">
           {[0, 1, 2].map((index) => (
             <Skeleton key={index} className="h-32 rounded-2xl" />
           ))}
         </div>
-      ) : (
+      ) : loadError && !tools?.length ? (
+        <div className="flex max-w-3xl flex-col items-start gap-3 rounded-2xl border border-destructive/30 bg-destructive/10 p-4">
+          <span className="text-sm text-destructive">Could not load toolchains: {loadError}</span>
+          <Button size="sm" variant="outline" onClick={() => void refresh()}>
+            Retry
+          </Button>
+        </div>
+      ) : tools ? (
         <div className="grid max-w-3xl gap-3">
           {MANAGEABLE.map((tool) => {
             const status = tools.find((entry) => entry.tool === tool);
@@ -262,7 +270,7 @@ export default function ToolchainsSettings() {
             );
           })}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

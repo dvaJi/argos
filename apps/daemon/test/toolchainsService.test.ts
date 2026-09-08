@@ -92,8 +92,10 @@ describe("toolchain service", () => {
     expect(resolved.explicit).toBe(true);
     expect(resolved.path).toBeNull();
 
-    // Reverting falls back to the derived (managed) tree.
+    // Reverting falls back to derived resolution: removeSource also removed
+    // the managed tree, so recreate it to observe the managed source again.
     await service.removeSource("node");
+    createManagedNode(dataDir);
     expect((await service.resolve("node")).source).toBe("managed");
   });
 
@@ -133,6 +135,27 @@ describe("toolchain service", () => {
     const afterSibling = service.resolveCommandSync("uvx", ["some-server"]);
     expect(afterSibling.command).toBe(expectedUvx);
     expect(afterSibling.args).toEqual(["some-server"]);
+
+    // Without a sibling uvx binary, fall back to `uv tool run` — bare `uv`
+    // with uvx's arguments is not a valid invocation.
+    fs.rmSync(expectedUvx);
+    const fallback = service.resolveCommandSync("uvx", ["some-server"]);
+    expect(fallback.command).toBe(uvPath);
+    expect(fallback.args).toEqual(["tool", "run", "some-server"]);
+  });
+
+  it("reverting a managed install removes its tree", async () => {
+    const dataDir = tempRoot();
+    const uvPath = createManagedUv(dataDir);
+    const service = new ToolchainService({ dataDir, env: EMPTY_ENV, probeVersion: async () => pinFor("uv") });
+    await service.warmup();
+    expect((await service.resolve("uv")).source).toBe("managed");
+
+    // A managed source is derived (not explicit); removeSource must still
+    // remove the tree so bundled/system can serve again.
+    await service.removeSource("uv");
+    expect(fs.existsSync(uvPath)).toBe(false);
+    expect((await service.resolve("uv")).source).toBe("unconfigured");
   });
 
   it("reports bin dirs from the warm cache", async () => {

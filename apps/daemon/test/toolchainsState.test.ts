@@ -48,9 +48,13 @@ describe("toolchain state store", () => {
     const loaded = await loadState(dataDir);
     expect(loaded).toEqual({ version: 1, sources: {} });
 
-    // The corrupt file is preserved beside the live one with a timestamp.
+    // The corrupt file is preserved beside the live one with a timestamp,
+    // and the live file is reset to a VALID empty state (not an empty string,
+    // which would re-corrupt on every load).
     const files = fs.readdirSync(toolchainsDir(dataDir));
     expect(files.some((file) => file.startsWith("state.corrupt-"))).toBe(true);
+    const resetContent = fs.readFileSync(path.join(toolchainsDir(dataDir), "state.json"), "utf-8");
+    expect(() => JSON.parse(resetContent)).not.toThrow();
   });
 
   it("survives repeated corruption without throwing", async () => {

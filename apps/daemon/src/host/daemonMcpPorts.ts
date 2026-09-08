@@ -1,4 +1,5 @@
 import { homedir } from "node:os";
+import { delimiter } from "node:path";
 import { createJsonStoreFactory } from "./jsonStoreFactory";
 import {
   ArtifactsServer,
@@ -97,7 +98,11 @@ export function createDaemonMcpPorts(deps: {
       expandPath: (target) => target,
       processCommandWithArgs: (command, args) =>
         deps.toolchains ? deps.toolchains.resolveCommandSync(command, args) : { command, args },
-      normalizePathEnv: (paths) => ({ key: "PATH", value: paths.join(":") }),
+      /** Coalesce concurrent identical Ollama lookups into one upstream request. */
+      normalizePathEnv: (paths: string[]) => ({
+        key: process.platform === "win32" ? "Path" : "PATH",
+        value: paths.join(delimiter),
+      }),
       getDefaultPaths: () => deps.toolchains?.binDirsSync() ?? [],
       getBunRuntimePath: () => null,
       getUvRuntimePath: () => deps.toolchains?.binDirForToolSync("uv") ?? null,

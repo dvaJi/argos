@@ -333,9 +333,10 @@ export async function startDaemon(options?: {
   const agentWorkspaceDir = pathJoin(paths.getDataDir(), "agent-workspace");
 
   // One resolver for external runtimes; consumers (ACP launch, MCP stdio)
-  // must go through it. Warmed once so the sync seams have data.
+  // must go through it. Warmed before dependent subsystems start so the sync
+  // seams (MCP process rewriting) never fall back to PATH mid-startup.
   const toolchainService = new ToolchainService({ dataDir: paths.getDataDir() });
-  void toolchainService.warmup().catch((error) => {
+  const toolchainWarmup = toolchainService.warmup().catch((error) => {
     logger.warn("[daemon] toolchain warmup failed:", error);
   });
 
@@ -524,8 +525,8 @@ export async function startDaemon(options?: {
   const mcpRuntime = new DaemonMcpRuntime(configPresenter, mcpPorts);
   const pluginRuntimeRegistry = new PluginRuntimeRegistry(mcpRuntime.serverManager);
   mcpPorts.services.pluginRuntime = pluginRuntimeRegistry;
-  void mcpRuntime
-    .startEnabledServers()
+  void toolchainWarmup
+    .then(() => mcpRuntime.startEnabledServers())
     .then(({ started, failed }) => {
       logger.info(`[daemon] MCP startup complete: ${started.length} started, ${failed.length} failed`);
     })

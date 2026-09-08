@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import type { ResolvedToolchain, ToolchainName, ToolchainSource } from "./types";
 
@@ -103,10 +103,55 @@ export function systemSearchDirs(env: NodeJS.ProcessEnv): string[] {
 
 /** Locate a system-installed binary for a tool, or null. */
 export function systemToolPath(tool: ToolchainName, env: NodeJS.ProcessEnv): string | null {
-  return findFileIn(
-    systemSearchDirs(env),
-    TOOL_BINARIES[tool].map((name) => EXE(name)),
-  );
+  const binaries = TOOL_BINARIES[tool].map((name) => EXE(name));
+  for (const dir of expandVersionManagerDirs(systemSearchDirs(env))) {
+    for (const binary of binaries) {
+      const candidate = path.join(dir, binary);
+      if (isFile(candidate)) {
+        return candidate;
+      }
+    }
+  }
+  return null;
+}
+
+/** Version-manager roots hide a bin dir per installed version; expand them. */
+function expandVersionManagerDirs(dirs: string[]): string[] {
+  const expanded: string[] = [];
+  for (const dir of dirs) {
+    expanded.push(dir);
+    const normalized = dir.replace(/\\/g, "/");
+    if (!normalized.includes("/.nvm")) continue;
+    // nvm layout: <root>/node/<version>/bin (POSIX), <root>\<version> (Windows)
+    let entries: string[] = [];
+    try {
+      entries = readdirSync(dir);
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      const versionDir = path.join(dir, entry);
+      if (!isDirectory(versionDir)) continue;
+      expanded.push(process.platform === "win32" ? versionDir : path.join(versionDir, "bin"));
+    }
+  }
+  return expanded;
+}
+
+function isFile(candidate: string): boolean {
+  try {
+    return statSync(candidate).isFile();
+  } catch {
+    return false;
+  }
+}
+
+function isDirectory(candidate: string): boolean {
+  try {
+    return statSync(candidate).isDirectory();
+  } catch {
+    return false;
+  }
 }
 
 export interface DerivedResolveOptions {

@@ -30,6 +30,8 @@ export interface InstallContext {
   extract?: (archivePath: string, destinationDir: string) => Promise<void>;
   /** Injectable archive (tests); defaults to the catalog pin. */
   archive?: ToolchainArchive;
+  /** Phase progress callback (activating fires just before the rename). */
+  onPhase?: (phase: "downloading" | "extracting" | "activating") => void;
 }
 
 function ensureCancel(ctx: InstallContext, phase: string): void {
@@ -102,8 +104,10 @@ export async function installToolchain(tool: "node" | "uv", ctx: InstallContext)
   mkdirSync(downloadsDir, { recursive: true });
   mkdirSync(toolsDir, { recursive: true });
   ensureCancel(ctx, "download");
+  ctx.onPhase?.("downloading");
 
-  // Download + verify.
+  // Download + verify while streaming: hash and persist chunks as they
+  // arrive instead of buffering the whole archive in memory.
   const archivePath = path.join(downloadsDir, archive.filename);
   let response: Response;
   try {
@@ -115,19 +119,37 @@ export async function installToolchain(tool: "node" | "uv", ctx: InstallContext)
     );
   }
   if (!response.ok) {
+    // Release the error body so the underlying connection returns to the pool.
+    try {
+      await response.body?.cancel();
+    } catch {
+      // best-effort
+    }
     throw new ToolchainInstallError(`Download failed: HTTP ${response.status} for ${archive.url}`, "network");
   }
-  const bytes = new Uint8Array(await response.arrayBuffer());
   ensureCancel(ctx, "download");
-  const digest = createHash("sha256").update(bytes).digest("hex");
-  if (digest !== archive.sha256) {
+  const digest = createHash("sha256");
+  const writer = Bun.file(archivePath).writer();
+  try {
+    for await (const chunk of response.body as unknown as AsyncIterable<Uint8Array>) {
+      digest.update(chunk);
+      writer.write(chunk);
+      ensureCancel(ctx, "download");
+    }
+  } finally {
+    await writer.end();
+  }
+  ensureCancel(ctx, "download");
+  const checksum = digest.digest("hex");
+  if (checksum !== archive.sha256) {
+    rmSync(archivePath, { force: true });
     throw new ToolchainInstallError(
-      `Checksum mismatch for ${archive.filename}: expected ${archive.sha256}, got ${digest}`,
+      `Checksum mismatch for ${archive.filename}: expected ${archive.sha256}, got ${checksum}`,
       "checksum_mismatch",
     );
   }
-  await Bun.write(archivePath, bytes);
   ensureCancel(ctx, "extract");
+  ctx.onPhase?.("extracting");
 
   // Stage the new tree outside the active path.
   const stagingTarget = `${versionDir}.incoming`;
@@ -138,6 +160,12 @@ export async function installToolchain(tool: "node" | "uv", ctx: InstallContext)
     await extractAndFlatten(archivePath, stagingTarget, ctx.extract ?? defaultExtract);
     ensureCancel(ctx, "activating");
   } catch (error) {
+    // A cancelled or failed extract must not leak a partial staging tree.
+    try {
+      rmSync(stagingTarget, { recursive: true, force: true });
+    } catch {
+      // best-effort
+    }
     if (error instanceof ToolchainInstallError && error.code === "cancelled") {
       throw error;
     }
@@ -148,6 +176,7 @@ export async function installToolchain(tool: "node" | "uv", ctx: InstallContext)
   }
 
   // Activate atomically: rotate the previous tree, then rename staging in.
+  ctx.onPhase?.("activating");
   if (existsSync(versionDir)) {
     const prevPath = `${versionDir}.prev`;
     if (existsSync(prevPath)) {

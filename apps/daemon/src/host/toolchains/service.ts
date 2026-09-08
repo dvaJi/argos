@@ -1,4 +1,5 @@
-import { existsSync } from "node:fs";
+import { existsSync, rmSync } from "node:fs";
+import fs from "node:fs";
 import path from "node:path";
 import type { ToolchainName, ToolchainSource, ToolchainStatus } from "@argos/shared-contracts/routes";
 import { NODE_PIN, UV_PIN, pinFor } from "./catalog";
@@ -183,6 +184,15 @@ export class ToolchainService {
   async removeSource(tool: ToolchainName): Promise<ToolchainStatus> {
     const state = await this.withState();
     delete state.sources[tool];
+    // Reverting a managed install removes its tree so bundled/system can
+    // serve again; without this the derived managed source would simply
+    // re-resolve and the UI revert would do nothing.
+    const tree = path.join(this.dataDir, "toolchains", "tools", tool);
+    try {
+      fs.rmSync(tree, { recursive: true, force: true });
+    } catch (error) {
+      console.warn(`[toolchains] failed to remove managed tree for ${tool}:`, error);
+    }
     this.versionCache.clear();
     await this.persist(state);
     return this.status(tool);
@@ -206,13 +216,14 @@ export class ToolchainService {
         this.installJobs.set(tool, { ...job, phase });
       }
     };
+    let succeeded = false;
     try {
       await installToolchain(tool, {
         dataDir: this.dataDir,
         fetchImpl: this.fetchImpl,
         cancelled: () => this.cancelFlags.get(tool) === true,
+        onPhase: (phase) => advance(phase),
         extract: async (archivePath, destinationDir) => {
-          advance("extracting");
           const proc = Bun.spawn(["tar", "-xf", archivePath, "-C", destinationDir], {
             stdout: "pipe",
             stderr: "pipe",
@@ -226,9 +237,7 @@ export class ToolchainService {
           }
         },
       });
-      // Inject an activating tick so clients observe the final phase.
-      advance("activating");
-      this.versionCache.clear();
+      succeeded = true;
     } catch (error) {
       const job = this.installJobs.get(tool);
       if (job) {
@@ -237,6 +246,12 @@ export class ToolchainService {
         // Surface the failure on the next status poll via a synthetic error map.
         this.installErrors.set(tool, message);
       }
+    }
+    if (succeeded) {
+      // Activation changed the tree: refresh the version probe and the warm
+      // sync cache so consumers immediately see the managed tool.
+      this.versionCache.clear();
+      await this.resolve(tool).catch(() => undefined);
     }
     // The job record stays until the next `status()`/`install()` observes the
     // terminal state; keep it for one poll so the UI sees completion.
@@ -283,7 +298,12 @@ export class ToolchainService {
       }
       const uvxName = process.platform === "win32" ? "uvx.exe" : "uvx";
       const uvx = path.join(binDirFor(uv.path), uvxName);
-      return { command: existsSync(uvx) ? uvx : uv.path, args };
+      if (existsSync(uvx)) {
+        return { command: uvx, args };
+      }
+      // `uvx pkg` is equivalent to `uv tool run pkg`; never pass uvx's
+      // arguments to bare `uv`.
+      return { command: uv.path, args: ["tool", "run", ...args] };
     }
     return { command, args };
   }
@@ -319,7 +339,12 @@ export class ToolchainService {
       }
       const uvxName = process.platform === "win32" ? "uvx.exe" : "uvx";
       const uvx = path.join(binDirFor(uv.path), uvxName);
-      return { command: existsSync(uvx) ? uvx : uv.path, args };
+      if (existsSync(uvx)) {
+        return { command: uvx, args };
+      }
+      // `uvx pkg` is equivalent to `uv tool run pkg`; never pass uvx's
+      // arguments to bare `uv`.
+      return { command: uv.path, args: ["tool", "run", ...args] };
     }
     return { command, args };
   }

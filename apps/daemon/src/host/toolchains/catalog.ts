@@ -72,6 +72,11 @@ const UV_ARCHIVES: Record<string, Record<PlatformKey, ToolchainArchive>> = {
       url: `${UV_RELEASE_BASE}/${UV_PIN}/uv-aarch64-apple-darwin.tar.gz`,
       sha256: "dc3bee4abbb3bac267a3985a23ea7617d19d41ff381dbaf560ba415ad65af68f",
     },
+    "darwin-x64": {
+      filename: "uv-x86_64-apple-darwin.tar.gz",
+      url: `${UV_RELEASE_BASE}/${UV_PIN}/uv-x86_64-apple-darwin.tar.gz`,
+      sha256: "f86836c637333c65bbc7902acc9c49888eef9fbd15dccbc1946b10e30b041073",
+    },
     "linux-x64": {
       filename: "uv-x86_64-unknown-linux-gnu.tar.gz",
       url: `${UV_RELEASE_BASE}/${UV_PIN}/uv-x86_64-unknown-linux-gnu.tar.gz`,

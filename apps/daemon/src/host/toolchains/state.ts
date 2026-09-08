@@ -55,7 +55,9 @@ export async function loadState(dataDir: string): Promise<ToolchainStateFile> {
         join(toolchainsDir(dataDir), `state.corrupt-${Date.now()}.json`),
         await Bun.file(filePath).arrayBuffer(),
       );
-      await Bun.write(filePath, ""); // reset so the next load succeeds
+      // Persist a VALID empty state — an empty string would re-corrupt on
+      // every load and grow a quarantine copy per daemon start.
+      await Bun.write(filePath, JSON.stringify(emptyState(), null, 2));
     } catch {
       // best-effort quarantine; a fresh state is returned regardless
     }
