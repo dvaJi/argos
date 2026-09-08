@@ -1213,8 +1213,17 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
       typeof arg === "string" ? this.ports.runtime.expandPath(arg) : arg,
     );
 
-    // Replace command with runtime version if needed
-    const processedCommand = this.ports.runtime.resolveCommand(expandedCommand, useBundledRuntime, true);
+    // Replace command with runtime version if needed. A host-provided
+    // command+args rewrite (managed toolchains) wins over the plain swap.
+    const rewritten = await this.ports.runtime.resolveCommandWithArgs?.({
+      command: expandedCommand,
+      args: expandedArgs,
+      useBundled: useBundledRuntime,
+    });
+    const processedCommand = rewritten
+      ? rewritten.command
+      : this.ports.runtime.resolveCommand(expandedCommand, useBundledRuntime, true);
+    const processedArgs = rewritten ? rewritten.args : expandedArgs;
 
     // Validate processed command
     if (!processedCommand || processedCommand.trim().length === 0) {
@@ -1225,16 +1234,13 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
     console.info(`[ACP] Spawning process for agent ${agent.id}:`, {
       originalCommand: launchSpec.command,
       processedCommand,
-      args: launchSpec.args ?? [],
+      args: processedArgs,
       distributionType: launchSpec.distributionType,
     });
 
     if (processedCommand !== launchSpec.command) {
       console.info(`[ACP] Command replaced for agent ${agent.id}: "${launchSpec.command}" -> "${processedCommand}"`);
     }
-
-    // Use expanded args
-    const processedArgs = expandedArgs;
 
     let env = mergeCommandEnvironment();
 

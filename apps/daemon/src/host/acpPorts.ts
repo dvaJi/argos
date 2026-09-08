@@ -3,17 +3,19 @@ import path from "node:path";
 import type { AcpHostPorts } from "@argos/acp-runtime";
 import type { IEventPublisher } from "@argos/backend-core";
 import { shouldRejectAcpTextRead, buildBinaryReadGuidance } from "./acpBinaryGuard";
-
+import type { ToolchainService } from "./toolchains/service";
 /**
  * Daemon implementation of the ACP host ports. Resolves paths from the OS and
- * daemon data dir, uses a no-op runtime (agents resolve `npx`/`uvx`/`node` from
- * `$PATH`), bridges events to the daemon `IEventPublisher`, and wires lifecycle
- * to process signals.
+ * daemon data dir, resolves `npx`/`uvx`/`node`/`uv` through the managed
+ * toolchain service (falling through to `$PATH` when unconfigured), bridges
+ * events to the daemon `IEventPublisher`, and wires lifecycle to process
+ * signals.
  */
 export function createDaemonAcpPorts(deps: {
   dataDir: string;
   appVersion: string;
   eventPublisher: IEventPublisher;
+  toolchains: ToolchainService;
 }): AcpHostPorts {
   return {
     paths: {
@@ -23,10 +25,27 @@ export function createDaemonAcpPorts(deps: {
       appVersion: () => deps.appVersion,
     },
     runtime: {
-      // v1 daemon ships no bundled runtime; agents use $PATH-resolved tools.
       expandPath: (target) => target,
       resolveCommand: (command) => command,
-      buildSpawnEnv: (base) => base,
+      resolveCommandWithArgs: async ({ command, args }) => {
+        const resolved = await deps.toolchains.resolveCommand(command, args);
+        if (resolved.command === command) {
+          return null;
+        }
+        return resolved;
+      },
+      buildSpawnEnv: (base) => {
+        const dirs = deps.toolchains.binDirsSync();
+        if (dirs.length === 0) {
+          return base;
+        }
+        const existingKey = Object.keys(base).find((key) => key.toLowerCase() === "path");
+        const key = existingKey ?? (process.platform === "win32" ? "Path" : "PATH");
+        return {
+          ...base,
+          [key]: [...dirs, base[key] ?? ""].filter(Boolean).join(path.delimiter),
+        };
+      },
     },
     events: {
       broadcast: (name, payload) => deps.eventPublisher.publish(name, payload),

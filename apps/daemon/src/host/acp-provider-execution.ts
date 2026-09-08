@@ -25,6 +25,7 @@ import type { BunSessionRepository } from "./bun-session-repository";
 import { usageDateKey } from "./bun-session-repository";
 import { createDaemonAcpPorts } from "./acpPorts";
 import { createDaemonAcpSqlitePresenter } from "./daemonAcpSqlite";
+import type { ToolchainService } from "./toolchains/service";
 import { sessionsStatusChangedEvent } from "@argos/shared-contracts";
 import { methods as acpMethods, PROTOCOL_VERSION } from "@agentclientprotocol/sdk";
 import type { AcpConfigState, AcpAgentDiagnostics, AcpDebugRequest, AcpDebugRunResult } from "@argos/shared/presenter";
@@ -51,8 +52,8 @@ type PendingAcpPermission = {
  * clients through the daemon `BunEventPublisher`.
  *
  * Sessions persist to the daemon's SQLite `acp_sessions` table (resume across
- * daemon restarts). The daemon resolves agent runtimes from `$PATH` (no bundled
- * runtime).
+ * daemon restarts). Agent runtimes (`npx`/`uvx`/`node`) resolve through the
+ * managed toolchain service, falling through to `$PATH` when unconfigured.
  */
 export class AcpProviderExecutionPort implements ProviderExecutionPort {
   private runtimePromise: Promise<AcpRuntime> | null = null;
@@ -84,6 +85,7 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
     private readonly deps: {
       dataDir: string;
       appVersion: string;
+      toolchains: ToolchainService;
       db: {
         prepare(sql: string): {
           get(...p: unknown[]): unknown;
@@ -101,6 +103,7 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
           dataDir: this.deps.dataDir,
           appVersion: this.deps.appVersion,
           eventPublisher: this.eventPublisher,
+          toolchains: this.deps.toolchains,
         });
         const sessionPersistence = new AcpSessionPersistence(createDaemonAcpSqlitePresenter(this.deps.db), () =>
           ports.paths.homeDir(),

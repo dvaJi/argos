@@ -15,6 +15,7 @@ import {
 import { BuiltinKnowledgeServer } from "@argos/backend-core";
 import type { IEventPublisher } from "@argos/backend-core";
 import type { DaemonConfigPresenter } from "./daemonConfigPresenter";
+import type { ToolchainService } from "./toolchains/service";
 import type { PluginToolPolicyDecision } from "@argos/shared/types/plugin";
 
 /** Knowledge capabilities exposed by the daemon knowledge runtime. */
@@ -44,6 +45,7 @@ export function createDaemonMcpPorts(deps: {
   eventPublisher: IEventPublisher;
   configPresenter: DaemonConfigPresenter;
   configDir: string;
+  toolchains?: ToolchainService;
   knowledge?: DaemonKnowledgePort;
   db: {
     prepare(sql: string): {
@@ -93,11 +95,12 @@ export function createDaemonMcpPorts(deps: {
     runtime: {
       initializeRuntimes: () => {},
       expandPath: (target) => target,
-      processCommandWithArgs: (command, args) => ({ command, args }),
+      processCommandWithArgs: (command, args) =>
+        deps.toolchains ? deps.toolchains.resolveCommandSync(command, args) : { command, args },
       normalizePathEnv: (paths) => ({ key: "PATH", value: paths.join(":") }),
-      getDefaultPaths: () => [],
+      getDefaultPaths: () => deps.toolchains?.binDirsSync() ?? [],
       getBunRuntimePath: () => null,
-      getUvRuntimePath: () => null,
+      getUvRuntimePath: () => deps.toolchains?.binDirForToolSync("uv") ?? null,
       setBunRuntimePath: () => {},
       setUvRuntimePath: () => {},
     },
