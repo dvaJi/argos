@@ -421,6 +421,7 @@ export default function AcpDiagnostics({
                   loading={loading}
                   logoutEnabled={Boolean(caps?.authLogout)}
                   agentId={agentId}
+                  agentName={diagnostics.agentName ?? agentName}
                   workdir={diagnostics.workdir}
                   onRunAction={runAction}
                 />
@@ -595,6 +596,7 @@ const AuthMethodsSection = ({
   loading,
   logoutEnabled,
   agentId,
+  agentName,
   workdir,
   onRunAction,
 }: {
@@ -602,10 +604,11 @@ const AuthMethodsSection = ({
   loading: boolean;
   logoutEnabled: boolean;
   agentId: string;
+  agentName: string;
   workdir: string | null;
   onRunAction: RunDebugAction;
 }) => {
-  const [terminalAuth, setTerminalAuth] = useState<{ methodId: string; name: string } | null>(null);
+  const [terminalAuth, setTerminalAuth] = useState<{ methodId: string } | null>(null);
   return (
     <div>
       <div className="text-xs font-semibold text-muted-foreground mb-1">Authentication</div>
@@ -623,7 +626,7 @@ const AuthMethodsSection = ({
                       size="xs"
                       variant="outline"
                       disabled={loading}
-                      onClick={() => setTerminalAuth({ methodId: method.id, name: method.name ?? method.id })}
+                      onClick={() => setTerminalAuth({ methodId: method.id })}
                     >
                       <Icon icon="lucide:terminal" className="mr-1 size-3" />
                       Sign in
@@ -695,7 +698,7 @@ const AuthMethodsSection = ({
         <AcpAuthDialog
           open
           agentId={agentId}
-          agentName={terminalAuth.name}
+          agentName={agentName}
           workdir={workdir}
           onOpenChange={(next) => {
             if (!next) setTerminalAuth(null);

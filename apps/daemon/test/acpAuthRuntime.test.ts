@@ -3,14 +3,33 @@ import { DaemonAcpAuthRuntime } from "../src/host/acpAuthRuntime";
 
 /**
  * Hermetic coverage for the daemon ACP auth runtime: agent-method
- * authenticate (bounded), terminal-method PTY flow (argv, output streaming,
- * exit handling, cancel, handle release), and single-flight.
+ * authenticate (bounded, backgrounded), terminal-method PTY flow (argv,
+ * output streaming incl. chunking, exit handling, cancel, handle release),
+ * single-flight reservation, and setup-failure recovery.
  */
+
+const encoder = new TextEncoder();
+
+/** Poll until the predicate passes (bun:test has no vi.waitFor). */
+async function waitFor(predicate: () => void, timeoutMs = 2000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  let lastError: unknown = null;
+  while (Date.now() < deadline) {
+    try {
+      predicate();
+      return;
+    } catch (error) {
+      lastError = error;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+  }
+  throw lastError ?? new Error("waitFor timed out");
+}
 
 const createHarness = (options?: {
   authMethods?: Array<Record<string, unknown>>;
   authenticateImpl?: () => Promise<unknown>;
-  exitCode?: number | null;
+  spawnThrows?: Error;
 }) => {
   const published: Array<Record<string, unknown>> = [];
   const eventPublisher = {
@@ -40,39 +59,31 @@ const createHarness = (options?: {
 
   const spawned: Array<{ argv: string[]; env: Record<string, string | undefined> }> = [];
   const terminalWrites: string[] = [];
-  const kills: number[] = [];
+  const killArgs: Array<string | undefined> = [];
   let resolveExit: ((code: number) => void) | null = null;
   const exited = new Promise<number>((resolve) => {
     resolveExit = resolve;
   });
+  let dataHandler: ((data: Uint8Array) => void) | null = null;
 
   const deps = {
     eventPublisher,
     getProcessManager: async () => processManager,
     resolveLaunchSpec: vi.fn(async () => ({ command: "mcode", args: ["acp"], env: { SPEC_VAR: "1" } })),
-    ptyFactory: (opts: { onData: (data: Uint8Array) => void }) => ({
-      write: (data: string | Uint8Array) => {
-        terminalWrites.push(typeof data === "string" ? data : new TextDecoder().decode(data));
-      },
-      kill: (signal?: string) => {
-        void signal;
-        kills.push(kills.length + 1);
-      },
-      // keep the onData reference reachable for the test
-      ...(opts as unknown as Record<string, unknown>),
-    }),
-    spawnPty: vi.fn((argv: string[], options: { env: Record<string, string | undefined> }) => {
-      spawned.push({ argv, env: options.env });
+    ptyFactory: (opts: { onData: (data: Uint8Array) => void }) => {
+      dataHandler = opts.onData;
       return {
         write: (data: string | Uint8Array) => {
           terminalWrites.push(typeof data === "string" ? data : new TextDecoder().decode(data));
         },
-        kill: (signal?: string) => {
-          void signal;
-          kills.push(kills.length + 1);
-        },
-        exited,
+        kill: (signal?: string) => killArgs.push(signal),
+        close: vi.fn(() => undefined),
       };
+    },
+    spawnPty: vi.fn((argv: string[], o: { env: Record<string, string | undefined> }) => {
+      if (options?.spawnThrows) throw options.spawnThrows;
+      spawned.push({ argv, env: o.env });
+      return { exited };
     }),
   };
 
@@ -84,41 +95,21 @@ const createHarness = (options?: {
     authenticate,
     spawned,
     terminalWrites,
-    kills,
+    killArgs,
     emitExit: (code: number) => resolveExit?.(code),
-    emitData: (text: string) => {
-      const onData = (deps.ptyFactory as any).mock?.calls?.[0]?.[0]?.onData;
-      void onData;
-    },
+    emitData: (text: string) => dataHandler?.(encoder.encode(text)),
   };
 };
 
-const encoder = new TextEncoder();
-
-/** Poll until the predicate passes (bun:test has no vi.waitFor). */
-async function waitFor(predicate: () => void, timeoutMs = 2000): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  let lastError: unknown = null;
-  while (Date.now() < deadline) {
-    try {
-      predicate();
-      return;
-    } catch (error) {
-      lastError = error;
-      await new Promise((resolve) => setTimeout(resolve, 10));
-    }
-  }
-  throw lastError ?? new Error("waitFor timed out");
-}
-
 describe("DaemonAcpAuthRuntime", () => {
-  it("authenticates agent methods on the warm connection and reports ready", async () => {
+  it("authenticates agent methods in the background and reports ready via events", async () => {
     const harness = createHarness();
     const result = await harness.auth.start({ agentId: "my-agent", methodId: "agent-login" });
 
     expect(result.mode).toBe("agent");
+    expect(result.runId).toBeNull();
+    await waitFor(() => expect(harness.published.map((entry) => entry.state)).toContain("ready"));
     expect(harness.authenticate).toHaveBeenCalled();
-    expect(harness.published.map((entry) => entry.state)).toEqual(["running", "ready"]);
     expect(harness.release).not.toHaveBeenCalled();
   });
 
@@ -131,22 +122,22 @@ describe("DaemonAcpAuthRuntime", () => {
     const result = await harness.auth.start({ agentId: "my-agent", methodId: "agent-login" });
 
     expect(result.mode).toBe("agent");
-    const states = harness.published.map((entry) => entry.state);
-    expect(states).toEqual(["running", "error"]);
+    await waitFor(() => expect(harness.published.map((entry) => entry.state)).toContain("error"));
     expect(harness.published.at(-1)?.error).toContain("bad credentials");
   });
 
-  it("rejects a second concurrent flow for the same agent", async () => {
+  it("reserves the agent synchronously so concurrent starts cannot double-launch", async () => {
     const harness = createHarness({ authenticateImpl: () => new Promise(() => {}) });
     const first = harness.auth.start({ agentId: "my-agent", methodId: "agent-login" });
-    await waitFor(() => expect(harness.auth.isActive("my-agent")).toBe(true));
+    // The reservation is installed synchronously: the immediate second start
+    // must reject even before the first flow finished.
     await expect(harness.auth.start({ agentId: "my-agent", methodId: "agent-login" })).rejects.toThrow(
       "already running",
     );
 
     harness.auth.cancel({ agentId: "my-agent" });
     await first;
-    expect(harness.published.map((entry) => entry.state)).toContain("cancelled");
+    await waitFor(() => expect(harness.published.map((entry) => entry.state)).toContain("cancelled"));
   });
 
   it("runs terminal methods with launch spec + method args, no shell", async () => {
@@ -163,15 +154,45 @@ describe("DaemonAcpAuthRuntime", () => {
     expect(harness.spawned).toHaveLength(1);
     expect(harness.spawned[0]!.argv).toEqual(["mcode", "acp", "--login"]);
 
-    harness.emitData(encoder.encode("open https://example.com/device").slice().buffer as ArrayBuffer);
     harness.emitExit(0);
-    await waitFor(() => {
-      expect(harness.published.map((entry) => entry.state)).toContain("ready");
-    });
+    await waitFor(() => expect(harness.published.map((entry) => entry.state)).toContain("ready"));
     expect(harness.release).toHaveBeenCalledWith("my-agent");
     const last = harness.published.at(-1)!;
     expect(last.exitCode).toBe(0);
     expect(last.error).toBeNull();
+  });
+
+  it("streams PTY output through events", async () => {
+    const harness = createHarness({
+      authMethods: [{ id: "term-1", name: "Terminal Login", type: "terminal", args: ["--login"] }],
+    });
+    await harness.auth.start({ agentId: "my-agent", methodId: "term-1" });
+
+    harness.emitData("open https://example.com/device");
+    await waitFor(() => {
+      const outputs = harness.published.filter((entry) => typeof entry.output === "string");
+      expect(outputs.length).toBeGreaterThan(0);
+    });
+    const outputEvent = harness.published.find((entry) => typeof entry.output === "string");
+    expect(outputEvent?.output).toContain("https://example.com/device");
+  });
+
+  it("chunks oversized PTY buffers instead of dropping the remainder", async () => {
+    const harness = createHarness({
+      authMethods: [{ id: "term-1", name: "Terminal Login", type: "terminal", args: ["--login"] }],
+    });
+    await harness.auth.start({ agentId: "my-agent", methodId: "term-1" });
+
+    // 64KB + 1 byte: two output events, nothing dropped.
+    harness.emitData("a".repeat(64 * 1024 + 1));
+    await waitFor(() => {
+      const outputs = harness.published.filter((entry) => typeof entry.output === "string");
+      expect(outputs.length).toBe(2);
+    });
+    const total = harness.published
+      .filter((entry) => typeof entry.output === "string")
+      .reduce((sum, entry) => sum + (entry.output as string).length, 0);
+    expect(total).toBe(64 * 1024 + 1);
   });
 
   it("reports an error when the login process exits non-zero", async () => {
@@ -187,7 +208,7 @@ describe("DaemonAcpAuthRuntime", () => {
     expect(harness.published.at(-1)?.error).toContain("exited with code 1");
   });
 
-  it("cancels a terminal run and reports cancelled", async () => {
+  it("force-kills and reports cancelled terminal runs", async () => {
     const harness = createHarness({
       authMethods: [{ id: "term-1", name: "Terminal Login", type: "terminal", args: ["--login"] }],
     });
@@ -201,7 +222,23 @@ describe("DaemonAcpAuthRuntime", () => {
     await waitFor(() => {
       expect(harness.published.map((entry) => entry.state)).toContain("cancelled");
     });
-    expect(harness.kills.length).toBeGreaterThan(0);
+    expect(harness.killArgs).toContain(process.platform === "win32" ? undefined : "SIGKILL");
+  });
+
+  it("releases the run when PTY setup fails so the agent stays retryable", async () => {
+    const harness = createHarness({
+      authMethods: [{ id: "term-1", name: "Terminal Login", type: "terminal", args: ["--login"] }],
+      spawnThrows: new Error("cwd missing"),
+    });
+
+    await expect(harness.auth.start({ agentId: "my-agent", methodId: "term-1" })).rejects.toThrow(
+      "Terminal authentication could not start",
+    );
+    await waitFor(() => expect(harness.published.map((entry) => entry.state)).toContain("error"));
+
+    // The reservation is released: a retry is accepted.
+    const retry = harness.auth.start({ agentId: "my-agent", methodId: "term-1" });
+    await expect(retry).rejects.toThrow("Terminal authentication could not start");
   });
 
   it("rejects unknown method ids", async () => {

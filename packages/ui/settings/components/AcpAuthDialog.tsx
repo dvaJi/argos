@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { Terminal } from "@xterm/xterm";
+import "@xterm/xterm/css/xterm.css";
 import { Button } from "#shadcn/components/ui/button";
 import { Badge } from "#shadcn/components/ui/badge";
 import {
@@ -73,14 +74,21 @@ export default function AcpAuthDialog({
     });
   }, [open, agentId, workdir, reset]);
 
-  // Auth state transitions + PTY output.
+  // Auth state transitions + PTY output. Output that arrives before the
+  // embedded terminal is mounted is buffered and flushed on open — the
+  // daemon does not replay it.
+  const pendingOutputRef = useRef<string[]>([]);
   useEffect(() => {
     if (!open) return;
     const off = providerClient.onAcpAuthChanged((payload) => {
       if (payload.agentId !== agentId) return;
       if (payload.runId && runId && payload.runId !== runId) return;
       if (payload.output) {
-        xtermRef.current?.write(payload.output);
+        if (xtermRef.current) {
+          xtermRef.current.write(payload.output);
+        } else {
+          pendingOutputRef.current.push(payload.output);
+        }
       }
       if (payload.state === "ready") {
         setFlowState("ready");
@@ -104,6 +112,11 @@ export default function AcpAuthDialog({
       cursorBlink: true,
     });
     terminal.open(terminalRef.current);
+    // Flush output that arrived before the terminal existed.
+    for (const chunk of pendingOutputRef.current) {
+      terminal.write(chunk);
+    }
+    pendingOutputRef.current = [];
     terminal.onData((data) => {
       if (runId) void providerClient.writeAcpAuthInput(runId, data);
     });

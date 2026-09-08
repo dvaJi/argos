@@ -7,6 +7,7 @@ import type {
 } from "@argos/shared/types/agent-interface";
 import type * as schema from "@agentclientprotocol/sdk";
 import { randomUUID } from "node:crypto";
+import path from "node:path";
 import {
   getAcpConfigOption,
   getLegacyModeState,
@@ -136,7 +137,19 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
           getProcessManager: async () => runtime.processManager,
           resolveLaunchSpec: async (agentId, workdir) => {
             const spec = await this.configPresenter.resolveAcpLaunchSpec(agentId, workdir);
-            return { command: spec.command, args: spec.args ?? [], env: spec.env ?? null };
+            // Route the launch command through the managed toolchains
+            // (npx -> node npx-cli.js etc.) and prepend resolved bin dirs —
+            // mirroring the process manager's launch pipeline for normal
+            // sessions, so terminal auth works for managed runtimes too.
+            const rewritten = await this.deps.toolchains.resolveCommand(spec.command, spec.args ?? []);
+            const binDirs = this.deps.toolchains.binDirsSync();
+            const env: Record<string, string> = { ...spec.env };
+            if (binDirs.length > 0) {
+              const existingKey = Object.keys(env).find((key) => key.toLowerCase() === "path");
+              const key = existingKey ?? (process.platform === "win32" ? "Path" : "PATH");
+              env[key] = [...binDirs, env[key] ?? ""].filter(Boolean).join(path.delimiter);
+            }
+            return { command: rewritten.command, args: rewritten.args, env };
           },
           ptyFactory: (options) => {
             const ctor = resolvePtyTerminalCtor();

@@ -22,7 +22,9 @@ export default function AcpAuthBanner({ sessionId }: { sessionId: string }) {
       setDialogOpen(true);
     });
     const offChanged = providerClient.onAcpAuthChanged((payload) => {
-      if (payload.state === "ready") {
+      // Only the same agent's success clears the prompt — signing in to a
+      // different agent elsewhere must not dismiss an unrelated prompt.
+      if (payload.state === "ready" && authPrompt?.agentId === payload.agentId) {
         setAuthPrompt(null);
       }
     });
@@ -30,7 +32,7 @@ export default function AcpAuthBanner({ sessionId }: { sessionId: string }) {
       offRequired();
       offChanged();
     };
-  }, [sessionId]);
+  }, [sessionId, authPrompt?.agentId]);
 
   if (!authPrompt) return null;
 
@@ -43,7 +45,8 @@ export default function AcpAuthBanner({ sessionId }: { sessionId: string }) {
         <span className="flex min-w-0 items-center gap-2 text-sm text-foreground">
           <Icon icon="lucide:key-round" className="size-4 shrink-0 text-amber-600" />
           <span className="min-w-0 truncate">
-            This agent needs to be signed in before the conversation can continue.
+            This agent needs to be signed in before the conversation can continue. After signing in, send your message
+            again.
           </span>
         </span>
         <Button size="sm" onClick={() => setDialogOpen(true)}>

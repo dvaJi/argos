@@ -16,8 +16,10 @@ import type { AcpAgentConfig } from "@argos/shared/presenter";
  *   shell), stream output to the renderer, then `release()` the agent's
  *   cached handles so the next attempt re-initializes with fresh credentials.
  *
- * One active run per agent; PTY output is chunked and capped; cancel kills
- * the PTY and publishes `cancelled`.
+ * The per-agent reservation is installed synchronously before any await, so
+ * concurrent starts cannot double-launch. One active run per agent; PTY
+ * output is chunked and capped; cancel kills the PTY and publishes
+ * `cancelled`.
  */
 
 const AUTH_TIMEOUT_MS = 30_000;
@@ -33,7 +35,8 @@ export interface AcpAuthLaunchSpec {
 /** Minimal PTY surface the auth runtime needs (Bun.Terminal-compatible). */
 export interface AcpAuthPty {
   write: (data: string | Uint8Array) => void;
-  kill: (signal?: string) => void;
+  kill?: (signal?: string) => void;
+  close?: () => void;
 }
 
 export interface AcpAuthRuntimeDeps {
@@ -47,24 +50,11 @@ export interface AcpAuthRuntimeDeps {
     argv: string[],
     options: { cwd: string; env: Record<string, string | undefined>; terminal: AcpAuthPty },
   ) => {
-    write: (data: string | Uint8Array) => void;
-    kill: (signal?: string) => void;
     exited: Promise<number>;
   };
 }
 
 type AcpAuthState = "running" | "ready" | "error" | "cancelled";
-
-function buildAuthEnv(
-  specEnv: Record<string, string>,
-  methodEnv: Record<string, string>,
-): Record<string, string | undefined> {
-  const env: Record<string, string | undefined> = { ...process.env, ...specEnv, ...methodEnv };
-  if (process.platform !== "win32") {
-    env.TERM = "xterm-256color";
-  }
-  return env;
-}
 
 interface AuthMethodLike {
   id: string;
@@ -81,9 +71,13 @@ interface ActiveRun {
   mode: "agent" | "terminal";
   state: AcpAuthState;
   cancelled?: boolean;
+  /** Keystrokes for the terminal TUI go through the PTY object. */
   write?: (data: string | Uint8Array) => void;
-  kill?: (signal?: string) => void;
+  /** SIGKILL on unix: interactive PTY children ignore SIGTERM. */
+  kill?: () => void;
   abort?: AbortController;
+  abortPromise?: Promise<never>;
+  terminal?: AcpAuthPty;
   totalBytes: number;
 }
 
@@ -97,29 +91,54 @@ export class DaemonAcpAuthRuntime {
     return this.activeByAgent.get(agentId)?.state === "running";
   }
 
-  async start(input: {
-    agentId: string;
-    workdir?: string;
-    methodId: string;
-  }): Promise<{ mode: "agent" | "terminal"; runId: string | null }> {
+  async start(input: { agentId: string; workdir?: string; methodId: string }): Promise<{
+    mode: "agent" | "terminal";
+    runId: string | null;
+  }> {
+    // Reserve the agent synchronously before any await: two concurrent starts
+    // must not both observe "no active run" and double-launch.
     if (this.isActive(input.agentId)) {
       throw new Error(`An authentication flow is already running for agent ${input.agentId}`);
     }
+    const run: ActiveRun = {
+      agentId: input.agentId,
+      workdir: input.workdir ?? null,
+      runId: null,
+      mode: "agent",
+      state: "running",
+      abort: new AbortController(),
+      totalBytes: 0,
+    };
+    // Created with the reservation so cancel() rejects even while earlier
+    // awaits (connection warmup) are still settling.
+    run.abortPromise = new Promise<never>((_, reject) => {
+      run.abort?.signal.addEventListener("abort", () => reject(new Error("Authentication cancelled")), {
+        once: true,
+      });
+    });
+    this.activeByAgent.set(input.agentId, run);
 
-    const processManager = await this.deps.getProcessManager();
-    const agent = { id: input.agentId, name: input.agentId } as AcpAgentConfig;
-    const handle = await processManager.getConnection(agent, input.workdir);
-    const method = (handle.authMethods ?? []).find((entry) => entry.id === input.methodId) as
-      | AuthMethodLike
-      | undefined;
-    if (!method) {
-      throw new Error(`Agent ${input.agentId} did not advertise auth method ${input.methodId}`);
+    try {
+      const processManager = await this.deps.getProcessManager();
+      const agent = { id: input.agentId, name: input.agentId } as AcpAgentConfig;
+      const handle = await processManager.getConnection(agent, input.workdir);
+      const method = (handle.authMethods ?? []).find((entry) => entry.id === input.methodId) as
+        | AuthMethodLike
+        | undefined;
+      if (!method) {
+        throw new Error(`Agent ${input.agentId} did not advertise auth method ${input.methodId}`);
+      }
+      if (method.type === "terminal") {
+        return await this.startTerminalFlow(run, input, method);
+      }
+      return this.startAgentFlow(run, input, method);
+    } catch (error) {
+      // Setup failures (unreachable agent, unknown method, PTY unavailable)
+      // must release the reservation so the agent stays retryable.
+      this.activeByAgent.delete(input.agentId);
+      this.publish({ run, state: "error", error: error instanceof Error ? error.message : String(error) });
+      throw error;
     }
-
-    if (method.type === "terminal") {
-      return await this.startTerminalFlow(input, method);
-    }
-    return await this.startAgentFlow(input, method);
   }
 
   write(runId: string, data: string): void {
@@ -162,54 +181,52 @@ export class DaemonAcpAuthRuntime {
     });
   }
 
-  private async startAgentFlow(
+  /**
+   * Agent-method authenticate. Runs in the background (like the terminal
+   * flow) and reports the outcome via events; the route returns immediately
+   * so the UI drives off state transitions instead of the response.
+   */
+  private startAgentFlow(
+    run: ActiveRun,
     input: { agentId: string; workdir?: string; methodId: string },
-    _method: AuthMethodLike,
-  ): Promise<{ mode: "agent"; runId: string | null }> {
-    const run: ActiveRun = {
-      agentId: input.agentId,
-      workdir: input.workdir ?? null,
-      runId: null,
-      mode: "agent",
-      state: "running",
-      abort: new AbortController(),
-      totalBytes: 0,
-    };
-    this.activeByAgent.set(input.agentId, run);
+    method: AuthMethodLike,
+  ): {
+    mode: "agent";
+    runId: null;
+  } {
     this.publish({ run, state: "running" });
 
-    try {
-      const processManager = await this.deps.getProcessManager();
-      const handle = await processManager.getConnection(
-        { id: input.agentId, name: input.agentId } as AcpAgentConfig,
-        input.workdir,
-      );
-      const authenticate = handle.connection.agent.request(acpMethods.agent.authenticate, {
-        methodId: input.methodId,
-      } as schema.AuthenticateRequest);
-      const timeout = new Promise<never>((_, reject) => {
-        const timer = setTimeout(() => reject(new Error("Authentication timed out")), AUTH_TIMEOUT_MS);
-        run.abort?.signal.addEventListener("abort", () => {
-          clearTimeout(timer);
-          reject(new Error("Authentication cancelled"));
+    void (async () => {
+      try {
+        const processManager = await this.deps.getProcessManager();
+        const handle = await processManager.getConnection(
+          { id: input.agentId, name: input.agentId } as AcpAgentConfig,
+          input.workdir,
+        );
+        const authenticate = handle.connection.agent.request(acpMethods.agent.authenticate, {
+          methodId: method.id,
+        } as schema.AuthenticateRequest);
+        const timeout = new Promise<never>((_, reject) => {
+          const timer = setTimeout(() => reject(new Error("Authentication timed out")), AUTH_TIMEOUT_MS);
         });
-      });
-      await Promise.race([authenticate, timeout]);
-      run.state = "ready";
-      this.publish({ run, state: "ready" });
-    } catch (error) {
-      const cancelled = run.abort?.signal.aborted === true;
-      run.state = cancelled ? "cancelled" : "error";
-      this.publish({
-        run,
-        state: run.state,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
+        await Promise.race([authenticate, timeout, run.abortPromise!]);
+        run.state = "ready";
+        this.publish({ run, state: "ready" });
+      } catch (error) {
+        const cancelled = run.abort?.signal.aborted === true;
+        run.state = cancelled ? "cancelled" : "error";
+        this.publish({
+          run,
+          state: run.state,
+          error: cancelled ? "Authentication cancelled" : error instanceof Error ? error.message : String(error),
+        });
+      }
+    })();
     return { mode: "agent", runId: null };
   }
 
   private async startTerminalFlow(
+    run: ActiveRun,
     input: { agentId: string; workdir?: string; methodId: string },
     method: AuthMethodLike,
   ): Promise<{ mode: "terminal"; runId: string | null }> {
@@ -220,58 +237,87 @@ export class DaemonAcpAuthRuntime {
       (part) => typeof part === "string" && part.length > 0,
     );
 
-    const run: ActiveRun = {
-      agentId: input.agentId,
-      workdir: input.workdir ?? null,
-      runId: `acpauth_${randomUUID().replaceAll("-", "").slice(0, 20)}`,
-      mode: "terminal",
-      state: "running",
-      totalBytes: 0,
-    };
-    this.activeByAgent.set(input.agentId, run);
-    this.runsById.set(run.runId!, run);
+    run.mode = "terminal";
+    run.runId = `acpauth_${randomUUID().replaceAll("-", "").slice(0, 20)}`;
+    this.runsById.set(run.runId, run);
     this.publish({ run, state: "running" });
 
     const env = buildAuthEnv(spec.env ?? {}, methodEnv);
 
+    // Construct the PTY first and keep it: keystrokes must go through the
+    // terminal object (Bun's terminal-mode subprocess does not expose
+    // write), and the terminal must be closed when the run finishes.
     const terminal = this.deps.ptyFactory({
       cols: 80,
       rows: 24,
       onData: (data) => this.handleOutput(run, data),
     });
-    const proc = this.deps.spawnPty(argv, {
-      cwd: input.workdir || process.cwd(),
-      env,
-      terminal,
-    });
-    run.write = (data) => proc.write(data);
-    run.kill = (signal) => proc.kill(signal);
+    run.terminal = terminal;
+    run.write = (data) => terminal.write(data);
+    run.kill = () => {
+      // Interactive PTY children ignore SIGTERM; force-kill like the
+      // integrated terminal runtime does.
+      terminal.kill?.(process.platform === "win32" ? undefined : "SIGKILL");
+    };
 
-    void proc.exited
+    let exitPromise: Promise<number>;
+    try {
+      const proc = this.deps.spawnPty(argv, {
+        cwd: input.workdir || process.cwd(),
+        env,
+        terminal,
+      });
+      exitPromise = proc.exited;
+    } catch (error) {
+      // Spawn/setup failure: release the reservation so the agent stays
+      // retryable instead of being stuck in "running" forever.
+      this.runsById.delete(run.runId);
+      try {
+        terminal.close?.();
+      } catch {
+        // best-effort
+      }
+      run.state = "error";
+      const message = error instanceof Error ? error.message : String(error);
+      this.publish({ run, state: "error", error: message });
+      throw new Error(`Terminal authentication could not start: ${message}`);
+    }
+
+    // Finish in the background — the route returns the runId immediately so
+    // the UI can subscribe to output events.
+    void exitPromise
       .then(async (exitCode) => {
         await this.finishTerminalRun(run, exitCode);
       })
       .catch(async () => {
         await this.finishTerminalRun(run, null);
       });
-
     return { mode: "terminal", runId: run.runId };
   }
 
   private handleOutput(run: ActiveRun, data: Uint8Array): void {
     if (run.state !== "running") return;
     run.totalBytes += data.byteLength;
+    // Chunk the full buffer so no output is silently dropped; enforce the
+    // total cap by force-killing a runaway process.
     if (run.totalBytes > OUTPUT_TOTAL_CAP_BYTES) {
       this.publish({ run, state: "running", output: "\r\n[output truncated]\r\n" });
       run.kill?.();
       return;
     }
-    const chunk = data.byteLength > OUTPUT_CHUNK_BYTES ? data.subarray(0, OUTPUT_CHUNK_BYTES) : data;
-    this.publish({ run, state: "running", output: new TextDecoder().decode(chunk) });
+    for (let offset = 0; offset < data.byteLength; offset += OUTPUT_CHUNK_BYTES) {
+      const slice = data.subarray(offset, offset + OUTPUT_CHUNK_BYTES);
+      this.publish({ run, state: "running", output: new TextDecoder().decode(slice) });
+    }
   }
 
   private async finishTerminalRun(run: ActiveRun, exitCode: number | null): Promise<void> {
     this.runsById.delete(run.runId!);
+    try {
+      run.terminal?.close?.();
+    } catch {
+      // best-effort
+    }
     const success = exitCode === 0 && !run.cancelled;
     // Drop cached handles so the next session re-initializes with fresh
     // credentials (or a clean failure state).
@@ -289,4 +335,15 @@ export class DaemonAcpAuthRuntime {
       error: run.state === "error" ? `The agent login process exited with code ${exitCode ?? "unknown"}` : null,
     });
   }
+}
+
+function buildAuthEnv(
+  specEnv: Record<string, string>,
+  methodEnv: Record<string, string>,
+): Record<string, string | undefined> {
+  const env: Record<string, string | undefined> = { ...process.env, ...specEnv, ...methodEnv };
+  if (process.platform !== "win32") {
+    env.TERM = "xterm-256color";
+  }
+  return env;
 }
