@@ -648,20 +648,6 @@ export class DaemonConfigPresenter {
   }
 
   async refreshProviderModels(providerId: string): Promise<MODEL_META[]> {
-    // Coalesce concurrent discovery for the same provider (model picker,
-    // store init, per-agent surfaces all call this) into one upstream request.
-    const inFlight = this.inFlightModelRefreshes.get(providerId);
-    if (inFlight) {
-      return inFlight;
-    }
-    const promise = this.doRefreshProviderModels(providerId).finally(() => {
-      this.inFlightModelRefreshes.delete(providerId);
-    });
-    this.inFlightModelRefreshes.set(providerId, promise);
-    return promise;
-  }
-
-  private async doRefreshProviderModels(providerId: string): Promise<MODEL_META[]> {
     const provider = this.getProviderById(providerId);
     if (!provider) {
       throw new Error(`Provider not found: ${providerId}`);
@@ -672,16 +658,31 @@ export class DaemonConfigPresenter {
     if (!provider.apiKey) {
       throw new Error(`Provider ${providerId} has no API key configured`);
     }
+    // Coalesce concurrent discovery for the same provider (model picker,
+    // store init, per-agent surfaces all call this) into one upstream
+    // request. The key includes the settings fingerprint so a mid-flight
+    // settings change starts a fresh discovery instead of handing back
+    // results fetched with stale credentials.
+    const key = `${providerId}:${provider.apiType}:${provider.baseUrl}:${provider.apiKey}`;
+    const inFlight = this.inFlightModelRefreshes.get(key);
+    if (inFlight) {
+      return inFlight;
+    }
+    const promise = (async () => {
+      const definition = resolveAiSdkProviderDefinition(provider);
+      const modelSource = definition?.modelSource ?? "openai";
 
-    const definition = resolveAiSdkProviderDefinition(provider);
-    const modelSource = definition?.modelSource ?? "openai";
-
-    const models =
-      modelSource === "provider-db"
-        ? await this.fetchProviderModelsFromCatalog(provider)
-        : await this.fetchProviderModels(provider);
-    this.setProviderModels(providerId, models);
-    return models;
+      const models =
+        modelSource === "provider-db"
+          ? await this.fetchProviderModelsFromCatalog(provider)
+          : await this.fetchProviderModels(provider);
+      this.setProviderModels(providerId, models);
+      return models;
+    })().finally(() => {
+      this.inFlightModelRefreshes.delete(key);
+    });
+    this.inFlightModelRefreshes.set(key, promise);
+    return promise;
   }
 
   private async fetchProviderModelsFromCatalog(provider: LLM_PROVIDER): Promise<MODEL_META[]> {

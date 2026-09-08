@@ -28,12 +28,13 @@ next call after completion is a fresh refresh.
 
 ## 3. Release unconsumed fetch response bodies (DeepChat #2251)
 
-Four sites throw/return on `!response.ok` without consuming the error body, which keeps the
+Five sites throw/return on `!response.ok` without consuming the error body, which keeps the
 underlying socket busy until GC:
 
 - `AcpLaunchSpecService.downloadArchive` (`packages/acp-runtime`);
 - `mcprouterManager` list + get (`packages/mcp-runtime`);
-- `providerDbLoader` refresh (`packages/backend-core`).
+- `providerDbLoader` refresh (`packages/backend-core`);
+- `AcpRegistryService` icon fetch (`packages/acp-runtime`, found during the sweep).
 
 Fix: cancel the body (`response.body?.cancel()`, best-effort try/catch) before each
 error return. Success paths already consume. Done inline per file — no new cross-package
