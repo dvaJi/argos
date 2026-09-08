@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Icon } from "@iconify/react";
+import AcpAuthDialog from "#settings/components/AcpAuthDialog";
 import { Button } from "#shadcn/components/ui/button";
 import { Badge } from "#shadcn/components/ui/badge";
 import { Input } from "#shadcn/components/ui/input";
@@ -419,6 +420,8 @@ export default function AcpDiagnostics({
                   options={authMethodOptions}
                   loading={loading}
                   logoutEnabled={Boolean(caps?.authLogout)}
+                  agentId={agentId}
+                  workdir={diagnostics.workdir}
                   onRunAction={runAction}
                 />
 
@@ -591,77 +594,117 @@ const AuthMethodsSection = ({
   options,
   loading,
   logoutEnabled,
+  agentId,
+  workdir,
   onRunAction,
 }: {
   options: Array<{ method: AuthMethod; label: string }>;
   loading: boolean;
   logoutEnabled: boolean;
+  agentId: string;
+  workdir: string | null;
   onRunAction: RunDebugAction;
-}) => (
-  <div>
-    <div className="text-xs font-semibold text-muted-foreground mb-1">Authentication</div>
-    {options.length ? (
-      <div className="flex flex-wrap gap-2">
-        {options.map(({ method, label }) => (
-          <div key={method.id} className="flex w-full flex-col gap-1.5">
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                size="xs"
-                variant="outline"
-                disabled={loading}
-                onClick={() =>
-                  void onRunAction("authenticate", {
-                    methodId: method.id,
-                  })
-                }
-              >
-                {label}
-              </Button>
-              {method.type === "env_var" && method.link && (
-                <a
-                  href={method.link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-xs text-muted-foreground underline hover:text-foreground"
-                >
-                  Get credentials
-                </a>
-              )}
-            </div>
-            {method.type === "env_var" && method.vars?.length ? (
-              <ul className="flex flex-col gap-1 rounded-lg border bg-muted/40 px-2 py-1.5 text-xs">
-                {method.vars.map((variable) => (
-                  <li key={variable.name} className="flex items-center gap-2">
-                    <code className="rounded bg-background px-1 py-0.5 font-mono">{variable.name}</code>
-                    {variable.label ? <span className="text-muted-foreground">{variable.label}</span> : null}
-                    {variable.optional ? (
-                      <Badge variant="outline" className="opacity-70">
-                        optional
-                      </Badge>
-                    ) : (
-                      <Badge variant="secondary">required</Badge>
-                    )}
-                    {variable.secret ? <span className="text-muted-foreground">secret</span> : null}
-                  </li>
-                ))}
-                <li className="pt-0.5 text-muted-foreground">
-                  Set these environment variables, then re-initialize the agent from the ACP providers settings.
-                </li>
-              </ul>
-            ) : null}
-          </div>
-        ))}
-        {logoutEnabled && (
-          <Button size="xs" variant="ghost" disabled={loading} onClick={() => void onRunAction("logout")}>
-            Logout
-          </Button>
-        )}
-      </div>
-    ) : (
-      <span className="text-muted-foreground">No auth required</span>
-    )}
-  </div>
-);
+}) => {
+  const [terminalAuth, setTerminalAuth] = useState<{ methodId: string; name: string } | null>(null);
+  return (
+    <div>
+      <div className="text-xs font-semibold text-muted-foreground mb-1">Authentication</div>
+      {options.length ? (
+        <div className="flex flex-wrap gap-2">
+          {options.map(({ method, label }) => {
+            const isTerminal = method.type === "terminal";
+            return (
+              <div key={method.id} className="flex w-full flex-col gap-1.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  {isTerminal ? (
+                    // Terminal methods must run the agent's login TUI — the
+                    // debug `authenticate` RPC is not valid for them.
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      disabled={loading}
+                      onClick={() => setTerminalAuth({ methodId: method.id, name: method.name ?? method.id })}
+                    >
+                      <Icon icon="lucide:terminal" className="mr-1 size-3" />
+                      Sign in
+                    </Button>
+                  ) : (
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      disabled={loading}
+                      onClick={() =>
+                        void onRunAction("authenticate", {
+                          methodId: method.id,
+                        })
+                      }
+                    >
+                      {label}
+                    </Button>
+                  )}
+                  {method.type === "env_var" && method.link && (
+                    <a
+                      href={method.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-muted-foreground underline hover:text-foreground"
+                    >
+                      Get credentials
+                    </a>
+                  )}
+                </div>
+                {isTerminal ? (
+                  <div className="text-xs text-muted-foreground">
+                    Opens the agent's interactive login in an embedded terminal.
+                  </div>
+                ) : null}
+                {method.type === "env_var" && method.vars?.length ? (
+                  <ul className="flex flex-col gap-1 rounded-lg border bg-muted/40 px-2 py-1.5 text-xs">
+                    {method.vars.map((variable) => (
+                      <li key={variable.name} className="flex items-center gap-2">
+                        <code className="rounded bg-background px-1 py-0.5 font-mono">{variable.name}</code>
+                        {variable.label ? <span className="text-muted-foreground">{variable.label}</span> : null}
+                        {variable.optional ? (
+                          <Badge variant="outline" className="opacity-70">
+                            optional
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary">required</Badge>
+                        )}
+                        {variable.secret ? <span className="text-muted-foreground">secret</span> : null}
+                      </li>
+                    ))}
+                    <li className="pt-0.5 text-muted-foreground">
+                      Set these environment variables, then re-initialize the agent from the ACP providers settings.
+                    </li>
+                  </ul>
+                ) : null}
+              </div>
+            );
+          })}
+          {logoutEnabled && (
+            <Button size="xs" variant="ghost" disabled={loading} onClick={() => void onRunAction("logout")}>
+              Logout
+            </Button>
+          )}
+        </div>
+      ) : (
+        <span className="text-muted-foreground">No auth required</span>
+      )}
+      {terminalAuth ? (
+        <AcpAuthDialog
+          open
+          agentId={agentId}
+          agentName={terminalAuth.name}
+          workdir={workdir}
+          onOpenChange={(next) => {
+            if (!next) setTerminalAuth(null);
+          }}
+        />
+      ) : null}
+    </div>
+  );
+};
 const RemoteSessionsSection = ({
   sessions,
   loading,

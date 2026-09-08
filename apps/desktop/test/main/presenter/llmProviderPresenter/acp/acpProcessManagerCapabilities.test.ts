@@ -26,13 +26,18 @@ const sdkMock = vi.hoisted(() => ({
     },
     authMethods: [{ id: "terminal", name: "Terminal", type: "terminal" }],
   },
+  // Captured initialize/authenticate request payloads for wire assertions.
+  requests: [] as Array<unknown>,
 }));
 
 vi.mock("@agentclientprotocol/sdk", () => {
   const connection = {
     closed: new Promise<void>(() => {}),
     agent: {
-      request: vi.fn<(...args: any[]) => any>(async () => sdkMock.initializeResponse),
+      request: vi.fn<(...args: any[]) => any>(async (...args: any[]) => {
+        sdkMock.requests.push(args[1]);
+        return sdkMock.initializeResponse;
+      }),
       notify: vi.fn<(...args: any[]) => any>(async () => undefined),
     },
   };
@@ -46,6 +51,7 @@ vi.mock("@agentclientprotocol/sdk", () => {
     methods: {
       agent: {
         initialize: "initialize",
+        authenticate: "authenticate",
         session: {
           new: "session/new",
           load: "session/load",
@@ -159,5 +165,69 @@ describe("AcpProcessManager initialized capabilities", () => {
       sessionFork: true,
       authLogout: false,
     });
+  });
+
+  it("advertises clientCapabilities.auth.terminal on the initialize wire request", async () => {
+    const { AcpProcessManager } = await import("@argos/acp-runtime");
+    const manager = new AcpProcessManager({
+      providerId: "acp",
+      ports: createAcpTestPorts(),
+      resolveLaunchSpec: vi.fn<(...args: any[]) => any>(),
+    });
+    const child = new MockChild();
+    vi.spyOn<(...args: any[]) => any>(manager as any, "spawnAgentProcess").mockResolvedValue(child);
+
+    const requestIndex = sdkMock.requests.length;
+    await (manager as any).spawnProcessOnce(
+      { id: "agent-1", name: "Agent One", command: "agent" },
+      "/tmp/workspace",
+      {
+        agentId: "agent-1",
+        source: "manual",
+        distributionType: "manual",
+        command: "agent",
+        args: [],
+        env: {},
+      },
+      "manual:agent",
+    );
+
+    // The client can present terminal auth (PTY + embedded terminal), so the
+    // capability must be advertised unconditionally — agents gate their
+    // authMethods on it. Regression: it used to be computed from the
+    // initialize response (always undefined at that point), so it was never
+    // advertised.
+    const initRequest = sdkMock.requests[requestIndex] as { clientCapabilities?: { auth?: { terminal?: boolean } } };
+    expect(initRequest.clientCapabilities?.auth).toEqual({ terminal: true });
+  });
+
+  it("omits auth.terminal when the host cannot present terminal flows", async () => {
+    const { AcpProcessManager } = await import("@argos/acp-runtime");
+    const manager = new AcpProcessManager({
+      providerId: "acp",
+      ports: createAcpTestPorts(),
+      resolveLaunchSpec: vi.fn<(...args: any[]) => any>(),
+      canPresentTerminalAuth: false,
+    });
+    const child = new MockChild();
+    vi.spyOn<(...args: any[]) => any>(manager as any, "spawnAgentProcess").mockResolvedValue(child);
+
+    const requestIndex = sdkMock.requests.length;
+    await (manager as any).spawnProcessOnce(
+      { id: "agent-1", name: "Agent One", command: "agent" },
+      "/tmp/workspace",
+      {
+        agentId: "agent-1",
+        source: "manual",
+        distributionType: "manual",
+        command: "agent",
+        args: [],
+        env: {},
+      },
+      "manual:agent",
+    );
+
+    const initRequest = sdkMock.requests[requestIndex] as { clientCapabilities?: { auth?: { terminal?: boolean } } };
+    expect(initRequest.clientCapabilities?.auth).toBeUndefined();
   });
 });

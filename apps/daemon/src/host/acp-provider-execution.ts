@@ -26,6 +26,9 @@ import { usageDateKey } from "./bun-session-repository";
 import { createDaemonAcpPorts } from "./acpPorts";
 import { createDaemonAcpSqlitePresenter } from "./daemonAcpSqlite";
 import type { ToolchainService } from "./toolchains/service";
+import { DaemonAcpAuthRuntime } from "./acpAuthRuntime";
+import { resolvePtyTerminalCtor } from "../terminal/daemonTerminalRuntime";
+import { isAuthRequiredError } from "@argos/acp-runtime/protocol/acpCapabilities";
 import { sessionsStatusChangedEvent } from "@argos/shared-contracts";
 import { methods as acpMethods, PROTOCOL_VERSION } from "@agentclientprotocol/sdk";
 import type { AcpConfigState, AcpAgentDiagnostics, AcpDebugRequest, AcpDebugRunResult } from "@argos/shared/presenter";
@@ -57,6 +60,7 @@ type PendingAcpPermission = {
  */
 export class AcpProviderExecutionPort implements ProviderExecutionPort {
   private runtimePromise: Promise<AcpRuntime> | null = null;
+  private authRuntimePromise: Promise<DaemonAcpAuthRuntime> | null = null;
   private activeTurns = new Map<
     string,
     {
@@ -120,6 +124,62 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
       })();
     }
     return this.runtimePromise;
+  }
+
+  /** Auth flows (agent-method authenticate + terminal login TUI). */
+  private async getAuthRuntime(): Promise<DaemonAcpAuthRuntime> {
+    if (!this.authRuntimePromise) {
+      this.authRuntimePromise = (async () => {
+        const runtime = await this.getRuntime();
+        return new DaemonAcpAuthRuntime({
+          eventPublisher: this.eventPublisher,
+          getProcessManager: async () => runtime.processManager,
+          resolveLaunchSpec: async (agentId, workdir) => {
+            const spec = await this.configPresenter.resolveAcpLaunchSpec(agentId, workdir);
+            return { command: spec.command, args: spec.args ?? [], env: spec.env ?? null };
+          },
+          ptyFactory: (options) => {
+            const ctor = resolvePtyTerminalCtor();
+            return new ctor({
+              cols: options.cols,
+              rows: options.rows,
+              data: (_terminal, data) =>
+                options.onData(typeof data === "string" ? new TextEncoder().encode(data) : data),
+            }) as unknown as { write: (data: string | Uint8Array) => void; kill: (signal?: string) => void };
+          },
+          spawnPty: (argv, options) =>
+            Bun.spawn(argv, {
+              cwd: options.cwd,
+              env: options.env,
+              terminal: options.terminal,
+            } as unknown as Parameters<typeof Bun.spawn>[1]) as unknown as {
+              write: (data: string | Uint8Array) => void;
+              kill: (signal?: string) => void;
+              exited: Promise<number>;
+            },
+        });
+      })();
+    }
+    return this.authRuntimePromise;
+  }
+
+  /** Entry point for the ACP auth dialog (agent + terminal methods). */
+  async startAcpAuth(input: { agentId: string; workdir?: string; methodId: string }): Promise<{
+    mode: "agent" | "terminal";
+    runId: string | null;
+  }> {
+    const auth = await this.getAuthRuntime();
+    return await auth.start(input);
+  }
+
+  async writeAcpAuthInput(runId: string, data: string): Promise<void> {
+    const auth = await this.getAuthRuntime();
+    auth.write(runId, data);
+  }
+
+  async cancelAcpAuth(agentId: string): Promise<void> {
+    const auth = await this.getAuthRuntime();
+    auth.cancel({ agentId });
   }
 
   private async getSessionRecord(conversationId: string): Promise<AcpSessionRecord | null> {
@@ -291,15 +351,29 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
 
     await runtime.sessionPersistence.updateWorkdir(conversationId, agent.id, persistedWorkdir);
 
-    await runtime.sessionManager.getOrCreateSession(
-      conversationId,
-      agent as never,
-      {
-        onSessionUpdate: () => {},
-        onPermission: async () => ({ outcome: { outcome: "cancelled" } }),
-      },
-      normalizedWorkdir,
-    );
+    try {
+      await runtime.sessionManager.getOrCreateSession(
+        conversationId,
+        agent as never,
+        {
+          onSessionUpdate: () => {},
+          onPermission: async () => ({ outcome: { outcome: "cancelled" } }),
+        },
+        normalizedWorkdir,
+      );
+    } catch (error) {
+      if (isAuthRequiredError(error)) {
+        // The dispatcher swallows draft-prep failures; the event is what makes
+        // them actionable in the UI.
+        this.eventPublisher.publish("acp.auth.required", {
+          sessionId: conversationId,
+          agentId,
+          workdir: normalizedWorkdir,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+      throw error;
+    }
 
     try {
       const configState = await this.getAcpSessionConfigOptions(conversationId);
@@ -600,6 +674,38 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
       await this.turnSettledHandler?.(sessionId);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
+      if (isAuthRequiredError(error)) {
+        // Surface an actionable auth state instead of a raw JSON-RPC string.
+        const agentId = agent?.id ?? "";
+        const handle = runtime.processManager.listProcesses().find((candidate) => candidate.agentId === agentId);
+        this.eventPublisher.publish("acp.auth.required", {
+          sessionId,
+          agentId,
+          workdir: handle?.workdir ?? null,
+          message: errorMsg,
+        });
+        const friendly = `This agent requires sign-in. Open "Sign in" to authenticate (${agent?.name ?? agentId}).`;
+        await this.sessionRepository.setMessageError(
+          assistantMessageId,
+          [{ type: "error", content: friendly, status: "error", timestamp: Date.now() }],
+          JSON.stringify({ model: agent?.id ?? "", provider: "acp", authRequired: true }),
+        );
+        this.eventPublisher.publish("chat.stream.failed", {
+          requestId,
+          sessionId,
+          messageId: assistantMessageId,
+          failedAt: Date.now(),
+          error: friendly,
+        });
+        await this.sessionRepository.setSessionStatus?.(sessionId, "error");
+        this.eventPublisher.publish(sessionsStatusChangedEvent.name, {
+          sessionId,
+          status: "error",
+          reason: "auth-required",
+          version: 1,
+        });
+        return;
+      }
       await this.sessionRepository.setMessageError(
         assistantMessageId,
         blocks.length > 0 ? blocks : [{ type: "error", content: errorMsg, status: "error", timestamp: Date.now() }],
