@@ -30,6 +30,7 @@ import type { IConfigPresenter } from "@argos/shared/presenter";
 import { resolveDaemonVersion } from "../version";
 import type { DaemonTerminalRuntime } from "../terminal/daemonTerminalRuntime";
 import { diagnoseDaemonSchema, repairDaemonSchema } from "../host/daemonSchemaDiagnostics";
+import { settleSessionForOwnershipChange, type SettleSessionHost } from "../host/sessionSettlement";
 import { getPiToolDefinitions } from "../host/piToolCatalog";
 import { aggregateUsageStats, resolveBuiltinModelPrice } from "../host/usageStatsAggregator";
 import { resolveModelCost } from "../host/modelCost";
@@ -371,6 +372,7 @@ type DaemonProviderExecutionPort = Required<
     | "setAcpPreferredProcessMode"
     | "prepareAcpSession"
     | "clearAcpSession"
+    | "purgeAcpSessionData"
     | "getAcpSessionModes"
     | "setAcpSessionMode"
     | "resolveAgentPermission"
@@ -939,6 +941,40 @@ export function createDaemonDispatcher(
     sessionRepository: DaemonSessionRepositoryPort;
     providerExecutionPort: DaemonProviderExecutionPort;
   } = { sessionRepository, providerExecutionPort };
+  const settlementHost: SettleSessionHost = {
+    getSession: async (sessionId) => (await (sessionRepository as any).get?.(sessionId)) ?? null,
+    listPendingInputs: async (sessionId) => (await (sessionRepository as any).listPendingInputs?.(sessionId)) ?? [],
+    deletePendingInput: async (sessionId, itemId) => {
+      await (sessionRepository as any).deletePendingInput?.(sessionId, itemId);
+    },
+    cancelGeneration: (sessionId) => providerExecutionPort.cancelGeneration(sessionId),
+    purgeAcpSessionData: (sessionId) => providerExecutionPort.purgeAcpSessionData?.(sessionId),
+  };
+  /**
+   * Resolve the execution context a session receives when moved to `toAgentId`.
+   * ACP targets keep the historical `providerId: "acp"` + `modelId: <agent>`
+   * convention; Argos targets must receive the target agent's default model —
+   * labelling them `acp` would break the next send ("ACP agent not found").
+   */
+  const resolveMoveTargetContext = async (
+    toAgentId: string,
+  ): Promise<{ agentId: string; providerId: string; modelId: string }> => {
+    const agentType = await daemonConfig.getAgentType(toAgentId);
+    if (agentType === "acp") {
+      return { agentId: toAgentId, providerId: "acp", modelId: toAgentId };
+    }
+    if (agentType !== "argos") {
+      throw new Error(`Target agent not found: ${toAgentId}`);
+    }
+    const config = await daemonConfig.resolveArgosAgentConfig(toAgentId);
+    const defaultModel = daemonConfig.getDefaultModel();
+    const providerId = config?.defaultModelPreset?.providerId?.trim() || defaultModel?.providerId?.trim() || "";
+    const modelId = config?.defaultModelPreset?.modelId?.trim() || defaultModel?.modelId?.trim() || "";
+    if (!providerId || !modelId) {
+      throw new Error(`Target Argos agent does not have a default model: ${toAgentId}`);
+    }
+    return { agentId: toAgentId, providerId, modelId };
+  };
   const daemonConfig = configPresenter as IConfigPresenter & DaemonMcpConfigPort & DaemonProviderConfigPort;
   const daemonSettings = configPresenter as IConfigPresenter & DaemonScheduledTaskConfigPort;
 
@@ -3082,6 +3118,9 @@ export function createDaemonDispatcher(
       const deletedSessionIds: string[] = [];
 
       for (const session of sessions) {
+        // Settle before the ownership change: discard queued inputs, cancel a
+        // running turn and wait for it to settle, release ACP bindings.
+        await settleSessionForOwnershipChange(session.id, settlementHost);
         const messages = await repo.listMessages(session.id);
         const children = await repo.list({ includeSubagents: true, parentSessionId: session.id });
         const isEmptyDraft = Boolean(session.isDraft) && messages.length === 0 && children.length === 0;
@@ -3090,10 +3129,9 @@ export function createDaemonDispatcher(
           deletedSessionIds.push(session.id);
           continue;
         }
+        const targetContext = await resolveMoveTargetContext(input.toAgentId);
         await repo.moveSessionToAgent(session.id, {
-          agentId: input.toAgentId,
-          providerId: "acp",
-          modelId: input.toAgentId,
+          ...targetContext,
           projectDir: session.projectDir ?? null,
           permissionMode: session.permissionMode ?? "default",
           subagentEnabled: Boolean(session.subagentEnabled),
@@ -3115,6 +3153,9 @@ export function createDaemonDispatcher(
       const sessions = await repo.list({ agentId: input.agentId, includeSubagents: true });
       const deletedSessionIds: string[] = [];
       for (const session of sessions) {
+        // Settle first: cancel a running turn (bounded wait) and discard
+        // queued inputs so deletion cannot race the runtime.
+        await settleSessionForOwnershipChange(session.id, settlementHost);
         await repo.delete(session.id);
         deletedSessionIds.push(session.id);
       }
@@ -3128,10 +3169,10 @@ export function createDaemonDispatcher(
       if (!session) {
         throw new Error(`Session not found: ${input.sessionId}`);
       }
+      await settleSessionForOwnershipChange(input.sessionId, settlementHost);
+      const targetContext = await resolveMoveTargetContext(input.toAgentId);
       const updated = await repo.moveSessionToAgent(input.sessionId, {
-        agentId: input.toAgentId,
-        providerId: "acp",
-        modelId: input.toAgentId,
+        ...targetContext,
         projectDir: session.projectDir ?? null,
         permissionMode: session.permissionMode ?? "default",
         subagentEnabled: Boolean(session.subagentEnabled),
@@ -3143,6 +3184,7 @@ export function createDaemonDispatcher(
 
     if (route === sessionsDeleteRoute.name) {
       const input = sessionsDeleteRoute.input.parse(rawInput);
+      await settleSessionForOwnershipChange(input.sessionId, settlementHost);
       await (runtime as any).sessionRepository.delete(input.sessionId);
       return sessionsDeleteRoute.output.parse({ deleted: true });
     }

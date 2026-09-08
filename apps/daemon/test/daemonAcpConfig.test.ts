@@ -261,4 +261,62 @@ describe("DaemonAcpConfig reconcileInstalledAgents", () => {
 
     await expect(config.uninstallAcpRegistryAgent(binaryOkAgent.id)).rejects.toThrow("still has related conversations");
   });
+
+  describe("getAcpAgentTypeIncludingState", () => {
+    it("resolves disabled and uninstalled registry agents", async () => {
+      const harness = createConfig({
+        // disabled-agent is registered but disabled; locked-agent has no
+        // install state at all (never installed).
+        registryStates: { [disabledAgent.id]: { enabled: false } },
+      });
+
+      await harness.config.initialReconcile;
+
+      expect(harness.config.getAcpAgentTypeIncludingState(disabledAgent.id)).toBe("acp");
+      expect(harness.config.getAcpAgentTypeIncludingState(binaryFailAgent.id)).toBe("acp");
+      expect(harness.config.getAcpAgentTypeIncludingState("unknown-agent")).toBeNull();
+    });
+
+    it("resolves disabled manual agents and tolerates alias lookups", async () => {
+      const configDir = fs.mkdtempSync(path.join(os.tmpdir(), "argos-acp-cfg-"));
+      const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "argos-acp-data-"));
+      roots.push(configDir, dataDir);
+
+      fs.mkdirSync(path.join(dataDir, "acp-registry"), { recursive: true });
+      fs.writeFileSync(
+        path.join(dataDir, "acp-registry", "meta.json"),
+        JSON.stringify({ version: "1.0.0", lastUpdated: Date.now(), lastAttemptedAt: Date.now(), sourceUrl: "" }),
+      );
+      fs.writeFileSync(
+        path.join(dataDir, "acp-registry", "registry.json"),
+        JSON.stringify({ version: "1.0.0", agents: [] }),
+      );
+      fs.mkdirSync(configDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(configDir, "acp_agents.json"),
+        JSON.stringify({
+          enabled: true,
+          version: "4",
+          registryStates: {},
+          manualAgents: [
+            {
+              id: "manual-1",
+              name: "Manual Agent",
+              source: "manual",
+              enabled: false,
+              command: "manual-agent",
+              args: [],
+            },
+          ],
+          installStates: {},
+          sharedMcpSelections: [],
+        }),
+      );
+
+      const config = new DaemonAcpConfig({ configDir, dataDir });
+
+      expect(config.getAcpAgentTypeIncludingState("manual-1")).toBe("acp");
+      expect(config.getAcpAgentTypeIncludingState("unknown")).toBeNull();
+    });
+  });
 });

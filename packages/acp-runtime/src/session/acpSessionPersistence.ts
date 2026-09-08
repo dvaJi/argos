@@ -252,6 +252,11 @@ export class AcpSessionPersistence {
     await this.sqlitePresenter.deleteAcpSession(conversationId, agentId);
   }
 
+  /** Delete every binding row recorded for a conversation (all agent ids). */
+  async deleteAllSessions(conversationId: string): Promise<void> {
+    await this.sqlitePresenter.deleteAcpSessions(conversationId);
+  }
+
   async clearSession(conversationId: string, agentId: string): Promise<void> {
     await this.updateStatus(conversationId, agentId, "idle");
   }

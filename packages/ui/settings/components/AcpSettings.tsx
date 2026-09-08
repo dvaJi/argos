@@ -39,12 +39,18 @@ import {
   DialogTitle,
 } from "#shadcn/components/ui/dialog";
 import type { AcpManualAgent, AcpRegistryAgent } from "@argos/shared/presenter";
+import type { AgentTransferImpact } from "@argos/shared/types/agent-interface";
 import { createConfigClient } from "#api/ConfigClient";
+import { createSessionClient } from "#api/SessionClient";
 import { toast } from "#/components/use-toast";
 import AcpDebugDialog from "./AcpDebugDialog";
 import AcpDiagnostics from "./AcpDiagnostics";
 import AcpAgentIcon from "#/components/icons/AcpAgentIcon";
 import AgentMcpSelector from "#/components/mcp-config/AgentMcpSelector";
+import AgentTransferDialog, { type TransferDialogAgent } from "#/components/agent/AgentTransferDialog";
+
+const sessionClient = createSessionClient();
+
 type RegistryDialogFilter = "all" | "installed" | "not_installed";
 const parseEnvBlock = (value: string): Record<string, string> => {
   return Object.fromEntries(
@@ -243,6 +249,12 @@ const useAcpSettingsController = () => {
   const [connectionCheckRequests, setConnectionCheckRequests] = useState<Record<string, number>>({});
   const [uninstallOpen, setUninstallOpen] = useState(false);
   const [uninstallAgent, setUninstallAgent] = useState<AcpRegistryAgent | null>(null);
+  const [uninstallImpact, setUninstallImpact] = useState<AgentTransferImpact | null>(null);
+  const [uninstallImpactLoading, setUninstallImpactLoading] = useState(false);
+  const [uninstallTransferOpen, setUninstallTransferOpen] = useState(false);
+  const [uninstallTransferBusy, setUninstallTransferBusy] = useState(false);
+  const [uninstallTransferError, setUninstallTransferError] = useState<string | null>(null);
+  const [uninstallTargets, setUninstallTargets] = useState<TransferDialogAgent[]>([]);
   const setPending = (id: string, pending: boolean) =>
     setAgentPending((current) => updatePendingState(current, id, pending));
   const requestConnectionCheck = (id: string) =>
@@ -437,13 +449,75 @@ const useAcpSettingsController = () => {
   const confirmRegistryAgentUninstall = (agent: AcpRegistryAgent) => {
     setUninstallAgent(agent);
     setUninstallOpen(true);
+    setUninstallImpact(null);
+    setUninstallImpactLoading(true);
+    setUninstallTransferError(null);
+    // Prefetch the conversation impact so the confirm step can route to the
+    // transfer dialog when the agent still owns conversations.
+    void Promise.all([sessionClient.getAgentTransferImpact(agent.id), configClient.listAgents()])
+      .then(([impact, agents]) => {
+        setUninstallImpact(impact);
+        setUninstallTargets(agents ?? []);
+      })
+      .catch((error) => {
+        console.warn("[ACP] uninstall impact lookup failed:", error);
+        setUninstallImpact(null);
+      })
+      .finally(() => setUninstallImpactLoading(false));
+  };
+  const finishUninstall = () => {
+    setUninstallOpen(false);
+    setUninstallTransferOpen(false);
+    setUninstallAgent(null);
+    setUninstallImpact(null);
+    setUninstallTransferError(null);
   };
   const confirmRegistryAgentUninstallAction = async () => {
     const agent = uninstallAgent;
     if (!agent) return;
+    // Conversations still bound to this agent must be moved or deleted
+    // first — route to the transfer dialog instead of failing the uninstall.
+    if (uninstallImpactLoading) return;
+    if ((uninstallImpact?.totalSessions ?? 0) > 0) {
+      setUninstallOpen(false);
+      setUninstallTransferOpen(true);
+      return;
+    }
     setUninstallOpen(false);
     await uninstallRegistryAgent(agent);
-    setUninstallAgent(null);
+    finishUninstall();
+  };
+  const handleUninstallWithMove = async (payload: { targetAgentId: string }) => {
+    const agent = uninstallAgent;
+    if (!agent) return;
+    setUninstallTransferBusy(true);
+    setUninstallTransferError(null);
+    try {
+      await sessionClient.moveAgentSessions(agent.id, payload.targetAgentId);
+      await configClient.uninstallAcpRegistryAgent(agent.id);
+      await loadAcpData();
+      finishUninstall();
+      toast({ title: "Agent removed" });
+    } catch (error) {
+      setUninstallTransferError(error instanceof Error ? error.message : String(error));
+    }
+    setUninstallTransferBusy(false);
+  };
+  const handleUninstallWithDelete = async () => {
+    const agent = uninstallAgent;
+    if (!agent) return;
+    setUninstallTransferBusy(true);
+    setUninstallTransferError(null);
+    try {
+      await sessionClient.deleteAgentSessions(agent.id);
+      await configClient.uninstallAcpRegistryAgent(agent.id);
+      await loadAcpData();
+      finishUninstall();
+      toast({ title: "Agent removed" });
+    } catch (error) {
+      setUninstallTransferError(error instanceof Error ? error.message : String(error));
+    }
+    setUninstallTransferBusy(false);
   };
   const handleRegistryCatalogAction = async (agent: AcpRegistryAgent) => {
     const status = agent.installState?.status ?? "not_installed";
@@ -498,6 +572,15 @@ const useAcpSettingsController = () => {
     updateRegistryAgent,
     confirmRegistryAgentUninstall,
     confirmRegistryAgentUninstallAction,
+    uninstallImpact,
+    uninstallImpactLoading,
+    uninstallTransferOpen,
+    uninstallTransferBusy,
+    uninstallTransferError,
+    uninstallTargets,
+    setUninstallTransferOpen,
+    handleUninstallWithMove,
+    handleUninstallWithDelete,
     handleRegistryCatalogAction,
     toggleManualAgentEnabled,
     deleteManualAgent,
@@ -529,6 +612,15 @@ export default function AcpSettings() {
     updateRegistryAgent,
     confirmRegistryAgentUninstall,
     confirmRegistryAgentUninstallAction,
+    uninstallImpact,
+    uninstallImpactLoading,
+    uninstallTransferOpen,
+    uninstallTransferBusy,
+    uninstallTransferError,
+    uninstallTargets,
+    setUninstallTransferOpen,
+    handleUninstallWithMove,
+    handleUninstallWithDelete,
     handleRegistryCatalogAction,
     toggleManualAgentEnabled,
     deleteManualAgent,
@@ -735,9 +827,27 @@ export default function AcpSettings() {
       <UninstallAlertDialog
         open={uninstallOpen}
         agent={uninstallAgent}
+        impactLoading={uninstallImpactLoading}
+        hasConversations={(uninstallImpact?.totalSessions ?? 0) > 0}
         onOpenChange={setUninstallOpen}
         onCancel={() => setUninstallOpen(false)}
         onConfirm={() => void confirmRegistryAgentUninstallAction()}
+      />
+
+      <AgentTransferDialog
+        open={uninstallTransferOpen}
+        mode="delete-agent"
+        sourceAgentId={uninstallAgent?.id ?? ""}
+        sourceAgentName={uninstallAgent?.name ?? ""}
+        agents={uninstallTargets}
+        impact={uninstallImpact}
+        loading={uninstallImpactLoading}
+        busy={uninstallTransferBusy}
+        error={uninstallTransferError}
+        title={uninstallAgent ? `Uninstall ${uninstallAgent.name}` : undefined}
+        onOpenChange={setUninstallTransferOpen}
+        onConfirmMove={(payload) => void handleUninstallWithMove(payload)}
+        onConfirmDelete={() => void handleUninstallWithDelete()}
       />
 
       <AcpDebugDialog open={debugOpen} agentId={debugAgentId} agentName={debugAgentName} onOpenChange={setDebugOpen} />
@@ -1616,12 +1726,16 @@ const RegistryDialog = ({
 const UninstallAlertDialog = ({
   open,
   agent,
+  impactLoading,
+  hasConversations,
   onOpenChange,
   onCancel,
   onConfirm,
 }: {
   open: boolean;
   agent: AcpRegistryAgent | null;
+  impactLoading: boolean;
+  hasConversations: boolean;
   onOpenChange: (open: boolean) => void;
   onCancel: () => void;
   onConfirm: () => void;
@@ -1631,17 +1745,21 @@ const UninstallAlertDialog = ({
       <AlertDialogHeader>
         <AlertDialogTitle>{agent ? `Uninstall ${agent.name}?` : "Uninstall Agent?"}</AlertDialogTitle>
         <AlertDialogDescription>
-          This will remove the agent and its configuration. You can reinstall it from the registry later.
+          {hasConversations
+            ? "This agent still has conversations. You can move them to another agent or delete them before removal. The agent and its configuration will be removed either way."
+            : impactLoading
+              ? "Checking for related conversations..."
+              : "This will remove the agent and its configuration. You can reinstall it from the registry later."}
         </AlertDialogDescription>
       </AlertDialogHeader>
       <AlertDialogFooter>
         <AlertDialogCancel onClick={onCancel}>Cancel</AlertDialogCancel>
         <AlertDialogAction
           className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-          disabled={!agent}
+          disabled={!agent || impactLoading}
           onClick={onConfirm}
         >
-          Uninstall
+          {hasConversations ? "Continue" : "Uninstall"}
         </AlertDialogAction>
       </AlertDialogFooter>
     </AlertDialogContent>

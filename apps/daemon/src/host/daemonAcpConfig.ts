@@ -57,6 +57,26 @@ export class DaemonAcpConfig {
     return this.acpConfHelper.getGlobalEnabled();
   }
 
+  /**
+   * Resolve the ACP agent type regardless of enabled/install state. Unlike
+   * `getAcpAgents()` (which only surfaces enabled+installed agents), this lets
+   * callers identify sessions bound to a disabled or uninstalled agent so they
+   * can be moved or deleted before agent removal.
+   */
+  getAcpAgentTypeIncludingState(agentId: string): "acp" | null {
+    const resolvedId = resolveAcpAgentAlias(agentId);
+    const manual = this.acpConfHelper.getManualAgents().some((agent) => agent.id === resolvedId);
+    if (manual) return "acp";
+    try {
+      const registered = this.acpRegistryService.listAgents().some((agent) => agent.id === resolvedId);
+      return registered ? "acp" : null;
+    } catch (error) {
+      // A missing/unreadable registry snapshot must not break type resolution.
+      logger.warn("[ACP] registry agent lookup failed:", error);
+      return null;
+    }
+  }
+
   async setAcpEnabled(enabled: boolean): Promise<void> {
     this.acpConfHelper.setGlobalEnabled(enabled);
   }

@@ -2,7 +2,8 @@ import { readFileSync, renameSync, writeFileSync, existsSync, mkdirSync } from "
 import { homedir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { DEFAULT_PROVIDERS, normalizeScheduledTasksConfig } from "@argos/backend-core";
+import { DEFAULT_PROVIDERS, normalizeScheduledTasksConfig, resolveAcpAgentAlias } from "@argos/backend-core";
+import { BUILTIN_ARGOS_AGENT_ID } from "@argos/agent-runtime";
 import { ProviderDbLoader, resolveAiSdkProviderDefinition } from "@argos/backend-core/provider";
 import type {
   BuiltinKnowledgeConfig,
@@ -1262,6 +1263,20 @@ export class DaemonConfigPresenter {
 
   async getArgosAgent(agentId: string): Promise<Agent | null> {
     return this.argosAgentRuntime ? this.argosAgentRuntime.getAgent(agentId) : null;
+  }
+
+  /**
+   * State-agnostic agent-type resolution. Registry/manual ACP agents resolve
+   * even when disabled or uninstalled so sessions bound to them remain
+   * movable/deletable ahead of agent removal (see
+   * docs/issues/acp-agent-removal-settlement).
+   */
+  async getAgentType(agentId: string): Promise<"argos" | "acp" | null> {
+    const resolvedId = resolveAcpAgentAlias(String(agentId ?? "").trim());
+    if (!resolvedId) return null;
+    if (resolvedId === BUILTIN_ARGOS_AGENT_ID) return "argos";
+    if (this.argosAgentRuntime?.getAgent(resolvedId)) return "argos";
+    return this.acpConfig.getAcpAgentTypeIncludingState(resolvedId);
   }
 
   async getArgosAgentConfig(agentId: string): Promise<any> {

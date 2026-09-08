@@ -27,6 +27,8 @@ interface AgentTransferDialogProps {
   loading?: boolean;
   busy?: boolean;
   error?: string | null;
+  /** Optional title override (e.g. "Uninstall X" instead of "Delete X"). */
+  title?: string;
   onOpenChange: (open: boolean) => void;
   onConfirmMove: (payload: { targetAgentId: string }) => void;
   onConfirmDelete: () => void;
@@ -42,6 +44,7 @@ export default function AgentTransferDialog({
   loading = false,
   busy = false,
   error = null,
+  title,
   onOpenChange,
   onConfirmMove,
   onConfirmDelete,
@@ -52,7 +55,7 @@ export default function AgentTransferDialog({
     (agent) => agent.enabled !== false && agent.id !== sourceAgentId && agent.type === "argos",
   );
   const showTargetPicker = mode === "move-session" || action === "move";
-  const title = mode === "delete-agent" ? `Delete ${sourceAgentName}` : "Move Conversation";
+  const dialogTitle = title ?? (mode === "delete-agent" ? `Delete ${sourceAgentName}` : "Move Conversation");
   const description =
     mode === "delete-agent"
       ? "Choose how to handle existing conversations"
@@ -95,7 +98,7 @@ export default function AgentTransferDialog({
         }}
       >
         <DialogHeader className="border-b px-5 pb-4 pt-5">
-          <DialogTitle>{title}</DialogTitle>
+          <DialogTitle>{dialogTitle}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
 

@@ -487,6 +487,20 @@ export const configListAgentsRoute = defineRouteContract({
   }),
 });
 
+// State-agnostic agent-type lookup. Unlike config.listAgents (which excludes
+// disabled/uninstalled registry ACP agents), this resolves the type of any
+// known agent so sessions bound to a disabled agent can still be assessed,
+// moved, or deleted before agent removal.
+export const configGetAgentTypeRoute = defineRouteContract({
+  name: "config.getAgentType",
+  input: zod.object({
+    agentId: zod.string().min(1),
+  }),
+  output: zod.object({
+    agentType: zod.enum(["argos", "acp"]).nullable(),
+  }),
+});
+
 export const configResolveArgosAgentConfigRoute = defineRouteContract({
   name: "config.resolveArgosAgentConfig",
   input: zod.object({

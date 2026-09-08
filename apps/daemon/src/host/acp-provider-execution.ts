@@ -881,6 +881,18 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
     }
   }
 
+  async purgeAcpSessionData(sessionId: string): Promise<void> {
+    // Best-effort: stop any active turn first so the binding cannot be
+    // re-created mid-purge, then delete the durable `acp_sessions` rows.
+    await this.cancelGeneration(sessionId).catch(() => undefined);
+    try {
+      const runtime = await this.getRuntime();
+      await runtime.sessionPersistence.deleteAllSessions(sessionId);
+    } catch (error) {
+      console.warn(`[ACP] Failed to purge session data for ${sessionId}:`, error);
+    }
+  }
+
   async respondToolInteraction(
     sessionId: string,
     _messageId: string,

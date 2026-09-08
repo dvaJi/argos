@@ -1206,6 +1206,7 @@ describe("daemon session migration routes", () => {
       {
         getDefaultModel: vi.fn(() => ({ providerId: "provider-1", modelId: "model-1" })),
         getDefaultProjectPath: vi.fn(() => "/tmp/project"),
+        getAgentType: vi.fn(async (agentId: string) => (agentId === "acp-agent-2" ? "acp" : null)),
       } as any,
       undefined,
       sessionRepository as any,
@@ -1236,6 +1237,188 @@ describe("daemon session migration routes", () => {
         modelId: "acp-agent-2",
       }),
     );
+  });
+
+  it("settles sessions before deleting agent sessions", async () => {
+    const session = {
+      id: "session-1",
+      agentId: "acp-agent-1",
+      title: "Bound to a disabled agent",
+      projectDir: "/tmp/project",
+      isPinned: false,
+      isDraft: false,
+      sessionKind: "regular",
+      parentSessionId: null,
+      subagentEnabled: false,
+      createdAt: 1,
+      updatedAt: 1,
+      status: "idle",
+      providerId: "acp",
+      modelId: "acp-agent-1",
+    };
+
+    const sessionRepository = {
+      get: vi.fn(async () => ({ ...session, status: "idle" })),
+      list: vi.fn(async () => [session]),
+      listPendingInputs: vi.fn(async () => [
+        { id: "queue-1", sessionId: "session-1", mode: "queue", state: "pending" },
+        { id: "steer-1", sessionId: "session-1", mode: "steer", state: "pending" },
+      ]),
+      deletePendingInput: vi.fn(async () => undefined),
+      delete: vi.fn(async () => undefined),
+    };
+
+    const providerExecutionPort = {
+      cancelGeneration: vi.fn(async () => undefined),
+      purgeAcpSessionData: vi.fn(async () => undefined),
+    };
+
+    const dispatcher = createDaemonDispatcher(
+      {
+        getDefaultModel: vi.fn(() => ({ providerId: "provider-1", modelId: "model-1" })),
+        getDefaultProjectPath: vi.fn(() => "/tmp/project"),
+      } as any,
+      undefined,
+      sessionRepository as any,
+      providerExecutionPort as any,
+    );
+
+    await expect(dispatcher("sessions.deleteAgentSessions", { agentId: "acp-agent-1" })).resolves.toEqual({
+      deletedSessionIds: ["session-1"],
+    });
+
+    // Queue input discarded, steer input kept, bindings purged, then delete.
+    expect(sessionRepository.deletePendingInput).toHaveBeenCalledWith("session-1", "queue-1");
+    expect(sessionRepository.deletePendingInput).not.toHaveBeenCalledWith("session-1", "steer-1");
+    expect(sessionRepository.delete).toHaveBeenCalledWith("session-1");
+    expect(providerExecutionPort.cancelGeneration).not.toHaveBeenCalled();
+    expect(providerExecutionPort.purgeAcpSessionData).toHaveBeenCalledWith("session-1");
+  });
+
+  it("cancels and waits for a generating session before deleting agent sessions", async () => {
+    let status: string | null = "generating";
+    const session = {
+      id: "session-2",
+      agentId: "acp-agent-1",
+      title: "Still generating",
+      projectDir: "/tmp/project",
+      isPinned: false,
+      isDraft: false,
+      sessionKind: "regular",
+      parentSessionId: null,
+      subagentEnabled: false,
+      createdAt: 1,
+      updatedAt: 1,
+      status,
+      providerId: "acp",
+      modelId: "acp-agent-1",
+    };
+
+    const sessionRepository = {
+      get: vi.fn(async () => ({ ...session, status })),
+      list: vi.fn(async () => [session]),
+      listPendingInputs: vi.fn(async () => []),
+      deletePendingInput: vi.fn(async () => undefined),
+      delete: vi.fn(async () => {
+        status = null;
+      }),
+    };
+
+    const providerExecutionPort = {
+      cancelGeneration: vi.fn(async () => {
+        // Emulate the runtime's asynchronous settle: the abort transitions the
+        // session out of `generating` shortly after cancellation.
+        await new Promise<void>((resolve) => setTimeout(resolve, 20));
+        status = "idle";
+      }),
+      purgeAcpSessionData: vi.fn(async () => undefined),
+    };
+
+    const dispatcher = createDaemonDispatcher(
+      {
+        getDefaultModel: vi.fn(() => ({ providerId: "provider-1", modelId: "model-1" })),
+        getDefaultProjectPath: vi.fn(() => "/tmp/project"),
+      } as any,
+      undefined,
+      sessionRepository as any,
+      providerExecutionPort as any,
+    );
+
+    await expect(dispatcher("sessions.deleteAgentSessions", { agentId: "acp-agent-1" })).resolves.toEqual({
+      deletedSessionIds: ["session-2"],
+    });
+
+    expect(providerExecutionPort.cancelGeneration).toHaveBeenCalledWith("session-2");
+    expect(sessionRepository.delete).toHaveBeenCalledWith("session-2");
+  });
+
+  it("moves sessions to an Argos agent using the target agent's default model", async () => {
+    const session = {
+      id: "session-1",
+      agentId: "acp-agent-1",
+      title: "Leaving a disabled ACP agent",
+      projectDir: "/tmp/project",
+      isPinned: false,
+      isDraft: false,
+      sessionKind: "regular",
+      parentSessionId: null,
+      subagentEnabled: false,
+      createdAt: 1,
+      updatedAt: 1,
+      status: "idle",
+      providerId: "acp",
+      modelId: "acp-agent-1",
+    };
+
+    const sessionRepository = {
+      get: vi.fn(async () => ({ ...session, status: "idle" })),
+      list: vi.fn(async () => [session]),
+      listMessages: vi.fn(async () => [{ id: "m-1" }]),
+      listPendingInputs: vi.fn(async () => []),
+      deletePendingInput: vi.fn(async () => undefined),
+      moveSessionToAgent: vi.fn(async (_sessionId: string, input: Record<string, unknown>) => ({
+        ...session,
+        ...input,
+      })),
+      getGenerationSettings: vi.fn(async () => null),
+      getDisabledAgentTools: vi.fn(async () => []),
+      delete: vi.fn(async () => undefined),
+    };
+
+    const providerExecutionPort = {
+      cancelGeneration: vi.fn(async () => undefined),
+      purgeAcpSessionData: vi.fn(async () => undefined),
+    };
+
+    const dispatcher = createDaemonDispatcher(
+      {
+        getDefaultModel: vi.fn(() => ({ providerId: "fallback-provider", modelId: "fallback-model" })),
+        getDefaultProjectPath: vi.fn(() => "/tmp/project"),
+        getAgentType: vi.fn(async (agentId: string) => (agentId === "argos-agent-2" ? "argos" : null)),
+        resolveArgosAgentConfig: vi.fn(async () => ({
+          defaultModelPreset: { providerId: "openrouter", modelId: "claude-x" },
+        })),
+      } as any,
+      undefined,
+      sessionRepository as any,
+      providerExecutionPort as any,
+    );
+
+    await expect(
+      dispatcher("sessions.moveAgentSessions", { fromAgentId: "acp-agent-1", toAgentId: "argos-agent-2" }),
+    ).resolves.toEqual({ movedSessionIds: ["session-1"], deletedSessionIds: [] });
+
+    // The moved session must be labelled with the Argos target's default
+    // model — a hardcoded `providerId: "acp"` would break the next send.
+    expect(sessionRepository.moveSessionToAgent).toHaveBeenCalledWith(
+      "session-1",
+      expect.objectContaining({
+        agentId: "argos-agent-2",
+        providerId: "openrouter",
+        modelId: "claude-x",
+      }),
+    );
+    expect(providerExecutionPort.purgeAcpSessionData).toHaveBeenCalledWith("session-1");
   });
 
   it("owns summaryTitles route dispatch and delegates to the provider execution port", async () => {

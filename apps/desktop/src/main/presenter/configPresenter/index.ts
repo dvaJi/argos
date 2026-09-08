@@ -78,6 +78,7 @@ import {
 } from "./daemonMirrorStores";
 import {
   configListAgentsRoute,
+  configGetAgentTypeRoute,
   configCreateArgosAgentRoute,
   configUpdateArgosAgentRoute,
   configDeleteArgosAgentRoute,
@@ -2328,8 +2329,20 @@ export class ConfigPresenter implements IConfigPresenter {
   }
 
   async getAgentType(agentId: string): Promise<AgentType | null> {
-    const agent = await this.getAgent(agentId);
-    return agent?.type ?? null;
+    // State-agnostic lookup first: config.listAgents excludes disabled or
+    // uninstalled registry ACP agents, which would strand their sessions
+    // (unmovable, undeletable, uninstall blocked). See
+    // docs/issues/acp-agent-removal-settlement.
+    try {
+      const result = await invokeDaemonRoute<{ agentType: AgentType | null }>(configGetAgentTypeRoute.name, {
+        agentId,
+      });
+      return result.agentType ?? null;
+    } catch (error) {
+      log.warn("Failed to resolve agent type from daemon:", error);
+      const agent = await this.getAgent(agentId);
+      return agent?.type ?? null;
+    }
   }
 
   async getArgosAgentConfig(agentId: string): Promise<ArgosAgentConfig | null> {

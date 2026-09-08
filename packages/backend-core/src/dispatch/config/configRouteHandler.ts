@@ -38,6 +38,7 @@ import {
   configGetThemeRoute,
   configGetVoiceAiConfigRoute,
   configListAgentsRoute,
+  configGetAgentTypeRoute,
   configListCustomPromptsRoute,
   configCreateArgosAgentRoute,
   configUpdateArgosAgentRoute,
@@ -354,6 +355,14 @@ export async function dispatchConfigRoute(
       });
 
       return configListAgentsRoute.output.parse({ agents });
+    }
+
+    case configGetAgentTypeRoute.name: {
+      const input = configGetAgentTypeRoute.input.parse(rawInput);
+      // State-agnostic lookup: resolves disabled/uninstalled ACP agents too,
+      // so their sessions stay assessable for move/delete before removal.
+      const agentType = await configPresenter.getAgentType(input.agentId);
+      return configGetAgentTypeRoute.output.parse({ agentType: agentType ?? null });
     }
 
     case configResolveArgosAgentConfigRoute.name: {

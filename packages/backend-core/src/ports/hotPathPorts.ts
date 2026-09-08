@@ -56,6 +56,13 @@ export interface ProviderExecutionPort {
   setAcpPreferredProcessMode?(agentId: string, modeId: string): Promise<void>;
   prepareAcpSession?(conversationId: string, agentId: string, workdir: string): Promise<void>;
   clearAcpSession?(sessionId: string): Promise<void>;
+  /**
+   * Release an ACP session's durable bindings before an ownership change
+   * (delete/move): best-effort cancel of any active turn, then delete the
+   * conversation's `acp_sessions` rows. No-op for sessions without an ACP
+   * binding.
+   */
+  purgeAcpSessionData?(sessionId: string): Promise<void>;
   getAcpSessionModes?(conversationId: string): Promise<unknown>;
   setAcpSessionMode?(conversationId: string, modeId: string): Promise<void>;
   resolveAgentPermission?(requestId: string, granted: boolean): Promise<void>;
