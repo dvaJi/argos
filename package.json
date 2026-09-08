@@ -126,6 +126,7 @@
     "afterSign": "scripts/notarize.js",
     "installRuntime": "bun scripts/installRuntime.mjs",
     "fetch:provider-db": "bun scripts/fetch-provider-db.mjs",
+    "fetch:acp-registry": "bun scripts/fetch-acp-registry.mjs",
     "installRuntime:win:x64": "bun scripts/installRuntime.mjs --platform win32 --arch x64",
     "installRuntime:win:arm64": "bun scripts/installRuntime.mjs --platform win32 --arch arm64",
     "installRuntime:mac:arm64": "bun scripts/installRuntime.mjs --platform darwin --arch arm64",

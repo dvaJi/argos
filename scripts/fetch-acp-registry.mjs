@@ -1,8 +1,18 @@
+#!/usr/bin/env bun
+// Build-time fetch of the ACP agent registry into the single-source bundled
+// snapshot: apps/desktop/resources/acp-registry/{registry.json,icons/*.svg}
+// (imported by the desktop bundledAcpRegistry test and resolved at runtime by
+// acpRegistryService; commit the refreshed snapshot so packaged/offline builds
+// ship it).
 import fs from 'fs/promises'
 import path from 'path'
+import { fileURLToPath } from 'url'
 
 const REGISTRY_URL = 'https://cdn.agentclientprotocol.com/registry/v1/latest/registry.json'
-const OUTPUT_DIR = path.resolve(process.cwd(), 'resources', 'acp-registry')
+// Anchor on the script location so the output lands in the tracked
+// single-source path regardless of the caller's cwd.
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const OUTPUT_DIR = path.join(REPO_ROOT, 'apps', 'desktop', 'resources', 'acp-registry')
 const OUTPUT_PATH = path.join(OUTPUT_DIR, 'registry.json')
 const ICON_OUTPUT_DIR = path.join(OUTPUT_DIR, 'icons')
 const ICON_TMP_DIR = path.join(OUTPUT_DIR, '.icons-tmp')
