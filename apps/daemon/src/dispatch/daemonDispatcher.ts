@@ -3113,6 +3113,10 @@ export function createDaemonDispatcher(
     if (route === sessionsMoveAgentSessionsRoute.name) {
       const input = sessionsMoveAgentSessionsRoute.input.parse(rawInput);
       const repo = runtime.sessionRepository as any;
+      // Validate the target before any destructive settlement: an invalid or
+      // model-less target must fail without discarding queued inputs or
+      // cancelling the source sessions.
+      const targetContext = await resolveMoveTargetContext(input.toAgentId);
       const sessions = await repo.list({ agentId: input.fromAgentId, includeSubagents: true });
       const movedSessionIds: string[] = [];
       const deletedSessionIds: string[] = [];
@@ -3129,7 +3133,6 @@ export function createDaemonDispatcher(
           deletedSessionIds.push(session.id);
           continue;
         }
-        const targetContext = await resolveMoveTargetContext(input.toAgentId);
         await repo.moveSessionToAgent(session.id, {
           ...targetContext,
           projectDir: session.projectDir ?? null,
@@ -3169,8 +3172,9 @@ export function createDaemonDispatcher(
       if (!session) {
         throw new Error(`Session not found: ${input.sessionId}`);
       }
-      await settleSessionForOwnershipChange(input.sessionId, settlementHost);
+      // Validate the target before the destructive settlement.
       const targetContext = await resolveMoveTargetContext(input.toAgentId);
+      await settleSessionForOwnershipChange(input.sessionId, settlementHost);
       const updated = await repo.moveSessionToAgent(input.sessionId, {
         ...targetContext,
         projectDir: session.projectDir ?? null,

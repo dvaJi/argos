@@ -58,32 +58,30 @@ export async function settleSessionForOwnershipChange(
     await waitForSettle(sessionId, host, delay, options);
   }
 
-  try {
-    await host.purgeAcpSessionData?.(sessionId);
-  } catch {
-    // best-effort: purge failures must not block the ownership change
-  }
+  // Fail-closed: a durable binding that cannot be purged would leave the ACP
+  // uninstall guard stuck with no conversation left to retry against, so the
+  // ownership change must abort instead of proceeding.
+  await host.purgeAcpSessionData?.(sessionId);
 
   return { cancelled, discardedQueueInputIds };
 }
 
 async function currentStatus(sessionId: string, host: SettleSessionHost): Promise<string | null> {
-  const session = await host.getSession(sessionId).catch(() => null);
+  // Propagate read failures: treating a transient error as "not generating"
+  // could skip cancellation and race a still-running turn.
+  const session = await host.getSession(sessionId);
   return session?.status ?? null;
 }
 
 async function discardQueueInputs(sessionId: string, host: SettleSessionHost): Promise<string[]> {
-  const inputs = await host.listPendingInputs(sessionId).catch(() => [] as PendingSessionInputRecord[]);
+  // Fail-closed: if queued inputs cannot be enumerated, the ownership change
+  // must stop — leaked inputs would drain under the new owner.
+  const inputs = await host.listPendingInputs(sessionId);
   const discarded: string[] = [];
   for (const input of inputs) {
     if (input.mode !== "queue") continue;
-    try {
-      await host.deletePendingInput(sessionId, input.id);
-      discarded.push(input.id);
-    } catch {
-      // A queued input that cannot be discarded must not block removal
-      // outright, but it also must not be silently lost: leave it in place.
-    }
+    await host.deletePendingInput(sessionId, input.id);
+    discarded.push(input.id);
   }
   return discarded;
 }

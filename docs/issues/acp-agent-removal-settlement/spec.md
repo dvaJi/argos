@@ -79,8 +79,8 @@ architecture (no code port).
 - **D7 — Desktop-local settlement skipped**: every live delete/move flow dispatches through the
   daemon (the shell's argos agent implementation is a stateless stub and `sessions.delete` is
   daemon-handled), so settlement is implemented once, daemon-side. The desktop-local
-  `agentSessionPresenter` paths have no production callers and keep their conservative blocking
-  for the no-daemon degraded mode.
+  `agentSessionPresenter` paths keep their conservative blocking for the no-daemon degraded
+  mode; no desktop-local settlement is implemented.
 
 ## Risks / constraints
 

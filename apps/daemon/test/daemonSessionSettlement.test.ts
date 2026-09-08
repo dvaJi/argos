@@ -131,34 +131,57 @@ describe("settleSessionForOwnershipChange", () => {
     expect(host.cancelCalls).toEqual(["session-1"]);
   });
 
-  it("keeps queue inputs that cannot be discarded and continues", async () => {
+  it("aborts when a queued input cannot be discarded (fail-closed)", async () => {
     const state = {
       pendingInputs: [input("q-1", "queue")],
-      status: "idle" as string | null,
-      statusSequence: [] as Array<string | null>,
-      settleAfterCancels: 0,
     };
-    const host: SettleSessionHost & { purgeCalls: string[] } = {
-      getSession: async () => ({ status: state.status }),
+    const host: SettleSessionHost = {
+      getSession: async () => ({ status: "idle" }),
       listPendingInputs: async () => [...state.pendingInputs],
       deletePendingInput: async () => {
         throw new Error("delete failed");
       },
       cancelGeneration: async () => undefined,
-      purgeAcpSessionData: async (sessionId) => {
-        host.purgeCalls.push(sessionId);
-      },
-      purgeCalls: [],
     };
 
-    const result = await settleSessionForOwnershipChange("session-1", host, { delay: noDelay });
-
-    expect(result.discardedQueueInputIds).toEqual([]);
-    expect(state.pendingInputs).toHaveLength(1);
-    expect(host.purgeCalls).toEqual(["session-1"]);
+    await expect(settleSessionForOwnershipChange("session-1", host, { delay: noDelay })).rejects.toThrow(
+      "delete failed",
+    );
   });
 
-  it("tolerates a failing purge", async () => {
+  it("aborts when queued inputs cannot be enumerated (fail-closed)", async () => {
+    const host: SettleSessionHost = {
+      getSession: async () => ({ status: "idle" }),
+      listPendingInputs: async () => {
+        throw new Error("db unavailable");
+      },
+      deletePendingInput: async () => undefined,
+      cancelGeneration: async () => undefined,
+    };
+
+    await expect(settleSessionForOwnershipChange("session-1", host, { delay: noDelay })).rejects.toThrow(
+      "db unavailable",
+    );
+  });
+
+  it("aborts when the session status cannot be read (fail-safe)", async () => {
+    let cancelCalls = 0;
+    const host: SettleSessionHost = {
+      getSession: async () => {
+        throw new Error("read failed");
+      },
+      listPendingInputs: async () => [],
+      deletePendingInput: async () => undefined,
+      cancelGeneration: async () => {
+        cancelCalls += 1;
+      },
+    };
+
+    await expect(settleSessionForOwnershipChange("session-1", host, { delay: noDelay })).rejects.toThrow("read failed");
+    expect(cancelCalls).toBe(0);
+  });
+
+  it("aborts when ACP bindings cannot be purged", async () => {
     const { host } = createHost({
       status: "idle",
       purgeAcpSessionData: async () => {
@@ -166,9 +189,8 @@ describe("settleSessionForOwnershipChange", () => {
       },
     });
 
-    await expect(settleSessionForOwnershipChange("session-1", host, { delay: noDelay })).resolves.toEqual({
-      cancelled: false,
-      discardedQueueInputIds: [],
-    });
+    await expect(settleSessionForOwnershipChange("session-1", host, { delay: noDelay })).rejects.toThrow(
+      "purge failed",
+    );
   });
 });

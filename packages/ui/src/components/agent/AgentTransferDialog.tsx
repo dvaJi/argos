@@ -29,6 +29,11 @@ interface AgentTransferDialogProps {
   error?: string | null;
   /** Optional title override (e.g. "Uninstall X" instead of "Delete X"). */
   title?: string;
+  /**
+   * Treat pre-computed "blocked" samples as handled by settlement instead of
+   * gating the confirm button (uninstall/settle flows).
+   */
+  allowBlocked?: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirmMove: (payload: { targetAgentId: string }) => void;
   onConfirmDelete: () => void;
@@ -45,6 +50,7 @@ export default function AgentTransferDialog({
   busy = false,
   error = null,
   title,
+  allowBlocked = false,
   onOpenChange,
   onConfirmMove,
   onConfirmDelete,
@@ -69,7 +75,7 @@ export default function AgentTransferDialog({
   })();
   const canConfirm = (() => {
     if (busy || loading || error) return false;
-    if (impact?.blockedSessions) return false;
+    if (impact?.blockedSessions && !allowBlocked) return false;
     if (!showTargetPicker) return true;
     return Boolean(selectedTargetAgentId);
   })();
