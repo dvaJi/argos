@@ -100,6 +100,9 @@ const defaultProviders: LLM_PROVIDER[] = DEFAULT_PROVIDERS.map((provider) => ({
 
 export class DaemonConfigPresenter {
   private store: Store;
+  /** In-flight model-discovery requests, coalesced per provider (DeepChat #2248 pattern). */
+  private inFlightModelRefreshes = new Map<string, Promise<MODEL_META[]>>();
+  private inFlightOllamaFetches = new Map<string, Promise<OllamaModel[]>>();
   private filePath: string;
   private readonly acpConfig: DaemonAcpConfig;
   private readonly mcpConfig: DaemonMcpConfig;
@@ -645,6 +648,20 @@ export class DaemonConfigPresenter {
   }
 
   async refreshProviderModels(providerId: string): Promise<MODEL_META[]> {
+    // Coalesce concurrent discovery for the same provider (model picker,
+    // store init, per-agent surfaces all call this) into one upstream request.
+    const inFlight = this.inFlightModelRefreshes.get(providerId);
+    if (inFlight) {
+      return inFlight;
+    }
+    const promise = this.doRefreshProviderModels(providerId).finally(() => {
+      this.inFlightModelRefreshes.delete(providerId);
+    });
+    this.inFlightModelRefreshes.set(providerId, promise);
+    return promise;
+  }
+
+  private async doRefreshProviderModels(providerId: string): Promise<MODEL_META[]> {
     const provider = this.getProviderById(providerId);
     if (!provider) {
       throw new Error(`Provider not found: ${providerId}`);
@@ -709,7 +726,7 @@ export class DaemonConfigPresenter {
       return [];
     }
 
-    return this.fetchOllamaModels(provider.baseUrl, provider.apiKey, "/api/tags");
+    return this.fetchOllamaModelsCoalesced(providerId, provider.baseUrl, provider.apiKey, "/api/tags");
   }
 
   async listOllamaRunningModels(providerId: string): Promise<OllamaModel[]> {
@@ -718,7 +735,26 @@ export class DaemonConfigPresenter {
       return [];
     }
 
-    return this.fetchOllamaModels(provider.baseUrl, provider.apiKey, "/api/ps");
+    return this.fetchOllamaModelsCoalesced(providerId, provider.baseUrl, provider.apiKey, "/api/ps");
+  }
+
+  /** Coalesce concurrent identical Ollama lookups into one upstream request. */
+  private fetchOllamaModelsCoalesced(
+    providerId: string,
+    baseUrl: string,
+    apiKey: string,
+    suffix: "/api/tags" | "/api/ps",
+  ): Promise<OllamaModel[]> {
+    const key = `${providerId}:${suffix}`;
+    const inFlight = this.inFlightOllamaFetches.get(key);
+    if (inFlight) {
+      return inFlight;
+    }
+    const promise = this.fetchOllamaModels(baseUrl, apiKey, suffix).finally(() => {
+      this.inFlightOllamaFetches.delete(key);
+    });
+    this.inFlightOllamaFetches.set(key, promise);
+    return promise;
   }
 
   async pullOllamaModel(providerId: string, modelName: string): Promise<boolean> {

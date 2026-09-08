@@ -541,6 +541,12 @@ export class AcpRegistryService {
       });
 
       if (!response.ok) {
+        // Release the error body so the underlying connection returns to the pool.
+        try {
+          await response.body?.cancel();
+        } catch {
+          // best-effort
+        }
         throw new Error(`Failed to fetch icon: ${response.status} ${response.statusText}`);
       }
 
