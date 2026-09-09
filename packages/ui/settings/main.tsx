@@ -23,6 +23,7 @@ import ModelProviderSettings from "./components/ModelProviderSettings";
 import McpSettings from "./components/McpSettings";
 import ArgosAgentsSettings from "./components/ArgosAgentsSettings";
 import AcpSettings from "./components/AcpSettings";
+import ToolchainsSettings from "./components/ToolchainsSettings";
 import RemoteSettings from "./components/RemoteSettings";
 import ServerSettings from "./components/ServerSettings";
 import NotificationsHooksSettings from "./components/NotificationsHooksSettings";
@@ -65,6 +66,7 @@ const componentMap: Record<string, RouteComponent> = {
   "settings-mcp": McpSettings,
   "settings-argos-agents": ArgosAgentsSettings,
   "settings-acp": AcpSettings,
+  "settings-toolchains": ToolchainsSettings,
   "settings-remote": RemoteSettings,
   "settings-server": ServerSettings,
   "settings-notifications-hooks": NotificationsHooksSettings,

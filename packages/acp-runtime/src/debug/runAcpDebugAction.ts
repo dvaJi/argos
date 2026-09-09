@@ -932,7 +932,14 @@ export function computeAcpDiagnostics(
     .find((candidate) => candidate.agentId === agentId && (!workdir || candidate.workdir === workdir));
   const snapshot = handle?.capabilitySnapshot;
   const authMethods = (handle?.authMethods ?? []).map((method) => {
-    const untyped = method as { name?: unknown; type?: unknown; vars?: unknown; link?: unknown };
+    const untyped = method as {
+      name?: unknown;
+      type?: unknown;
+      vars?: unknown;
+      link?: unknown;
+      args?: unknown;
+      env?: unknown;
+    };
     const nameValue = typeof untyped.name === "string" ? untyped.name : undefined;
     const typeValue = typeof untyped.type === "string" ? untyped.type : undefined;
     const base: {
@@ -941,6 +948,8 @@ export function computeAcpDiagnostics(
       type?: string;
       vars?: Array<{ name: string; label?: string; secret?: boolean; optional?: boolean }>;
       link?: string | null;
+      args?: string[];
+      env?: Record<string, string>;
     } = {
       id: method.id,
       name: nameValue,
@@ -960,6 +969,22 @@ export function computeAcpDiagnostics(
       }
       if (typeof untyped.link === "string") {
         base.link = untyped.link;
+      }
+    }
+    if (typeValue === "terminal") {
+      // The client runs the agent binary with these args/env in a PTY for the
+      // login TUI (ACP `AuthMethodTerminal`).
+      if (Array.isArray(untyped.args)) {
+        base.args = untyped.args.filter((arg): arg is string => typeof arg === "string");
+      }
+      if (untyped.env && typeof untyped.env === "object") {
+        const env: Record<string, string> = {};
+        for (const [key, value] of Object.entries(untyped.env as Record<string, unknown>)) {
+          if (typeof value === "string") {
+            env[key] = value;
+          }
+        }
+        base.env = env;
       }
     }
     return base;

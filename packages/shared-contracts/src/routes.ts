@@ -195,6 +195,9 @@ import {
 import {
   providersAddRoute,
   providersGetAcpAgentDiagnosticsRoute,
+  providersStartAcpAuthRoute,
+  providersWriteAcpAuthInputRoute,
+  providersCancelAcpAuthRoute,
   providersGetAcpProcessConfigOptionsRoute,
   providersGetRateLimitStatusRoute,
   providersImportApplyRoute,
@@ -396,6 +399,13 @@ import {
 } from "./routes/system.routes";
 import { toolsListDefinitionsRoute } from "./routes/tools.routes";
 import {
+  toolchainsListRoute,
+  toolchainsSetSourceRoute,
+  toolchainsRemoveSourceRoute,
+  toolchainsInstallRoute,
+  toolchainsCancelInstallRoute,
+} from "./routes/toolchains.routes";
+import {
   memoryListRoute,
   memoryGetStatusRoute,
   memorySearchRoute,
@@ -497,6 +507,7 @@ export * from "./routes/sync.routes";
 export * from "./routes/system.routes";
 export * from "./routes/tab.routes";
 export * from "./routes/tools.routes";
+export * from "./routes/toolchains.routes";
 export * from "./routes/memory.routes";
 export * from "./routes/knowledge.routes";
 export * from "./routes/upgrade.routes";
@@ -621,6 +632,11 @@ export const ARGOS_ROUTE_CATALOG = {
   [configCreateArgosAgentRoute.name]: configCreateArgosAgentRoute,
   [configUpdateArgosAgentRoute.name]: configUpdateArgosAgentRoute,
   [configDeleteArgosAgentRoute.name]: configDeleteArgosAgentRoute,
+  [toolchainsListRoute.name]: toolchainsListRoute,
+  [toolchainsSetSourceRoute.name]: toolchainsSetSourceRoute,
+  [toolchainsRemoveSourceRoute.name]: toolchainsRemoveSourceRoute,
+  [toolchainsInstallRoute.name]: toolchainsInstallRoute,
+  [toolchainsCancelInstallRoute.name]: toolchainsCancelInstallRoute,
   [configResolveArgosAgentConfigRoute.name]: configResolveArgosAgentConfigRoute,
   [configGetAgentMcpSelectionsRoute.name]: configGetAgentMcpSelectionsRoute,
   [configGetAcpSharedMcpSelectionsRoute.name]: configGetAcpSharedMcpSelectionsRoute,
@@ -736,6 +752,9 @@ export const ARGOS_ROUTE_CATALOG = {
   [providersGetAcpProcessConfigOptionsRoute.name]: providersGetAcpProcessConfigOptionsRoute,
   [providersRunAcpDebugActionRoute.name]: providersRunAcpDebugActionRoute,
   [providersGetAcpAgentDiagnosticsRoute.name]: providersGetAcpAgentDiagnosticsRoute,
+  [providersStartAcpAuthRoute.name]: providersStartAcpAuthRoute,
+  [providersWriteAcpAuthInputRoute.name]: providersWriteAcpAuthInputRoute,
+  [providersCancelAcpAuthRoute.name]: providersCancelAcpAuthRoute,
   [providersSetAcpWorkdirRoute.name]: providersSetAcpWorkdirRoute,
   [providersGetAcpWorkdirRoute.name]: providersGetAcpWorkdirRoute,
   [providersGetAcpProcessModesRoute.name]: providersGetAcpProcessModesRoute,

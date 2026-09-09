@@ -23,7 +23,6 @@ import {
 import {
   buildCapabilitySnapshot,
   buildClientCapabilities,
-  clientSupportsTerminalAuth,
   type AcpCapabilitySnapshot,
 } from "../protocol/acpCapabilities";
 import { AcpFsHandler } from "./acpFsHandler";
@@ -80,6 +79,13 @@ interface AcpProcessManagerOptions {
   getAgentState?: (agentId: string) => Promise<AcpAgentState | null>;
   getNpmRegistry?: () => Promise<string | null>;
   getUvRegistry?: () => Promise<string | null>;
+  /**
+   * Whether this client can present terminal-based auth flows (a PTY plus an
+   * embeddable terminal UI). Advertised as `clientCapabilities.auth.
+   * terminal` during initialize. Agents gate their `authMethods` on this, so
+   * it must not depend on anything only known after initialize. Default true.
+   */
+  canPresentTerminalAuth?: boolean;
 }
 
 export type SessionNotificationHandler = (notification: schema.SessionNotification) => void;
@@ -201,6 +207,7 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
   private readonly getAgentState?: (agentId: string) => Promise<AcpAgentState | null>;
   private readonly getNpmRegistry?: () => Promise<string | null>;
   private readonly getUvRegistry?: () => Promise<string | null>;
+  private readonly canPresentTerminalAuth: boolean;
   private readonly handles = new Map<string, AcpProcessHandle>();
   private readonly boundHandles = new Map<string, AcpProcessHandle>();
   private readonly pendingHandles = new Map<string, Promise<AcpProcessHandle>>();
@@ -235,6 +242,7 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
     this.getAgentState = options.getAgentState;
     this.getNpmRegistry = options.getNpmRegistry;
     this.getUvRegistry = options.getUvRegistry;
+    this.canPresentTerminalAuth = options.canPresentTerminalAuth ?? true;
     this.terminalManager = new AcpTerminalManager(() => this.ports.paths.tempDir());
   }
 
@@ -839,7 +847,11 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
         clientCapabilities: buildClientCapabilities({
           enableFs: true,
           enableTerminal: true,
-          enableTerminalAuth: clientSupportsTerminalAuth(handleSeed.authMethods),
+          // `auth.terminal` describes the client's ability to present a
+          // terminal login (PTY + embeddable terminal UI), so it must not
+          // depend on the initialize response. Advertising it lets agents
+          // include terminal-type auth methods in the response.
+          enableTerminalAuth: this.canPresentTerminalAuth,
         }),
         clientInfo: { name: "Argos", version: this.ports.paths.appVersion() },
       };
@@ -1213,8 +1225,17 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
       typeof arg === "string" ? this.ports.runtime.expandPath(arg) : arg,
     );
 
-    // Replace command with runtime version if needed
-    const processedCommand = this.ports.runtime.resolveCommand(expandedCommand, useBundledRuntime, true);
+    // Replace command with runtime version if needed. A host-provided
+    // command+args rewrite (managed toolchains) wins over the plain swap.
+    const rewritten = await this.ports.runtime.resolveCommandWithArgs?.({
+      command: expandedCommand,
+      args: expandedArgs,
+      useBundled: useBundledRuntime,
+    });
+    const processedCommand = rewritten
+      ? rewritten.command
+      : this.ports.runtime.resolveCommand(expandedCommand, useBundledRuntime, true);
+    const processedArgs = rewritten ? rewritten.args : expandedArgs;
 
     // Validate processed command
     if (!processedCommand || processedCommand.trim().length === 0) {
@@ -1225,16 +1246,13 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
     console.info(`[ACP] Spawning process for agent ${agent.id}:`, {
       originalCommand: launchSpec.command,
       processedCommand,
-      args: launchSpec.args ?? [],
+      args: processedArgs,
       distributionType: launchSpec.distributionType,
     });
 
     if (processedCommand !== launchSpec.command) {
       console.info(`[ACP] Command replaced for agent ${agent.id}: "${launchSpec.command}" -> "${processedCommand}"`);
     }
-
-    // Use expanded args
-    const processedArgs = expandedArgs;
 
     let env = mergeCommandEnvironment();
 

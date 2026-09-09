@@ -9,6 +9,7 @@ export interface SettingsNavigationItem {
     | "settings-mcp"
     | "settings-argos-agents"
     | "settings-acp"
+    | "settings-toolchains"
     | "settings-remote"
     | "settings-server"
     | "settings-notifications-hooks"
@@ -142,6 +143,15 @@ export const SETTINGS_NAVIGATION_ITEMS: SettingsNavigationItem[] = [
     position: 4,
     groupKey: "models",
     keywords: ["acp", "agent client protocol"],
+  },
+  {
+    routeName: "settings-toolchains",
+    path: "/toolchains",
+    titleKey: "routes.settings-toolchains",
+    icon: "lucide:cpu",
+    position: 4.75,
+    groupKey: "tools",
+    keywords: ["toolchains", "runtime", "node", "uv", "python", "install"],
   },
   {
     routeName: "settings-dashboard",
@@ -342,6 +352,7 @@ const TITLE_MAP: Record<string, string> = {
   "routes.settings-mcp": "MCP Settings",
   "routes.settings-argos-agents": "Argos Agents",
   "routes.settings-acp": "ACP Agents",
+  "routes.settings-toolchains": "Toolchains",
   "routes.settings-server": "Server",
   "routes.settings-remote": "Remote",
   "routes.settings-notifications-hooks": "Hooks",
