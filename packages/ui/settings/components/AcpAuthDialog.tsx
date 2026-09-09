@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
@@ -53,12 +53,12 @@ export default function AcpAuthDialog({
   const terminalRef = useRef<HTMLDivElement | null>(null);
   const xtermRef = useRef<Terminal | null>(null);
 
-  const reset = useCallback(() => {
+  const reset = () => {
     setFlowState("select");
     setActiveMethod(null);
     setError(null);
     setRunId(null);
-  }, []);
+  };
 
   // Load methods when the dialog opens.
   useEffect(() => {
