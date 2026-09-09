@@ -94,7 +94,7 @@ interface TerminalSession {
   killed: boolean;
 }
 
-function resolvePtyTerminalCtor(): PtyTerminalCtor {
+export function resolvePtyTerminalCtor(): PtyTerminalCtor {
   const ctor = (Bun as unknown as { Terminal?: PtyTerminalCtor }).Terminal;
   if (typeof ctor !== "function") {
     throw new Error("Bun.Terminal is unavailable; the terminal requires Bun >= 1.4.0");

@@ -309,6 +309,9 @@ import {
   providersPullOllamaModelRoute,
   providersImportScanRoute,
   providersImportApplyRoute,
+  providersStartAcpAuthRoute,
+  providersWriteAcpAuthInputRoute,
+  providersCancelAcpAuthRoute,
   modelsListRuntimeRoute,
   modelsTranscribeAudioRoute,
   sessionsResumePendingQueueRoute,
@@ -341,6 +344,12 @@ type DaemonAcpSessionExecutionPort = {
   getAcpSessionModes?(conversationId: string): Promise<unknown>;
   setAcpSessionMode?(conversationId: string, modeId: string): Promise<void>;
   resolveAgentPermission?(requestId: string, granted: boolean): Promise<void>;
+  startAcpAuth?(input: { agentId: string; workdir?: string; methodId: string }): Promise<{
+    mode: "agent" | "terminal";
+    runId: string | null;
+  }>;
+  writeAcpAuthInput?(runId: string, data: string): Promise<void>;
+  cancelAcpAuth?(agentId: string): Promise<void>;
 };
 
 type DaemonTranslatePort = {
@@ -3378,6 +3387,33 @@ export function createDaemonDispatcher(
       const input = sessionsClearAcpSessionRoute.input.parse(rawInput);
       await acpSessionExecutionPort?.clearAcpSession?.(input.sessionId);
       return sessionsClearAcpSessionRoute.output.parse({ cleared: true });
+    }
+
+    if (route === providersStartAcpAuthRoute.name) {
+      const input = providersStartAcpAuthRoute.input.parse(rawInput);
+      if (!acpSessionExecutionPort?.startAcpAuth) {
+        throw new Error("ACP authentication is not available in this runtime.");
+      }
+      const result = await acpSessionExecutionPort.startAcpAuth(input);
+      return providersStartAcpAuthRoute.output.parse(result);
+    }
+
+    if (route === providersWriteAcpAuthInputRoute.name) {
+      const input = providersWriteAcpAuthInputRoute.input.parse(rawInput);
+      if (!acpSessionExecutionPort?.writeAcpAuthInput) {
+        throw new Error("ACP authentication is not available in this runtime.");
+      }
+      await acpSessionExecutionPort.writeAcpAuthInput(input.runId, input.data);
+      return providersWriteAcpAuthInputRoute.output.parse({ ok: true });
+    }
+
+    if (route === providersCancelAcpAuthRoute.name) {
+      const input = providersCancelAcpAuthRoute.input.parse(rawInput);
+      if (!acpSessionExecutionPort?.cancelAcpAuth) {
+        throw new Error("ACP authentication is not available in this runtime.");
+      }
+      await acpSessionExecutionPort.cancelAcpAuth(input.agentId);
+      return providersCancelAcpAuthRoute.output.parse({ cancelled: true });
     }
 
     if (route === sessionsGetAcpSessionModesRoute.name) {
