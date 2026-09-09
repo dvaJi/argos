@@ -1,5 +1,5 @@
 import { Store } from "@tanstack/store";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 
 export const sidebarStore = new Store({
   collapsed: false,
@@ -14,7 +14,7 @@ const setCollapsed = (value: boolean) => {
 };
 
 export function useSidebarStore() {
-  const state = useStore(sidebarStore);
+  const state = useSelector(sidebarStore);
   return {
     ...state,
     toggleSidebar,

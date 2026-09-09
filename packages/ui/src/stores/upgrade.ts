@@ -1,5 +1,5 @@
 import { Store } from "@tanstack/store";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import { createDeviceClient } from "#api/DeviceClient";
 import { createUpgradeClient } from "#api/UpgradeClient";
 
@@ -379,7 +379,7 @@ void syncFromPresenterStatus().catch((error) => {
 });
 
 export function useUpgradeStore() {
-  const state = useStore(upgradeStore);
+  const state = useSelector(upgradeStore);
   return {
     ...state,
     isWindows,

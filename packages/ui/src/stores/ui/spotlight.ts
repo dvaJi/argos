@@ -1,5 +1,5 @@
 import { Store } from "@tanstack/store";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import { createSettingsClient } from "#api/SettingsClient";
 import { createSessionClient } from "#api/SessionClient";
 import { enabledAgents } from "./agent";
@@ -500,7 +500,7 @@ const clearPendingMessageJump = () => {
 };
 
 export function useSpotlightStore() {
-  const state = useStore(spotlightStore);
+  const state = useSelector(spotlightStore);
   return {
     ...state,
     connectSpotlightExternal,

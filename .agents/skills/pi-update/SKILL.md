@@ -13,7 +13,7 @@ Argos embeds `@earendil-works/pi-coding-agent` as its agent runtime. The version
 - `apps/daemon/package.json` and `packages/pi-orchestrator-extension/package.json` — both declare `"@earendil-works/pi-coding-agent": "catalog:"`; do not edit versions here.
 - `apps/daemon/src/host/piWorker.ts` — the Pi worker: creates the session, registers providers/models, bridges extensions, MCP tools, UI context, and maps `AgentSessionEvent`s to the daemon protocol.
 - `packages/pi-orchestrator-extension/src/index.ts` — the `argos-orchestrator` inline extension that exposes Argos orchestration tools to Pi.
-- `bun.lock` — lockfile records the resolved version and its transitive deps (`@earendil-works/pi-agent-core`, `pi-ai`, `pi-tui`, `pi-client`, `pi-protocol`, `pi-telemetry`).
+- `bun.lock` — lockfile records the resolved version and its transitive deps (`@earendil-works/pi-agent-core`, `pi-ai`, `pi-tui`, `pi-telemetry`; 0.85+ adds `@earendil-works/chord`, and `pi-client`/`pi-protocol` no longer ship as separate deps).
 
 ## Argos' Pi API Surface (verification reference)
 
@@ -75,7 +75,7 @@ Write a concise per-version summary for the user: version(s), date(s), the break
 ### 4. Bump And Install
 
 1. Update the version in the workspace catalog (root `package.json`, `workspaces.catalog`) to the exact target version (keep it pinned, no `^`). No other `package.json` needs editing — both consumers use `"catalog:"`.
-2. Run `bun install` to update `bun.lock`. Verify the resolved version and its transitive Pi deps moved together (check `bun.lock` for the `pi-coding-agent` entry and its `pi-agent-core`/`pi-ai`/`pi-tui` siblings; 0.84+ also adds `pi-client`/`pi-protocol`/`pi-telemetry`).
+2. Run `bun install` to update `bun.lock`. Verify the resolved version and its transitive Pi deps moved together (check `bun.lock` for the `pi-coding-agent` entry and its `pi-agent-core`/`pi-ai`/`pi-tui` siblings; 0.84+ adds `pi-telemetry`; 0.85+ adds `@earendil-works/chord` and drops `pi-client`/`pi-protocol` as separate deps).
 
 ### 5. Adapt Code To Breaking Changes
 
@@ -88,7 +88,7 @@ Diff the upstream API against how this repo uses it (map above). Installed `.d.t
   - `core/model-runtime.d.ts` — `ModelRuntime`.
   - `core/extensions/types.d.ts` — `ToolDefinition`, `defineTool`, `InlineExtension`, `ExtensionAPI`, `ExtensionUIContext`, `ToolCallEvent`.
   - `core/session-manager.d.ts`, `core/settings-manager.d.ts`, `core/resource-loader.d.ts`.
-- Transitives (`pi-agent-core`, `pi-ai`, `pi-tui`, `pi-client`, `pi-protocol`): resolve under `node_modules/.bun/@earendil-works+<pkg>@<version>.../node_modules/...` — find via `Get-ChildItem -Recurse -Directory -Filter "pi-agent-core"`. `pi-agent-core/dist/types.d.ts` holds the `AgentEvent` union members (incl. `message_update`, `tool_execution_*`), `AgentToolResult`, `AgentMessage`.
+- Transitives (`pi-agent-core`, `pi-ai`, `pi-tui`; 0.84.x also had `pi-client`/`pi-protocol`, gone in 0.85+ where `@earendil-works/chord` appears): resolve under `node_modules/.bun/@earendil-works+<pkg>@<version>.../node_modules/...` — find via `Get-ChildItem -Recurse -Directory -Filter "pi-agent-core"`. `pi-agent-core/dist/types.d.ts` holds the `AgentEvent` union members (incl. `message_update`, `tool_execution_*`), `AgentToolResult`, `AgentMessage`.
 
 Checklist per surface: `createAgentSession` options, `AgentSessionEvent` union members, `ExtensionUIContext` method set, `defineTool` signature + result shape, `ModelRuntime` methods, `SessionManager`/`SettingsManager` statics, `DefaultResourceLoader` options + methods.
 

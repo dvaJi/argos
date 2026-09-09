@@ -1,5 +1,5 @@
 import { Store } from "@tanstack/store";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import { createSessionClient } from "#api/SessionClient";
 import type { PendingSessionInputRecord, SendMessageInput } from "@argos/shared/types/agent-interface";
 
@@ -178,5 +178,5 @@ const disposePendingInputListeners = () => {
 };
 
 function usePendingInputStore() {
-  return useStore(pendingInputStore);
+  return useSelector(pendingInputStore);
 }

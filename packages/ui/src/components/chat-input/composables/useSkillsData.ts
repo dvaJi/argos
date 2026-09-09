@@ -2,13 +2,13 @@ import { useState, useEffect, useRef } from "react";
 import type { SkillMetadata } from "@argos/shared/types/skill";
 import { createSkillClient } from "#api/SkillClient";
 import { skillsStore, loadSkills } from "#/stores/skillsStore";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 
 // Process-wide singleton; module scope keeps effect dependencies stable.
 const skillClient = createSkillClient();
 
 export function useSkillsData(conversationId: string | null) {
-  const storeSkills = useStore(skillsStore, (s) => s.skills);
+  const storeSkills = useSelector(skillsStore, (s) => s.skills);
   const unsubscribeRef = useRef<(() => void) | null>(null);
   const [activeSkills, setActiveSkills] = useState<string[]>([]);
   const [pendingSkills, setPendingSkills] = useState<string[]>([]);

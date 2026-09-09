@@ -1,4 +1,4 @@
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import { agentStore } from "#/stores/ui/agent";
 import { sessionStore } from "#/stores/ui/session";
 import { resolveEffectiveAgent } from "#/lib/effectiveAgent";
@@ -13,8 +13,8 @@ import { resolveEffectiveAgent } from "#/lib/effectiveAgent";
  * session first; this hook only answers the pre-session question.
  */
 export function usePreSessionAgentType(): "argos" | "acp" | null {
-  const agentState = useStore(agentStore);
-  const sessionState = useStore(sessionStore);
+  const agentState = useSelector(agentStore);
+  const sessionState = useSelector(sessionStore);
   return (() => {
     const activeSession = sessionState.sessions.find((s) => s.id === sessionState.activeSessionId) ?? null;
     return (

@@ -1,5 +1,5 @@
 import { Store } from "@tanstack/store";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import { createConfigClient } from "../../../api/ConfigClient";
 import { sessionStore, type UISession } from "./session";
 
@@ -242,7 +242,7 @@ export function getSettledAt(id: string): number | undefined {
 
 /** React hook: subscribe to the settled flag for a single session id. */
 export function useIsSessionSettled(id: string | null | undefined): boolean {
-  const settledAtById = useStore(threadSidebarStore, (s) => s.settledAtById);
+  const settledAtById = useSelector(threadSidebarStore, (s) => s.settledAtById);
   if (!id) return false;
   return id in settledAtById;
 }
@@ -286,7 +286,7 @@ export function setSettledShelfExpanded(expanded: boolean): void {
 }
 
 export function useThreadSidebarStore() {
-  const state = useStore(threadSidebarStore);
+  const state = useSelector(threadSidebarStore);
   return {
     ...state,
     loadThreadSidebarEnabled,

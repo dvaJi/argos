@@ -1,5 +1,5 @@
 import { Store } from "@tanstack/store";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import { createSessionClient } from "../../../api/SessionClient";
 import type { DisplayAssistantMessageBlock, DisplayUserMessageContent } from "#/components/chat/messageListItems";
 import type {
@@ -493,7 +493,7 @@ function cleanupMessageStore(): void {
 }
 
 export function useMessageStore() {
-  const state = useStore(messageStore);
+  const state = useSelector(messageStore);
   return {
     ...state,
     getMessages,

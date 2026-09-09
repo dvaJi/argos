@@ -1,5 +1,5 @@
 import { Store } from "@tanstack/store";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import type { ArgosEventPayload } from "@argos/shared-contracts/events";
 
 export type AgentPlanViewSnapshot = ArgosEventPayload<"chat.plan.updated">;
@@ -54,5 +54,5 @@ export const toggleCollapsed = (sessionId: string): void => {
 };
 
 function useAgentPlanStore() {
-  return useStore(agentPlanStore);
+  return useSelector(agentPlanStore);
 }

@@ -1,5 +1,5 @@
 import { Store } from "@tanstack/store";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import type { Prompt } from "@argos/shared/presenter";
 import { createConfigClient } from "../../api/ConfigClient";
 
@@ -59,5 +59,5 @@ export const deletePrompt = async (promptId: string) => {
 };
 
 export function usePromptsStore() {
-  return useStore(promptsStore);
+  return useSelector(promptsStore);
 }

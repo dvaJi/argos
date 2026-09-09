@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, type RefObject } from "react";
 import { createFileRoute, Outlet, useRouter } from "@tanstack/react-router";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { createConfigClient } from "#api/ConfigClient";
 import { createOnboardingClient } from "#api/OnboardingClient";
@@ -562,8 +562,8 @@ function useSettingsNavigateListener(routerInstance: MainLayoutRouter) {
 function MainLayout() {
   const routerInstance = useRouter();
   useAcpAgentUpdateNotifications();
-  const draftState = useStore(draftStore);
-  const sessionState = useStore(sessionStore);
+  const draftState = useSelector(draftStore);
+  const sessionState = useSelector(sessionStore);
   const [isStartupRouteReady, setIsStartupRouteReady] = useState(false);
   const { showErrorToast } = useErrorToastQueue();
   const { activatePendingStartDeeplink, handleStartDeeplink } = useStartDeeplinkHandlers({

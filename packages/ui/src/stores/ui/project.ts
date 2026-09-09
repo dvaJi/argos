@@ -1,5 +1,5 @@
 import { Store } from "@tanstack/store";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import { createConfigClient } from "../../../api/ConfigClient";
 import { createProjectClient } from "#api/ProjectClient";
 import type { EnvironmentSummary, Project } from "@argos/shared/types/agent-interface";
@@ -260,7 +260,7 @@ export async function selectProjectFolder(
 }
 
 export function useProjectStore() {
-  return useStore(projectStore);
+  return useSelector(projectStore);
 }
 
 /**

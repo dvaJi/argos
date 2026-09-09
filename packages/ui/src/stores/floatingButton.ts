@@ -1,5 +1,5 @@
 import { Store } from "@tanstack/store";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import { createConfigClient } from "../../api/ConfigClient";
 
 interface FloatingButtonState {
@@ -55,5 +55,5 @@ const initializeState = async () => {
 };
 
 export function useFloatingButtonStore() {
-  return useStore(floatingButtonStore);
+  return useSelector(floatingButtonStore);
 }

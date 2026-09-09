@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { EditProvider, File, type CreateEditor } from "@pierre/diffs/react";
-import { Editor } from "@pierre/diffs/edit";
+import { EditProvider, File } from "@pierre/diffs/react";
+import { Editor, type EditorFactory } from "@pierre/diffs/edit";
 import { Icon } from "@iconify/react";
 import { toast } from "sonner";
 import { Button } from "#shadcn/components/ui/button";
@@ -16,8 +16,12 @@ interface DiffsEditorPaneProps {
 /**
  * Writable code editor backed by `@pierre/diffs` (`EditProvider` + `Editor` +
  * `<File edit>`). Same Shiki rendering as the read-only viewer and the diff
- * surfaces, so view/edit/diff share one pipeline. Saves via `workspace.writeFile`;
- * dirty indicator + Cmd/Ctrl+S.
+ * surfaces, so view/edit/diff share one pipeline.
+ *
+ * The component owns the active edit draft: `onEditChange` only observes it
+ * (dirty flag + latest draft for Save) and never feeds it back through props.
+ * Save writes the observed draft via `workspace.writeFile`; dirty indicator +
+ * Cmd/Ctrl+S.
  *
  * Mount this component keyed by file path so each file gets a fresh editor.
  */
@@ -27,7 +31,7 @@ export function DiffsEditorPane({ filePath, initialContent, language, onSaved }:
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const originalRef = useRef<string>(initialContent);
-  const editorRef = useRef<Editor<undefined> | null>(null);
+  const draftRef = useRef<string>(initialContent);
   const fileBasename = (() => {
     const segments = filePath.split(/[\\/]+/).filter(Boolean);
     return segments[segments.length - 1] ?? filePath;
@@ -45,23 +49,13 @@ export function DiffsEditorPane({ filePath, initialContent, language, onSaved }:
     overflow: "scroll" as const,
     stickyHeader: false,
   };
-  const createEditor = (editorOptions) => {
-    const editor = new Editor<undefined>({
-      ...editorOptions,
-      onChange: (changedFile, lineAnnotations, event) => {
-        editorOptions.onChange?.(changedFile, lineAnnotations, event);
-        setDirty(editor.getText() !== originalRef.current);
-      },
-    });
-    editorRef.current = editor;
-    return editor;
-  };
+  const createEditor: EditorFactory<undefined, undefined> = (editorType, editorOptions, editStateKey) =>
+    new Editor(editorType, editorOptions, editStateKey);
   const handleSave = async () => {
-    const editor = editorRef.current;
-    if (!editor || !dirty || saving) return;
+    if (!dirty || saving) return;
     setSaving(true);
     try {
-      const text = editor.getText();
+      const text = draftRef.current;
       await workspaceClient.writeFile(filePath, text);
       originalRef.current = text;
       setDirty(false);
@@ -108,6 +102,11 @@ export function DiffsEditorPane({ filePath, initialContent, language, onSaved }:
             options={options}
             edit
             disableWorkerPool
+            onEditChange={(event) => {
+              draftRef.current = event.file.contents;
+              setDirty(event.file.contents !== originalRef.current);
+            }}
+            onEditComplete={() => "accept"}
             style={{
               height: "100%",
             }}

@@ -1,5 +1,5 @@
 import { Store } from "@tanstack/store";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import { clearArtifact, getSessionState, selectArtifact, setViewMode, sidepanelStore } from "./ui/sidepanel";
 
 export interface ArtifactState {
@@ -183,7 +183,7 @@ export const completeArtifact = (artifact: ArtifactState, messageId: string, thr
 };
 
 export function useArtifactStore() {
-  const state = useStore(artifactStore);
+  const state = useSelector(artifactStore);
   return {
     ...state,
     isOpen,

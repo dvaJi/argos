@@ -9,6 +9,7 @@ import {
   createHashHistory,
   redirect,
   RouterProvider,
+  type ErrorComponentProps,
 } from "@tanstack/react-router";
 import { getSettingsRouteItems } from "@argos/shared/settingsNavigation";
 import { preloadIcons } from "../src/lib/iconLoader";
@@ -39,12 +40,13 @@ import DaemonConnectionBanner from "../src/components/DaemonConnectionBanner";
 
 const settingsRouteItems = getSettingsRouteItems(getRuntimePlatform());
 
-function RootErrorComponent({ error }: { error: Error }) {
+function RootErrorComponent({ error }: ErrorComponentProps) {
+  const message = error instanceof Error ? error.message : String(error);
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-6 text-foreground">
       <div className="max-w-lg space-y-2 rounded-lg border border-border bg-card p-6 shadow-sm">
         <div className="text-sm font-semibold">Settings error</div>
-        <p className="text-sm text-muted-foreground">{error.message}</p>
+        <p className="text-sm text-muted-foreground">{message}</p>
       </div>
     </div>
   );

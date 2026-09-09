@@ -1,5 +1,5 @@
 import { Store } from "@tanstack/store";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import type { LLM_PROVIDER, MODEL_META, RENDERER_MODEL_META, ModelConfig } from "@argos/shared/presenter";
 import { isChatSelectableModelType, ModelType } from "@argos/shared/model";
 import {
@@ -1303,7 +1303,7 @@ async function updateCustomModelMutation(
 }
 
 export function useModelStore() {
-  const state = useStore(modelStore);
+  const state = useSelector(modelStore);
   return {
     ...state,
     refreshProviderModels,

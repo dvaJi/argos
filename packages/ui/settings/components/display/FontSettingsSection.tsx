@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
@@ -42,10 +42,10 @@ function buildFontPreview(font: string): string {
   return `${wrapped}, ${PREVIEW_FALLBACK}`;
 }
 export default function FontSettingsSection() {
-  const fontFamily = useStore(uiSettingsStore, (s) => s.fontFamily);
-  const codeFontFamily = useStore(uiSettingsStore, (s) => s.codeFontFamily);
-  const systemFonts = useStore(uiSettingsStore, (s) => s.systemFonts);
-  const isLoadingFonts = useStore(uiSettingsStore, (s) => s.isLoadingFonts);
+  const fontFamily = useSelector(uiSettingsStore, (s) => s.fontFamily);
+  const codeFontFamily = useSelector(uiSettingsStore, (s) => s.codeFontFamily);
+  const systemFonts = useSelector(uiSettingsStore, (s) => s.systemFonts);
+  const isLoadingFonts = useSelector(uiSettingsStore, (s) => s.isLoadingFonts);
   const [textPopoverOpen, setTextPopoverOpen] = useState(false);
   const [codePopoverOpen, setCodePopoverOpen] = useState(false);
   const [textQuery, setTextQuery] = useState("");

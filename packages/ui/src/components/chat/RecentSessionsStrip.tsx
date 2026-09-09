@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import { Icon } from "@iconify/react";
 import { sessionStore, type UISession } from "#/stores/ui/session";
 import { agentStore } from "#/stores/ui/agent";
@@ -28,8 +28,8 @@ function formatRelativeTime(timestamp: number, now: number): string {
  * are fewer than two recent sessions, or no active agent.
  */
 export default function RecentSessionsStrip({ agentId, limit = 6, onSelect }: RecentSessionsStripProps) {
-  const { sessions } = useStore(sessionStore);
-  const { agents } = useStore(agentStore);
+  const { sessions } = useSelector(sessionStore);
+  const { agents } = useSelector(agentStore);
   // Lazy initializer: `Date.now` is impure and must not run during render.
   const [now] = useState(() => Date.now());
   const recent = (() => {

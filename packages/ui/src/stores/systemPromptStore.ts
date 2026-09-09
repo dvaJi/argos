@@ -1,5 +1,5 @@
 import { Store } from "@tanstack/store";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import type { SystemPrompt } from "@argos/shared/presenter";
 import { createConfigClient } from "../../api/ConfigClient";
 
@@ -62,5 +62,5 @@ export const setDefaultSystemPromptId = async (promptId: string) => {
 };
 
 export function useSystemPromptStore() {
-  return useStore(systemPromptStore);
+  return useSelector(systemPromptStore);
 }

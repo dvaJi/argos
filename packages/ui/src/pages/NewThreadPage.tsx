@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import {
@@ -1103,11 +1103,11 @@ function NewThreadComposerBlock(input: {
 
 function NewThreadPage() {
   const { toast } = useToast();
-  const projectState = useStore(projectStore);
-  const sessionState = useStore(sessionStore);
-  const agentState = useStore(agentStore);
-  const modelState = useStore(modelStore);
-  const draftState = useStore(draftStore);
+  const projectState = useSelector(projectStore);
+  const sessionState = useSelector(sessionStore);
+  const agentState = useSelector(agentStore);
+  const modelState = useSelector(modelStore);
+  const draftState = useSelector(draftStore);
   const connectionState = useRuntimeConnectionState();
   const activeMachine = useWorkspaceStore().activeWorkspace;
   const isDaemonConnected = connectionState.connected;

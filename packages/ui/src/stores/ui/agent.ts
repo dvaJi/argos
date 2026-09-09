@@ -1,5 +1,5 @@
 import { Store } from "@tanstack/store";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import { createConfigClient } from "../../../api/ConfigClient";
 import { createSessionClient } from "../../../api/SessionClient";
 import type { Agent, AgentBootstrapItem } from "@argos/shared/types/agent-interface";
@@ -242,7 +242,7 @@ function initListeners(): void {
 initListeners();
 
 export function useAgentStore() {
-  const state = useStore(agentStore);
+  const state = useSelector(agentStore);
   return {
     ...state,
     enabledAgents: state.agents.filter((a) => a.enabled),

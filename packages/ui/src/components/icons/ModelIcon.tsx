@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import { providerStore } from "#/stores/providerStore";
 import { agentStore } from "#/stores/ui/agent";
 import AcpAgentIcon from "./AcpAgentIcon";
@@ -204,8 +204,8 @@ interface ModelIconProps {
   isDark?: boolean;
 }
 export default function ModelIcon({ modelId, customClass = "w-4 h-4", isDark = false }: ModelIconProps) {
-  const providers = useStore(providerStore, (s) => s.providers);
-  const agents = useStore(agentStore, (s) => s.agents);
+  const providers = useSelector(providerStore, (s) => s.providers);
+  const agents = useSelector(agentStore, (s) => s.agents);
   const [iconLoadFailed, setIconLoadFailed] = useState(false);
   const provider = (() => {
     if (!modelId) return undefined;

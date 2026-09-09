@@ -1,5 +1,5 @@
 import { Store } from "@tanstack/store";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import { createDialogClient } from "#api/DialogClient";
 import { DialogRequest, DialogResponse } from "@argos/shared/presenter";
 
@@ -110,7 +110,7 @@ const removeDialogListener = () => {
 };
 
 export function useDialogStore() {
-  const state = useStore(dialogStore);
+  const state = useSelector(dialogStore);
   return {
     ...state,
     handleResponse,

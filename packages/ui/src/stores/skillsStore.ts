@@ -1,5 +1,5 @@
 import { Store } from "@tanstack/store";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import { createSkillClient } from "#api/SkillClient";
 import type {
   SkillMetadata,
@@ -196,7 +196,7 @@ if (!catalogListenerRegistered) {
 }
 
 export function useSkillsStore() {
-  return useStore(skillsStore);
+  return useSelector(skillsStore);
 }
 
 interface SkillSourceGroup {

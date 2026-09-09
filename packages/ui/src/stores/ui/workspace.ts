@@ -1,5 +1,5 @@
 import { Store } from "@tanstack/store";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import {
   type WorkspaceEntry,
   type WorkspaceConfig,
@@ -142,8 +142,8 @@ export async function switchWorkspace(id: string): Promise<void> {
 }
 
 export function useWorkspaceStore() {
-  const state = useStore(workspaceStore);
-  const connState = useStore(connectionStore);
+  const state = useSelector(workspaceStore);
+  const connState = useSelector(connectionStore);
   return {
     ...state,
     connections: connState.connections,

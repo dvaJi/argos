@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import { Icon } from "@iconify/react";
 import { Switch } from "#shadcn/components/ui/switch";
 import { toast } from "#/components/use-toast";
@@ -9,7 +9,7 @@ const PRIVACY_MODE_LABEL_ID = "privacy-mode-label";
 const PRIVACY_MODE_DESCRIPTION_ID = "privacy-mode-desc";
 
 export default function PrivacySettingsSection() {
-  const privacyModeEnabled = useStore(uiSettingsStore, (s) => s.privacyModeEnabled);
+  const privacyModeEnabled = useSelector(uiSettingsStore, (s) => s.privacyModeEnabled);
   const [isUpdatingPrivacyMode, setIsUpdatingPrivacyMode] = useState(false);
 
   const handlePrivacyModeChange = async (value: boolean) => {

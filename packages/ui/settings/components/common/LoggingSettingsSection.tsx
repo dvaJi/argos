@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Switch } from "#shadcn/components/ui/switch";
@@ -18,7 +18,7 @@ import { languageStore } from "#/stores/language";
 const configClient = createConfigClient();
 
 export default function LoggingSettingsSection() {
-  const loggingEnabled = useStore(uiSettingsStore, (s) => s.loggingEnabled);
+  const loggingEnabled = useSelector(uiSettingsStore, (s) => s.loggingEnabled);
 
   const [isLoggingDialogOpen, setIsLoggingDialogOpen] = useState(false);
   const [newLoggingValue, setNewLoggingValue] = useState(false);

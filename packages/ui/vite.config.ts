@@ -4,7 +4,6 @@ import { defineConfig, loadEnv } from "vite";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import tailwindcss from "@tailwindcss/vite";
-import babel from "@rolldown/plugin-babel";
 import { createPathAliasPlugin } from "./vite-plugins/path-alias";
 
 /**
@@ -93,10 +92,7 @@ export default defineConfig(({ mode, command }) => {
         generatedRouteTree: resolve("src/routeTree.gen.ts"),
       }),
       tailwindcss(),
-      react(),
-      babel({
-        presets: [reactCompilerPreset()],
-      }),
+      react({ compiler: true }),
       // React Scan is an opt-in dev aid (VITE_REACT_SCAN=1). The unpinned unpkg
       // bundle crashes during SPA navigation (web-vitals inside it throws on
       // undefined `startTime`), so it is never loaded by default, and production

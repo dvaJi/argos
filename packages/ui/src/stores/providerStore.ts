@@ -1,5 +1,5 @@
 import { Store } from "@tanstack/store";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import { createProviderClient } from "../../api/ProviderClient";
 import { createConfigClient } from "../../api/ConfigClient";
 import type { AWS_BEDROCK_PROVIDER, LLM_PROVIDER, VERTEX_PROVIDER } from "@argos/shared/presenter";
@@ -466,7 +466,7 @@ function scheduleProviderOrderSync(): void {
 }
 
 export function useProviderStore() {
-  const state = useStore(providerStore);
+  const state = useSelector(providerStore);
   return {
     ...state,
     getEnabledProviders,

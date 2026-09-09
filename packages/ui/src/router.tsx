@@ -28,7 +28,7 @@ export const router = createRouter({
     return (
       <div>
         <h2>Route error</h2>
-        <p>{props.error.message}</p>
+        <p>{props.error instanceof Error ? props.error.message : String(props.error)}</p>
         <button onClick={() => router.navigate({ to: "/" })}>Go to Home</button>
       </div>
     );

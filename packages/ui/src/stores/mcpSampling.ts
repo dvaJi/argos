@@ -1,5 +1,5 @@
 import { Store } from "@tanstack/store";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import { createMcpClient } from "#api/McpClient";
 import type { McpSamplingDecision, McpSamplingRequestPayload, RENDERER_MODEL_META } from "@argos/shared/presenter";
 import { resolveSamplingChatModel, type ChatModelSelection } from "#/lib/chatModelSelection";
@@ -415,5 +415,5 @@ const cleanupMcpSampling = () => {
 };
 
 export function useMcpSamplingStore() {
-  return useStore(mcpSamplingStore);
+  return useSelector(mcpSamplingStore);
 }

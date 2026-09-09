@@ -1,5 +1,5 @@
 import { Store } from "@tanstack/store";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import { createConfigClient } from "../../api/ConfigClient";
 
 export type ThemeMode = "dark" | "light" | "system";
@@ -70,7 +70,7 @@ const toggleDark = (isDark?: boolean) => {
 };
 
 export function useThemeStore() {
-  const state = useStore(themeStore);
+  const state = useSelector(themeStore);
   return {
     ...state,
     initTheme,

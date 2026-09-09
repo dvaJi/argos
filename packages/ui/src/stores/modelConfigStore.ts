@@ -1,5 +1,5 @@
 import { Store } from "@tanstack/store";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import type { ModelConfig, IModelConfig } from "@argos/shared/presenter";
 import { createModelClient } from "../../api/ModelClient";
 
@@ -62,7 +62,7 @@ const exportConfigs = async () => {
 };
 
 export function useModelConfigStore() {
-  const state = useStore(modelConfigStore);
+  const state = useSelector(modelConfigStore);
   return {
     ...state,
     getModelConfig,

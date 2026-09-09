@@ -1,5 +1,5 @@
 import { Store } from "@tanstack/store";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import type { SidePanelTab, WorkspaceNavSection, WorkspaceViewMode } from "@argos/shared/presenter";
 
 export interface WorkspaceArtifactContext {
@@ -342,7 +342,7 @@ const clearDiff = (sessionId: string) => {
 };
 
 export function useSidepanelStore() {
-  const state = useStore(sidepanelStore);
+  const state = useSelector(sidepanelStore);
   return {
     ...state,
     getNormalizedWidth,

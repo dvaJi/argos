@@ -1,5 +1,5 @@
 import { Store } from "@tanstack/store";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import type { SearchResult } from "@argos/shared/types/core/search";
 
 interface ReferenceState {
@@ -33,7 +33,7 @@ export const hideReference = () => {
 };
 
 function useReferenceStore() {
-  const state = useStore(referenceStore);
+  const state = useSelector(referenceStore);
   return {
     ...state,
     showReference,

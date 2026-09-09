@@ -1,5 +1,5 @@
 import { Icon } from "@iconify/react";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import { themeStore } from "#/stores/theme";
 import type { UIAgent } from "#/stores/ui/agent";
 import AcpAgentIcon from "./AcpAgentIcon";
@@ -17,7 +17,7 @@ export default function AgentAvatar({
   fallbackClassName = "rounded-md",
   theme,
 }: AgentAvatarProps) {
-  const isDark = useStore(themeStore, (s) => s.isDark);
+  const isDark = useSelector(themeStore, (s) => s.isDark);
   const isDarkTheme = theme ? theme === "dark" : isDark;
   const initials = (() => {
     const name = agent.name.trim();

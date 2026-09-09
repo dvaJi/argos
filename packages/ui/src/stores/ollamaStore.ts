@@ -1,5 +1,5 @@
 import { Store } from "@tanstack/store";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import { createProviderClient } from "../../api/ProviderClient";
 import { createModelClient } from "../../api/ModelClient";
 import type { OllamaModel } from "@argos/shared/presenter";
@@ -234,7 +234,7 @@ export const ensureProviderReady = async (providerId: string) => {
 };
 
 export function useOllamaStore() {
-  const state = useStore(ollamaStore);
+  const state = useSelector(ollamaStore);
   return {
     ...state,
     setRunningModels,

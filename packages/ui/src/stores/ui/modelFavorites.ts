@@ -1,5 +1,5 @@
 import { Store } from "@tanstack/store";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 
 const STORAGE_KEY = "composer-model-favorites:v1";
 
@@ -41,5 +41,5 @@ export const toggleFavorite = (providerId: string, modelId: string): void => {
 };
 
 export function useModelFavorites(): string[] {
-  return useStore(modelFavoritesStore).favorites;
+  return useSelector(modelFavoritesStore).favorites;
 }

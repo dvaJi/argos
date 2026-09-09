@@ -1,5 +1,5 @@
 import { Store } from "@tanstack/store";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 
 interface ModelCheckState {
   isDialogOpen: boolean;
@@ -20,7 +20,7 @@ const closeDialog = () => {
 };
 
 export function useModelCheckStore() {
-  const state = useStore(modelCheckStore);
+  const state = useSelector(modelCheckStore);
   return {
     ...state,
     openDialog,

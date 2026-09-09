@@ -1,5 +1,5 @@
 import { Store } from "@tanstack/store";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import { createChatClient } from "../../../api/ChatClient";
 import { createConfigClient } from "../../../api/ConfigClient";
 import { createOnboardingClient } from "../../../api/OnboardingClient";
@@ -1052,7 +1052,7 @@ function cleanupSessionStore(): void {
 void ensureGroupModeLoaded();
 
 export function useSessionStore() {
-  const state = useStore(sessionStore);
+  const state = useSelector(sessionStore);
   return {
     ...state,
     getState: () => sessionStore.state,

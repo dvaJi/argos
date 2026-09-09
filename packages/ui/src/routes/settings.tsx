@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, type RefObject } from "react";
 import { Icon } from "@iconify/react";
 import { createFileRoute, Outlet, useRouter, useRouterState } from "@tanstack/react-router";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import { Button } from "#shadcn/components/ui/button";
 import { createWindowClient } from "#api/WindowClient";
 import { createDeviceClient } from "#api/DeviceClient";
@@ -384,8 +384,8 @@ function SettingsLayout() {
   const routerState = useRouterState();
   const { isMacOS, isWinMacOS } = useDeviceVersion();
   const windowClient = createWindowClient();
-  const providerState = useStore(providerStore);
-  const providerDeeplinkImportState = useStore(providerDeeplinkImportStore);
+  const providerState = useSelector(providerStore);
+  const providerDeeplinkImportState = useSelector(providerDeeplinkImportStore);
   const { setup: setupMcpDeeplink } = useMcpInstallDeeplinkHandler();
   const [isImportingProvider, setIsImportingProvider] = useState(false);
   const [isProcessingProviderPreview, setIsProcessingProviderPreview] = useState(false);

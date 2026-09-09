@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import { useNavigate } from "@tanstack/react-router";
 import { Icon } from "@iconify/react";
 import { themeStore } from "#/stores/theme";
@@ -275,7 +275,7 @@ function AcpSetupCard({ animationDelay, onSetup }: { animationDelay: string; onS
 }
 export function WelcomePage() {
   const navigate = useNavigate();
-  const theme = useStore(themeStore);
+  const theme = useSelector(themeStore);
   const [onboardingState, setOnboardingState] = useState<GuidedOnboardingState | null>(null);
   const guideSteps = onboardingState?.steps ?? [];
   const currentGuideStepId = (() => {

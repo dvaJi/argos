@@ -1,5 +1,5 @@
 import { Store } from "@tanstack/store";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import type { ShortcutKeySetting } from "@argos/shared/presenter";
 import { createShortcutRuntime } from "#api/ShortcutRuntime";
 import { createConfigClient } from "../../api/ConfigClient";
@@ -42,5 +42,5 @@ export const disableShortcutKey = () => {
 };
 
 export function useShortcutKeyStore() {
-  return useStore(shortcutKeyStore);
+  return useSelector(shortcutKeyStore);
 }

@@ -1,5 +1,5 @@
 import { Store } from "@tanstack/store";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import type { WorkspaceDraft } from "#/components/workspace/WorkspaceSelectorDialogs";
 import type { WorkspaceEntry } from "@argos/shared/workspaceConfig";
 
@@ -91,7 +91,7 @@ async function saveWorkspaceAndSwitch(workspace: WorkspaceDraft): Promise<void> 
 }
 
 export function useRemoteSetupStore() {
-  const state = useStore(remoteSetupStore);
+  const state = useSelector(remoteSetupStore);
   return {
     ...state,
     registerHandlers,

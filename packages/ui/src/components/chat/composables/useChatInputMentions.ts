@@ -17,7 +17,7 @@ import {
   isPluginOwnedServerName,
 } from "#/stores/mcp";
 import { skillsStore, loadSkills } from "#/stores/skillsStore";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import {
   buildChatInputWorkspaceReferenceText,
   resolveChatInputWorkspaceReferencePath,
@@ -241,9 +241,9 @@ const buildComputerUseGuidance = (status: CuaPluginStatus): string => {
   ].join("\n");
 };
 export function useChatInputMentions(options: UseChatInputMentionsOptions) {
-  const mcpTools = useStore(mcpStore, (s) => s.tools);
-  const mcpPrompts = useStore(mcpStore, (s) => s.prompts);
-  const skills = useStore(skillsStore, (s) => s.skills);
+  const mcpTools = useSelector(mcpStore, (s) => s.tools);
+  const mcpPrompts = useSelector(mcpStore, (s) => s.prompts);
+  const skills = useSelector(skillsStore, (s) => s.skills);
   const [acpCommands, setAcpCommands] = useState<AcpSessionCommand[]>([]);
   const acpCommandFetchSeqRef = useRef(0);
   const [cuaStatus, setCuaStatus] = useState<CuaPluginStatus | null>(null);

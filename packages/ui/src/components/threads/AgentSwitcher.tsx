@@ -1,4 +1,4 @@
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import { Icon } from "@iconify/react";
 import {
   DropdownMenu,
@@ -38,8 +38,8 @@ interface AgentSwitcherProps {
  *    banner first, or finish the open thread).
  */
 export default function AgentSwitcher({ variant = "topbar", className }: AgentSwitcherProps) {
-  const { agents, selectedAgentId } = useStore(agentStore);
-  const { activeSessionId, sessions } = useStore(sessionStore);
+  const { agents, selectedAgentId } = useSelector(agentStore);
+  const { activeSessionId, sessions } = useSelector(sessionStore);
   const { settledAtById } = useThreadSidebarStore();
   const enabledAgents = agents.filter((a) => a.enabled);
   const currentAgent = (() => {

@@ -1,5 +1,5 @@
 import { Store } from "@tanstack/store";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import type { ArgosEventPayload } from "@argos/shared-contracts/events";
 import type { TerminalExitStatus } from "@argos/shared-contracts/routes";
 import { createTerminalClient, type TerminalClient } from "#api/TerminalClient";
@@ -209,7 +209,7 @@ const defaultTerminalStore = createTerminalStore({ client: createLazyTerminalCli
 export const terminalStore = defaultTerminalStore.store;
 
 export function useTerminalStore() {
-  const state = useStore(defaultTerminalStore.store);
+  const state = useSelector(defaultTerminalStore.store);
   return {
     ...state,
     connect: defaultTerminalStore.connect,

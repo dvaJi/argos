@@ -1,6 +1,6 @@
 import { useEffect } from "react";
-import { createRootRoute, Outlet } from "@tanstack/react-router";
-import { useStore } from "@tanstack/react-store";
+import { createRootRoute, Outlet, type ErrorComponentProps } from "@tanstack/react-router";
+import { useSelector } from "@tanstack/react-store";
 import { Toaster } from "sonner";
 import { useFontManager } from "../composables/useFontManager";
 import { useDeviceVersion } from "../composables/useDeviceVersion";
@@ -37,9 +37,9 @@ function RootComponent() {
   useFontManager();
   const { isWinMacOS } = useDeviceVersion();
 
-  const themeState = useStore(themeStore);
-  const uiSettingsState = useStore(uiSettingsStore);
-  const modelCheckState = useStore(modelCheckStore);
+  const themeState = useSelector(themeStore);
+  const uiSettingsState = useSelector(uiSettingsStore);
+  const modelCheckState = useSelector(modelCheckStore);
 
   const toasterTheme =
     themeState.themeMode === "system" ? (themeState.isDark ? "dark" : "light") : themeState.themeMode;
@@ -75,12 +75,13 @@ function RootComponent() {
   );
 }
 
-function RootErrorComponent({ error }: { error: Error }) {
+function RootErrorComponent({ error }: ErrorComponentProps) {
+  const message = error instanceof Error ? error.message : String(error);
   return (
     <div className="flex h-screen items-center justify-center bg-background px-6 text-foreground">
       <div className="max-w-lg space-y-2 rounded-lg border border-border bg-card p-6 shadow-sm">
         <div className="text-sm font-semibold">Application error</div>
-        <p className="text-sm text-muted-foreground">{error.message}</p>
+        <p className="text-sm text-muted-foreground">{message}</p>
       </div>
     </div>
   );

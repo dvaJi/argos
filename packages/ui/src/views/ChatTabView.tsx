@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import { createStartupClient } from "#api/StartupClient";
 import { subscribeRuntimeConnectionState } from "#api/runtime";
 import { ChatSidePanel } from "#/components/sidepanel/ChatSidePanel";
@@ -26,8 +26,8 @@ import { initialize as initializeOllama } from "#/stores/ollamaStore";
 import { markStartupInteractive, scheduleStartupDeferredTask } from "#/lib/startupDeferred";
 
 function ChatTabView() {
-  const pageState = useStore(pageRouterStore);
-  const sessionState = useStore(sessionStore);
+  const pageState = useSelector(pageRouterStore);
+  const sessionState = useSelector(sessionStore);
   const [isReady, setIsReady] = useState(false);
   const [hydrationFailed, setHydrationFailed] = useState(false);
   const hydrationFailedRef = useRef(false);

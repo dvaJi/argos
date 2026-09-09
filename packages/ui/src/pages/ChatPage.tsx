@@ -1,5 +1,5 @@
 import { useEffect, useEffectEvent, useRef, useState, type RefObject } from "react";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import ChatTopBar from "#/components/chat/ChatTopBar";
 import ChatSearchBar from "#/components/chat/ChatSearchBar";
 
@@ -224,10 +224,10 @@ function resolveActiveModelSelection(
 /** The chat page: top bar, message list, composer dock, and their orchestration. */
 function ChatPage({ sessionId }: ChatPageProps) {
   const uiSettingsStore = useUiSettingsStore();
-  const sessionState = useStore(sessionStore);
+  const sessionState = useSelector(sessionStore);
   const messageStore = useMessageStore();
-  const agentPlanStoreState = useStore(agentPlanStore);
-  const streamState = useStore(streamStateStore);
+  const agentPlanStoreState = useSelector(agentPlanStore);
+  const streamState = useSelector(streamStateStore);
   const spotlightStore = useSpotlightStore();
   const modelStore = useModelStore();
   const connectionState = useRuntimeConnectionState();

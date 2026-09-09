@@ -43,7 +43,7 @@ import {
 } from "@argos/shared/settingsNavigation";
 import type { SettingsNavigationPayload } from "@argos/shared/settingsNavigation";
 import { useStartupWorkloadStore } from "#/stores/startupWorkloadStore";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 
 const windowClient = createWindowClient();
 const DATABASE_REPAIR_SECTION = "database-repair";
@@ -250,8 +250,8 @@ const useProviderDeeplinkImport = (deps: {
   const [isImportingProvider, setIsImportingProvider] = useState(false);
   const [isProcessingProviderPreview, setIsProcessingProviderPreview] = useState(false);
   const providerStoreInitializePromise = useRef<Promise<void> | null>(null);
-  const providerState = useStore(providerStore);
-  const providerDeeplinkImportState = useStore(providerDeeplinkImportStore);
+  const providerState = useSelector(providerStore);
+  const providerDeeplinkImportState = useSelector(providerDeeplinkImportStore);
   const pendingProviderImportPreview = providerDeeplinkImportState.preview;
   const pendingProviderImportToken = providerDeeplinkImportState.previewToken;
   const providerImportConfirmDisabled = (() => {
@@ -472,9 +472,9 @@ export default function SettingsApp() {
   const routerState = useRouterState();
   const { isMacOS, isWinMacOS } = useDeviceVersion();
   useFontManager();
-  const themeState = useStore(themeStore);
-  const modelCheckState = useStore(modelCheckStore);
-  const uiSettingsState = useStore(uiSettingsStore);
+  const themeState = useSelector(themeStore);
+  const modelCheckState = useSelector(modelCheckStore);
+  const uiSettingsState = useSelector(uiSettingsStore);
   const startupWorkloadState = useStartupWorkloadStore();
   const { setup: setupMcpDeeplink } = useMcpInstallDeeplinkHandler();
   const [startupTimeOrigin] = useState(() => (typeof performance !== "undefined" ? performance.now() : Date.now()));
