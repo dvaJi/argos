@@ -116,7 +116,7 @@ export function usageDateKey(timestamp: number): string {
   return `${year}-${month}-${day}`;
 }
 
-const MAX_ACTIVE_PENDING_INPUTS = 5;
+const MAX_ACTIVE_PENDING_INPUTS = 10;
 
 /**
  * Coerce a stored session status into a value the renderer's SessionStatusSchema

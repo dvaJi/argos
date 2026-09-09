@@ -283,6 +283,12 @@ export class ProviderDbLoader {
       }
 
       if (!res.ok) {
+        // Release the error body so the underlying connection returns to the pool.
+        try {
+          await res.body?.cancel();
+        } catch {
+          // best-effort
+        }
         const meta = this.createAttemptMeta(prevMeta, url, now);
         if (meta) this.writeMeta(meta);
         return this.createResult("error", meta, `Request failed with status ${res.status}`);

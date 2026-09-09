@@ -101,6 +101,9 @@ const defaultProviders: LLM_PROVIDER[] = DEFAULT_PROVIDERS.map((provider) => ({
 
 export class DaemonConfigPresenter {
   private store: Store;
+  /** In-flight model-discovery requests, coalesced per provider (DeepChat #2248 pattern). */
+  private inFlightModelRefreshes = new Map<string, Promise<MODEL_META[]>>();
+  private inFlightOllamaFetches = new Map<string, Promise<OllamaModel[]>>();
   private filePath: string;
   private readonly acpConfig: DaemonAcpConfig;
   private readonly mcpConfig: DaemonMcpConfig;
@@ -656,16 +659,31 @@ export class DaemonConfigPresenter {
     if (!provider.apiKey) {
       throw new Error(`Provider ${providerId} has no API key configured`);
     }
+    // Coalesce concurrent discovery for the same provider (model picker,
+    // store init, per-agent surfaces all call this) into one upstream
+    // request. The key includes the settings fingerprint so a mid-flight
+    // settings change starts a fresh discovery instead of handing back
+    // results fetched with stale credentials.
+    const key = `${providerId}:${provider.apiType}:${provider.baseUrl}:${provider.apiKey}`;
+    const inFlight = this.inFlightModelRefreshes.get(key);
+    if (inFlight) {
+      return inFlight;
+    }
+    const promise = (async () => {
+      const definition = resolveAiSdkProviderDefinition(provider);
+      const modelSource = definition?.modelSource ?? "openai";
 
-    const definition = resolveAiSdkProviderDefinition(provider);
-    const modelSource = definition?.modelSource ?? "openai";
-
-    const models =
-      modelSource === "provider-db"
-        ? await this.fetchProviderModelsFromCatalog(provider)
-        : await this.fetchProviderModels(provider);
-    this.setProviderModels(providerId, models);
-    return models;
+      const models =
+        modelSource === "provider-db"
+          ? await this.fetchProviderModelsFromCatalog(provider)
+          : await this.fetchProviderModels(provider);
+      this.setProviderModels(providerId, models);
+      return models;
+    })().finally(() => {
+      this.inFlightModelRefreshes.delete(key);
+    });
+    this.inFlightModelRefreshes.set(key, promise);
+    return promise;
   }
 
   private async fetchProviderModelsFromCatalog(provider: LLM_PROVIDER): Promise<MODEL_META[]> {
@@ -710,7 +728,7 @@ export class DaemonConfigPresenter {
       return [];
     }
 
-    return this.fetchOllamaModels(provider.baseUrl, provider.apiKey, "/api/tags");
+    return this.fetchOllamaModelsCoalesced(providerId, provider.baseUrl, provider.apiKey, "/api/tags");
   }
 
   async listOllamaRunningModels(providerId: string): Promise<OllamaModel[]> {
@@ -719,7 +737,26 @@ export class DaemonConfigPresenter {
       return [];
     }
 
-    return this.fetchOllamaModels(provider.baseUrl, provider.apiKey, "/api/ps");
+    return this.fetchOllamaModelsCoalesced(providerId, provider.baseUrl, provider.apiKey, "/api/ps");
+  }
+
+  /** Coalesce concurrent identical Ollama lookups into one upstream request. */
+  private fetchOllamaModelsCoalesced(
+    providerId: string,
+    baseUrl: string,
+    apiKey: string,
+    suffix: "/api/tags" | "/api/ps",
+  ): Promise<OllamaModel[]> {
+    const key = `${providerId}:${suffix}`;
+    const inFlight = this.inFlightOllamaFetches.get(key);
+    if (inFlight) {
+      return inFlight;
+    }
+    const promise = this.fetchOllamaModels(baseUrl, apiKey, suffix).finally(() => {
+      this.inFlightOllamaFetches.delete(key);
+    });
+    this.inFlightOllamaFetches.set(key, promise);
+    return promise;
   }
 
   async pullOllamaModel(providerId: string, modelName: string): Promise<boolean> {

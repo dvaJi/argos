@@ -57,7 +57,15 @@ export class McpRouterManager {
       headers: this.getCommonHeaders(),
       body: JSON.stringify({ page, limit }),
     });
-    if (!res.ok) throw new Error(`McpRouter list failed: HTTP ${res.status}`);
+    if (!res.ok) {
+      // Release the error body so the underlying connection returns to the pool.
+      try {
+        await res.body?.cancel();
+      } catch {
+        // best-effort
+      }
+      throw new Error(`McpRouter list failed: HTTP ${res.status}`);
+    }
     const json = (await res.json()) as McpRouterListResponse;
     if (json.code !== 0) throw new Error(json.message || "List servers error");
     return json.data || { servers: [] };
@@ -75,7 +83,15 @@ export class McpRouterManager {
       headers,
       body: JSON.stringify({ server: serverKey }),
     });
-    if (!res.ok) throw new Error(`McpRouter get failed: HTTP ${res.status}`);
+    if (!res.ok) {
+      // Release the error body so the underlying connection returns to the pool.
+      try {
+        await res.body?.cancel();
+      } catch {
+        // best-effort
+      }
+      throw new Error(`McpRouter get failed: HTTP ${res.status}`);
+    }
     const json = (await res.json()) as McpRouterGetResponse;
     if (json.code !== 0 || !json.data) throw new Error(json.message || "Get server error");
     return json.data;

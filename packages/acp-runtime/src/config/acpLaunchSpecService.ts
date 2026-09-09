@@ -503,6 +503,12 @@ export class AcpLaunchSpecService {
     const archivePath = path.join(tempDir, path.basename(new URL(url).pathname));
     const response = await fetch(url);
     if (!response.ok) {
+      // Release the error body so the underlying connection returns to the pool.
+      try {
+        await response.body?.cancel();
+      } catch {
+        // best-effort
+      }
       throw new Error(`Failed to download archive: ${response.status} ${response.statusText}`);
     }
 
