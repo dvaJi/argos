@@ -69,6 +69,7 @@ type DaemonProviderExecutionPort = Required<
     | "setAcpPreferredProcessMode"
     | "prepareAcpSession"
     | "clearAcpSession"
+    | "purgeAcpSessionData"
     | "getAcpSessionModes"
     | "setAcpSessionMode"
     | "resolveAgentPermission"
@@ -456,6 +457,10 @@ export async function startDaemon(options?: {
     },
     async clearAcpSession(sessionId) {
       return acpProviderExecutionPort.clearAcpSession(sessionId);
+    },
+    async purgeAcpSessionData(sessionId) {
+      // ACP-only: pi sessions carry no durable binding rows.
+      return acpProviderExecutionPort.purgeAcpSessionData(sessionId);
     },
     async getAcpSessionModes(conversationId) {
       return acpProviderExecutionPort.getAcpSessionModes(conversationId);
