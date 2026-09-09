@@ -161,7 +161,7 @@ The `#/` alias is context-sensitive: a custom Vite plugin (`createPathAliasPlugi
 - Secrets: use `.env` (see `.env.example`); never commit keys.
 - Toolchains: Bun 1.4.0. Windows: enable Developer Mode for symlinks.
 - Build: Vite 8 with Rolldown; `vite-plugin-electron` multi-env for main/preload/renderer.
-- Runtimes: bundled Bun, ripgrep, uv, rtk in `runtime/` — installed via `bun run installRuntime`.
+- Runtimes: uv and ripgrep seeds in `runtime/` — installed via `bun run installRuntime`. Node, uv, and ripgrep resolve at runtime through the daemon's managed toolchain service (see `docs/features/managed-toolchains`).
 
 ## Specification-Driven Development
 

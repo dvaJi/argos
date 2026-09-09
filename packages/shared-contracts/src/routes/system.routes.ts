@@ -11,6 +11,7 @@ export const SettingsRouteNameSchema = zod.enum([
   "settings-mcp",
   "settings-argos-agents",
   "settings-acp",
+  "settings-toolchains",
   "settings-remote",
   "settings-server",
   "settings-notifications-hooks",

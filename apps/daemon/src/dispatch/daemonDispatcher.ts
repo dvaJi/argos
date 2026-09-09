@@ -31,6 +31,7 @@ import { resolveDaemonVersion } from "../version";
 import type { DaemonTerminalRuntime } from "../terminal/daemonTerminalRuntime";
 import { diagnoseDaemonSchema, repairDaemonSchema } from "../host/daemonSchemaDiagnostics";
 import { settleSessionForOwnershipChange, type SettleSessionHost } from "../host/sessionSettlement";
+import type { ToolchainService } from "../host/toolchains/service";
 import { getPiToolDefinitions } from "../host/piToolCatalog";
 import { aggregateUsageStats, resolveBuiltinModelPrice } from "../host/usageStatsAggregator";
 import { resolveModelCost } from "../host/modelCost";
@@ -48,6 +49,11 @@ import {
   onboardingSetStepStatusRoute,
   onboardingCompleteRoute,
   onboardingResetRoute,
+  toolchainsListRoute,
+  toolchainsSetSourceRoute,
+  toolchainsRemoveSourceRoute,
+  toolchainsInstallRoute,
+  toolchainsCancelInstallRoute,
   settingsGetSnapshotRoute,
   settingsUpdateRoute,
   settingsActivityListRoute,
@@ -303,6 +309,9 @@ import {
   providersPullOllamaModelRoute,
   providersImportScanRoute,
   providersImportApplyRoute,
+  providersStartAcpAuthRoute,
+  providersWriteAcpAuthInputRoute,
+  providersCancelAcpAuthRoute,
   modelsListRuntimeRoute,
   modelsTranscribeAudioRoute,
   sessionsResumePendingQueueRoute,
@@ -335,6 +344,12 @@ type DaemonAcpSessionExecutionPort = {
   getAcpSessionModes?(conversationId: string): Promise<unknown>;
   setAcpSessionMode?(conversationId: string, modeId: string): Promise<void>;
   resolveAgentPermission?(requestId: string, granted: boolean): Promise<void>;
+  startAcpAuth?(input: { agentId: string; workdir?: string; methodId: string }): Promise<{
+    mode: "agent" | "terminal";
+    runId: string | null;
+  }>;
+  writeAcpAuthInput?(agentId: string, runId: string, data: string): Promise<void>;
+  cancelAcpAuth?(agentId: string): Promise<void>;
 };
 
 type DaemonTranslatePort = {
@@ -935,6 +950,7 @@ export function createDaemonDispatcher(
   },
   knowledgeRuntime?: DaemonKnowledgeRuntimePort,
   terminalRuntime?: DaemonTerminalRuntime,
+  toolchains?: ToolchainService,
 ): RouteDispatcher {
   const settingsHandler = new SettingsRouteHandler(createSettingsRouteAdapter(configPresenter));
   const runtime: {
@@ -2061,6 +2077,46 @@ export function createDaemonDispatcher(
       return settingsListSystemFontsRoute.output.parse({ fonts: [] });
     }
 
+    if (route === toolchainsListRoute.name) {
+      if (!toolchains) throw new Error("Toolchain service is not available in this runtime.");
+      toolchainsListRoute.input.parse(rawInput);
+      return toolchainsListRoute.output.parse({ tools: await toolchains.list() });
+    }
+
+    if (route === toolchainsSetSourceRoute.name) {
+      if (!toolchains) throw new Error("Toolchain service is not available in this runtime.");
+      const input = toolchainsSetSourceRoute.input.parse(rawInput);
+      return toolchainsSetSourceRoute.output.parse({
+        status: await toolchains.setSource(input.tool, input.source, input.path),
+      });
+    }
+
+    if (route === toolchainsRemoveSourceRoute.name) {
+      if (!toolchains) throw new Error("Toolchain service is not available in this runtime.");
+      const input = toolchainsRemoveSourceRoute.input.parse(rawInput);
+      return toolchainsRemoveSourceRoute.output.parse({ status: await toolchains.removeSource(input.tool) });
+    }
+
+    if (route === toolchainsInstallRoute.name) {
+      if (!toolchains) throw new Error("Toolchain service is not available in this runtime.");
+      const input = toolchainsInstallRoute.input.parse(rawInput);
+      const started = toolchains.install(input.tool);
+      return toolchainsInstallRoute.output.parse({
+        started: started.started,
+        status: await toolchains.status(input.tool),
+      });
+    }
+
+    if (route === toolchainsCancelInstallRoute.name) {
+      if (!toolchains) throw new Error("Toolchain service is not available in this runtime.");
+      const input = toolchainsCancelInstallRoute.input.parse(rawInput);
+      toolchains.cancelInstall(input.tool);
+      return toolchainsCancelInstallRoute.output.parse({
+        cancelled: true,
+        status: await toolchains.status(input.tool),
+      });
+    }
+
     if (isDesktopOnlyRoute(route)) {
       // Routes that are truly desktop-only (open windows, file dialogs) throw.
       throw new Error(`Route not available in headless mode: ${route}`);
@@ -3133,6 +3189,7 @@ export function createDaemonDispatcher(
           deletedSessionIds.push(session.id);
           continue;
         }
+        const targetContext = await resolveMoveTargetContext(input.toAgentId);
         await repo.moveSessionToAgent(session.id, {
           ...targetContext,
           projectDir: session.projectDir ?? null,
@@ -3335,6 +3392,33 @@ export function createDaemonDispatcher(
       const input = sessionsClearAcpSessionRoute.input.parse(rawInput);
       await acpSessionExecutionPort?.clearAcpSession?.(input.sessionId);
       return sessionsClearAcpSessionRoute.output.parse({ cleared: true });
+    }
+
+    if (route === providersStartAcpAuthRoute.name) {
+      const input = providersStartAcpAuthRoute.input.parse(rawInput);
+      if (!acpSessionExecutionPort?.startAcpAuth) {
+        throw new Error("ACP authentication is not available in this runtime.");
+      }
+      const result = await acpSessionExecutionPort.startAcpAuth(input);
+      return providersStartAcpAuthRoute.output.parse(result);
+    }
+
+    if (route === providersWriteAcpAuthInputRoute.name) {
+      const input = providersWriteAcpAuthInputRoute.input.parse(rawInput);
+      if (!acpSessionExecutionPort?.writeAcpAuthInput) {
+        throw new Error("ACP authentication is not available in this runtime.");
+      }
+      await acpSessionExecutionPort.writeAcpAuthInput(input.agentId, input.runId, input.data);
+      return providersWriteAcpAuthInputRoute.output.parse({ ok: true });
+    }
+
+    if (route === providersCancelAcpAuthRoute.name) {
+      const input = providersCancelAcpAuthRoute.input.parse(rawInput);
+      if (!acpSessionExecutionPort?.cancelAcpAuth) {
+        throw new Error("ACP authentication is not available in this runtime.");
+      }
+      await acpSessionExecutionPort.cancelAcpAuth(input.agentId);
+      return providersCancelAcpAuthRoute.output.parse({ cancelled: true });
     }
 
     if (route === sessionsGetAcpSessionModesRoute.name) {

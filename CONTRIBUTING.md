@@ -119,7 +119,7 @@ Argos is a Turborepo monorepo. The desktop app is an Electron **shell** that loa
 - `packages/shared/` (`@argos/shared`): Shared types and utilities (web-safe).
 - `packages/backend-core/`, `packages/{acp,mcp,skills,memory,remote-control}-runtime/`, `packages/agent-runtime/`, `packages/pi-orchestrator-extension/`: Shared backend logic and host-port-injected runtimes.
 - `apps/landing/`: Marketing site + GitHub OAuth relay (Cloudflare Worker).
-- `runtime/`: Bundled runtimes used by MCP and agent tooling (Bun/uv/ripgrep/rtk) — installed via `bun run installRuntime`.
+- `runtime/`: Bundled runtime seeds used by MCP and agent tooling (uv/ripgrep) - installed via `bun run installRuntime`. Node/uv/ripgrep used by the daemon resolve through the managed toolchain service (`apps/daemon/src/host/toolchains/`).
 - `scripts/`, `resources/`, `build/`: Build, packaging, and asset pipelines.
 - `dist/`, `out/`: Build outputs (do not edit manually).
 - `docs/`: Design docs, guides, and the SDD spec/plan/task records.

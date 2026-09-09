@@ -13,6 +13,7 @@ import { DaemonArgosAgentRuntime } from "./host/daemonArgosAgentRuntime";
 import { BunEventPublisher } from "./host/bun-event-publisher";
 import { initializeDatabase } from "./host/db-init";
 import { createDaemonDispatcher } from "./dispatch/daemonDispatcher";
+import { ToolchainService } from "./host/toolchains/service";
 import { DaemonWorkspacePresenter } from "./workspace/daemonWorkspacePresenter";
 import { DaemonTerminalRuntime } from "./terminal/daemonTerminalRuntime";
 import { ProviderImportService } from "@argos/backend-core";
@@ -330,6 +331,15 @@ export async function startDaemon(options?: {
 
   const piProfiles = new PiAgentProfileManager(paths.getDataDir(), resolveDaemonVersion());
   const agentWorkspaceDir = pathJoin(paths.getDataDir(), "agent-workspace");
+
+  // One resolver for external runtimes; consumers (ACP launch, MCP stdio)
+  // must go through it. Warmed before dependent subsystems start so the sync
+  // seams (MCP process rewriting) never fall back to PATH mid-startup.
+  const toolchainService = new ToolchainService({ dataDir: paths.getDataDir() });
+  const toolchainWarmup = toolchainService.warmup().catch((error) => {
+    logger.warn("[daemon] toolchain warmup failed:", error);
+  });
+
   const piProviderExecutionPort = new PiProviderExecutionPort(
     configPresenter,
     sessionRepository,
@@ -377,6 +387,7 @@ export async function startDaemon(options?: {
     dataDir: paths.getDataDir(),
     appVersion: resolveDaemonVersion(),
     db,
+    toolchains: toolchainService,
   });
 
   // Route execution by session provider: ACP-backed sessions go to the ACP port,
@@ -506,6 +517,7 @@ export async function startDaemon(options?: {
     eventPublisher,
     configPresenter,
     configDir: paths.getConfigDir(),
+    toolchains: toolchainService,
     knowledge: knowledgeRuntime.runtime,
     sessionRepository,
     db,
@@ -513,8 +525,8 @@ export async function startDaemon(options?: {
   const mcpRuntime = new DaemonMcpRuntime(configPresenter, mcpPorts);
   const pluginRuntimeRegistry = new PluginRuntimeRegistry(mcpRuntime.serverManager);
   mcpPorts.services.pluginRuntime = pluginRuntimeRegistry;
-  void mcpRuntime
-    .startEnabledServers()
+  void toolchainWarmup
+    .then(() => mcpRuntime.startEnabledServers())
     .then(({ started, failed }) => {
       logger.info(`[daemon] MCP startup complete: ${started.length} started, ${failed.length} failed`);
     })
@@ -835,6 +847,7 @@ export async function startDaemon(options?: {
       workspacePresenter,
       knowledgeRuntime.runtime,
       terminalRuntime,
+      toolchainService,
     );
   setRouteDispatcher(dispatcher);
 

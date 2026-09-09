@@ -1,4 +1,5 @@
 import { homedir } from "node:os";
+import { delimiter } from "node:path";
 import { createJsonStoreFactory } from "./jsonStoreFactory";
 import {
   ArtifactsServer,
@@ -15,6 +16,7 @@ import {
 import { BuiltinKnowledgeServer } from "@argos/backend-core";
 import type { IEventPublisher } from "@argos/backend-core";
 import type { DaemonConfigPresenter } from "./daemonConfigPresenter";
+import type { ToolchainService } from "./toolchains/service";
 import type { PluginToolPolicyDecision } from "@argos/shared/types/plugin";
 
 /** Knowledge capabilities exposed by the daemon knowledge runtime. */
@@ -44,6 +46,7 @@ export function createDaemonMcpPorts(deps: {
   eventPublisher: IEventPublisher;
   configPresenter: DaemonConfigPresenter;
   configDir: string;
+  toolchains?: ToolchainService;
   knowledge?: DaemonKnowledgePort;
   db: {
     prepare(sql: string): {
@@ -93,11 +96,16 @@ export function createDaemonMcpPorts(deps: {
     runtime: {
       initializeRuntimes: () => {},
       expandPath: (target) => target,
-      processCommandWithArgs: (command, args) => ({ command, args }),
-      normalizePathEnv: (paths) => ({ key: "PATH", value: paths.join(":") }),
-      getDefaultPaths: () => [],
+      processCommandWithArgs: (command, args) =>
+        deps.toolchains ? deps.toolchains.resolveCommandSync(command, args) : { command, args },
+      /** Coalesce concurrent identical Ollama lookups into one upstream request. */
+      normalizePathEnv: (paths: string[]) => ({
+        key: process.platform === "win32" ? "Path" : "PATH",
+        value: paths.join(delimiter),
+      }),
+      getDefaultPaths: () => deps.toolchains?.binDirsSync() ?? [],
       getBunRuntimePath: () => null,
-      getUvRuntimePath: () => null,
+      getUvRuntimePath: () => deps.toolchains?.binDirForToolSync("uv") ?? null,
       setBunRuntimePath: () => {},
       setUvRuntimePath: () => {},
     },

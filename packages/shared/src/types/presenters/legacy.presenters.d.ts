@@ -959,6 +959,10 @@ export interface AcpAgentDiagnostics {
     type?: string;
     vars?: AcpAuthEnvVar[];
     link?: string | null;
+    /** Terminal methods: extra argv for the agent binary login TUI. */
+    args?: string[];
+    /** Terminal methods: extra environment for the login TUI. */
+    env?: Record<string, string>;
   }>;
   authRequired: boolean;
   authRequiredMessage?: string | null;

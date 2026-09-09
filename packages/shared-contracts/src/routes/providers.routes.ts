@@ -291,9 +291,12 @@ const AcpAgentDiagnosticsSchema = zod.object({
   authMethods: zod.array(
     zod.object({
       id: zod.string(),
+      name: zod.string().optional(),
       type: zod.string().optional(),
       vars: zod.array(AcpAuthEnvVarSchema).optional(),
       link: zod.string().nullable().optional(),
+      args: zod.array(zod.string()).optional(),
+      env: zod.record(zod.string(), zod.string()).optional(),
     }),
   ),
   authRequired: zod.boolean(),
@@ -338,6 +341,44 @@ export const providersGetAcpAgentDiagnosticsRoute = defineRouteContract({
   }),
   output: zod.object({
     diagnostics: AcpAgentDiagnosticsSchema,
+  }),
+});
+
+const AcpAuthMethodNameSchema = zod.enum(["agent", "terminal"]);
+
+export const providersStartAcpAuthRoute = defineRouteContract({
+  name: "providers.startAcpAuth",
+  input: zod.object({
+    agentId: zod.string().min(1),
+    workdir: zod.string().optional(),
+    methodId: zod.string().min(1),
+  }),
+  output: zod.object({
+    mode: AcpAuthMethodNameSchema,
+    runId: zod.string().nullable(),
+  }),
+});
+
+export const providersWriteAcpAuthInputRoute = defineRouteContract({
+  name: "providers.writeAcpAuthInput",
+  input: zod.object({
+    agentId: zod.string().min(1),
+    runId: zod.string().min(1),
+    data: zod.string(),
+  }),
+  output: zod.object({
+    ok: zod.literal(true),
+  }),
+});
+
+export const providersCancelAcpAuthRoute = defineRouteContract({
+  name: "providers.cancelAcpAuth",
+  input: zod.object({
+    agentId: zod.string().min(1),
+    runId: zod.string().optional(),
+  }),
+  output: zod.object({
+    cancelled: zod.literal(true),
   }),
 });
 

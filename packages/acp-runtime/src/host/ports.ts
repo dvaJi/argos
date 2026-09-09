@@ -26,6 +26,17 @@ export interface RuntimePort {
   expandPath(target: string): string;
   /** Swap a bare command (npx/npm/node/uvx) for the bundled bin when enabled. */
   resolveCommand(command: string, useBundled: boolean, checkExists: boolean): string;
+  /**
+   * Optional command+args rewrite for hosts that manage runtimes themselves
+   * (e.g. `npx -y pkg` -> `node npx-cli.js -y pkg` under a managed Node).
+   * When it resolves, its result wins over `resolveCommand`; returning null
+   * falls back to `resolveCommand` with the args untouched.
+   */
+  resolveCommandWithArgs?(input: {
+    command: string;
+    args: string[];
+    useBundled: boolean;
+  }): Promise<{ command: string; args: string[] } | null>;
   /** Prepend bundled runtime dirs to PATH in the spawn env. */
   buildSpawnEnv(base: Record<string, string>): Record<string, string>;
 }

@@ -1,8 +1,16 @@
 import type { ArgosBridge } from "@argos/shared-contracts/bridge";
-import { providersChangedEvent, providersOllamaPullProgressEvent } from "@argos/shared-contracts/events";
+import {
+  acpAuthChangedEvent,
+  acpAuthRequiredEvent,
+  providersChangedEvent,
+  providersOllamaPullProgressEvent,
+} from "@argos/shared-contracts/events";
 import {
   providersAddRoute,
   providersGetAcpAgentDiagnosticsRoute,
+  providersStartAcpAuthRoute,
+  providersWriteAcpAuthInputRoute,
+  providersCancelAcpAuthRoute,
   providersGetAcpProcessConfigOptionsRoute,
   providersGetRateLimitStatusRoute,
   providersImportApplyRoute,
@@ -159,6 +167,18 @@ export function createProviderClient(bridge: ArgosBridge = getArgosBridge()) {
     return result.diagnostics;
   }
 
+  async function startAcpAuth(input: { agentId: string; workdir?: string; methodId: string }) {
+    return await bridge.invoke(providersStartAcpAuthRoute.name, input);
+  }
+
+  async function writeAcpAuthInput(agentId: string, runId: string, data: string) {
+    return await bridge.invoke(providersWriteAcpAuthInputRoute.name, { agentId, runId, data });
+  }
+
+  async function cancelAcpAuth(agentId: string) {
+    return await bridge.invoke(providersCancelAcpAuthRoute.name, { agentId });
+  }
+
   async function scanProviderImports() {
     return await bridge.invoke(providersImportScanRoute.name, {});
   }
@@ -216,6 +236,34 @@ export function createProviderClient(bridge: ArgosBridge = getArgosBridge()) {
     return bridge.on(providersOllamaPullProgressEvent.name, listener);
   }
 
+  /** Terminal/agent auth flow state transitions + PTY output chunks. */
+  function onAcpAuthChanged(
+    listener: (payload: {
+      agentId: string;
+      workdir?: string | null;
+      runId?: string | null;
+      state: "running" | "ready" | "error" | "cancelled";
+      mode?: "agent" | "terminal" | null;
+      output?: string | null;
+      exitCode?: number | null;
+      error?: string | null;
+    }) => void,
+  ) {
+    return bridge.on(acpAuthChangedEvent.name, listener);
+  }
+
+  /** Raised when a normal-flow ACP call fails with `auth_required`. */
+  function onAcpAuthRequired(
+    listener: (payload: {
+      sessionId?: string | null;
+      agentId: string;
+      workdir?: string | null;
+      message: string;
+    }) => void,
+  ) {
+    return bridge.on(acpAuthRequiredEvent.name, listener);
+  }
+
   return {
     getProviders,
     getProviderSummaries,
@@ -236,6 +284,11 @@ export function createProviderClient(bridge: ArgosBridge = getArgosBridge()) {
     getAcpProcessConfigOptions,
     runAcpDebugAction,
     getAcpAgentDiagnostics,
+    startAcpAuth,
+    writeAcpAuthInput,
+    cancelAcpAuth,
+    onAcpAuthChanged,
+    onAcpAuthRequired,
     getKeyStatus,
     refreshProviderDb,
     updateProviderRateLimit,
