@@ -362,6 +362,7 @@ export const providersStartAcpAuthRoute = defineRouteContract({
 export const providersWriteAcpAuthInputRoute = defineRouteContract({
   name: "providers.writeAcpAuthInput",
   input: zod.object({
+    agentId: zod.string().min(1),
     runId: zod.string().min(1),
     data: zod.string(),
   }),

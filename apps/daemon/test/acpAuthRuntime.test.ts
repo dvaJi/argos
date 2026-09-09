@@ -245,4 +245,21 @@ describe("DaemonAcpAuthRuntime", () => {
     const harness = createHarness();
     await expect(harness.auth.start({ agentId: "my-agent", methodId: "nope" })).rejects.toThrow("did not advertise");
   });
+
+  it("binds terminal keystrokes to the owning agent", async () => {
+    const harness = createHarness({
+      authMethods: [{ id: "term-1", name: "Terminal Login", type: "terminal", args: ["--login"] }],
+    });
+    const result = await harness.auth.start({ agentId: "my-agent", methodId: "term-1" });
+
+    // The owning agent can write.
+    harness.auth.write("my-agent", result.runId!, "hello");
+    expect(harness.terminalWrites).toContain("hello");
+
+    // A different agent's identity cannot inject keystrokes via a broadcast
+    // runId.
+    expect(() => harness.auth.write("other-agent", result.runId!, "evil")).toThrow("No active terminal auth run");
+    expect(() => harness.auth.write("other-agent", "made-up-run", "evil")).toThrow("No active terminal auth run");
+    expect(harness.terminalWrites).not.toContain("evil");
+  });
 });

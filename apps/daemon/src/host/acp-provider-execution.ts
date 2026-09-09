@@ -185,9 +185,9 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
     return await auth.start(input);
   }
 
-  async writeAcpAuthInput(runId: string, data: string): Promise<void> {
+  async writeAcpAuthInput(agentId: string, runId: string, data: string): Promise<void> {
     const auth = await this.getAuthRuntime();
-    auth.write(runId, data);
+    auth.write(agentId, runId, data);
   }
 
   async cancelAcpAuth(agentId: string): Promise<void> {

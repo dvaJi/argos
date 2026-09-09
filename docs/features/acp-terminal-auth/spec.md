@@ -68,6 +68,10 @@ Agents that require login (e.g. MiniMax Code, `mcode acp`) advertise `authMethod
 - **D5 — Inspection reuses diagnostics.** The dialog fetches methods via the existing
   `providers.getAcpAgentDiagnostics` route (extended to carry terminal `args`/`env`); no separate
   inspect route.
+- **D9 — Single-user trust model for auth runs.** PTY keystroke injection and cancellation are
+  bound to the owning agent (`agentId` + `runId`), but the daemon remains a single-user trust
+  domain: any authenticated client may start a login for any agent and observe its output.
+  Multi-client ownership isolation is a follow-up for the remote-control deployment.
 - **D6 — Chat surfacing.** `AcpProviderExecutionPort` publishes `acp.auth.required`
   (sessionId, agentId, workdir, methods) when `isAuthRequiredError` matches a turn or draft
   preparation failure, and prefixes the error block so the raw JSON-RPC text is never the whole

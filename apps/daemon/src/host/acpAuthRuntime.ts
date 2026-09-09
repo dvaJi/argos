@@ -141,10 +141,19 @@ export class DaemonAcpAuthRuntime {
     }
   }
 
-  write(runId: string, data: string): void {
+  /**
+   * Write keystrokes into a terminal-auth run. The run is bound to its
+   * agent: `agentId` must match the run's owner so a runId observed on the
+   * broadcast event stream cannot be used to inject keystrokes into another
+   * client's login session.
+   */
+  write(agentId: string, runId: string, data: string): void {
     const run = this.runsById.get(runId);
-    if (!run || run.state !== "running" || !run.write) {
-      throw new Error(`No active terminal auth run: ${runId}`);
+    if (!run || run.agentId !== agentId) {
+      throw new Error(`No active terminal auth run for ${agentId}: ${runId}`);
+    }
+    if (run.state !== "running" || !run.write) {
+      throw new Error(`Terminal auth run is not accepting input: ${runId}`);
     }
     run.write(data);
   }

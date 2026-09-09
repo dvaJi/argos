@@ -27,7 +27,7 @@ export interface AcpAuthDialogRequest {
   onOpenChange: (open: boolean) => void;
 }
 
-type FlowState = "select" | "running" | "ready" | "error" | "cancelled";
+type FlowState = "select" | "starting" | "running" | "ready" | "error" | "cancelled";
 
 /**
  * Sign-in dialog for ACP agents. Agent methods call `authenticate` on the
@@ -52,12 +52,14 @@ export default function AcpAuthDialog({
   const [runId, setRunId] = useState<string | null>(null);
   const terminalRef = useRef<HTMLDivElement | null>(null);
   const xtermRef = useRef<Terminal | null>(null);
+  const pendingOutputRef = useRef<string[]>([]);
 
   const reset = () => {
     setFlowState("select");
     setActiveMethod(null);
     setError(null);
     setRunId(null);
+    pendingOutputRef.current = [];
   };
 
   // Load methods when the dialog opens.
@@ -77,7 +79,6 @@ export default function AcpAuthDialog({
   // Auth state transitions + PTY output. Output that arrives before the
   // embedded terminal is mounted is buffered and flushed on open — the
   // daemon does not replay it.
-  const pendingOutputRef = useRef<string[]>([]);
   useEffect(() => {
     if (!open) return;
     const off = providerClient.onAcpAuthChanged((payload) => {
@@ -118,7 +119,7 @@ export default function AcpAuthDialog({
     }
     pendingOutputRef.current = [];
     terminal.onData((data) => {
-      if (runId) void providerClient.writeAcpAuthInput(runId, data);
+      if (runId) void providerClient.writeAcpAuthInput(agentId, runId, data);
     });
     terminal.focus();
     xtermRef.current = terminal;
@@ -126,27 +127,36 @@ export default function AcpAuthDialog({
       terminal.dispose();
       xtermRef.current = null;
     };
-  }, [flowState, activeMethod, runId]);
+  }, [flowState, activeMethod, runId, agentId]);
 
-  const startMethod = async (methodId: string, name: string) => {
+  const startMethod = (methodId: string, name: string) => {
     setLoading(true);
     setError(null);
-    try {
-      const result = await providerClient.startAcpAuth({ agentId, workdir: workdir ?? undefined, methodId });
-      setActiveMethod({ id: methodId, name, mode: result.mode });
-      setRunId(result.runId);
-      setFlowState("running");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-      setFlowState("error");
-    }
-    setLoading(false);
+    // "starting" marks a requested-but-not-yet-confirmed flow: closing the
+    // dialog now still cancels, and terminal events that arrive before the
+    // response (warm connection) are preserved by the functional update.
+    setFlowState("starting");
+    void providerClient
+      .startAcpAuth({ agentId, workdir: workdir ?? undefined, methodId })
+      .then((result) => {
+        setActiveMethod({ id: methodId, name, mode: result.mode });
+        setRunId(result.runId);
+        setFlowState((current) => (current === "starting" ? "running" : current));
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : String(err));
+        setFlowState((current) => (current === "starting" ? "error" : current));
+      })
+      .finally(() => setLoading(false));
   };
 
   const methods = diagnostics?.authMethods ?? [];
 
   const handleClose = (nextOpen: boolean) => {
-    if (!nextOpen && flowState === "running" && agentId) {
+    if (!nextOpen && agentId && (flowState === "running" || flowState === "starting")) {
+      // Covers both a running flow and a start that is still setting up its
+      // connection — an orphaned pending start would launch an invisible
+      // terminal login later and block the agent.
       void providerClient.cancelAcpAuth(agentId).catch(() => undefined);
     }
     onOpenChange(nextOpen);
@@ -271,7 +281,12 @@ export default function AcpAuthDialog({
 
         <DialogFooter>
           {flowState === "running" ? (
-            <Button variant="outline" onClick={() => void providerClient.cancelAcpAuth(agentId).catch(() => undefined)}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                void providerClient.cancelAcpAuth(agentId).catch(() => undefined);
+              }}
+            >
               Cancel
             </Button>
           ) : null}

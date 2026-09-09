@@ -348,7 +348,7 @@ type DaemonAcpSessionExecutionPort = {
     mode: "agent" | "terminal";
     runId: string | null;
   }>;
-  writeAcpAuthInput?(runId: string, data: string): Promise<void>;
+  writeAcpAuthInput?(agentId: string, runId: string, data: string): Promise<void>;
   cancelAcpAuth?(agentId: string): Promise<void>;
 };
 
@@ -3408,7 +3408,7 @@ export function createDaemonDispatcher(
       if (!acpSessionExecutionPort?.writeAcpAuthInput) {
         throw new Error("ACP authentication is not available in this runtime.");
       }
-      await acpSessionExecutionPort.writeAcpAuthInput(input.runId, input.data);
+      await acpSessionExecutionPort.writeAcpAuthInput(input.agentId, input.runId, input.data);
       return providersWriteAcpAuthInputRoute.output.parse({ ok: true });
     }
 

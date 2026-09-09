@@ -171,8 +171,8 @@ export function createProviderClient(bridge: ArgosBridge = getArgosBridge()) {
     return await bridge.invoke(providersStartAcpAuthRoute.name, input);
   }
 
-  async function writeAcpAuthInput(runId: string, data: string) {
-    return await bridge.invoke(providersWriteAcpAuthInputRoute.name, { runId, data });
+  async function writeAcpAuthInput(agentId: string, runId: string, data: string) {
+    return await bridge.invoke(providersWriteAcpAuthInputRoute.name, { agentId, runId, data });
   }
 
   async function cancelAcpAuth(agentId: string) {
