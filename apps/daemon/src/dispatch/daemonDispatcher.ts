@@ -31,6 +31,7 @@ import { resolveDaemonVersion } from "../version";
 import type { DaemonTerminalRuntime } from "../terminal/daemonTerminalRuntime";
 import { diagnoseDaemonSchema, repairDaemonSchema } from "../host/daemonSchemaDiagnostics";
 import { settleSessionForOwnershipChange, type SettleSessionHost } from "../host/sessionSettlement";
+import type { ToolchainService } from "../host/toolchains/service";
 import { getPiToolDefinitions } from "../host/piToolCatalog";
 import { aggregateUsageStats, resolveBuiltinModelPrice } from "../host/usageStatsAggregator";
 import { resolveModelCost } from "../host/modelCost";
@@ -48,6 +49,11 @@ import {
   onboardingSetStepStatusRoute,
   onboardingCompleteRoute,
   onboardingResetRoute,
+  toolchainsListRoute,
+  toolchainsSetSourceRoute,
+  toolchainsRemoveSourceRoute,
+  toolchainsInstallRoute,
+  toolchainsCancelInstallRoute,
   settingsGetSnapshotRoute,
   settingsUpdateRoute,
   settingsActivityListRoute,
@@ -935,6 +941,7 @@ export function createDaemonDispatcher(
   },
   knowledgeRuntime?: DaemonKnowledgeRuntimePort,
   terminalRuntime?: DaemonTerminalRuntime,
+  toolchains?: ToolchainService,
 ): RouteDispatcher {
   const settingsHandler = new SettingsRouteHandler(createSettingsRouteAdapter(configPresenter));
   const runtime: {
@@ -2059,6 +2066,46 @@ export function createDaemonDispatcher(
       // font picker degrades to its built-in defaults instead of throwing.
       settingsListSystemFontsRoute.input.parse(rawInput);
       return settingsListSystemFontsRoute.output.parse({ fonts: [] });
+    }
+
+    if (route === toolchainsListRoute.name) {
+      if (!toolchains) throw new Error("Toolchain service is not available in this runtime.");
+      toolchainsListRoute.input.parse(rawInput);
+      return toolchainsListRoute.output.parse({ tools: await toolchains.list() });
+    }
+
+    if (route === toolchainsSetSourceRoute.name) {
+      if (!toolchains) throw new Error("Toolchain service is not available in this runtime.");
+      const input = toolchainsSetSourceRoute.input.parse(rawInput);
+      return toolchainsSetSourceRoute.output.parse({
+        status: await toolchains.setSource(input.tool, input.source, input.path),
+      });
+    }
+
+    if (route === toolchainsRemoveSourceRoute.name) {
+      if (!toolchains) throw new Error("Toolchain service is not available in this runtime.");
+      const input = toolchainsRemoveSourceRoute.input.parse(rawInput);
+      return toolchainsRemoveSourceRoute.output.parse({ status: await toolchains.removeSource(input.tool) });
+    }
+
+    if (route === toolchainsInstallRoute.name) {
+      if (!toolchains) throw new Error("Toolchain service is not available in this runtime.");
+      const input = toolchainsInstallRoute.input.parse(rawInput);
+      const started = toolchains.install(input.tool);
+      return toolchainsInstallRoute.output.parse({
+        started: started.started,
+        status: await toolchains.status(input.tool),
+      });
+    }
+
+    if (route === toolchainsCancelInstallRoute.name) {
+      if (!toolchains) throw new Error("Toolchain service is not available in this runtime.");
+      const input = toolchainsCancelInstallRoute.input.parse(rawInput);
+      toolchains.cancelInstall(input.tool);
+      return toolchainsCancelInstallRoute.output.parse({
+        cancelled: true,
+        status: await toolchains.status(input.tool),
+      });
     }
 
     if (isDesktopOnlyRoute(route)) {
