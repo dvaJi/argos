@@ -48,11 +48,13 @@ export async function loadState(dataDir: string): Promise<ToolchainStateFile> {
     }
     return { version: STATE_VERSION, sources: clean };
   } catch {
-    // Quarantine under a timestamped name so repeated corruption cannot make
-    // every subsequent load throw (EEXIST on a fixed quarantine name).
+    // Quarantine under a unique name so repeated corruption cannot make
+    // every subsequent load throw (EEXIST on a fixed quarantine name) and
+    // cannot collide within one millisecond (Date.now() alone proved
+    // ambiguous on fast runners — the second rename replaced the first).
     try {
       await Bun.write(
-        join(toolchainsDir(dataDir), `state.corrupt-${Date.now()}.json`),
+        join(toolchainsDir(dataDir), `state.corrupt-${Date.now()}-${crypto.randomUUID()}.json`),
         await Bun.file(filePath).arrayBuffer(),
       );
       // Persist a VALID empty state — an empty string would re-corrupt on
