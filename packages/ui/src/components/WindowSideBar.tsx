@@ -1,17 +1,8 @@
-import { useState, useEffect, useRef, type RefObject, type ReactNode } from "react";
+import { useCallback, useState, useEffect, useMemo, useRef, type RefObject, type ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Icon } from "@iconify/react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "#shadcn/components/ui/tooltip";
-import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "#shadcn/components/ui/dialog";
 import { createDeviceClient } from "#api/DeviceClient";
 import { useAgentStore } from "#/stores/ui/agent";
 import { useSessionStore, getHasActiveSession, type SessionGroup, type UISession } from "#/stores/ui/session";
@@ -19,8 +10,11 @@ import { useSpotlightStore } from "#/stores/ui/spotlight";
 import WindowSideBarSessionItem from "./WindowSideBarSessionItem";
 import WorkspaceSelector from "./WorkspaceSelector";
 import ThreadSidebarList from "./threads/ThreadSidebarList";
+import DeleteConversationDialog from "./DeleteConversationDialog";
+import SidebarFirstPageSkeleton from "./SidebarFirstPageSkeleton";
+import { collectThreadSidebarShortcutSessions, partitionThreads } from "./threads/threadSidebarLogic";
 import { useSidebarStore } from "#/stores/ui/sidebar";
-import { useThreadSidebarStore } from "#/stores/ui/threadSidebar";
+import { notifySessionDeleted, useThreadSidebarStore } from "#/stores/ui/threadSidebar";
 import { useThemeStore } from "#/stores/theme";
 type PinFeedbackMode = "pinning" | "unpinning";
 type ShortcutPlatform = "mac" | "other";
@@ -139,17 +133,16 @@ const deviceClient = createDeviceClient();
 /**
  * The left sidebar. Two modes:
  *  - **Thread sidebar (experiment on)**: a t3code-style column with a
- *    search input, agent switcher, an Active row, and a Settled list. The
- *    bottom utility bar (search / theme / collapse / settings / usage)
- *    sits in a horizontal row at the very bottom of the column.
+ *    clearable search + New-thread header and Pinned / Active / Snoozed /
+ *    Settled lifecycle sections (docs/features/thread-sidebar-polish).
  *  - **Original (experiment off)**: the agent / project / date history
- *    grouping with a search and grouped rows, plus the same horizontal
- *    utility bar pinned to the bottom.
+ *    grouping with a search and grouped rows.
  *
  * In both modes, the dedicated left icon rail is gone — agent chips, the
- * project selector, etc. live inside the column itself. The icon rail's
- * bottom utility icons are now a horizontal bar at the bottom of the
- * sidebar.
+ * project selector, etc. live inside the column itself — and a horizontal
+ * utility bar sits at the bottom of the column. When the sidebar is
+ * collapsed, a minimal icon rail replaces the empty strip (expand, new chat,
+ * attention indicator, theme / settings / usage).
  */
 export default function WindowSideBar() {
   const navigate = useNavigate();
@@ -172,6 +165,8 @@ export default function WindowSideBar() {
     navigator.platform.toLowerCase().includes("mac") ? "mac" : "other",
   );
   const [showShortcutBadges, setShowShortcutBadges] = useState(false);
+  /** Render clock for experiment-mode shortcut ordering (never needs to tick). */
+  const [sidebarRenderNow] = useState(() => Date.now());
   const sessionListRef = useRef<HTMLDivElement | null>(null);
   const pinFeedbackTimerRef = useRef<number | null>(null);
   const sessionListScrollFrameRef = useRef<number | null>(null);
@@ -255,6 +250,7 @@ export default function WindowSideBar() {
     if (!deleteTargetSession) return;
     try {
       await sessionStore.deleteSession(deleteTargetSession.id);
+      notifySessionDeleted(deleteTargetSession.id);
     } catch {}
     setDeleteTargetSession(null);
   };
@@ -268,14 +264,46 @@ export default function WindowSideBar() {
       if (distanceToBottom <= 96) void sessionStore.loadNextPage();
     });
   };
-  const visibleShortcutSessions = collectVisibleShortcutSessions({
+  const visibleShortcutSessions = useMemo(() => {
+    if (threadSidebar.enabled) {
+      // Experiment mode: badges follow the lifecycle sections. The render
+      // timestamp is captured once (lazy initial state): shortcut ordering
+      // does not need a live clock, so staleness is irrelevant here.
+      const sections = partitionThreads(sessionStore.sessions, {
+        settledAtById: threadSidebar.settledAtById,
+        snoozedUntilById: threadSidebar.snoozedUntilById,
+        now: sidebarRenderNow,
+        activeSessionId: sessionStore.activeSessionId,
+      });
+      return collectThreadSidebarShortcutSessions({
+        collapsed,
+        sections,
+        snoozedShelfExpanded: threadSidebar.snoozedShelfExpanded,
+      });
+    }
+    return collectVisibleShortcutSessions({
+      collapsed,
+      pinnedSessions,
+      isPinnedSectionCollapsed,
+      filteredGroups,
+      isGroupCollapsed,
+      pinFlightSessionId,
+    });
+  }, [
+    threadSidebar.enabled,
+    threadSidebar.settledAtById,
+    threadSidebar.snoozedUntilById,
+    threadSidebar.snoozedShelfExpanded,
     collapsed,
+    sidebarRenderNow,
+    sessionStore.sessions,
+    sessionStore.activeSessionId,
     pinnedSessions,
     isPinnedSectionCollapsed,
     filteredGroups,
     isGroupCollapsed,
     pinFlightSessionId,
-  });
+  ]);
   useEffect(() => {
     const { handleKeydown, handleKeyup, handleBlur } = createShortcutKeyHandlers({
       shortcutPlatform,
@@ -312,15 +340,45 @@ export default function WindowSideBar() {
       if (pinFeedbackTimerRef.current) window.clearTimeout(pinFeedbackTimerRef.current);
     };
   }, []);
-  const getShortcutBadge = (sessionId: string) =>
-    showShortcutBadges ? getShortcutBadgeLabelForSession(shortcutPlatform, sessionId, visibleShortcutSessions) : null;
-  const hasShortcutBadge = (sessionId: string) =>
-    showShortcutBadges && visibleShortcutSessions.some((s) => s.id === sessionId);
+  const getShortcutBadge = useCallback(
+    (sessionId: string) =>
+      showShortcutBadges ? getShortcutBadgeLabelForSession(shortcutPlatform, sessionId, visibleShortcutSessions) : null,
+    [showShortcutBadges, shortcutPlatform, visibleShortcutSessions],
+  );
+  const hasShortcutBadge = useCallback(
+    (sessionId: string) => showShortcutBadges && visibleShortcutSessions.some((s) => s.id === sessionId),
+    [showShortcutBadges, visibleShortcutSessions],
+  );
+  // Collapsed-rail attention indicator: pending approval first, then working.
+  const railAttention = useMemo(() => {
+    let blocked: UISession | null = null;
+    let working: UISession | null = null;
+    let blockedCount = 0;
+    let workingCount = 0;
+    for (const session of sessionStore.sessions) {
+      if (session.status === "blocked") {
+        blockedCount += 1;
+        if (blocked === null) blocked = session;
+      } else if (session.status === "working") {
+        workingCount += 1;
+        if (working === null) working = session;
+      }
+    }
+    if (blocked) return { kind: "blocked" as const, count: blockedCount, sessionId: blocked.id };
+    if (working) return { kind: "working" as const, count: workingCount, sessionId: working.id };
+    return null;
+  }, [sessionStore.sessions]);
+  // Plain handler (no memoization needed — the rail is not memoized).
+  const handleRailAttentionClick = () => {
+    if (!railAttention) return;
+    sidebarStore.setCollapsed(false);
+    void sessionStore.selectSession(railAttention.sessionId);
+  };
   return (
     <>
       <div
         data-testid="window-sidebar"
-        className={`window-sidebar-shell flex flex-col h-full shrink-0 overflow-hidden bg-sidebar window-drag-region${collapsed ? " w-12" : " w-[288px]"}`}
+        className={`window-sidebar-shell relative flex flex-col h-full shrink-0 overflow-hidden bg-sidebar window-drag-region${collapsed ? " w-12" : " w-[288px]"}`}
       >
         <div
           data-testid="window-sidebar-session-column"
@@ -329,7 +387,7 @@ export default function WindowSideBar() {
           inert={collapsed ? true : undefined}
         >
           {threadSidebar.enabled ? (
-            <ThreadSidebarList />
+            <ThreadSidebarList getShortcutBadge={getShortcutBadge} />
           ) : (
             <>
               {!collapsed && (
@@ -418,6 +476,22 @@ export default function WindowSideBar() {
             </>
           )}
         </div>
+
+        {collapsed && (
+          <div className="absolute inset-0 z-10">
+            <SidebarCollapsedRail
+              themeIcon={themeIcon}
+              themeModeLabel={themeModeLabel}
+              onCycleTheme={() => themeStore.cycleTheme()}
+              onExpand={() => sidebarStore.setCollapsed(false)}
+              onNewChat={handleNewChat}
+              onOpenSettings={openSettings}
+              onOpenUsage={openUsage}
+              attention={railAttention}
+              onAttentionClick={handleRailAttentionClick}
+            />
+          </div>
+        )}
 
         {!collapsed && (
           <SidebarBottomUtilityBar
@@ -526,18 +600,7 @@ function SidebarSearchBox({ query, onQueryChange }: SidebarSearchBoxProps) {
   );
 }
 
-/** Skeleton rows shown while the first session page loads. */
-function SidebarFirstPageSkeleton() {
-  return (
-    <div className="flex flex-col gap-2 px-3 pb-3" data-testid="window-sidebar-loading-first-page">
-      {Array.from({
-        length: 6,
-      }).map((_, i) => (
-        <div key={`session-skeleton-${i}`} className="h-10 rounded-lg bg-muted/50 animate-pulse" />
-      ))}
-    </div>
-  );
-}
+/** Empty state for the original session list (first-page skeleton is shared via SidebarFirstPageSkeleton). */
 function SidebarEmptyState({ hasQuery }: { hasQuery: boolean }) {
   return (
     <div className="flex flex-col items-center justify-center h-full px-4 text-center">
@@ -767,37 +830,151 @@ function SidebarBottomUtilityBar(props: SidebarBottomUtilityBarProps) {
     </div>
   );
 }
-interface DeleteConversationDialogProps {
-  open: boolean;
-  onCancel: () => void;
-  onConfirm: () => void;
+interface SidebarCollapsedRailProps {
+  themeIcon: string;
+  themeModeLabel: string;
+  onCycleTheme: () => void;
+  onExpand: () => void;
+  onNewChat: () => void;
+  onOpenSettings: () => void;
+  onOpenUsage: () => void;
+  attention: {
+    kind: "blocked" | "working";
+    count: number;
+    sessionId: string;
+  } | null;
+  onAttentionClick: () => void;
 }
 
-/** Confirmation dialog for deleting a conversation. */
-function DeleteConversationDialog({ open, onCancel, onConfirm }: DeleteConversationDialogProps) {
+/** Vertical icon rail shown while the sidebar is collapsed (both modes). */
+function SidebarCollapsedRail({
+  themeIcon,
+  themeModeLabel,
+  onCycleTheme,
+  onExpand,
+  onNewChat,
+  onOpenSettings,
+  onOpenUsage,
+  attention,
+  onAttentionClick,
+}: SidebarCollapsedRailProps) {
+  const railButtonClassName =
+    "flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-accent/40 hover:text-foreground";
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(value) => {
-        if (!value) onCancel();
-      }}
+    <div
+      data-testid="sidebar-rail"
+      className="window-no-drag-region flex h-full w-full flex-col items-center gap-1 py-2"
     >
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Delete Conversation</DialogTitle>
-          <DialogDescription>
-            Are you sure you want to delete this conversation? This action cannot be undone.
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button variant="outline" onClick={onCancel}>
-            Cancel
-          </Button>
-          <Button variant="destructive" onClick={onConfirm}>
-            Delete
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <button
+              type="button"
+              data-testid="window-sidebar-toggle"
+              className={railButtonClassName}
+              onClick={onExpand}
+            />
+          }
+        >
+          <Icon icon="lucide:panel-left-open" className="h-4 w-4" />
+        </TooltipTrigger>
+        <TooltipContent side="right">Expand Sidebar</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <button
+              type="button"
+              data-testid="app-new-chat-button"
+              className={railButtonClassName}
+              onClick={onNewChat}
+            />
+          }
+        >
+          <Icon icon="uil:plus" className="h-4 w-4" />
+        </TooltipTrigger>
+        <TooltipContent side="right">New Chat</TooltipContent>
+      </Tooltip>
+      {attention && (
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <button
+                type="button"
+                data-testid="sidebar-rail-attention"
+                className={`relative flex h-8 w-8 items-center justify-center rounded-md transition-colors duration-150 hover:bg-accent/40 ${railButtonClassName}`}
+                onClick={onAttentionClick}
+              />
+            }
+          >
+            <Icon
+              icon={attention.kind === "blocked" ? "lucide:circle-alert" : "lucide:circle-dashed"}
+              className={`h-4 w-4 ${
+                attention.kind === "blocked"
+                  ? "text-amber-500"
+                  : "text-primary animate-pulse motion-reduce:animate-none"
+              }`}
+            />
+            {attention.count > 1 && (
+              <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-accent px-0.5 text-[9px] font-medium tabular-nums text-accent-foreground">
+                {attention.count}
+              </span>
+            )}
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            {attention.kind === "blocked" ? `${attention.count} pending approval` : `${attention.count} working`}
+          </TooltipContent>
+        </Tooltip>
+      )}
+      <div className="mt-auto flex flex-col items-center gap-1">
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <button
+                type="button"
+                data-testid="window-sidebar-theme-toggle"
+                className={railButtonClassName}
+                onClick={onCycleTheme}
+              />
+            }
+          >
+            <span className="theme-icon-wrap">
+              <Icon key={themeIcon} icon={themeIcon} className="theme-icon" />
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="right">Theme · {themeModeLabel}</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <button
+                type="button"
+                data-testid="app-settings-button"
+                className={railButtonClassName}
+                onClick={onOpenSettings}
+              />
+            }
+          >
+            <Icon icon="uil:setting" className="h-4 w-4" />
+          </TooltipTrigger>
+          <TooltipContent side="right">Settings</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <button
+                type="button"
+                data-testid="app-usage-button"
+                className={railButtonClassName}
+                onClick={onOpenUsage}
+              />
+            }
+          >
+            <Icon icon="lucide:chart-column" className="h-4 w-4" />
+          </TooltipTrigger>
+          <TooltipContent side="right">Usage</TooltipContent>
+        </Tooltip>
+      </div>
+    </div>
   );
 }
