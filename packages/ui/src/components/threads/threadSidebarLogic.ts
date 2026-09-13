@@ -90,6 +90,11 @@ export interface PartitionHelpers {
   /** Absolute wake time per snoozed session id (ms). */
   snoozedUntilById: Record<string, number>;
   now: number;
+  /**
+   * The currently open session. A snoozed open session stays in Active so the
+   * conversation the user is looking at never disappears (t3 deviation).
+   */
+  activeSessionId?: string | null;
 }
 
 /**
@@ -106,7 +111,8 @@ export function partitionThreads(sessions: readonly UISession[], helpers: Partit
 
   for (const session of visible) {
     const snoozedUntil = helpers.snoozedUntilById[session.id];
-    if (typeof snoozedUntil === "number" && snoozedUntil > helpers.now) {
+    const isSnoozed = typeof snoozedUntil === "number" && snoozedUntil > helpers.now;
+    if (isSnoozed && session.id !== helpers.activeSessionId) {
       sections.snoozed.push(session);
       continue;
     }
@@ -138,6 +144,24 @@ function compareCreatedDesc(a: UISession, b: UISession): number {
   return b.createdAt - a.createdAt;
 }
 
+/**
+ * Experiment-mode Alt/⌘+1..9 shortcut targets, mirroring the original
+ * sidebar's `collectVisibleShortcutSessions`: expanded, visible rows only,
+ * capped at 10. Settled is the archive — shortcut slots are reserved for live
+ * threads.
+ */
+export function collectThreadSidebarShortcutSessions(input: {
+  collapsed: boolean;
+  sections: ThreadSections;
+  snoozedShelfExpanded: boolean;
+}): UISession[] {
+  const { collapsed, sections, snoozedShelfExpanded } = input;
+  if (collapsed) return [];
+  const sessions: UISession[] = [...sections.pinned, ...sections.active];
+  if (snoozedShelfExpanded) sessions.push(...sections.snoozed);
+  return sessions.slice(0, 10);
+}
+
 export interface TitleSegment {
   text: string;
   match: boolean;
@@ -163,10 +187,6 @@ export function highlightSegments(title: string, query: string): TitleSegment[] 
     cursor = index + normalized.length;
   }
   return segments.filter((segment) => segment.text.length > 0);
-}
-
-export function matchesTitle(session: Pick<UISession, "title">, query: string): boolean {
-  return session.title.toLowerCase().includes(query.trim().toLowerCase());
 }
 
 /** Case-insensitive title filter that preserves the incoming (section) order. */
