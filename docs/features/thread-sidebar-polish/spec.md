@@ -56,11 +56,14 @@ Builds on `docs/issues/thread-sidebar-fixes/` (lands after those fixes).
   (`app-new-chat-button`, `app-settings-button`, `app-usage-button`, `window-sidebar-theme-toggle`) plus new
   `sidebar-rail-*` ids.
 
-### U8 — Alt/⌘+1..9 shortcut badges in experiment mode
+### U8 — Alt/⌘ shortcut badges in experiment mode
 
-- **AC11**: Holding Alt/⌘ shows number badges on experiment rows (pinned, active, and expanded-shelf snoozed rows;
-  settled is archive and excluded), and the shortcuts select them. Pure collector
-  `collectThreadSidebarShortcutSessions` mirrors `collectVisibleShortcutSessions`.
+- **AC11**: Holding Alt/⌘ shows number badges on the rows the list actually
+  renders (search-aware; collapsed shelves excluded; the visible settled page
+  included), and the shortcuts select them. The list publishes its rendered
+  row order and the shell derives both badges and shortcut activation from
+  that exact list. Slot numbering matches the original sidebar: 1–9 plus `0`
+  as the tenth slot.
 
 ### C1 — Code hygiene and render performance
 

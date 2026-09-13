@@ -179,9 +179,11 @@ if (typeof window !== "undefined") {
       persistWorkingSince(working.next);
     }
     // One-time sweep once the whole history is loaded: drop lifecycle
-    // entries for sessions that no longer exist. Never sweep while pages
-    // remain unloaded — with paging, an absent id is not proof of deletion.
-    if (!lifecycleSwept && state.sessions.length > 0 && !state.hasMore) {
+    // entries for sessions that no longer exist. Gate on hasLoadedInitialPage
+    // (hasMore starts false and upserts can land before the initial page) and
+    // never sweep while pages remain unloaded — with paging, an absent id is
+    // not proof of deletion.
+    if (!lifecycleSwept && state.hasLoadedInitialPage && state.sessions.length > 0 && !state.hasMore) {
       lifecycleSwept = true;
       const knownIds = new Set(state.sessions.map((session) => session.id));
       const pruned = pruneLifecycleEntries(

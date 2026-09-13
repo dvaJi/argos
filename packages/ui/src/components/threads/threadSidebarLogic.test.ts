@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { UISession } from "#/stores/ui/session";
 import {
-  collectThreadSidebarShortcutSessions,
   filterByTitle,
   formatAge,
   formatWakeCountdown,
@@ -108,7 +107,7 @@ describe("partitionThreads", () => {
     ]);
   });
 
-  it("sorts settled newest first; legacy settledAt=0 entries are not settled (they stay active)", () => {
+  it("sorts settled newest first; legacy settledAt=0 entries render as settled via the updatedAt fallback", () => {
     const a = makeSession({ id: "a", createdAt: NOW - 3000, updatedAt: NOW - 3000 });
     const b = makeSession({ id: "b", createdAt: NOW - 1000, updatedAt: NOW - 1000 });
     const c = makeSession({ id: "c", createdAt: NOW - 9000, updatedAt: NOW - 9000 });
@@ -118,11 +117,16 @@ describe("partitionThreads", () => {
     });
     expect(sections.settled.map((s) => s.id)).toEqual(["a", "c", "b"]);
 
-    // v1-migrated booleans map to 0 (unknown time) and are not settled yet.
+    // v1-migrated booleans map to 0 (unknown time): settled by key presence,
+    // ordered by their updatedAt fallback (matches the Row's settled
+    // rendering, which falls back to updatedAt too).
     const legacy = makeSession({ id: "legacy", createdAt: NOW - 9000, updatedAt: NOW - 500 });
-    const migrated = partitionThreads([legacy], { ...emptyHelpers, settledAtById: { legacy: 0 } });
-    expect(migrated.settled).toEqual([]);
-    expect(migrated.active.map((s) => s.id)).toEqual(["legacy"]);
+    const migrated = partitionThreads([legacy, a], {
+      ...emptyHelpers,
+      settledAtById: { legacy: 0, a: NOW - 1000 },
+    });
+    expect(migrated.active).toEqual([]);
+    expect(migrated.settled.map((s) => s.id)).toEqual(["legacy", "a"]);
 
     const snoozedFirst = makeSession({ id: "first", createdAt: NOW - 5000 });
     const snoozedLater = makeSession({ id: "later", createdAt: NOW - 1000 });
@@ -131,40 +135,6 @@ describe("partitionThreads", () => {
       snoozedUntilById: { first: NOW + 1000, later: NOW + 60_000 },
     });
     expect(snoozed.snoozed.map((s) => s.id)).toEqual(["first", "later"]);
-  });
-});
-
-describe("collectThreadSidebarShortcutSessions", () => {
-  const sections: ThreadSections = {
-    pinned: [makeSession({ id: "p" })],
-    active: [makeSession({ id: "a" })],
-    snoozed: [makeSession({ id: "s" })],
-    settled: [makeSession({ id: "d" })],
-  };
-
-  it("returns nothing while collapsed and excludes settled", () => {
-    expect(collectThreadSidebarShortcutSessions({ collapsed: true, sections, snoozedShelfExpanded: true })).toEqual([]);
-    const expanded = collectThreadSidebarShortcutSessions({ collapsed: false, sections, snoozedShelfExpanded: true });
-    expect(expanded.map((s) => s.id)).toEqual(["p", "a", "s"]);
-  });
-
-  it("hides collapsed-shelf snoozed rows and caps at ten", () => {
-    const collapsedShelf = collectThreadSidebarShortcutSessions({
-      collapsed: false,
-      sections,
-      snoozedShelfExpanded: false,
-    });
-    expect(collapsedShelf.map((s) => s.id)).toEqual(["p", "a"]);
-
-    const many: ThreadSections = {
-      pinned: [],
-      active: Array.from({ length: 12 }, (_, i) => makeSession({ id: `s${i}` })),
-      snoozed: [],
-      settled: [],
-    };
-    expect(
-      collectThreadSidebarShortcutSessions({ collapsed: false, sections: many, snoozedShelfExpanded: true }),
-    ).toHaveLength(10);
   });
 });
 

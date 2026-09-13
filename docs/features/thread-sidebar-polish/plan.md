@@ -26,9 +26,11 @@ Layered on top of the fixes goal: store fields first (snoozed shelf, tick remova
 
 ## Shortcut collection
 
-`WindowSideBar` computes experiment sections with `partitionThreads` (memoized on sessions/maps/activeSessionId;
-`Date.now()` deliberately not a dependency — badge staleness <1s is irrelevant) and swaps
-`collectVisibleShortcutSessions` for `collectThreadSidebarShortcutSessions` when the experiment is enabled.
+`ThreadSidebarList` publishes its rendered row order via `onVisibleRowsChange`;
+`WindowSideBar` derives experiment-mode shortcut targets and badge numbering
+from that exact list (slice 10), so badges can never disagree with the visible
+rows — including while searching or right after a snooze expires. The original
+mode keeps `collectVisibleShortcutSessions`.
 
 ## Compatibility
 

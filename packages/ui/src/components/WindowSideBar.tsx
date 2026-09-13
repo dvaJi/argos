@@ -12,7 +12,7 @@ import WorkspaceSelector from "./WorkspaceSelector";
 import ThreadSidebarList from "./threads/ThreadSidebarList";
 import DeleteConversationDialog from "./DeleteConversationDialog";
 import SidebarFirstPageSkeleton from "./SidebarFirstPageSkeleton";
-import { collectThreadSidebarShortcutSessions, partitionThreads } from "./threads/threadSidebarLogic";
+import { isSidebarVisibleSession } from "./threads/threadSidebarLogic";
 import { useSidebarStore } from "#/stores/ui/sidebar";
 import { notifySessionDeleted, useThreadSidebarStore } from "#/stores/ui/threadSidebar";
 import { useThemeStore } from "#/stores/theme";
@@ -165,8 +165,8 @@ export default function WindowSideBar() {
     navigator.platform.toLowerCase().includes("mac") ? "mac" : "other",
   );
   const [showShortcutBadges, setShowShortcutBadges] = useState(false);
-  /** Render clock for experiment-mode shortcut ordering (never needs to tick). */
-  const [sidebarRenderNow] = useState(() => Date.now());
+  /** Row order published by the experiment list — the exact rendered rows. */
+  const [threadVisibleRows, setThreadVisibleRows] = useState<UISession[]>([]);
   const sessionListRef = useRef<HTMLDivElement | null>(null);
   const pinFeedbackTimerRef = useRef<number | null>(null);
   const sessionListScrollFrameRef = useRef<number | null>(null);
@@ -264,22 +264,14 @@ export default function WindowSideBar() {
       if (distanceToBottom <= 96) void sessionStore.loadNextPage();
     });
   };
+  const handleThreadVisibleRowsChange = useCallback((rows: UISession[]) => setThreadVisibleRows(rows), []);
   const visibleShortcutSessions = useMemo(() => {
     if (threadSidebar.enabled) {
-      // Experiment mode: badges follow the lifecycle sections. The render
-      // timestamp is captured once (lazy initial state): shortcut ordering
-      // does not need a live clock, so staleness is irrelevant here.
-      const sections = partitionThreads(sessionStore.sessions, {
-        settledAtById: threadSidebar.settledAtById,
-        snoozedUntilById: threadSidebar.snoozedUntilById,
-        now: sidebarRenderNow,
-        activeSessionId: sessionStore.activeSessionId,
-      });
-      return collectThreadSidebarShortcutSessions({
-        collapsed,
-        sections,
-        snoozedShelfExpanded: threadSidebar.snoozedShelfExpanded,
-      });
+      // Experiment mode: shortcut targets come from the rows the list
+      // actually renders (published via onVisibleRowsChange) — search-aware,
+      // shelf-expanded-only, and always in sync with the live clock.
+      if (collapsed) return [];
+      return threadVisibleRows.slice(0, 10);
     }
     return collectVisibleShortcutSessions({
       collapsed,
@@ -291,13 +283,8 @@ export default function WindowSideBar() {
     });
   }, [
     threadSidebar.enabled,
-    threadSidebar.settledAtById,
-    threadSidebar.snoozedUntilById,
-    threadSidebar.snoozedShelfExpanded,
     collapsed,
-    sidebarRenderNow,
-    sessionStore.sessions,
-    sessionStore.activeSessionId,
+    threadVisibleRows,
     pinnedSessions,
     isPinnedSectionCollapsed,
     filteredGroups,
@@ -350,12 +337,15 @@ export default function WindowSideBar() {
     [showShortcutBadges, visibleShortcutSessions],
   );
   // Collapsed-rail attention indicator: pending approval first, then working.
+  // Sidebar visibility rules apply — drafts and subagent sessions never light
+  // the rail (the sidebar does not render them).
   const railAttention = useMemo(() => {
     let blocked: UISession | null = null;
     let working: UISession | null = null;
     let blockedCount = 0;
     let workingCount = 0;
     for (const session of sessionStore.sessions) {
+      if (!isSidebarVisibleSession(session)) continue;
       if (session.status === "blocked") {
         blockedCount += 1;
         if (blocked === null) blocked = session;
@@ -387,7 +377,10 @@ export default function WindowSideBar() {
           inert={collapsed ? true : undefined}
         >
           {threadSidebar.enabled ? (
-            <ThreadSidebarList getShortcutBadge={getShortcutBadge} />
+            <ThreadSidebarList
+              getShortcutBadge={getShortcutBadge}
+              onVisibleRowsChange={handleThreadVisibleRowsChange}
+            />
           ) : (
             <>
               {!collapsed && (

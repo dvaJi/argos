@@ -58,9 +58,11 @@ const NOW_BUCKET_MS = 15_000;
 interface ThreadSidebarListProps {
   /** Alt/⌘+1..9 badge label for a session id, or null while badges are hidden. */
   getShortcutBadge?: (sessionId: string) => string | null;
+  /** Publishes the rendered row order so the shell can derive shortcut targets from exactly what is visible. */
+  onVisibleRowsChange?: (rows: UISession[]) => void;
 }
 
-export default function ThreadSidebarList({ getShortcutBadge }: ThreadSidebarListProps) {
+export default function ThreadSidebarList({ getShortcutBadge, onVisibleRowsChange }: ThreadSidebarListProps) {
   const sessionStore = useSessionStore();
   // Per-field subscriptions: unlike a whole-store selector, unrelated store
   // updates do not re-render the list.
@@ -142,10 +144,16 @@ export default function ThreadSidebarList({ getShortcutBadge }: ThreadSidebarLis
   );
 
   // Flat result order drives keyboard navigation — rendered rows only, so
-  // hidden rows can never be selected invisibly.
+  // hidden rows (collapsed shelves, unshown settled pages) can never be
+  // selected invisibly.
   const flatResults = useMemo(
-    () => [...filtered.pinned, ...filtered.active, ...(snoozedExpanded ? filtered.snoozed : []), ...visibleSettled],
-    [filtered.pinned, filtered.active, filtered.snoozed, visibleSettled, snoozedExpanded],
+    () => [
+      ...filtered.pinned,
+      ...filtered.active,
+      ...(snoozedExpanded ? filtered.snoozed : []),
+      ...(settledExpanded ? visibleSettled : []),
+    ],
+    [filtered.pinned, filtered.active, filtered.snoozed, visibleSettled, snoozedExpanded, settledExpanded],
   );
   const navIndexById = useMemo(() => {
     const map = new Map<string, number>();
@@ -153,12 +161,35 @@ export default function ThreadSidebarList({ getShortcutBadge }: ThreadSidebarLis
     return map;
   }, [flatResults]);
 
+  // Publish the rendered row order so the shell can derive Alt/⌘ shortcut
+  // targets from exactly what is visible (search-aware, live clock).
+  useEffect(() => {
+    onVisibleRowsChange?.(flatResults);
+  }, [flatResults, onVisibleRowsChange]);
+
   useEffect(() => {
     if (navIndex < 0) return;
     listRef.current?.querySelector('[data-nav-selected="true"]')?.scrollIntoView({
       block: "nearest",
     });
   }, [navIndex]);
+
+  // Content shorter than the viewport never scrolls, so scroll-based loading
+  // would never fire; keep requesting pages until the list overflows.
+  useEffect(() => {
+    if (
+      !sessionStore.hasLoadedInitialPage ||
+      sessionStore.loading ||
+      sessionStore.loadingMore ||
+      !sessionStore.hasMore
+    ) {
+      return;
+    }
+    const element = listRef.current;
+    if (element && element.scrollHeight <= element.clientHeight) {
+      void sessionStore.loadNextPage();
+    }
+  });
 
   // Pagination parity with the original sidebar: load the next session page
   // when the list is scrolled near the bottom.

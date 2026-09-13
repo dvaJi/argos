@@ -101,9 +101,10 @@ export interface PartitionHelpers {
  * t3code partition semantics: pinned is an explicit section; active is the
  * default lifecycle state (everything not pinned/snoozed/settled); snoozed
  * hides threads until their wake time; settled sorts by settled time, newest
- * first (unknown times fall back to updatedAt so migrated data keeps a stable
- * order). Live sessions always participate in Active — a working thread can
- * never render as Settled.
+ * first. A settled record is detected by key presence: legacy v1 entries
+ * carry timestamp 0 (unknown time) and still count as settled, ordered by
+ * their updatedAt fallback. Live sessions always participate in Active — a
+ * working thread can never render as Settled.
  */
 export function partitionThreads(sessions: readonly UISession[], helpers: PartitionHelpers): ThreadSections {
   const visible = sessions.filter(isSidebarVisibleSession);
@@ -117,7 +118,10 @@ export function partitionThreads(sessions: readonly UISession[], helpers: Partit
       continue;
     }
     const settledAt = helpers.settledAtById[session.id];
-    const isSettled = typeof settledAt === "number" && settledAt > 0;
+    // Key presence, not > 0: legacy v1 records use 0 (unknown time) and must
+    // land in Settled with the updatedAt sort fallback, matching the Row's
+    // settled rendering (which also falls back to updatedAt).
+    const isSettled = typeof settledAt === "number";
     if (session.isPinned) {
       sections.pinned.push(session);
     } else if (isSettled && session.status !== "working") {
@@ -142,24 +146,6 @@ export function partitionThreads(sessions: readonly UISession[], helpers: Partit
 
 function compareCreatedDesc(a: UISession, b: UISession): number {
   return b.createdAt - a.createdAt;
-}
-
-/**
- * Experiment-mode Alt/⌘+1..9 shortcut targets, mirroring the original
- * sidebar's `collectVisibleShortcutSessions`: expanded, visible rows only,
- * capped at 10. Settled is the archive — shortcut slots are reserved for live
- * threads.
- */
-export function collectThreadSidebarShortcutSessions(input: {
-  collapsed: boolean;
-  sections: ThreadSections;
-  snoozedShelfExpanded: boolean;
-}): UISession[] {
-  const { collapsed, sections, snoozedShelfExpanded } = input;
-  if (collapsed) return [];
-  const sessions: UISession[] = [...sections.pinned, ...sections.active];
-  if (snoozedShelfExpanded) sessions.push(...sections.snoozed);
-  return sessions.slice(0, 10);
 }
 
 export interface TitleSegment {
