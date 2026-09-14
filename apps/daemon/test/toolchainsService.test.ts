@@ -224,7 +224,8 @@ describe("managed install pipeline", () => {
     const dataDir = tempRoot();
     const { bytes } = fakeArchive("payload");
     const versionDir = path.join(dataDir, "toolchains", "tools", "node", pinFor("node"));
-    fs.mkdirSync(versionDir, { recursive: true });
+    // nodeBin() nests under bin/ on non-Windows; create the deepest dir.
+    fs.mkdirSync(path.join(versionDir, path.dirname(nodeBin())), { recursive: true });
     fs.writeFileSync(path.join(versionDir, nodeBin()), "previous");
 
     await expect(

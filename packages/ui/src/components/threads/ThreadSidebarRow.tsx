@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useAgentStore } from "#/stores/ui/agent";
 import type { UISession } from "#/stores/ui/session";
@@ -39,6 +39,8 @@ interface ThreadSidebarRowProps {
   isWoke?: boolean;
   /** Settled timestamp (ms) when the row is settled; 0 = unknown (legacy). */
   settledAt?: number;
+  /** Alt/⌘+N shortcut badge label while the modifier is held, else null. */
+  shortcutBadge?: string | null;
   onSelect: (session: UISession) => void;
   onSettle: (session: UISession) => void;
   onUnsettle: (session: UISession) => void;
@@ -46,7 +48,8 @@ interface ThreadSidebarRowProps {
   onSnooze: (session: UISession, durationMs: number) => void;
   onUnsnooze: (session: UISession) => void;
   onRename: (session: UISession, title: string) => void;
-  onDelete: (session: UISession) => void;
+  /** Open the shared delete-confirmation dialog for this session. */
+  onRequestDelete: (session: UISession) => void;
 }
 
 const SNOOZE_OPTIONS: Array<{ label: string; durationMs: number }> = [
@@ -59,8 +62,12 @@ const SNOOZE_OPTIONS: Array<{ label: string; durationMs: number }> = [
  * t3code-style slim thread row: avatar + title (search-highlighted) + status
  * pill + right-aligned time slot, with a hover Settle/Un-settle affordance and
  * a context menu (pin / rename / snooze / settle / delete).
+ *
+ * Settled state is data-driven, not variant-driven: a pinned row with a
+ * settled entry renders settled (age slot + un-settle actions) while staying
+ * in the Pinned section.
  */
-export default function ThreadSidebarRow({
+function ThreadSidebarRow({
   session,
   variant,
   isSelected,
@@ -71,6 +78,7 @@ export default function ThreadSidebarRow({
   snoozedUntil,
   isWoke,
   settledAt,
+  shortcutBadge,
   onSelect,
   onSettle,
   onUnsettle,
@@ -78,13 +86,24 @@ export default function ThreadSidebarRow({
   onSnooze,
   onUnsnooze,
   onRename,
-  onDelete,
+  onRequestDelete,
 }: ThreadSidebarRowProps) {
   const { enabledAgents } = useAgentStore();
-  const agent = enabledAgents.find((a) => a.id === session.agentId) ?? null;
+  const agent = enabledAgents.find((candidate) => candidate.id === session.agentId) ?? null;
   const [editing, setEditing] = useState(false);
   const [draftTitle, setDraftTitle] = useState(session.title);
+  const [syncedTitle, setSyncedTitle] = useState(session.title);
   const editInputRef = useRef<HTMLInputElement>(null);
+
+  const isSettledRow = variant === "settled" || typeof settledAt === "number";
+
+  // Keep the rename draft in sync with external title changes (e.g. an
+  // auto-title landing after mount) without a set-state-in-effect:
+  // adjusting state during render is the React-sanctioned pattern here.
+  if (session.title !== syncedTitle) {
+    setSyncedTitle(session.title);
+    if (!editing) setDraftTitle(session.title);
+  }
 
   const status = resolveThreadStatus(session);
   const pill = variant === "active" ? resolveThreadPill(status) : null;
@@ -137,7 +156,7 @@ export default function ThreadSidebarRow({
         </span>
       );
     }
-    if (variant === "settled") {
+    if (isSettledRow) {
       // Prefer the settled time (t3code parity); legacy entries without one
       // fall back to the session's updatedAt.
       const label = isWoke ? "Woke" : formatAge(settledAt && settledAt > 0 ? settledAt : session.updatedAt, now);
@@ -152,22 +171,10 @@ export default function ThreadSidebarRow({
 
   const hoverAction = (() => {
     if (editing) return null;
-    if (variant === "settled") {
-      return (
-        <button
-          type="button"
-          title="Un-settle thread"
-          aria-label="Un-settle thread"
-          onClick={(event) => {
-            event.stopPropagation();
-            onUnsettle(session);
-          }}
-          className="hidden h-5 w-5 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground group-hover:flex"
-        >
-          <Icon icon="lucide:archive-restore" className="size-3.5" />
-        </button>
-      );
-    }
+    // Overlays the right slot (no layout shift); focus-within also matches
+    // the focused row itself, so keyboard users can reach the action.
+    const actionClassName =
+      "absolute right-1 top-1/2 z-10 h-5 w-5 -translate-y-1/2 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground hidden group-hover:flex group-focus-within:flex";
     if (variant === "snoozed") {
       return (
         <button
@@ -178,9 +185,25 @@ export default function ThreadSidebarRow({
             event.stopPropagation();
             onUnsnooze(session);
           }}
-          className="hidden h-5 w-5 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground group-hover:flex"
+          className={actionClassName}
         >
           <Icon icon="lucide:alarm-clock-off" className="size-3.5" />
+        </button>
+      );
+    }
+    if (isSettledRow) {
+      return (
+        <button
+          type="button"
+          title="Un-settle thread"
+          aria-label="Un-settle thread"
+          onClick={(event) => {
+            event.stopPropagation();
+            onUnsettle(session);
+          }}
+          className={actionClassName}
+        >
+          <Icon icon="lucide:archive-restore" className="size-3.5" />
         </button>
       );
     }
@@ -193,12 +216,14 @@ export default function ThreadSidebarRow({
           event.stopPropagation();
           onSettle(session);
         }}
-        className="hidden h-5 w-5 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground group-hover:flex"
+        className={actionClassName}
       >
         <Icon icon="lucide:circle-check" className="size-3.5" />
       </button>
     );
   })();
+
+  const shortcutBadgeTitle = shortcutBadge ? `Switch with ${shortcutBadge}` : "";
 
   return (
     <ContextMenu>
@@ -217,6 +242,7 @@ export default function ThreadSidebarRow({
             data-variant={variant}
             data-selected={String(isSelected)}
             data-nav-selected={String(isNavSelected)}
+            data-settled={isSettledRow ? "true" : undefined}
             data-editing={editing ? "true" : undefined}
             onClick={() => onSelect(session)}
             onKeyDown={(event) => {
@@ -225,7 +251,7 @@ export default function ThreadSidebarRow({
                 onSelect(session);
               }
             }}
-            className={`group flex w-full cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] transition-colors duration-150 outline-none focus-visible:ring-1 focus-visible:ring-primary/40 active:scale-[0.99] motion-reduce:active:scale-100 ${
+            className={`group relative flex w-full cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] transition-colors duration-150 outline-none focus-visible:ring-1 focus-visible:ring-primary/40 active:scale-[0.99] motion-reduce:active:scale-100 ${
               editing
                 ? "bg-sidebar-row-active/40"
                 : isSelected
@@ -277,6 +303,16 @@ export default function ThreadSidebarRow({
                     ),
                   )}
                 </span>
+                {shortcutBadge && (
+                  <span
+                    data-testid="sidebar-session-shortcut-badge"
+                    className="shortcut-badge shrink-0"
+                    title={shortcutBadgeTitle}
+                    aria-label={shortcutBadgeTitle}
+                  >
+                    {shortcutBadge}
+                  </span>
+                )}
                 {pill && (
                   <span
                     data-testid={`thread-sidebar-pill-${status}`}
@@ -288,7 +324,9 @@ export default function ThreadSidebarRow({
                     {pill.label}
                   </span>
                 )}
-                {rightSlot}
+                <span className="flex shrink-0 items-center transition-opacity duration-100 group-hover:pointer-events-none group-hover:opacity-0 group-focus-within:pointer-events-none group-focus-within:opacity-0">
+                  {rightSlot}
+                </span>
                 {hoverAction}
               </>
             )}
@@ -300,7 +338,12 @@ export default function ThreadSidebarRow({
           <Icon icon={session.isPinned ? "lucide:pin-off" : "lucide:pin"} className="size-3.5" />
           {session.isPinned ? "Unpin thread" : "Pin thread"}
         </ContextMenuItem>
-        <ContextMenuItem onClick={() => setEditing(true)}>
+        <ContextMenuItem
+          onClick={() => {
+            setDraftTitle(session.title);
+            setEditing(true);
+          }}
+        >
           <Icon icon="lucide:pencil" className="size-3.5" />
           Rename thread
         </ContextMenuItem>
@@ -325,7 +368,7 @@ export default function ThreadSidebarRow({
             </ContextMenuSubContent>
           </ContextMenuSub>
         )}
-        {variant === "settled" ? (
+        {isSettledRow ? (
           <ContextMenuItem onClick={() => onUnsettle(session)}>
             <Icon icon="lucide:archive-restore" className="size-3.5" />
             Un-settle thread
@@ -338,11 +381,7 @@ export default function ThreadSidebarRow({
         )}
         <ContextMenuSeparator />
         <ContextMenuItem
-          onClick={() => {
-            if (window.confirm(`Delete "${session.title || "Untitled session"}"? This cannot be undone.`)) {
-              onDelete(session);
-            }
-          }}
+          onClick={() => onRequestDelete(session)}
           className="text-red-600 focus:text-red-600 dark:text-red-400 dark:focus:text-red-400"
         >
           <Icon icon="lucide:trash-2" className="size-3.5" />
@@ -352,3 +391,5 @@ export default function ThreadSidebarRow({
     </ContextMenu>
   );
 }
+
+export default memo(ThreadSidebarRow);

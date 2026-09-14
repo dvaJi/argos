@@ -320,7 +320,8 @@ export default function DisplaySettings() {
               </div>
             </div>
             <div className="text-xs text-muted-foreground">
-              Replace the left sidebar with a task-oriented thread list (Active, Pinned, Settled) — t3code-inspired
+              Replace the left sidebar with a task-oriented thread list (Active, Pinned, Snoozed, Settled) —
+              t3code-inspired
             </div>
           </div>
         </div>

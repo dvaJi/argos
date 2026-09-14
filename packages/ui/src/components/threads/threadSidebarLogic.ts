@@ -90,15 +90,21 @@ export interface PartitionHelpers {
   /** Absolute wake time per snoozed session id (ms). */
   snoozedUntilById: Record<string, number>;
   now: number;
+  /**
+   * The currently open session. A snoozed open session stays in Active so the
+   * conversation the user is looking at never disappears (t3 deviation).
+   */
+  activeSessionId?: string | null;
 }
 
 /**
  * t3code partition semantics: pinned is an explicit section; active is the
  * default lifecycle state (everything not pinned/snoozed/settled); snoozed
  * hides threads until their wake time; settled sorts by settled time, newest
- * first (unknown times fall back to updatedAt so migrated data keeps a stable
- * order). Live sessions always participate in Active — a working thread can
- * never render as Settled.
+ * first. A settled record is detected by key presence: legacy v1 entries
+ * carry timestamp 0 (unknown time) and still count as settled, ordered by
+ * their updatedAt fallback. Live sessions always participate in Active — a
+ * working thread can never render as Settled.
  */
 export function partitionThreads(sessions: readonly UISession[], helpers: PartitionHelpers): ThreadSections {
   const visible = sessions.filter(isSidebarVisibleSession);
@@ -106,12 +112,16 @@ export function partitionThreads(sessions: readonly UISession[], helpers: Partit
 
   for (const session of visible) {
     const snoozedUntil = helpers.snoozedUntilById[session.id];
-    if (typeof snoozedUntil === "number" && snoozedUntil > helpers.now) {
+    const isSnoozed = typeof snoozedUntil === "number" && snoozedUntil > helpers.now;
+    if (isSnoozed && session.id !== helpers.activeSessionId) {
       sections.snoozed.push(session);
       continue;
     }
     const settledAt = helpers.settledAtById[session.id];
-    const isSettled = typeof settledAt === "number" && settledAt > 0;
+    // Key presence, not > 0: legacy v1 records use 0 (unknown time) and must
+    // land in Settled with the updatedAt sort fallback, matching the Row's
+    // settled rendering (which also falls back to updatedAt).
+    const isSettled = typeof settledAt === "number";
     if (session.isPinned) {
       sections.pinned.push(session);
     } else if (isSettled && session.status !== "working") {
@@ -163,10 +173,6 @@ export function highlightSegments(title: string, query: string): TitleSegment[] 
     cursor = index + normalized.length;
   }
   return segments.filter((segment) => segment.text.length > 0);
-}
-
-export function matchesTitle(session: Pick<UISession, "title">, query: string): boolean {
-  return session.title.toLowerCase().includes(query.trim().toLowerCase());
 }
 
 /** Case-insensitive title filter that preserves the incoming (section) order. */
