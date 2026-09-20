@@ -1,5 +1,29 @@
 # Changelog
 
+## v0.6.0 (2026-09-19)
+
+### Managed toolchains
+- The daemon now manages Node and uv installs: pinned, SHA-256-verified downloads with atomic activation and rollback, plus a new Toolchains settings page (per-tool source, install/repair/cancel/revert, custom path)
+- ACP agents and MCP stdio servers resolve npx/npm/node/uvx through the managed toolchain service (bin dirs prepended to the spawn PATH), so headless machines no longer depend on what happens to be on PATH
+
+### Agents (ACP)
+- Terminal authentication for agents that require login: sign in from a dedicated dialog with an embedded terminal, retry after failures, and resume the conversation once authenticated (agents like MiniMax Code could previously never offer their login flow)
+- Uninstalling or disabling a registry agent no longer dead-ends: sessions settle first (active turns cancelled, queued inputs handled) and conversations can be moved to another agent or deleted via the transfer dialog
+
+### Reliability
+- Per-session pending-input queue limit raised from 5 to 10, so more messages can be lined up during long agent turns
+- Concurrent model discovery is coalesced per provider (keyed on provider settings), and Ollama tag/ps lookups share one request instead of fanning out per caller
+- Failed requests release their fetch response bodies across daemon error paths instead of leaking connections
+
+### Thread sidebar (experiment)
+- Loads older sessions on scroll, clearable search with a no-results state, and a collapsed rail mode with an attention indicator
+- Keyboard navigation and Alt/Cmd+1..9 shortcut badges now target the rows actually rendered; the open session is never hidden by snooze
+- Performance work: per-field selectors, memoized rows, and the per-second store tick removed
+
+### Housekeeping
+- Components and stores migrated from `useStore` to `useSelector`
+- Added `fetch:acp-registry` script to refresh the bundled ACP agent registry
+
 ## v0.5.0 (2026-09-07)
 
 ### Composer
