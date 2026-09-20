@@ -1,0 +1,21 @@
+diff --git a/index.js b/index.js
+index 2be72676ce43a1776bf494848e6d784497f79178..0c208aec9c6de559ba297d462babec30cb44f19c 100644
+--- a/index.js
++++ b/index.js
+@@ -18,7 +18,15 @@ module.exports.markdown = Markdown.markdown;
+ module.exports.markdownRender = Markdown.markdownRender;
+ module.exports.createMarkdownRenderer = Markdown.createMarkdownRenderer;
+ module.exports.collectFontStats = Markdown.collectFontStats;
+-module.exports.markdownRenderModule = require.resolve('./lib/markdown-render-page.js');
++// `require.resolve` here crashes `bun build --compile` binaries at startup on
++// any host except the build machine (the shim is not embedded, so resolution
++// falls back to the build-time absolute path). Tolerate failure: consumers that
++// pass `pagerenderModule` on a compiled binary already need the real file.
++try {
++	module.exports.markdownRenderModule = require.resolve('./lib/markdown-render-page.js');
++} catch {
++	module.exports.markdownRenderModule = null;
++}
+ 
+ // ES6/TypeScript compatibility
+ module.exports.default = Pdf;

@@ -159,5 +159,8 @@
     "vite-plugin-electron": "catalog:",
     "vite-plugin-electron-renderer": "catalog:",
     "yaml": "catalog:"
+  },
+  "patchedDependencies": {
+    "pdf-parse-new@2.1.0": "patches/pdf-parse-new@2.1.0.patch"
   }
 }

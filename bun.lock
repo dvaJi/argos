@@ -65,7 +65,7 @@
     },
     "apps/desktop": {
       "name": "@argos/desktop",
-      "version": "0.5.0",
+      "version": "0.6.0",
       "dependencies": {
         "@agentclientprotocol/sdk": "^1.4.0",
         "@ai-sdk/amazon-bedrock": "catalog:",
@@ -435,6 +435,9 @@
         "vitest": "catalog:",
       },
     },
+  },
+  "patchedDependencies": {
+    "pdf-parse-new@2.1.0": "patches/pdf-parse-new@2.1.0.patch",
   },
   "catalog": {
     "@ai-sdk/amazon-bedrock": "^5.0.76",

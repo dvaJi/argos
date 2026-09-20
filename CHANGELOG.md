@@ -11,6 +11,7 @@
 - Uninstalling or disabling a registry agent no longer dead-ends: sessions settle first (active turns cancelled, queued inputs handled) and conversations can be moved to another agent or deleted via the transfer dialog
 
 ### Reliability
+- Standalone Argos Server binaries (and the daemon bundled in installers) no longer crash at startup on machines other than the build host — a `pdf-parse-new` resolution defect that shipped broken in v0.5.0
 - Per-session pending-input queue limit raised from 5 to 10, so more messages can be lined up during long agent turns
 - Concurrent model discovery is coalesced per provider (keyed on provider settings), and Ollama tag/ps lookups share one request instead of fanning out per caller
 - Failed requests release their fetch response bodies across daemon error paths instead of leaking connections
