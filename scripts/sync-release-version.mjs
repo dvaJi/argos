@@ -6,6 +6,8 @@
  * electron-builder derives artifact names (`argos-<version>-<os>-<arch>.<ext>`),
  * the `latest*.yml` update manifests, and the app's `app.getVersion()` from
  * `apps/desktop/package.json`, so that version must match the release.
+ * `apps/daemon/package.json` is synced too: the compiled standalone daemon
+ * falls back to it for `--version` when `DAEMON_VERSION` is not set.
  *
  * Also verifies `CHANGELOG.md` has a `## vX.Y.Z (YYYY-MM-DD)` section for the
  * release version — the release workflow extracts notes from it.
@@ -47,21 +49,36 @@ if (!changelogHeaderRegex(version).test(changelog)) {
 const desktopPkgPath = "apps/desktop/package.json";
 const desktopPackage = await readJson(desktopPkgPath);
 
-if (desktopPackage.version === version) {
-  console.log(`[release:sync-version] desktop version is in sync (v${version}).`);
+const daemonPkgPath = "apps/daemon/package.json";
+const daemonPackage = await readJson(daemonPkgPath);
+
+const targets = [
+  { label: "desktop", path: desktopPkgPath, pkg: desktopPackage },
+  { label: "daemon", path: daemonPkgPath, pkg: daemonPackage },
+];
+
+const outOfSync = targets.filter((target) => target.pkg.version !== version);
+
+if (outOfSync.length === 0) {
+  console.log(`[release:sync-version] desktop + daemon versions are in sync (v${version}).`);
   if (checkOnly) process.exit(0);
 } else {
   if (checkOnly) {
     fail(
-      `apps/desktop/package.json version (v${desktopPackage.version}) does not match the release version (v${version}). ` +
-        `Run \`bun run release:sync-version\` on master and re-tag.`,
+      `Package versions do not match the release version (v${version}): ` +
+        outOfSync
+          .map((target) => `${target.path} is v${target.pkg.version}`)
+          .join(", ") +
+        `. Run \`bun run release:sync-version\` on master and re-tag.`,
     );
   }
-  const previousVersion = desktopPackage.version;
-  desktopPackage.version = version;
-  const serialized = `${JSON.stringify(desktopPackage, null, 2)}\n`;
-  await Bun.write(path.join(repositoryRoot, desktopPkgPath), serialized);
-  console.log(`[release:sync-version] apps/desktop version: v${previousVersion} -> v${version}`);
+  for (const target of outOfSync) {
+    const previousVersion = target.pkg.version;
+    target.pkg.version = version;
+    const serialized = `${JSON.stringify(target.pkg, null, 2)}\n`;
+    await Bun.write(path.join(repositoryRoot, target.path), serialized);
+    console.log(`[release:sync-version] ${target.path}: v${previousVersion} -> v${version}`);
+  }
 }
 
 console.log(`[release:sync-version] OK (v${version}).`);
