@@ -8,4 +8,4 @@
 - [x] Land fix on `master`
 - [x] Re-tag `v0.6.0`, rebuild via Release workflow (twice: once for the patch, once for the daemon version sync)
 - [x] Verify downloaded CI daemon runs `--version` on a host without the repo (prints 0.6.0, SHA-256 matches)
-- [ ] Publish the new draft release with Downloads preamble
+- [x] Publish the new draft release with Downloads preamble
