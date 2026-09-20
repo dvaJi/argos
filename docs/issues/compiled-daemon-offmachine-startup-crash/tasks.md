@@ -6,6 +6,6 @@
 - [x] Verify fix with off-machine simulation (binary prints version with package hidden)
 - [x] Daemon test suite green (423 pass)
 - [x] Land fix on `master`
-- [ ] Re-tag `v0.6.0`, rebuild via Release workflow
-- [ ] Verify downloaded CI daemon runs `--version` on a host without the repo
+- [x] Re-tag `v0.6.0`, rebuild via Release workflow (twice: once for the patch, once for the daemon version sync)
+- [x] Verify downloaded CI daemon runs `--version` on a host without the repo (prints 0.6.0, SHA-256 matches)
 - [ ] Publish the new draft release with Downloads preamble
