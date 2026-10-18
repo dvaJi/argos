@@ -44,6 +44,24 @@ The Worker serves the custom domain **argos.aipurrjects.xyz** (configured via
 domain DNS record automatically — make sure the `aipurrjects.xyz` zone is active
 in your Cloudflare account.
 
+## Error tracking (ErrorDX)
+
+The landing uses [ErrorDX](https://errordx.com), a Sentry-compatible tracker, on
+both sides:
+
+- **Client**: `@sentry/browser` is initialized in `src/lib/errordx.ts` from the
+  build-time variable `VITE_ERRORDX_DSN` (put it in `apps/landing/.env`; see
+  `.env.example`).
+- **Server (Worker)**: `@sentry/cloudflare` wraps the Worker entry in
+  `src/server-entry.ts` (referenced by `main` in `wrangler.jsonc`). Its DSN is
+  the runtime binding `ERRORDX_DSN`:
+
+```bash
+pnpm --filter @argos/landing exec wrangler secret put ERRORDX_DSN
+```
+
+Both are optional: with no DSN the SDKs stay uninitialized.
+
 ## GitHub OAuth relay
 
 `GET /auth/github/callback` is a stateless relay that finishes GitHub Copilot's

@@ -3,7 +3,7 @@
   "name": "argos-landing",
   "compatibility_date": "2026-06-24",
   "compatibility_flags": ["nodejs_compat"],
-  "main": "@tanstack/react-start/server-entry",
+  "main": "./src/server-entry.ts",
   "routes": [{ "pattern": "argos.aipurrjects.xyz", "custom_domain": true }],
   "vars": {
     "GITHUB_CLIENT_ID": "Ov23liMtwvVfnG8THa5a",

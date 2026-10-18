@@ -15,6 +15,8 @@
     "@fontsource-variable/geist": "^5.3.0",
     "@fontsource-variable/jetbrains-mono": "^5.3.0",
     "@phosphor-icons/react": "^2.1.10",
+    "@sentry/browser": "^11.8.0",
+    "@sentry/cloudflare": "^10.0.0",
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-start": "^1.168.50",
     "react": "catalog:",

@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { captureException } from "@sentry/cloudflare";
 import { env } from "cloudflare:workers";
 import { exchangeCodeForToken, GitHubOAuthError } from "~/lib/githubOAuth";
 
@@ -41,6 +42,9 @@ export const Route = createFileRoute("/auth/github/callback")({
           });
           return redirectToApp(scheme, { state, token: accessToken });
         } catch (err) {
+          // Report to ErrorDX (no-op unless ERRORDX_DSN is configured); the
+          // redirect below would otherwise swallow the failure entirely.
+          captureException(err);
           const message = err instanceof GitHubOAuthError ? err.message : "token_exchange_failed";
           console.error("[auth/github/callback] token exchange failed:", message);
           return redirectToApp(scheme, { state, error: message });

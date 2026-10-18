@@ -1,5 +1,8 @@
 import { createRouter } from "@tanstack/react-router";
 import { routeTree } from "./routeTree.gen";
+import { initErrorDx } from "./lib/errordx";
+
+initErrorDx();
 
 export function getRouter() {
   const router = createRouter({
