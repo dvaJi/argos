@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { clock, effect, frameLoop, init, surface } from "vgpu";
+import { prepareShader } from "@vgpu/wgsl/prepare";
 
-const SHADER = `
+const SHADER_WGSL = `
 struct Params {
   time: f32,
   aspect: f32,
@@ -71,6 +72,9 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   return vec4f(col * params.intensity, 1.0);
 }
 `;
+
+// vgpu 0.6 takes a prepared ShaderSource (WGSL + reflection) instead of a raw string.
+const SHADER = prepareShader(SHADER_WGSL, "ShaderBackdrop.wgsl");
 
 /**
  * WebGPU background shader powered by vgpu.

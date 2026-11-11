@@ -1688,9 +1688,9 @@ export class ConfigPresenter implements IConfigPresenter {
   private readonly CLOUD_SYNC_BASE_KEY = "cloudSyncConfig";
   private readonly CLOUD_SYNC_SECRET_KEY = "cloudSyncSecret";
 
-  isCloudSafeStorageAvailable(): boolean {
+  async isCloudSafeStorageAvailable(): Promise<boolean> {
     try {
-      return safeStorage.isEncryptionAvailable();
+      return await safeStorage.isAsyncEncryptionAvailable();
     } catch {
       return false;
     }
@@ -1722,25 +1722,40 @@ export class ConfigPresenter implements IConfigPresenter {
     };
   }
 
-  private getCloudSyncSecret(): string {
+  private async getCloudSyncSecret(): Promise<string> {
     const wrapped = this.getSetting<string>(this.CLOUD_SYNC_SECRET_KEY);
     if (!wrapped) {
       return "";
     }
+    let secret: string;
+    let shouldReEncrypt: boolean;
     try {
-      return safeStorage.decryptString(Buffer.from(wrapped, "base64"));
+      ({ result: secret, shouldReEncrypt } = await safeStorage.decryptStringAsync(Buffer.from(wrapped, "base64")));
     } catch (error) {
       log.error("Failed to decrypt cloud sync secret:", error);
       return "";
     }
+    if (shouldReEncrypt) {
+      // Key was rotated: re-encrypt so the stored secret uses the current key. Best effort.
+      try {
+        const rewrapped = Buffer.from(await safeStorage.encryptStringAsync(secret)).toString("base64");
+        // Compare-and-set with no await in between, so a secret saved meanwhile is not overwritten.
+        if (this.getSetting<string>(this.CLOUD_SYNC_SECRET_KEY) === wrapped) {
+          this.setCloudSyncSetting(this.CLOUD_SYNC_SECRET_KEY, rewrapped);
+        }
+      } catch (error) {
+        log.warn("Failed to re-encrypt cloud sync secret after key rotation:", error);
+      }
+    }
+    return secret;
   }
 
-  getCloudSyncConfig(): CloudSyncConfigView {
+  async getCloudSyncConfig(): Promise<CloudSyncConfigView> {
     const base = this.getCloudSyncBase();
     return {
       ...base,
-      hasSecret: Boolean(this.getCloudSyncSecret()),
-      safeStorageAvailable: this.isCloudSafeStorageAvailable(),
+      hasSecret: Boolean(await this.getCloudSyncSecret()),
+      safeStorageAvailable: await this.isCloudSafeStorageAvailable(),
     };
   }
 
@@ -1754,7 +1769,7 @@ export class ConfigPresenter implements IConfigPresenter {
     eventBus.sendToMain(CONFIG_EVENTS.SETTING_CHANGED, key, undefined);
   }
 
-  setCloudSyncConfig(config: CloudSyncConfigInput): CloudSyncConfigView {
+  async setCloudSyncConfig(config: CloudSyncConfigInput): Promise<CloudSyncConfigView> {
     const current = this.getCloudSyncBase();
     const next = {
       enabled: config.enabled ?? current.enabled,
@@ -1769,10 +1784,10 @@ export class ConfigPresenter implements IConfigPresenter {
     const currentWrappedSecret = this.getSetting<string>(this.CLOUD_SYNC_SECRET_KEY);
     let nextWrappedSecret: string | undefined;
     if (typeof config.secretAccessKey === "string" && config.secretAccessKey.length > 0) {
-      if (!this.isCloudSafeStorageAvailable()) {
+      if (!(await this.isCloudSafeStorageAvailable())) {
         throw new Error("sync.error.safeStorageUnavailable");
       }
-      nextWrappedSecret = Buffer.from(safeStorage.encryptString(config.secretAccessKey)).toString("base64");
+      nextWrappedSecret = Buffer.from(await safeStorage.encryptStringAsync(config.secretAccessKey)).toString("base64");
     }
 
     let secretWritten = false;
@@ -1800,9 +1815,9 @@ export class ConfigPresenter implements IConfigPresenter {
     return this.getCloudSyncConfig();
   }
 
-  getResolvedCloudSyncConfig(): ResolvedCloudSyncConfig | null {
+  async getResolvedCloudSyncConfig(): Promise<ResolvedCloudSyncConfig | null> {
     const base = this.getCloudSyncBase();
-    const secretAccessKey = this.getCloudSyncSecret();
+    const secretAccessKey = await this.getCloudSyncSecret();
     if (!base.endpoint || !base.bucket || !base.accessKeyId || !secretAccessKey) {
       return null;
     }

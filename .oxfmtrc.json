@@ -1,5 +1,4 @@
 {
-  "$schema": "./node_modules/oxfmt/configuration_schema.json",
   "singleQuote": false,
   "semi": true,
   "printWidth": 120,
@@ -32,6 +31,10 @@
     "vite.config.ts",
     "*.md",
     ".turbo",
+    ".agents",
+    ".claude",
+    ".commandcode",
+    ".react-doctor",
     "scripts/*",
     "src/shadcn/**/*",
     "**/routeTree.gen.ts"

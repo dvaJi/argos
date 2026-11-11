@@ -1,4 +1,4 @@
-import type * as schema from "@agentclientprotocol/sdk";
+import type * as schema from "@agentclientprotocol/sdk/unstable";
 
 export interface AcpCapabilityOptions {
   enableFs?: boolean;

@@ -1,4 +1,4 @@
-import type * as schema from "@agentclientprotocol/sdk";
+import type * as schema from "@agentclientprotocol/sdk/unstable";
 import type { AcpConfigState } from "@argos/shared/presenter";
 import type { AssistantMessageBlock } from "@argos/shared/chat";
 import { createStreamEvent, type LLMCoreStreamEvent } from "@argos/shared/types/core/llm-events";

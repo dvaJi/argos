@@ -1,7 +1,7 @@
 import * as fs from "fs/promises";
 import * as path from "path";
-import { RequestError } from "@agentclientprotocol/sdk";
-import type * as schema from "@agentclientprotocol/sdk";
+import { RequestError } from "@agentclientprotocol/sdk/unstable";
+import type * as schema from "@agentclientprotocol/sdk/unstable";
 import type { AcpFsHelpers } from "../host/ports";
 import { AcpPathGuard } from "../config/acpPathGuard";
 

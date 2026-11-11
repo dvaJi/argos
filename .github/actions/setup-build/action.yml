@@ -13,13 +13,13 @@ runs:
     - name: Setup Bun
       uses: oven-sh/setup-bun@v2
       with:
-        bun-version: "1.4.0"
+        bun-version: "1.4.4"
 
     - name: Restore Bun install cache
       uses: actions/cache@v4
       with:
         path: ~/.bun/install/cache
-        key: bun-install-${{ runner.os }}-${{ hashFiles('bun.lockb') }}
+        key: bun-install-${{ runner.os }}-${{ hashFiles('bun.lock') }}
         restore-keys: |
           bun-install-${{ runner.os }}-
 
@@ -27,7 +27,7 @@ runs:
       uses: actions/cache@v4
       with:
         path: .turbo
-        key: turbo-v2-${{ hashFiles('bun.lockb', 'turbo.json', 'apps/*/turbo.json', 'packages/*/turbo.json') }}
+        key: turbo-v2-${{ hashFiles('bun.lock', 'turbo.json', 'apps/*/turbo.json', 'packages/*/turbo.json') }}
         restore-keys: |
           turbo-v2-
         enableCrossOsArchive: true
@@ -42,7 +42,7 @@ runs:
           ~/Library/Caches/electron-builder
           ~/AppData/Local/electron/Cache
           ~/AppData/Local/electron-builder/Cache
-        key: electron-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lockb', 'apps/desktop/electron-builder.yml') }}
+        key: electron-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock', 'apps/desktop/electron-builder.yml') }}
         restore-keys: |
           electron-v2-${{ runner.os }}-${{ runner.arch }}-
 

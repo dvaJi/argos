@@ -5,7 +5,7 @@ import type {
   ToolInteractionResponse,
   ToolInteractionResult,
 } from "@argos/shared/types/agent-interface";
-import type * as schema from "@agentclientprotocol/sdk";
+import type * as schema from "@agentclientprotocol/sdk/unstable";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import {
@@ -31,7 +31,7 @@ import { DaemonAcpAuthRuntime } from "./acpAuthRuntime";
 import { resolvePtyTerminalCtor } from "../terminal/daemonTerminalRuntime";
 import { isAuthRequiredError } from "@argos/acp-runtime/protocol/acpCapabilities";
 import { sessionsStatusChangedEvent } from "@argos/shared-contracts";
-import { methods as acpMethods, PROTOCOL_VERSION } from "@agentclientprotocol/sdk";
+import { methods as acpMethods, PROTOCOL_VERSION } from "@agentclientprotocol/sdk/unstable";
 import type { AcpConfigState, AcpAgentDiagnostics, AcpDebugRequest, AcpDebugRunResult } from "@argos/shared/presenter";
 import { summarizeFileChangesFromBlocks } from "./acpFileChanges";
 

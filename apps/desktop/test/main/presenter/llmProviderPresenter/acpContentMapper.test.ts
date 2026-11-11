@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import type * as schema from "@agentclientprotocol/sdk";
+import type * as schema from "@agentclientprotocol/sdk/unstable";
 import { AcpContentMapper } from "@argos/acp-runtime";
 
 const createNotification = <T extends schema.SessionNotification["update"]>(

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { methods as acpMethods } from "@agentclientprotocol/sdk";
-import type * as schema from "@agentclientprotocol/sdk";
+import { methods as acpMethods } from "@agentclientprotocol/sdk/unstable";
+import type * as schema from "@agentclientprotocol/sdk/unstable";
 import type { IEventPublisher } from "@argos/backend-core";
 import type { AcpProcessManager } from "@argos/acp-runtime/process/acpProcessManager";
 import type { AcpAgentConfig } from "@argos/shared/presenter";

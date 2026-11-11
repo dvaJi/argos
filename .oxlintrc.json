@@ -43,6 +43,11 @@
     "**/test/**",
     "**/src/shared/**",
     "**/src/shadcn/**",
-    "**/routeTree.gen.ts"
+    "**/routeTree.gen.ts",
+    ".agents",
+    ".claude",
+    ".commandcode",
+    ".react-doctor",
+    ".turbo"
   ]
 }

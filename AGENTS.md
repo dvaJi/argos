@@ -21,9 +21,9 @@ The UI is extracted from the desktop shell (CodeNomad-style): the desktop app is
 - Install: `bun install` + `bun run installRuntime` (first time).
 - Dev: `bun run dev` (HMR). Inspect: `bun run dev:inspect`; Linux: `bun run dev:linux`.
 - Preview: `bun run start`.
-- Type check: `bun run typecheck` (covers `@argos/desktop` and `@argos/ui`; or `typecheck:node` / `typecheck:web`). Uses TypeScript 7 (`tsc`, the native Go-rewrite compiler).
+- Type check: `bun run typecheck` (covers `@argos/desktop` and `@argos/ui`; or `typecheck:node` / `typecheck:web`). Uses `bun check` (Bun's built-in type checker, same errors as TypeScript 7 `tsc`).
 - Lint: `bun run lint` (runs `agent-cleanup-guard`, `architecture-guard`, then `oxlint`).
-- Format: `bun run format` (oxfmt). Check: `bun run format:check`.
+- Format: `bun run format` (`bun fmt`, configured by `.oxfmtrc.json`). Check: `bun run format:check`.
 - After completing a feature, always run `bun run format` and `bun run lint`.
 - Test: `bun test`, `test:main`, `test:renderer`, `test:coverage`, `test:watch`, `test:ui`.
 - Build: `bun run build` then `build:win|mac|linux` (add `:x64|:arm64`).
@@ -159,7 +159,7 @@ The `#/` alias is context-sensitive: a custom Vite plugin (`createPathAliasPlugi
 - Patterns: Presenter pattern in main; EventBus for inter-process events; typed route contracts as renderer-main boundary; two-layer LLM provider (Agent Loop + Provider); integrated MCP tools.
 - File I/O: Bun-runtime code (`apps/daemon/src`, bun-run `scripts/`) uses `Bun.file`/`Bun.write` for reads/writes and `node:fs` for directory APIs. Electron main and shared `packages/*` use `node:fs` only — `Bun.*` is forbidden there. Enforced by the `bun-file-io` rule in `bun run lint`; see the `bun-file-io` skill.
 - Secrets: use `.env` (see `.env.example`); never commit keys.
-- Toolchains: Bun 1.4.0. Windows: enable Developer Mode for symlinks.
+- Toolchains: Bun 1.4.4. Windows: enable Developer Mode for symlinks.
 - Build: Vite 8 with Rolldown; `vite-plugin-electron` multi-env for main/preload/renderer.
 - Runtimes: uv and ripgrep seeds in `runtime/` — installed via `bun run installRuntime`. Node, uv, and ripgrep resolve at runtime through the daemon's managed toolchain service (see `docs/features/managed-toolchains`).
 

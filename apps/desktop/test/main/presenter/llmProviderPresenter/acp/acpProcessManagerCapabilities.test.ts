@@ -30,7 +30,7 @@ const sdkMock = vi.hoisted(() => ({
   requests: [] as Array<unknown>,
 }));
 
-vi.mock("@agentclientprotocol/sdk", () => {
+vi.mock("@agentclientprotocol/sdk/unstable", () => {
   const connection = {
     closed: new Promise<void>(() => {}),
     agent: {

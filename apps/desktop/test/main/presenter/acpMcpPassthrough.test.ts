@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import type * as schema from "@agentclientprotocol/sdk";
+import type * as schema from "@agentclientprotocol/sdk/unstable";
 import { convertMcpConfigToAcpFormat } from "@argos/acp-runtime";
 import { filterMcpServersByTransportSupport } from "@argos/acp-runtime";
 import { AcpSessionManager } from "@argos/acp-runtime/session/acpSessionManager";

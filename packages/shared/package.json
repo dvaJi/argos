@@ -7,7 +7,7 @@
   },
   "dependencies": {
     "minimatch": "^10.2.6",
-    "safe-regex2": "^5.1.1",
+    "safe-regex2": "^5.1.2",
     "zod": "catalog:"
   },
   "peerDependencies": {

@@ -1887,6 +1887,9 @@ export class SkillPresenter implements ISkillPresenter {
 
     this.watcher = watch(this.skillsDir, {
       ignoreInitial: true,
+      // Explicit since chokidar 6 defaults it to false under polling (CHOKIDAR_USEPOLLING): keeps a
+      // save seen as unlink+add from briefly dropping the skill.
+      atomic: true,
       depth: SKILL_CONFIG.FOLDER_TREE_MAX_DEPTH,
       ignored: (watchPath) =>
         watchPath.includes(`${path.sep}${SKILL_CONFIG.SIDECAR_DIR}${path.sep}`) ||

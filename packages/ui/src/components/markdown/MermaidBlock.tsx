@@ -32,6 +32,9 @@ export function MermaidBlock({ node, className }: MermaidBlockProps) {
         startOnLoad: false,
         theme: "default",
         securityLevel: "loose",
+        // mermaid 12 defaults to ELK layout and a new look; keep the previous rendering.
+        layout: "dagre",
+        look: "classic",
       });
 
       const id = `mermaid-${Math.random().toString(36).slice(2, 9)}`;

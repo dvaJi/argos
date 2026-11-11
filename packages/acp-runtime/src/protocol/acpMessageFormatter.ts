@@ -1,4 +1,4 @@
-import type * as schema from "@agentclientprotocol/sdk";
+import type * as schema from "@agentclientprotocol/sdk/unstable";
 import type { ChatMessage } from "@argos/shared/presenter";
 import type { SendMessageInput } from "@argos/shared/types/agent-interface";
 

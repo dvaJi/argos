@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import { resolve } from 'path'
 import { defineConfig, loadEnv, type Plugin } from 'vite'
 import { electronSimple } from 'vite-plugin-electron/multi-env'
-import { createPathAliasPlugin } from './vite-plugins/path-alias'
+import { createPathAliasPlugin } from './vite-plugins/path-alias.ts'
 
 /**
  * Minimal `?asset` import handler — replaces electron-vite built-in.
@@ -125,7 +125,6 @@ export default defineConfig(({ mode }) => {
                 output: {
                   format: 'es',
                   codeSplitting: true,
-                  inlineDynamicImports: false,
                   entryFileNames: '[name].mjs',
                   chunkFileNames: 'chunks/[name]-[hash].js',
                   assetFileNames: '[name].[ext]',

@@ -6,6 +6,8 @@ import fs from "fs";
 import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import type { McpHostPorts } from "@argos/mcp-runtime";
 import { getInMemoryServer } from "../../../src/main/presenter/mcpPresenter/inMemoryServers/builder";
 
@@ -304,6 +306,59 @@ describe("McpClient Runtime Command Processing Tests", () => {
       // Should replace with runtime uvx path
       expect(processedCommand.command).toContain("uvx");
       expect(processedCommand.args).toEqual(["osm-mcp-server"]);
+    });
+  });
+
+  describe("Remote transport authorization", () => {
+    // Regression: a static Authorization header used to be wrapped in a partial OAuth provider.
+    // On a 401 the SDK then ran its OAuth flow and crashed with
+    // "provider.clientInformation is not a function", hiding the real 401.
+    it.each([
+      ["http", StreamableHTTPClientTransport],
+      ["sse", SSEClientTransport],
+    ] as const)(
+      "sends a static Authorization header as-is over %s without an authProvider",
+      async (type, Transport) => {
+        vi.mocked<(...args: any[]) => any>(Transport).mockImplementation(function () {
+          return { close: vi.fn<(...args: any[]) => any>() } as any;
+        });
+        const client = new McpClient(
+          "remote",
+          {
+            type,
+            baseUrl: "https://mcp.example.test/mcp",
+            customHeaders: { Authorization: "Bearer static-token", "X-Extra": "1" },
+          },
+          testPorts,
+        );
+
+        await client.connect().catch(() => {});
+
+        expect(Transport).toHaveBeenCalledTimes(1);
+        const [, options] = vi.mocked<(...args: any[]) => any>(Transport).mock.calls[0];
+        expect(options.requestInit.headers).toEqual({ Authorization: "Bearer static-token", "X-Extra": "1" });
+        expect(options.authProvider).toBeUndefined();
+      },
+    );
+
+    it("keeps non-Bearer Authorization schemes instead of dropping them", async () => {
+      vi.mocked<(...args: any[]) => any>(StreamableHTTPClientTransport).mockImplementation(function () {
+        return { close: vi.fn<(...args: any[]) => any>() } as any;
+      });
+      const client = new McpClient(
+        "remote",
+        {
+          type: "http",
+          baseUrl: "https://mcp.example.test/mcp",
+          customHeaders: { Authorization: "Basic dXNlcjpwYXNz" },
+        },
+        testPorts,
+      );
+
+      await client.connect().catch(() => {});
+
+      const [, options] = vi.mocked<(...args: any[]) => any>(StreamableHTTPClientTransport).mock.calls[0];
+      expect(options.requestInit.headers.Authorization).toBe("Basic dXNlcjpwYXNz");
     });
   });
 

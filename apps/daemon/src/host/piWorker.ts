@@ -13,7 +13,7 @@ import {
   type InlineExtension,
   type ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
-import { Type } from "typebox";
+import { unsafe } from "@earendil-works/pi-schema";
 import { createArgosOrchestratorExtension } from "@argos/pi-orchestrator-extension";
 import type { PiWorkerCommand, PiWorkerEvent, PiWorkerInit } from "./piWorkerProtocol";
 
@@ -100,7 +100,7 @@ function createMcpTools(config: PiWorkerInit): ToolDefinition[] {
       name: tool.function.name,
       label: tool.function.name,
       description: tool.function.description,
-      parameters: Type.Unsafe(tool.function.parameters),
+      parameters: unsafe(tool.function.parameters),
       execute: async (toolCallId, input) => {
         const response = await request<any>({
           type: "mcpRequest",
@@ -396,8 +396,14 @@ async function handle(command: PiWorkerCommand): Promise<void> {
   activeCommandId = command.id;
   lastAssistantTimestamp = undefined; // reset per command; only current command's message_end may set it
   emit({ type: "accepted", id: command.id, sessionFile: session.sessionFile });
-  if (command.type === "steer") return session.steer(command.text);
-  if (command.type === "followUp") return session.followUp(command.text);
+  if (command.type === "steer" || command.type === "followUp") {
+    // pi >= 1.5 runs input hooks before queueing. With session.steer()/followUp() a run that
+    // settles during those hooks leaves the message queued on an idle agent, never processed.
+    // prompt() re-checks isStreaming after the hooks: it queues while a run is active and
+    // otherwise starts a new run with the message.
+    await session.prompt(command.text, { streamingBehavior: command.type });
+    return;
+  }
   if (command.type === "compact") {
     await session.compact(command.instructions);
     emit({ type: "settled", id: command.id, sessionFile: session.sessionFile });

@@ -1,5 +1,5 @@
-import { methods as acpMethods } from "@agentclientprotocol/sdk";
-import type * as schema from "@agentclientprotocol/sdk";
+import { methods as acpMethods } from "@agentclientprotocol/sdk/unstable";
+import type * as schema from "@agentclientprotocol/sdk/unstable";
 import { nanoid } from "nanoid";
 import { resolveAcpAgentAlias } from "@argos/backend-core";
 import { isAuthRequiredError } from "../protocol/acpCapabilities";

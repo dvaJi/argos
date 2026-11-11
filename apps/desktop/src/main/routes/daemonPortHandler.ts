@@ -55,13 +55,32 @@ function writeCredentials(credentials: StoredCredentials): void {
   }
 }
 
-function encryptCredential(value: string): string {
-  if (!safeStorage.isEncryptionAvailable()) throw new Error("Secure credential storage is unavailable");
-  return safeStorage.encryptString(value).toString("base64");
+async function encryptCredential(value: string): Promise<string> {
+  if (!(await safeStorage.isAsyncEncryptionAvailable())) throw new Error("Secure credential storage is unavailable");
+  return (await safeStorage.encryptStringAsync(value)).toString("base64");
 }
 
-function decryptCredential(value: string): string {
-  return safeStorage.decryptString(Buffer.from(value, "base64"));
+async function decryptCredential(value: string): Promise<{ token: string; shouldReEncrypt: boolean }> {
+  const { result, shouldReEncrypt } = await safeStorage.decryptStringAsync(Buffer.from(value, "base64"));
+  return { token: result, shouldReEncrypt };
+}
+
+/**
+ * Re-encrypts a stored credential after a key rotation. Best effort: the old ciphertext still decrypts.
+ * Only replaces `previousEncrypted`: if the credential was deleted or replaced meanwhile, it is left alone.
+ */
+async function reEncryptCredential(credentialRef: string, token: string, previousEncrypted: string): Promise<void> {
+  try {
+    const encrypted = await encryptCredential(token);
+    // No await from here on: compare and write atomically with respect to other handlers.
+    const credentials = readCredentials();
+    const stored = credentials[credentialRef];
+    if (!stored || stored.encrypted !== previousEncrypted) return;
+    credentials[credentialRef] = { ...stored, encrypted };
+    writeCredentials(credentials);
+  } catch (error) {
+    console.warn("[Credentials] Failed to re-encrypt credential after key rotation:", error);
+  }
 }
 
 async function revokeIssuedSession(remoteUrl: string, sessionId: string | undefined, token: string): Promise<void> {
@@ -176,12 +195,11 @@ export function registerDaemonPortHandler(): void {
       }
       reportProgress("storing");
       const credentialRef = `machine-${randomUUID()}`;
+      // Encrypt first: the read-modify-write below must not span an await, or concurrent
+      // pairings/deletions could each write a stale snapshot and drop the other's change.
+      const encrypted = await encryptCredential(body.sessionToken);
       const credentials = readCredentials();
-      credentials[credentialRef] = {
-        encrypted: encryptCredential(body.sessionToken),
-        remoteUrl,
-        sessionId: body.sessionId,
-      };
+      credentials[credentialRef] = { encrypted, remoteUrl, sessionId: body.sessionId };
       writeCredentials(credentials);
       issuedSession = null;
       return {
@@ -210,12 +228,14 @@ export function registerDaemonPortHandler(): void {
   });
 
   ipcMain.removeHandler(GET_REMOTE_MACHINE_CREDENTIAL_CHANNEL);
-  ipcMain.handle(GET_REMOTE_MACHINE_CREDENTIAL_CHANNEL, (_event, credentialRef: unknown) => {
+  ipcMain.handle(GET_REMOTE_MACHINE_CREDENTIAL_CHANNEL, async (_event, credentialRef: unknown) => {
     if (typeof credentialRef !== "string") return null;
     const stored = readCredentials()[credentialRef];
     if (!stored) return null;
     try {
-      return { token: decryptCredential(stored.encrypted), remoteUrl: stored.remoteUrl, sessionId: stored.sessionId };
+      const { token, shouldReEncrypt } = await decryptCredential(stored.encrypted);
+      if (shouldReEncrypt) await reEncryptCredential(credentialRef, token, stored.encrypted);
+      return { token, remoteUrl: stored.remoteUrl, sessionId: stored.sessionId };
     } catch {
       return null;
     }
@@ -232,7 +252,7 @@ export function registerDaemonPortHandler(): void {
       let remoteRevoked: boolean | null = null;
       if (revokeRemoteSession !== false && stored.sessionId) {
         try {
-          const token = decryptCredential(stored.encrypted);
+          const { token } = await decryptCredential(stored.encrypted);
           const response = await fetch(`${stored.remoteUrl}/api/v1/sessions/${encodeURIComponent(stored.sessionId)}`, {
             method: "DELETE",
             headers: { Authorization: `Bearer ${token}` },
