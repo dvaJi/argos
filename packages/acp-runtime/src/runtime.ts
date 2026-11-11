@@ -1,6 +1,6 @@
 import type { IConfigPresenter, LLM_PROVIDER } from "@argos/shared/presenter";
-import { methods as acpMethods } from "@agentclientprotocol/sdk";
-import type * as schema from "@agentclientprotocol/sdk";
+import { methods as acpMethods } from "@agentclientprotocol/sdk/unstable";
+import type * as schema from "@agentclientprotocol/sdk/unstable";
 import { AcpProcessManager } from "./process/acpProcessManager";
 import { AcpSessionManager } from "./session/acpSessionManager";
 import type { PermissionResolver } from "./process/acpProcessManager";

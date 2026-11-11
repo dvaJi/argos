@@ -1,4 +1,4 @@
-import type * as schema from "@agentclientprotocol/sdk";
+import type * as schema from "@agentclientprotocol/sdk/unstable";
 import type { MCPServerConfig } from "@argos/shared/presenter";
 
 const normalizeStringRecordToArray = (

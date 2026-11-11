@@ -1,4 +1,4 @@
-import type * as schema from "@agentclientprotocol/sdk";
+import type * as schema from "@agentclientprotocol/sdk/unstable";
 import type { AcpConfigOption, AcpConfigOptionValue, AcpConfigState } from "@argos/shared/presenter";
 
 export const LEGACY_MODEL_CONFIG_ID = "__acp_legacy_model__";

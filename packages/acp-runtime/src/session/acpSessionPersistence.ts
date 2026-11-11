@@ -1,5 +1,5 @@
 import * as fs from "fs";
-import type * as schema from "@agentclientprotocol/sdk";
+import type * as schema from "@agentclientprotocol/sdk/unstable";
 import type {
   CONVERSATION_SETTINGS,
   AcpTurnFinishPayload,

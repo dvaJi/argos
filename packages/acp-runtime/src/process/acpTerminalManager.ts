@@ -1,8 +1,8 @@
 import fs from "fs";
 import path from "path";
 import { nanoid } from "nanoid";
-import { RequestError } from "@agentclientprotocol/sdk";
-import type * as schema from "@agentclientprotocol/sdk";
+import { RequestError } from "@agentclientprotocol/sdk/unstable";
+import type * as schema from "@agentclientprotocol/sdk/unstable";
 
 /**
  * Structural subset of the host runtime's PTY APIs — a `Terminal` constructor

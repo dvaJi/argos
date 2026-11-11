@@ -2,10 +2,14 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { Readable, Writable } from "node:stream";
 import * as fs from "fs";
 import * as path from "path";
-import { client as createAcpClientApp, methods as acpMethods, PROTOCOL_VERSION } from "@agentclientprotocol/sdk";
-import type { Client, ClientApp, ClientConnection } from "@agentclientprotocol/sdk";
-import type * as schema from "@agentclientprotocol/sdk";
-import type { Stream } from "@agentclientprotocol/sdk";
+import {
+  client as createAcpClientApp,
+  methods as acpMethods,
+  PROTOCOL_VERSION,
+} from "@agentclientprotocol/sdk/unstable";
+import type { ClientApp, ClientConnection } from "@agentclientprotocol/sdk/unstable";
+import type * as schema from "@agentclientprotocol/sdk/unstable";
+import type { Stream } from "@agentclientprotocol/sdk/unstable";
 import type {
   AcpDebugEventEntry,
   AcpAgentConfig,
@@ -37,6 +41,22 @@ import {
 import type { AcpHostPorts } from "../host/ports";
 import { AcpDebugLog } from "../config/acpDebugLog";
 import { DEFAULT_PERMISSION_RESOLVER_TIMEOUT_MS, resolvePermissionWithTimeout } from "./permissionTimeout";
+
+/**
+ * Handlers Argos implements for agent-to-client ACP requests. Replaces the SDK's `Client`
+ * interface, removed in @agentclientprotocol/sdk 2.0 in favour of `client()` apps.
+ */
+type AcpClientHandlers = {
+  requestPermission(params: schema.RequestPermissionRequest): Promise<schema.RequestPermissionResponse>;
+  sessionUpdate(notification: schema.SessionNotification): Promise<void>;
+  readTextFile(params: schema.ReadTextFileRequest): Promise<schema.ReadTextFileResponse>;
+  writeTextFile(params: schema.WriteTextFileRequest): Promise<schema.WriteTextFileResponse>;
+  createTerminal(params: schema.CreateTerminalRequest): Promise<schema.CreateTerminalResponse>;
+  terminalOutput(params: schema.TerminalOutputRequest): Promise<schema.TerminalOutputResponse>;
+  waitForTerminalExit(params: schema.WaitForTerminalExitRequest): Promise<schema.WaitForTerminalExitResponse>;
+  killTerminal(params: schema.KillTerminalRequest): Promise<schema.KillTerminalResponse>;
+  releaseTerminal(params: schema.ReleaseTerminalRequest): Promise<schema.ReleaseTerminalResponse>;
+};
 
 const ACP_WORKSPACE_EVENTS = {
   SESSION_MODES_READY: "acp-workspace:session-modes-ready",
@@ -1564,16 +1584,16 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
       .onNotification(acpMethods.client.session.update, (ctx) => {
         client.sessionUpdate(ctx.params);
       })
-      .onRequest(acpMethods.client.fs.readTextFile, (ctx) => client.readTextFile!(ctx.params))
-      .onRequest(acpMethods.client.fs.writeTextFile, (ctx) => client.writeTextFile!(ctx.params))
-      .onRequest(acpMethods.client.terminal.create, (ctx) => client.createTerminal!(ctx.params))
-      .onRequest(acpMethods.client.terminal.output, (ctx) => client.terminalOutput!(ctx.params))
-      .onRequest(acpMethods.client.terminal.waitForExit, (ctx) => client.waitForTerminalExit!(ctx.params))
-      .onRequest(acpMethods.client.terminal.kill, (ctx) => client.killTerminal!(ctx.params))
-      .onRequest(acpMethods.client.terminal.release, (ctx) => client.releaseTerminal!(ctx.params));
+      .onRequest(acpMethods.client.fs.readTextFile, (ctx) => client.readTextFile(ctx.params))
+      .onRequest(acpMethods.client.fs.writeTextFile, (ctx) => client.writeTextFile(ctx.params))
+      .onRequest(acpMethods.client.terminal.create, (ctx) => client.createTerminal(ctx.params))
+      .onRequest(acpMethods.client.terminal.output, (ctx) => client.terminalOutput(ctx.params))
+      .onRequest(acpMethods.client.terminal.waitForExit, (ctx) => client.waitForTerminalExit(ctx.params))
+      .onRequest(acpMethods.client.terminal.kill, (ctx) => client.killTerminal(ctx.params))
+      .onRequest(acpMethods.client.terminal.release, (ctx) => client.releaseTerminal(ctx.params));
   }
 
-  private createClientProxy(): Client {
+  private createClientProxy(): AcpClientHandlers {
     return {
       requestPermission: async (params) => this.dispatchPermissionRequest(params),
       sessionUpdate: async (notification) => {

@@ -13,7 +13,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@agentclientprotocol/sdk": "^1.4.0",
+    "@agentclientprotocol/sdk": "^2.5.0",
     "@argos/acp-runtime": "workspace:*",
     "@argos/agent-runtime": "workspace:*",
     "@argos/backend-core": "workspace:*",

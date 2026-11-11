@@ -6,11 +6,11 @@ import type {
   PermissionResolver,
   SessionNotificationHandler,
 } from "../process/acpProcessManager";
-import { methods as acpMethods, type ClientConnection } from "@agentclientprotocol/sdk";
+import { methods as acpMethods, type ClientConnection } from "@agentclientprotocol/sdk/unstable";
 import { AcpSessionPersistence } from "./acpSessionPersistence";
 import { convertMcpConfigToAcpFormat } from "../protocol/mcpConfigConverter";
 import { filterMcpServersByTransportSupport } from "../protocol/mcpTransportFilter";
-import type * as schema from "@agentclientprotocol/sdk";
+import type * as schema from "@agentclientprotocol/sdk/unstable";
 import type { LifecyclePort } from "../host/ports";
 import {
   createEmptyAcpConfigState,
