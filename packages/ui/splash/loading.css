@@ -165,14 +165,7 @@
   user-select: none;
   color: var(--splash-ink);
   background: var(--splash-bg);
-  font-family:
-    "Geist",
-    "Inter",
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    Roboto,
-    sans-serif;
+  font-family: "Geist", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   display: flex;
   flex-direction: column;
   align-items: center;

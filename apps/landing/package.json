@@ -15,10 +15,10 @@
     "@fontsource-variable/geist": "^5.3.0",
     "@fontsource-variable/jetbrains-mono": "^5.3.0",
     "@phosphor-icons/react": "^2.1.10",
-    "@sentry/browser": "^11.8.0",
-    "@sentry/cloudflare": "^10.0.0",
+    "@sentry/browser": "^11.12.0",
+    "@sentry/cloudflare": "^10.78.0",
     "@tanstack/react-router": "catalog:",
-    "@tanstack/react-start": "^1.168.50",
+    "@tanstack/react-start": "^1.169.5",
     "react": "catalog:",
     "react-dom": "catalog:",
     "vgpu": "0.4.0"
