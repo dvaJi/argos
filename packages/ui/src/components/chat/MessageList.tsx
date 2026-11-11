@@ -85,7 +85,7 @@ const MessageList: FC<MessageListProps> = ({
   };
   return (
     <div data-testid="chat-message-list" className="chat-message-list w-full min-w-0 relative">
-      <div className="mx-auto w-full max-w-5xl space-y-1 px-6 py-6">
+      <div className="relative mx-auto w-full max-w-5xl space-y-1 px-6 py-6">
         {allRenderedMessages.map((item) => (
           <MessageListRow
             key={item.id}
@@ -105,7 +105,9 @@ const MessageList: FC<MessageListProps> = ({
           />
         ))}
 
-        <Presence show={isGenerating} className="absolute bottom-5 left-16 w-full">
+        {/* Anchored to the centered column (not the full-width list) and inset by its
+            padding, so it lines up with message content and cannot overflow horizontally. */}
+        <Presence show={isGenerating} className="absolute inset-x-6 bottom-5 pl-11">
           <LoadingState />
         </Presence>
 
