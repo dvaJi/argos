@@ -396,8 +396,14 @@ async function handle(command: PiWorkerCommand): Promise<void> {
   activeCommandId = command.id;
   lastAssistantTimestamp = undefined; // reset per command; only current command's message_end may set it
   emit({ type: "accepted", id: command.id, sessionFile: session.sessionFile });
-  if (command.type === "steer") return session.steer(command.text);
-  if (command.type === "followUp") return session.followUp(command.text);
+  if (command.type === "steer") {
+    await session.steer(command.text);
+    return;
+  }
+  if (command.type === "followUp") {
+    await session.followUp(command.text);
+    return;
+  }
   if (command.type === "compact") {
     await session.compact(command.instructions);
     emit({ type: "settled", id: command.id, sessionFile: session.sessionFile });
