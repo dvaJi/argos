@@ -13,7 +13,7 @@ import {
   type InlineExtension,
   type ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
-import { Type } from "typebox";
+import { unsafe } from "@earendil-works/pi-schema";
 import { createArgosOrchestratorExtension } from "@argos/pi-orchestrator-extension";
 import type { PiWorkerCommand, PiWorkerEvent, PiWorkerInit } from "./piWorkerProtocol";
 
@@ -100,7 +100,7 @@ function createMcpTools(config: PiWorkerInit): ToolDefinition[] {
       name: tool.function.name,
       label: tool.function.name,
       description: tool.function.description,
-      parameters: Type.Unsafe(tool.function.parameters),
+      parameters: unsafe(tool.function.parameters),
       execute: async (toolCallId, input) => {
         const response = await request<any>({
           type: "mcpRequest",

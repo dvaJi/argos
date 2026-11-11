@@ -1,5 +1,5 @@
 import { defineTool, type InlineExtension } from "@earendil-works/pi-coding-agent";
-import { Type } from "typebox";
+import { unsafe } from "@earendil-works/pi-schema";
 import type { MCPToolDefinition, MCPToolResponse } from "@argos/shared/types/core/mcp";
 
 export interface ArgosOrchestratorBridge {
@@ -21,7 +21,7 @@ export function createArgosOrchestratorExtension(bridge: ArgosOrchestratorBridge
             name: tool.function.name,
             label: tool.function.name,
             description: tool.function.description,
-            parameters: Type.Unsafe(tool.function.parameters),
+            parameters: unsafe(tool.function.parameters),
             execute: async (toolCallId, input) => {
               const response = await bridge.call(toolCallId, tool.function.name, input as Record<string, unknown>);
               const content = Array.isArray(response.content)

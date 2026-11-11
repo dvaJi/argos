@@ -28,13 +28,13 @@
     "@argos/skills-runtime": "workspace:*",
     "@duckdb/node-api": "1.5.5-r.4",
     "@earendil-works/pi-coding-agent": "catalog:",
+    "@earendil-works/pi-schema": "catalog:",
     "ai": "catalog:",
     "chokidar": "^6.0.0",
     "fflate": "catalog:",
     "gray-matter": "^4.0.3",
     "nanoid": "catalog:",
     "sharp": "^0.35.5",
-    "typebox": "1.3.28",
     "zod": "catalog:"
   },
   "devDependencies": {
