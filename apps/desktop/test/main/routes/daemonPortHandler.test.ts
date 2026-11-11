@@ -3,8 +3,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const state = vi.hoisted(() => {
   const handlers = new Map<string, (...args: any[]) => any>();
   const files = new Map<string, string>();
+  // Simulated safeStorage key version; bumping it mimics an OS key rotation.
+  const crypto = { keyVersion: 1 };
 
-  return { handlers, files };
+  return { handlers, files, crypto };
 });
 
 vi.mock("electron", () => ({
@@ -14,9 +16,12 @@ vi.mock("electron", () => ({
     handle: vi.fn((channel: string, handler: (...args: any[]) => any) => state.handlers.set(channel, handler)),
   },
   safeStorage: {
-    isEncryptionAvailable: vi.fn(() => true),
-    encryptString: vi.fn((value: string) => Buffer.from(value, "utf8")),
-    decryptString: vi.fn((value: Buffer) => value.toString("utf8")),
+    isAsyncEncryptionAvailable: vi.fn(async () => true),
+    encryptStringAsync: vi.fn(async (value: string) => Buffer.from(`v${state.crypto.keyVersion}:${value}`, "utf8")),
+    decryptStringAsync: vi.fn(async (value: Buffer) => {
+      const [version, ...rest] = value.toString("utf8").split(":");
+      return { result: rest.join(":"), shouldReEncrypt: version !== `v${state.crypto.keyVersion}` };
+    }),
   },
 }));
 
@@ -41,6 +46,7 @@ describe("daemon remote machine credentials", () => {
     vi.resetModules();
     state.handlers.clear();
     state.files.clear();
+    state.crypto.keyVersion = 1;
     vi.stubGlobal("fetch", vi.fn());
     const { registerDaemonPortHandler } = await import("#/routes/daemonPortHandler");
     registerDaemonPortHandler();
@@ -150,11 +156,37 @@ describe("daemon remote machine credentials", () => {
     registerDaemonPortHandler();
 
     const resolve = state.handlers.get("get-remote-machine-credential");
-    expect(resolve?.({}, paired.credentialRef)).toEqual({
+    expect(await resolve?.({}, paired.credentialRef)).toEqual({
       token: "bearer-secret",
       remoteUrl: "https://build.example.test",
       sessionId: "session-restart",
     });
+  });
+
+  it("re-encrypts a stored credential when safeStorage reports a key rotation", async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ ok: true, sessionId: "session-rotate", sessionToken: "bearer-secret" }), {
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ ok: true, output: { protocolVersion: 1, compatible: true } }), { status: 200 }),
+      );
+
+    const pair = state.handlers.get("pair-remote-machine");
+    const resolve = state.handlers.get("get-remote-machine-credential");
+    const paired = await pair?.({}, "https://build.example.test/pair?token=one-time-token");
+    const storedCiphertext = () =>
+      Buffer.from(
+        JSON.parse([...state.files.values()][0])[paired.credentialRef].encrypted as string,
+        "base64",
+      ).toString("utf8");
+    expect(storedCiphertext()).toBe("v1:bearer-secret");
+
+    state.crypto.keyVersion = 2;
+    expect(await resolve?.({}, paired.credentialRef)).toMatchObject({ token: "bearer-secret" });
+    expect(storedCiphertext()).toBe("v2:bearer-secret");
   });
 
   it("returns stable error codes for rejected links and TLS failures", async () => {
@@ -274,6 +306,6 @@ describe("daemon remote machine credentials", () => {
       localRemoved: true,
       remoteRevoked: false,
     });
-    expect(resolve?.({}, paired.credentialRef)).toBeNull();
+    expect(await resolve?.({}, paired.credentialRef)).toBeNull();
   });
 });

@@ -605,10 +605,10 @@ export interface IConfigPresenter {
   getLastSyncTime(): number;
   setLastSyncTime(time: number): void;
   // Cloud sync (S3-compatible) settings
-  getCloudSyncConfig(): CloudSyncConfigView;
-  setCloudSyncConfig(config: CloudSyncConfigInput): CloudSyncConfigView;
-  getResolvedCloudSyncConfig(): ResolvedCloudSyncConfig | null;
-  isCloudSafeStorageAvailable(): boolean;
+  getCloudSyncConfig(): Promise<CloudSyncConfigView>;
+  setCloudSyncConfig(config: CloudSyncConfigInput): Promise<CloudSyncConfigView>;
+  getResolvedCloudSyncConfig(): Promise<ResolvedCloudSyncConfig | null>;
+  isCloudSafeStorageAvailable(): Promise<boolean>;
   // Hooks & notifications settings
   getHooksNotificationsConfig(): HooksNotificationsSettings;
   setHooksNotificationsConfig(config: HooksNotificationsSettings): HooksNotificationsSettings;
