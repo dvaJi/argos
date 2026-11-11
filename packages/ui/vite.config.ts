@@ -4,7 +4,7 @@ import { defineConfig, loadEnv } from "vite";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import tailwindcss from "@tailwindcss/vite";
-import { createPathAliasPlugin } from "./vite-plugins/path-alias";
+import { createPathAliasPlugin } from "./vite-plugins/path-alias.ts";
 
 /**
  * Vite config for the standalone @argos/ui web package.
