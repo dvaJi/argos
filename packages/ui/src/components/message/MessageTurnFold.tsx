@@ -104,11 +104,8 @@ export const MessageTurnFold: FC<MessageTurnFoldProps> = ({
         aria-expanded={isExpanded}
         aria-label={isExpanded ? `Collapse: ${label}` : `Expand: ${label}`}
         onClick={toggleExpanded}
-        className="inline-flex max-w-full min-w-0 items-center gap-1 self-start rounded-sm text-xs leading-4 text-muted-foreground tabular-nums select-none transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        className="inline-flex max-w-full pt-2 min-w-0 items-center gap-1 self-start rounded-sm text-xs leading-4 text-muted-foreground tabular-nums select-none transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="var(--primary)">
-          <path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8z" />
-        </svg>
         <span className="min-w-0 truncate">{label}</span>
         <svg
           width="14"
