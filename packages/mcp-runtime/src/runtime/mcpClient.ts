@@ -49,23 +49,6 @@ type StdioClientTransportProcessAccess = {
 };
 
 // TODO: types for resources and prompts, types for Notifications https://github.com/modelcontextprotocol/typescript-sdk/blob/main/src/examples/client/simpleStreamableHttp.ts
-// Simple OAuth provider for handling Bearer Token
-class SimpleOAuthProvider {
-  private token: string | null = null;
-
-  constructor(authHeader: string | undefined) {
-    if (authHeader && authHeader.toLowerCase().startsWith("bearer ")) {
-      this.token = authHeader.substring(7); // Remove 'Bearer ' prefix
-    }
-  }
-
-  async tokens(): Promise<{ access_token: string } | null> {
-    if (this.token) {
-      return { access_token: this.token };
-    }
-    return null;
-  }
-}
 
 // Ensure TypeScript can recognize SERVER_STATUS_CHANGED property
 // Session management related types
@@ -198,16 +181,12 @@ export class McpClient {
     try {
       console.info(`Starting MCP server ${this.serverName}...`, this.serverConfig);
 
-      // Handle customHeaders and AuthProvider
-      let authProvider: SimpleOAuthProvider | null = null;
+      // A static Authorization header (e.g. "Bearer <token>") is sent as-is with every request.
+      // Do not wrap it in an SDK authProvider: on a 401 the SDK would start a full OAuth flow
+      // against it, which needs a complete OAuthClientProvider (clientInformation(), etc.).
       const customHeaders = this.serverConfig.customHeaders
-        ? { ...(this.serverConfig.customHeaders as Record<string, string>) } // Create copy for modification
+        ? { ...(this.serverConfig.customHeaders as Record<string, string>) }
         : {};
-
-      if (customHeaders.Authorization) {
-        authProvider = new SimpleOAuthProvider(customHeaders.Authorization);
-        delete customHeaders.Authorization; // Remove from headers as it will be handled by AuthProvider
-      }
 
       if (this.serverConfig.type === "inmemory") {
         const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
@@ -431,14 +410,10 @@ export class McpClient {
       } else if (this.serverConfig.baseUrl && this.serverConfig.type === "sse") {
         this.transport = new SSEClientTransport(new URL(this.serverConfig.baseUrl as string), {
           requestInit: { headers: customHeaders },
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          authProvider: (authProvider ?? undefined) as any,
         });
       } else if (this.serverConfig.baseUrl && this.serverConfig.type === "http") {
         this.transport = new StreamableHTTPClientTransport(new URL(this.serverConfig.baseUrl as string), {
           requestInit: { headers: customHeaders },
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          authProvider: (authProvider ?? undefined) as any,
         });
       } else {
         throw new Error(`Unsupported transport type: ${this.serverConfig.type}`);
