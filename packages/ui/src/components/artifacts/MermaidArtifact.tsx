@@ -48,6 +48,9 @@ const initMermaid = async (theme: MermaidTheme) => {
     theme,
     securityLevel: "strict",
     fontFamily: "inherit",
+    // mermaid 12 defaults to ELK layout and a new look; keep the previous rendering.
+    layout: "dagre",
+    look: "classic",
   });
   return mermaid;
 };
