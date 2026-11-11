@@ -13,7 +13,7 @@
     "start": "electron .",
     "test": "vitest",
     "test:main": "vitest --config vitest.config.ts test/main",
-    "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
+    "typecheck:node": "bun check -p tsconfig.node.json --composite false",
     "typecheck": "bun run typecheck:node",
     "postinstall": "cd ../.. && bun x electron-builder install-app-deps"
   },

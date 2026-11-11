@@ -8,7 +8,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "typecheck:web": "tsc --noEmit -p tsconfig.app.json --composite false",
+    "typecheck:web": "bun check -p tsconfig.app.json --composite false",
     "typecheck": "bun run typecheck:web",
     "test": "vitest"
   },

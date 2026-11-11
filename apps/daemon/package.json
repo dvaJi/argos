@@ -10,7 +10,7 @@
     "build": "node build.mjs",
     "test": "bun test",
     "test:watch": "bun test --watch",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "bun check"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "^2.5.0",

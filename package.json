@@ -6,9 +6,9 @@
   "author": "dvaJi",
   "type": "module",
   "engines": {
-    "bun": ">=1.4.0"
+    "bun": ">=1.4.4"
   },
-  "packageManager": "bun@1.4.0",
+  "packageManager": "bun@1.4.4",
   "workspaces": {
     "packages": [
       "apps/*",
@@ -50,7 +50,6 @@
       "level": "^10.0.0",
       "lucide-react": "^1.71.0",
       "nanoid": "^6.0.2",
-      "oxfmt": "^0.78.0",
       "oxlint": "^1.93.0",
       "radix-ui": "^1.6.7",
       "react": "^19.3.1",
@@ -80,8 +79,8 @@
     "e2e:smoke": "node apps/desktop/node_modules/@playwright/test/cli.js test -c apps/desktop/test/e2e/playwright.config.ts",
     "e2e:smoke:ci": "node apps/desktop/node_modules/@playwright/test/cli.js test -c apps/desktop/test/e2e/playwright.ci.config.ts",
     "e2e:remote-machine": "bun scripts/smoke-remote-machine-lifecycle.mjs",
-    "format:check": "oxfmt --check .",
-    "format": "oxfmt .",
+    "format:check": "bun fmt --check",
+    "format": "bun fmt",
     "lint": "bun run lint:agent-cleanup && bun run lint:architecture && bun run lint:route-catalog && oxlint --deny-warnings .",
     "lint:architecture": "bun scripts/architecture-guard.mjs",
     "lint:agent-cleanup": "bun scripts/agent-cleanup-guard.mjs",
@@ -151,7 +150,6 @@
     "electron": "catalog:",
     "electron-builder": "catalog:",
     "knip": "^6.44.2",
-    "oxfmt": "catalog:",
     "oxlint": "catalog:",
     "turbo": "catalog:",
     "tiny-runtime-injector": "^1.2.0",
