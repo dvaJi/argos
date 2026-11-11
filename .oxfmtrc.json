@@ -31,6 +31,10 @@
     "vite.config.ts",
     "*.md",
     ".turbo",
+    ".agents",
+    ".claude",
+    ".commandcode",
+    ".react-doctor",
     "scripts/*",
     "src/shadcn/**/*",
     "**/routeTree.gen.ts"
