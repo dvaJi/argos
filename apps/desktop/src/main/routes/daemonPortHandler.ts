@@ -65,13 +65,17 @@ async function decryptCredential(value: string): Promise<{ token: string; should
   return { token: result, shouldReEncrypt };
 }
 
-/** Re-encrypts a stored credential after a key rotation. Best effort: the old ciphertext still decrypts. */
-async function reEncryptCredential(credentialRef: string, token: string): Promise<void> {
+/**
+ * Re-encrypts a stored credential after a key rotation. Best effort: the old ciphertext still decrypts.
+ * Only replaces `previousEncrypted`: if the credential was deleted or replaced meanwhile, it is left alone.
+ */
+async function reEncryptCredential(credentialRef: string, token: string, previousEncrypted: string): Promise<void> {
   try {
     const encrypted = await encryptCredential(token);
+    // No await from here on: compare and write atomically with respect to other handlers.
     const credentials = readCredentials();
     const stored = credentials[credentialRef];
-    if (!stored) return;
+    if (!stored || stored.encrypted !== previousEncrypted) return;
     credentials[credentialRef] = { ...stored, encrypted };
     writeCredentials(credentials);
   } catch (error) {
@@ -191,12 +195,11 @@ export function registerDaemonPortHandler(): void {
       }
       reportProgress("storing");
       const credentialRef = `machine-${randomUUID()}`;
+      // Encrypt first: the read-modify-write below must not span an await, or concurrent
+      // pairings/deletions could each write a stale snapshot and drop the other's change.
+      const encrypted = await encryptCredential(body.sessionToken);
       const credentials = readCredentials();
-      credentials[credentialRef] = {
-        encrypted: await encryptCredential(body.sessionToken),
-        remoteUrl,
-        sessionId: body.sessionId,
-      };
+      credentials[credentialRef] = { encrypted, remoteUrl, sessionId: body.sessionId };
       writeCredentials(credentials);
       issuedSession = null;
       return {
@@ -231,7 +234,7 @@ export function registerDaemonPortHandler(): void {
     if (!stored) return null;
     try {
       const { token, shouldReEncrypt } = await decryptCredential(stored.encrypted);
-      if (shouldReEncrypt) await reEncryptCredential(credentialRef, token);
+      if (shouldReEncrypt) await reEncryptCredential(credentialRef, token, stored.encrypted);
       return { token, remoteUrl: stored.remoteUrl, sessionId: stored.sessionId };
     } catch {
       return null;

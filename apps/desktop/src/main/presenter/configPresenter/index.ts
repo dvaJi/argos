@@ -1739,7 +1739,10 @@ export class ConfigPresenter implements IConfigPresenter {
       // Key was rotated: re-encrypt so the stored secret uses the current key. Best effort.
       try {
         const rewrapped = Buffer.from(await safeStorage.encryptStringAsync(secret)).toString("base64");
-        this.setCloudSyncSetting(this.CLOUD_SYNC_SECRET_KEY, rewrapped);
+        // Compare-and-set with no await in between, so a secret saved meanwhile is not overwritten.
+        if (this.getSetting<string>(this.CLOUD_SYNC_SECRET_KEY) === wrapped) {
+          this.setCloudSyncSetting(this.CLOUD_SYNC_SECRET_KEY, rewrapped);
+        }
       } catch (error) {
         log.warn("Failed to re-encrypt cloud sync secret after key rotation:", error);
       }

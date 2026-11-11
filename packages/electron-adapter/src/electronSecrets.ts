@@ -25,7 +25,9 @@ export class ElectronCredentialStore implements ICredentialStore {
     if (shouldReEncrypt) {
       // Key was rotated: re-encrypt with the current key. Best effort; the old ciphertext still decrypts.
       try {
-        await this.set(key, decrypted);
+        const rewrapped = (await safeStorage.encryptStringAsync(decrypted)).toString("base64");
+        // Compare-and-set with no await in between, so a concurrent set()/delete() is not undone.
+        if (this.store.get(key) === encrypted) this.store.set(key, rewrapped);
       } catch {
         // ignore
       }

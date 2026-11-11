@@ -4,7 +4,8 @@ const state = vi.hoisted(() => {
   const handlers = new Map<string, (...args: any[]) => any>();
   const files = new Map<string, string>();
   // Simulated safeStorage key version; bumping it mimics an OS key rotation.
-  const crypto = { keyVersion: 1 };
+  // When set, encryptStringAsync waits on it, so a test can interleave concurrent handlers.
+  const crypto = { keyVersion: 1, encryptGate: null as Promise<void> | null };
 
   return { handlers, files, crypto };
 });
@@ -17,7 +18,11 @@ vi.mock("electron", () => ({
   },
   safeStorage: {
     isAsyncEncryptionAvailable: vi.fn(async () => true),
-    encryptStringAsync: vi.fn(async (value: string) => Buffer.from(`v${state.crypto.keyVersion}:${value}`, "utf8")),
+    encryptStringAsync: vi.fn(async (value: string) => {
+      const version = state.crypto.keyVersion;
+      if (state.crypto.encryptGate) await state.crypto.encryptGate;
+      return Buffer.from(`v${version}:${value}`, "utf8");
+    }),
     decryptStringAsync: vi.fn(async (value: Buffer) => {
       const [version, ...rest] = value.toString("utf8").split(":");
       return { result: rest.join(":"), shouldReEncrypt: version !== `v${state.crypto.keyVersion}` };
@@ -47,6 +52,7 @@ describe("daemon remote machine credentials", () => {
     state.handlers.clear();
     state.files.clear();
     state.crypto.keyVersion = 1;
+    state.crypto.encryptGate = null;
     vi.stubGlobal("fetch", vi.fn());
     const { registerDaemonPortHandler } = await import("#/routes/daemonPortHandler");
     registerDaemonPortHandler();
@@ -187,6 +193,40 @@ describe("daemon remote machine credentials", () => {
     state.crypto.keyVersion = 2;
     expect(await resolve?.({}, paired.credentialRef)).toMatchObject({ token: "bearer-secret" });
     expect(storedCiphertext()).toBe("v2:bearer-secret");
+  });
+
+  it("keeps both credentials when two pairings save concurrently", async () => {
+    vi.mocked(fetch).mockImplementation(async (input) => {
+      const url = String(input);
+      const host = new URL(url).host;
+      if (url.endsWith("/api/v1/pair")) {
+        return new Response(JSON.stringify({ ok: true, sessionId: `session-${host}`, sessionToken: `token-${host}` }), {
+          status: 200,
+        });
+      }
+      return new Response(JSON.stringify({ ok: true, output: { protocolVersion: 1, compatible: true } }), {
+        status: 200,
+      });
+    });
+    const pair = state.handlers.get("pair-remote-machine");
+    const resolve = state.handlers.get("get-remote-machine-credential");
+    const { safeStorage } = await import("electron");
+
+    // Hold pairing A inside encryption while pairing B runs to completion.
+    let release!: () => void;
+    state.crypto.encryptGate = new Promise<void>((done) => (release = done));
+    vi.mocked(safeStorage.encryptStringAsync).mockClear();
+    const pairingA = pair?.({}, "https://a.example.test/pair?token=a");
+    await vi.waitFor(() => expect(safeStorage.encryptStringAsync).toHaveBeenCalledTimes(1));
+    state.crypto.encryptGate = null;
+    const pairedB = await pair?.({}, "https://b.example.test/pair?token=b");
+    release();
+    const pairedA = await pairingA;
+
+    expect(pairedA).toMatchObject({ ok: true });
+    expect(pairedB).toMatchObject({ ok: true });
+    expect(await resolve?.({}, pairedA.credentialRef)).toMatchObject({ token: "token-a.example.test" });
+    expect(await resolve?.({}, pairedB.credentialRef)).toMatchObject({ token: "token-b.example.test" });
   });
 
   it("returns stable error codes for rejected links and TLS failures", async () => {
