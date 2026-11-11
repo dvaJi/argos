@@ -396,12 +396,12 @@ async function handle(command: PiWorkerCommand): Promise<void> {
   activeCommandId = command.id;
   lastAssistantTimestamp = undefined; // reset per command; only current command's message_end may set it
   emit({ type: "accepted", id: command.id, sessionFile: session.sessionFile });
-  if (command.type === "steer") {
-    await session.steer(command.text);
-    return;
-  }
-  if (command.type === "followUp") {
-    await session.followUp(command.text);
+  if (command.type === "steer" || command.type === "followUp") {
+    // pi >= 1.5 runs input hooks before queueing. With session.steer()/followUp() a run that
+    // settles during those hooks leaves the message queued on an idle agent, never processed.
+    // prompt() re-checks isStreaming after the hooks: it queues while a run is active and
+    // otherwise starts a new run with the message.
+    await session.prompt(command.text, { streamingBehavior: command.type });
     return;
   }
   if (command.type === "compact") {
