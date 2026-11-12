@@ -37,6 +37,8 @@ export interface DecisionsRequestInput {
   questions: Record<string, DecisionsQuestion>;
   /** Observability grouping id (agent/session); never sent upstream by OpenRouter. */
   sessionId?: string;
+  /** Provider routing preferences (e.g. refuse data-collecting endpoints). */
+  providerPreferences?: { dataCollection?: "allow" | "deny" };
 }
 
 export type DecisionsAnswer =
@@ -55,6 +57,8 @@ export type DecisionsAnswer =
       legend?: Record<string, string>;
     }
   | { type: "refusal" };
+
+export type DecisionsAnswerMap = Record<string, DecisionsAnswer>;
 
 export interface DecisionsUsage {
   inputTokens: number;
@@ -147,6 +151,9 @@ export const createOpenRouterDecisionsClient = (
       const sessionId = input.sessionId ?? options.sessionId;
       if (sessionId) {
         body.session_id = sessionId.slice(0, 256);
+      }
+      if (input.providerPreferences?.dataCollection) {
+        body.provider = { data_collection: input.providerPreferences.dataCollection };
       }
 
       try {

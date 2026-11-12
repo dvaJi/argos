@@ -41,6 +41,7 @@ const mergeArgosConfig = (baseConfig: ArgosAgentConfig, overrideConfig: ArgosAge
     memoryEmbedding: overrideConfig.memoryEmbedding ?? baseConfig.memoryEmbedding ?? null,
     memoryExtractionModel: overrideConfig.memoryExtractionModel ?? baseConfig.memoryExtractionModel ?? null,
     decisionModel: overrideConfig.decisionModel ?? baseConfig.decisionModel ?? null,
+    permissionAutoApproval: overrideConfig.permissionAutoApproval ?? baseConfig.permissionAutoApproval ?? false,
     memoryRetrieval: overrideConfig.memoryRetrieval ?? baseConfig.memoryRetrieval ?? null,
     personaEvolutionEnabled: overrideConfig.personaEvolutionEnabled ?? baseConfig.personaEvolutionEnabled ?? false,
   });

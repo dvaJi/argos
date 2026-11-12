@@ -60,6 +60,7 @@ type AgentConfigForm = {
   imageGenerationModelId: string;
   defaultProjectPath: string;
   permissionMode: PermissionMode;
+  permissionAutoApproval: boolean;
   subagentEnabled: boolean;
   subagents: ArgosSubagentSlot[];
   disabledAgentTools: string[];
@@ -112,6 +113,7 @@ const EMPTY_FORM: AgentConfigForm = {
   imageGenerationModelId: "",
   defaultProjectPath: "",
   permissionMode: "full_access",
+  permissionAutoApproval: false,
   subagentEnabled: false,
   subagents: normalizeArgosSubagentSlots(createDefaultArgosSubagentSlots()),
   disabledAgentTools: [],
@@ -227,6 +229,7 @@ const buildFormFromAgent = (agent: Agent | null): AgentConfigForm => {
     imageGenerationModelId: imageGenerationModel.modelId,
     defaultProjectPath: config.defaultProjectPath?.trim() || "",
     permissionMode: config.permissionMode === "default" ? "default" : "full_access",
+    permissionAutoApproval: config.permissionAutoApproval ?? false,
     subagentEnabled: config.subagentEnabled !== false,
     subagents: normalizeArgosSubagentSlots(config.subagents ?? createDefaultArgosSubagentSlots()),
     disabledAgentTools: [...(config.disabledAgentTools ?? [])],
@@ -400,6 +403,7 @@ const buildAgentConfigFromForm = (form: AgentConfigForm): ArgosAgentConfig => ({
   systemPrompt: form.systemPrompt,
   defaultProjectPath: form.defaultProjectPath.trim() || null,
   permissionMode: form.permissionMode,
+  permissionAutoApproval: form.permissionAutoApproval,
   subagentEnabled: form.subagentEnabled,
   subagents: normalizeArgosSubagentSlots(form.subagents),
   disabledAgentTools: [...form.disabledAgentTools],
@@ -1906,6 +1910,20 @@ const AgentModelsSection = ({
               <SelectItem value="default">Default</SelectItem>
             </SelectContent>
           </Select>
+          <div className="flex h-8 items-center justify-between gap-2 rounded-lg border border-border px-3">
+            <span className="truncate text-xs text-muted-foreground">Auto-approve routine requests</span>
+            <Switch
+              checked={form.permissionAutoApproval}
+              onCheckedChange={(value) => updateForm("permissionAutoApproval", value)}
+            />
+          </div>
+          {form.permissionAutoApproval && (
+            <div className="text-[11px] text-muted-foreground">
+              Experimental: routine, low-risk tool permission requests are auto-approved with a decision model (requires
+              the Long-term memory decision model below and an OpenRouter key). Everything else still asks you; nothing
+              is ever auto-denied.
+            </div>
+          )}
         </div>
 
         <div className="space-y-1.5">

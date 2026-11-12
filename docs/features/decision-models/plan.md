@@ -38,6 +38,9 @@ Catalog/UI
 | `MemoryPresenterDeps` (memory-runtime/types.ts) | + optional `askDecisions` port + answer types |
 | `MemoryPresenter` | decisions path in triage / write decision / conflict |
 | `DaemonMemoryRuntime` | port implementation (client + guards + model resolution) |
+| `ArgosAgentConfig` / merges / settings UI | + `permissionAutoApproval` opt-in toggle |
+| `backend-core/src/decisions` | + `permissionGate.ts` (question/resolver) + provider prefs |
+| `pi-provider-execution.ts` (daemon) | permissionRequest interception → auto-approve + audit |
 | `MODEL_META` catalog producers (desktop aiSdkProvider, daemon fetchProviderModels) | tag decisions models |
 | `ModelSelect` (ui) | exclude decisions models from unfiltered pickers |
 | `ArgosAgentsSettings` (ui/settings) | decisionModel form fields + picker card |
@@ -55,6 +58,21 @@ Catalog/UI
    `mergedContent` is always null on the decisions path (candidate content wins).
 5. Consolidation: one `noul` question per pair (`b_obsolete`). `p >= 0.7` ⇒ mark B
    superseded by A (no content merge). Failure ⇒ legacy pair prompt path.
+
+## Data Flow (permission auto-approval)
+
+1. Pi worker emits `permissionRequest` (only in non-full-access modes — the worker
+   short-circuits full access before the protocol).
+2. `pi-provider-execution` resolves the session's agent config: gate needs
+   `permissionAutoApproval === true` **and** a usable `decisionModel` on an
+   `openrouter.ai` provider. Anything missing ⇒ human prompt as today.
+3. One request: `noul` question `safe_unattended` with true/false criteria (routine,
+   reversible, read-only-ish, within scope vs. destructive/irreversible/exfiltrating),
+   `state` = `{ tool_name, tool_input, permission_mode }`,
+   `provider: { data_collection: "deny" }`, 8s timeout, session_id = agentId.
+4. `p >= 0.85` ⇒ `permissionResponse { granted: true }` to the worker, and a persisted
+   `granted` action block ("Auto-approved … decision model p=0.93") is pushed to the turn
+   as the audit trail. Anything else ⇒ the normal pending prompt block.
 
 ## Compatibility
 

@@ -59,6 +59,7 @@ describe("createOpenRouterDecisionsClient", () => {
     expect(body.model).toBe("typesafe/jev-1.14");
     expect(body.state).toEqual({ span: "hello" });
     expect(body.session_id).toBe("agent-9");
+    expect(body.provider).toBeUndefined();
 
     expect(response.answers.keep_memory).toEqual({ type: "noul", noul: 0.91, confidence: 0.95 });
     expect(response.answers.action).toEqual({
@@ -69,6 +70,20 @@ describe("createOpenRouterDecisionsClient", () => {
     });
     expect(response.answers.maybe).toEqual({ type: "refusal" });
     expect(response.usage).toEqual({ inputTokens: 42, outputTokens: 0, cost: 0.00002 });
+  });
+
+  it("maps provider preferences to the routing body", async () => {
+    stubFetch(() => new Response(JSON.stringify(validResponse), { status: 200 }));
+    const client = createOpenRouterDecisionsClient({ apiKey: "k", timeoutMs: 250 });
+
+    await client.ask({
+      model: "m",
+      state: "s",
+      questions: { q: { type: "noul" } },
+      providerPreferences: { dataCollection: "deny" },
+    });
+    const body = JSON.parse(String(fetchCalls[0].init.body)) as Record<string, unknown>;
+    expect(body.provider).toEqual({ data_collection: "deny" });
   });
 
   it("does not retry non-retryable status codes", async () => {

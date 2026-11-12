@@ -33,6 +33,11 @@ parse-and-hope.
 3. Keep the existing chat-model prompt-and-parse path as a **complete fallback**: no key,
    no configured model, non-OpenRouter provider, API error, malformed response, refusal, or
    low-confidence answer ⇒ run the legacy path. The agent loop never blocks on decisions.
+4. **Permission auto-approval (Phase 2)**: an opt-in per-agent toggle
+   (`ArgosAgentConfig.permissionAutoApproval`, default off) that uses the same decision
+   model to auto-approve routine, low-risk tool permission prompts in the daemon's Pi
+   provider execution — anything not conclusively safe still reaches the human. Never
+   auto-denies.
 
 ## Acceptance Criteria
 
@@ -51,8 +56,22 @@ parse-and-hope.
 - The Decisions HTTP client lives in `@argos/backend-core` (`src/decisions/`), has a
   timeout, one retry on 429/502/503/529, and defensively parses the alpha response shape.
 - Unit tests cover: question building, answer→decision mapping with thresholds and
-  escalation-to-fallback, the decisions client (request shape, retry, refusal), and the
-  daemon wiring (OpenRouter host guard, model resolution from agent config).
+  escalation-to-fallback, the decisions client (request shape, retry, refusal, provider
+  preferences), the daemon memory wiring (OpenRouter host guard, model resolution), and the
+  permission gate (question shape, threshold behavior, never-auto-deny).
+
+## Phase 2 — Permission Auto-Approval
+
+- `ArgosAgentConfig.permissionAutoApproval` (default `false`) merges through both config
+  merge sites; the settings UI exposes an opt-in switch that explains the requirement.
+- When enabled with a usable decision model, a `permissionRequest` from the Pi worker is
+  evaluated by one `noul` question ("safe to run without human confirmation") sent with
+  `provider.data_collection: "deny"`.
+- `p ≥ 0.85` ⇒ grant immediately, render a persisted **granted** action block in the
+  transcript (audit trail: probability + "decision model" marker), and log the approval.
+- Any other outcome — toggle off, no decision model, non-OpenRouter provider, API error,
+  timeout, refusal, `p < 0.85` ⇒ the normal human prompt. **Auto-deny is impossible.**
+- The worker protocol (`permissionRequest`/`permissionResponse`) is unchanged.
 
 ## Constraints
 
@@ -69,8 +88,8 @@ parse-and-hope.
 
 ## Non-Goals (this feature)
 
-- Permission-prompt auto-approval (Phase 2 — safety-sensitive, needs opt-in + audit trail).
-- Tool-call gating, orchestrator subagent routing, CUA `box` questions (Phase 3).
+- Tool-call gating beyond the permission flow, orchestrator subagent routing, CUA `box`
+  questions (Phase 3, exploratory).
 - The Extractions API (`fields` envelope) for memory extraction — extraction stays on the
   chat model because it generates candidate text.
 - Reflection and persona evolution — generation tasks, stay on the chat model.
@@ -90,11 +109,17 @@ parse-and-hope.
   semantics).
 - D4: `session_id` on requests is the agent id (observability grouping only; never sent
   upstream per OpenRouter docs).
-- D5: No `provider.data_collection` routing preference is set in Phase 1 — restricting to
-  non-training providers could break Jev routing; recorded as an open question.
+- D5: Memory decisions set no `provider.data_collection` routing preference (restricting to
+  non-training providers could break Jev routing). **Permission auto-approval always sends
+  `data_collection: "deny"`** — it inspects commands, so training on them is unacceptable;
+  if no deny-capable endpoint serves the model, the API errors and the human prompt shows.
+- D6: Auto-approval threshold `p ≥ 0.85`, deliberately higher than the memory thresholds:
+  the failure mode of a wrong auto-approval (running a risky command) is worse than a wrong
+  skip.
+- D7: The gate can only ever **grant**, never deny. Every non-conclusive outcome surfaces
+  the normal human prompt.
 
 ## Open Questions
 
-- Should Phase 2 permission gating ship with `data_collection: "deny"` forced on?
 - Should decision-model usage cost be surfaced in the usage view? (`usage.cost` is
   available per request; currently logged only.)

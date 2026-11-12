@@ -21,6 +21,12 @@ import { LlmUtilityExecution } from "./llmUtilityExecution";
 import { resolveModelCost as sharedResolveModelCost } from "./modelCost";
 import { PiAgentProfileManager } from "./piAgentProfileManager";
 import type { PiWorkerCommand, PiWorkerEvent, PiWorkerInit, PiWorkerProvider } from "./piWorkerProtocol";
+import {
+  buildPermissionGateRequest,
+  createOpenRouterDecisionsClient,
+  isOpenRouterDecisionsBaseUrl,
+  resolvePermissionAutoApproval,
+} from "@argos/backend-core";
 
 interface PendingInteraction {
   worker: ChildProcessWithoutNullStreams;
@@ -61,6 +67,13 @@ interface PiWorkerHandle {
  * (docs/issues/stream-stall-recovery), so persist at most once per second.
  */
 const SNAPSHOT_PERSIST_MIN_INTERVAL_MS = 1_000;
+
+/**
+ * Permission auto-approval gate latency budget (docs/features/decision-models,
+ * Phase 2). Waiting on the decision model is still far faster than a human
+ * prompt, but it must not hang the worker's tool batch indefinitely.
+ */
+const PERMISSION_GATE_TIMEOUT_MS = 8_000;
 
 function resolveWorkerCommand(): { command: string; args: string[] } {
   const embeddedWorker = process.env.ARGOS_PI_WORKER_PATH;
@@ -537,6 +550,9 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
       return;
     }
     if (event.type === "permissionRequest" || event.type === "uiRequest") {
+      if (event.type === "permissionRequest" && (await this.tryAutoApprovePermission(sessionId, worker, event))) {
+        return;
+      }
       this.addInteraction(sessionId, worker, event);
       return;
     }
@@ -674,6 +690,99 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
       } catch (error) {
         turn.reject(error instanceof Error ? error : new Error(String(error)));
       }
+    }
+  }
+
+  /**
+   * Permission auto-approval gate (docs/features/decision-models, Phase 2).
+   * Returns true when the call was granted without the user: the worker
+   * received `permissionResponse { granted: true }` and a persisted audit
+   * block replaced the human prompt. Every other outcome — toggle off, no
+   * decision model, gate error, inconclusive or below-threshold answer —
+   * returns false so the normal human prompt shows. Never auto-denies.
+   */
+  private async tryAutoApprovePermission(
+    sessionId: string,
+    worker: PiWorkerHandle,
+    event: Extract<PiWorkerEvent, { type: "permissionRequest" }>,
+  ): Promise<boolean> {
+    const turn = worker.turn;
+    if (!turn) return false;
+    const gate = await this.resolvePermissionGateConfig(sessionId);
+    if (!gate) return false;
+
+    try {
+      const client = createOpenRouterDecisionsClient({
+        apiKey: gate.apiKey,
+        timeoutMs: PERMISSION_GATE_TIMEOUT_MS,
+        sessionId: gate.agentId,
+      });
+      const response = await client.ask({
+        model: gate.modelId,
+        ...buildPermissionGateRequest({
+          toolName: event.toolName,
+          input: event.input,
+        }),
+        providerPreferences: { dataCollection: "deny" },
+      });
+      const decision = resolvePermissionAutoApproval(response.answers);
+      if (decision.outcome !== "approve") {
+        console.log(
+          `[pi:${sessionId.slice(0, 8)}] permission gate: ${event.toolName} ` +
+            `${decision.outcome === "ask" ? "not safe enough" : "inconclusive"}; asking user`,
+        );
+        return false;
+      }
+
+      // Grant + audit: a persisted granted block replaces the human prompt.
+      this.send(worker.process, { type: "permissionResponse", id: event.id, granted: true });
+      turn.blocks.push({
+        id: event.toolCallId,
+        type: "action",
+        action_type: "tool_call_permission",
+        content: `Auto-approved ${event.toolName} (decision model, p=${decision.probability.toFixed(2)}).`,
+        status: "granted",
+        timestamp: Date.now(),
+        tool_call: { id: event.toolCallId, name: event.toolName, params: JSON.stringify(event.input ?? {}) },
+        extra: {
+          needsUserAction: false,
+          autoApproved: true,
+          autoApproveProbability: decision.probability,
+          decisionModel: gate.modelId,
+          providerId: "pi",
+        } as any,
+      });
+      this.publishSnapshot(sessionId, turn);
+      console.log(
+        `[pi:${sessionId.slice(0, 8)}] auto-approved ${event.toolName} ` +
+          `(decision model p=${decision.probability.toFixed(2)}) request=${turn.requestId.slice(0, 8)}`,
+      );
+      return true;
+    } catch (error) {
+      console.warn(
+        `[pi:${sessionId.slice(0, 8)}] permission gate unavailable (${event.toolName}); asking user:`,
+        error instanceof Error ? error.message : error,
+      );
+      return false;
+    }
+  }
+
+  private async resolvePermissionGateConfig(
+    sessionId: string,
+  ): Promise<{ apiKey: string; modelId: string; agentId: string } | null> {
+    try {
+      const session = await this.sessionRepository.get(sessionId);
+      if (!session) return null;
+      const agent = await this.configPresenter.resolveArgosAgentConfig(session.agentId);
+      if (agent?.permissionAutoApproval !== true) return null;
+      const providerId = agent?.decisionModel?.providerId?.trim();
+      const modelId = agent?.decisionModel?.modelId?.trim();
+      if (!providerId || !modelId) return null;
+      const provider = (this.configPresenter.getProviders() as LLM_PROVIDER[]).find((item) => item.id === providerId);
+      if (!provider?.apiKey || !isOpenRouterDecisionsBaseUrl(provider.baseUrl)) return null;
+      return { apiKey: provider.apiKey, modelId, agentId: session.agentId };
+    } catch {
+      return null;
     }
   }
 

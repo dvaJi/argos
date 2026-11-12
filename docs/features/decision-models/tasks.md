@@ -44,3 +44,14 @@
   - [x] 7.2 `bun test` daemon: 436 pass / 0 fail; desktop `test:main`: 211 files, 1767 pass /
     0 fail; ui vitest: 45 pass / 0 fail.
   - [x] 7.3 tasks.md updated.
+- [x] 8. Phase 2 — permission auto-approval
+  - [x] 8.1 `ArgosAgentConfig.permissionAutoApproval` (default false) + both config merges.
+  - [x] 8.2 backend-core: `providerPreferences.dataCollection` on the client;
+    `permissionGate.ts` (question builder, 0.85 threshold resolver, never-auto-deny).
+  - [x] 8.3 `pi-provider-execution.ts`: gate resolution from agent config + providers,
+    interception on `permissionRequest`, granted audit block + log.
+  - [x] 8.4 Settings UI: opt-in switch next to permission mode with requirement hint.
+  - [x] 8.5 Tests: `permissionGate.test.ts` (gate mappers) + `piPermissionGate.test.ts`
+    (gate resolution matrix, grant+audit flow, below-threshold and API-failure fallbacks)
+    + client provider-preferences test; daemon 446 pass / 0 fail, desktop 211 files green,
+    ui 45 pass, typecheck + lint + format clean.
