@@ -8,6 +8,8 @@ export enum ModelType {
   ImageGeneration = "imageGeneration",
   VideoGeneration = "videoGeneration",
   TTS = "tts",
+  /** System One / decision models (OpenRouter `output_modalities: ["decisions"]`). */
+  Decisions = "decisions",
 }
 
 export enum ApiEndpointType {

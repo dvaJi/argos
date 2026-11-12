@@ -956,6 +956,7 @@ export class DaemonConfigPresenter {
         max_output_tokens?: unknown;
         input_token_limit?: unknown;
         output_token_limit?: unknown;
+        architecture?: { input_modalities?: unknown; output_modalities?: unknown };
       }>;
     };
     const data = Array.isArray(payload.data) ? payload.data : [];
@@ -964,42 +965,53 @@ export class DaemonConfigPresenter {
       .filter((model): model is NonNullable<(typeof data)[number]> & { id: string } => {
         return typeof model.id === "string" && model.id.trim().length > 0;
       })
-      .map((model) => ({
-        id: model.id,
-        name:
-          typeof model.display_name === "string"
-            ? model.display_name
-            : typeof model.name === "string"
-              ? model.name
-              : model.id,
-        group: typeof model.owned_by === "string" && model.owned_by.trim() ? model.owned_by : "default",
-        providerId: provider.id,
-        vision: undefined,
-        functionCall: undefined,
-        reasoning: undefined,
-        type:
-          typeof model.type === "string" && model.type.toLowerCase().includes("embedding")
-            ? ModelType.Embedding
-            : undefined,
-        contextLength:
-          typeof model.context_length === "number"
-            ? model.context_length
-            : typeof model.input_token_limit === "number"
-              ? model.input_token_limit
+      .map((model) => {
+        // Decision models (System One) answer typed questions with
+        // probabilities — not chat-completable (docs/features/decision-models).
+        const outputModalities = Array.isArray(model.architecture?.output_modalities)
+          ? (model.architecture.output_modalities as unknown[]).filter(
+              (item): item is string => typeof item === "string",
+            )
+          : [];
+        const isDecisionsModel = outputModalities.includes("decisions") && !outputModalities.includes("text");
+        return {
+          id: model.id,
+          name:
+            typeof model.display_name === "string"
+              ? model.display_name
+              : typeof model.name === "string"
+                ? model.name
+                : model.id,
+          group: typeof model.owned_by === "string" && model.owned_by.trim() ? model.owned_by : "default",
+          providerId: provider.id,
+          vision: undefined,
+          functionCall: undefined,
+          reasoning: undefined,
+          type: isDecisionsModel
+            ? ModelType.Decisions
+            : typeof model.type === "string" && model.type.toLowerCase().includes("embedding")
+              ? ModelType.Embedding
               : undefined,
-        maxTokens:
-          typeof model.max_tokens === "number"
-            ? model.max_tokens
-            : typeof model.max_output_tokens === "number"
-              ? model.max_output_tokens
-              : typeof model.output_token_limit === "number"
-                ? model.output_token_limit
+          contextLength:
+            typeof model.context_length === "number"
+              ? model.context_length
+              : typeof model.input_token_limit === "number"
+                ? model.input_token_limit
                 : undefined,
-        description: typeof model.description === "string" ? model.description : undefined,
-        supportedEndpointTypes: Array.isArray(model.supported_endpoint_types)
-          ? (model.supported_endpoint_types.filter((entry) => typeof entry === "string") as any)
-          : undefined,
-      }));
+          maxTokens:
+            typeof model.max_tokens === "number"
+              ? model.max_tokens
+              : typeof model.max_output_tokens === "number"
+                ? model.max_output_tokens
+                : typeof model.output_token_limit === "number"
+                  ? model.output_token_limit
+                  : undefined,
+          description: typeof model.description === "string" ? model.description : undefined,
+          supportedEndpointTypes: Array.isArray(model.supported_endpoint_types)
+            ? (model.supported_endpoint_types.filter((entry) => typeof entry === "string") as any)
+            : undefined,
+        };
+      });
   }
 
   async initializeMcpHeadlessDefaults(): Promise<void> {

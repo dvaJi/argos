@@ -54,6 +54,7 @@ const TYPE_ICONS: Record<ModelType, string> = {
   [ModelType.ImageGeneration]: "lucide:image",
   [ModelType.VideoGeneration]: "lucide:clapperboard",
   [ModelType.TTS]: "lucide:volume-2",
+  [ModelType.Decisions]: "lucide:git-branch",
 };
 const SORT_OPTIONS: { value: ModelSortKey; label: string }[] = [
   {
@@ -95,6 +96,7 @@ const getModelTypeLabel = (type: ModelType) => {
     [ModelType.ImageGeneration]: "Image",
     [ModelType.VideoGeneration]: "Video",
     [ModelType.TTS]: "TTS",
+    [ModelType.Decisions]: "Decisions",
   };
   return labels[type] ?? type;
 };

@@ -74,6 +74,8 @@ type AgentConfigForm = {
   memoryEmbeddingModelId: string;
   memoryExtractionProviderId: string;
   memoryExtractionModelId: string;
+  decisionModelProviderId: string;
+  decisionModelModelId: string;
 };
 type ToolGroup = {
   name: string;
@@ -86,7 +88,8 @@ type ModelFieldKey =
   | "visionModel"
   | "imageGenerationModel"
   | "memoryEmbedding"
-  | "memoryExtraction";
+  | "memoryExtraction"
+  | "decisionModel";
 type UpdateFormFn = <K extends keyof AgentConfigForm>(key: K, value: AgentConfigForm[K]) => void;
 const LUCIDE_ICON_OPTIONS = ["bot", "brain", "sparkles", "search", "shield", "code", "book-open", "wrench"];
 const EMPTY_FORM: AgentConfigForm = {
@@ -123,6 +126,8 @@ const EMPTY_FORM: AgentConfigForm = {
   memoryEmbeddingModelId: "",
   memoryExtractionProviderId: "",
   memoryExtractionModelId: "",
+  decisionModelProviderId: "",
+  decisionModelModelId: "",
 };
 const renderWithTranslationKey = (key: string, label: string) => (
   <>
@@ -236,6 +241,8 @@ const buildFormFromAgent = (agent: Agent | null): AgentConfigForm => {
     memoryEmbeddingModelId: config.memoryEmbedding?.modelId ?? "",
     memoryExtractionProviderId: config.memoryExtractionModel?.providerId ?? "",
     memoryExtractionModelId: config.memoryExtractionModel?.modelId ?? "",
+    decisionModelProviderId: config.decisionModel?.providerId ?? "",
+    decisionModelModelId: config.decisionModel?.modelId ?? "",
   };
 };
 const getModelLabelFromStore = (modelStore: ReturnType<typeof useModelStore>, providerId: string, modelId: string) => {
@@ -330,6 +337,13 @@ const applyModelSelection = (
       memoryExtractionModelId: model.id,
     }));
   }
+  if (field === "decisionModel") {
+    setForm((prev) => ({
+      ...prev,
+      decisionModelProviderId: providerId,
+      decisionModelModelId: model.id,
+    }));
+  }
 };
 const clearModelSelection = (setForm: React.Dispatch<React.SetStateAction<AgentConfigForm>>, field: ModelFieldKey) => {
   if (field === "defaultModel") {
@@ -372,6 +386,13 @@ const clearModelSelection = (setForm: React.Dispatch<React.SetStateAction<AgentC
       ...prev,
       memoryExtractionProviderId: "",
       memoryExtractionModelId: "",
+    }));
+  }
+  if (field === "decisionModel") {
+    setForm((prev) => ({
+      ...prev,
+      decisionModelProviderId: "",
+      decisionModelModelId: "",
     }));
   }
 };
@@ -435,6 +456,13 @@ const buildAgentConfigFromForm = (form: AgentConfigForm): ArgosAgentConfig => ({
       ? {
           providerId: form.memoryExtractionProviderId,
           modelId: form.memoryExtractionModelId,
+        }
+      : null,
+  decisionModel:
+    form.memoryEnabled && form.decisionModelProviderId && form.decisionModelModelId
+      ? {
+          providerId: form.decisionModelProviderId,
+          modelId: form.decisionModelModelId,
         }
       : null,
   orchestrationEnabled: form.orchestrationEnabled,
@@ -2027,7 +2055,7 @@ const AgentMemorySection = ({
   onOpenMemoryDialog: () => void;
 }) => {
   const memoryModelFieldConfigs: Array<{
-    key: "memoryEmbedding" | "memoryExtraction";
+    key: "memoryEmbedding" | "memoryExtraction" | "decisionModel";
     label: string;
     providerId: string;
     modelId: string;
@@ -2046,6 +2074,13 @@ const AgentMemorySection = ({
       providerId: form.memoryExtractionProviderId,
       modelId: form.memoryExtractionModelId,
       type: ModelType.Chat,
+    },
+    {
+      key: "decisionModel",
+      label: "Decision model (OpenRouter)",
+      providerId: form.decisionModelProviderId,
+      modelId: form.decisionModelModelId,
+      type: ModelType.Decisions,
     },
   ];
   return (
@@ -2095,6 +2130,15 @@ const AgentMemorySection = ({
               getModelLabel={getModelLabel}
             />
           ))}
+        </div>
+      )}
+
+      {form.memoryEnabled && (
+        <div className="text-xs text-muted-foreground">
+          Decision model (experimental): uses OpenRouter decision models (e.g.{" "}
+          <span className="font-mono">typesafe/jev-1.14</span>) for background memory judgments — triage, write
+          decisions, and conflict resolution. Requires an OpenRouter provider key; without it, memory falls back to the
+          extraction model.
         </div>
       )}
     </section>

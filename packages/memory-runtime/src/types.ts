@@ -182,12 +182,71 @@ export interface MemoryStatus {
   reindexing?: boolean;
 }
 
+/**
+ * One typed question for the Decisions port. Structural mirror of the
+ * OpenRouter Decisions question surface (noul boolean, choice) — kept local
+ * so memory-runtime carries no backend-core dependency.
+ */
+export type MemoryDecisionsQuestion =
+  | {
+      type: "noul";
+      instructions?: string;
+      criteria?: { true?: string; false?: string };
+    }
+  | {
+      type: "choice";
+      instructions?: string;
+      /** Option id → guidance. The answer echoes the chosen option id. */
+      criteria: Record<string, string | null>;
+    };
+
+export interface MemoryDecisionsRequest {
+  /** Structured context to evaluate (memory content, neighbors, spans). */
+  state: Record<string, unknown> | string;
+  questions: Record<string, MemoryDecisionsQuestion>;
+}
+
+export type MemoryDecisionsAnswer =
+  | { type: "noul"; noul: number; confidence?: number }
+  | {
+      type: "choice";
+      choice: string;
+      probabilities?: Record<string, number>;
+      confidence?: number;
+    }
+  | { type: "refusal" };
+
+export type MemoryDecisionsAnswerMap = Record<string, MemoryDecisionsAnswer>;
+
+export interface MemoryDecisionsUsage {
+  inputTokens: number;
+  outputTokens: number;
+  cost?: number;
+}
+
+export interface MemoryDecisionsResult {
+  answers: MemoryDecisionsAnswerMap;
+  usage?: MemoryDecisionsUsage;
+}
+
 export interface MemoryPresenterDeps {
   repository: MemoryRepositoryPort;
   resolveAgentConfig: (agentId: string) => Promise<ArgosAgentConfig | null> | ArgosAgentConfig | null;
   isManagedAgent?: (agentId: string) => boolean;
   getEmbeddings: (providerId: string, modelId: string, texts: string[]) => Promise<number[][]>;
   generateText: (providerId: string, modelId: string, prompt: string) => Promise<string>;
+  /**
+   * Optional decisions-model port (OpenRouter Decisions API). Resolved model
+   * comes from `ArgosAgentConfig.decisionModel`; implementers return `null`
+   * when the decision model/provider is unavailable so the presenter falls
+   * back to the legacy generateText path.
+   */
+  askDecisions?: (
+    providerId: string,
+    modelId: string,
+    request: MemoryDecisionsRequest,
+    context?: { agentId?: string },
+  ) => Promise<MemoryDecisionsResult | null>;
   createVectorStore: (
     agentId: string,
     embedding: { providerId: string; modelId: string },

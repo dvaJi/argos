@@ -48,6 +48,12 @@ export default function ModelSelect({
         const enabledProvider = enabledModels.find((item) => item.providerId === provider.id);
         if (!enabledProvider || enabledProvider.models.length === 0) return null;
         const filteredModels = enabledProvider.models.filter((model) => {
+          // Decision models only appear when a picker explicitly asks for
+          // them; unfiltered pickers (chat settings, assistants) must never
+          // offer them (docs/features/decision-models).
+          if (model.type === ModelType.Decisions && !typeSet?.has(ModelType.Decisions)) {
+            return false;
+          }
           const matchType =
             !typeSet || typeSet.size === 0 || (model.type !== undefined && typeSet.has(model.type as ModelType));
           const matchVision = !visionOnly || Boolean(model.vision);
