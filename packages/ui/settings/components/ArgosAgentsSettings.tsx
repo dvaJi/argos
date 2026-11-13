@@ -272,14 +272,25 @@ const useAgentEditor = () => {
 
   const save = async () => {
     if (!selectedAgent || saving || !editor.form.name.trim()) return;
+    // Snapshot what is being saved: the fields stay usable during the request,
+    // so the response must not clobber edits made in flight nor land on an
+    // agent other than the one that was saved.
+    const savedAgentId = editor.agentId;
+    const submitted = editor.form;
     setSaving(true);
     try {
       const updated = requireUpdated(
-        await configClient.updateArgosAgent(selectedAgent.id, buildAgentUpdatePayload(editor.form, editor.baseline)),
+        await configClient.updateArgosAgent(selectedAgent.id, buildAgentUpdatePayload(submitted, editor.baseline)),
       );
       replaceAgent(updated);
-      // Rebuild from the server copy: it normalizes slots and clamps numbers.
-      setEditor(editorFromAgent(updated));
+      // Rebuild from the server copy (it normalizes slots and clamps numbers)
+      // — but only for the editor it belongs to, and only when the user has
+      // not kept typing: otherwise keep the edits and swap in the new baseline.
+      setEditor((current) => {
+        if (current.agentId !== savedAgentId) return current;
+        if (getDirtyKeys(current.form, submitted).length === 0) return editorFromAgent(updated);
+        return { ...current, baseline: buildFormFromAgent(updated) };
+      });
       toast({ title: `${updated.name} saved` });
     } catch (error) {
       showError("Changes could not be saved", error);
@@ -290,16 +301,23 @@ const useAgentEditor = () => {
   /** Enabled is applied immediately (it is not part of the unsaved draft). */
   const setEnabled = async (enabled: boolean) => {
     if (!selectedAgent) return;
+    const agentId = selectedAgent.id;
+    // Scoped to this agent's editor: the user can switch agents while the
+    // request is in flight, and neither the optimistic write nor the failure
+    // rollback may touch the agent now on screen.
     const apply = (value: boolean) =>
-      setEditor((e) => ({
-        ...e,
-        form: { ...e.form, enabled: value },
-        baseline: { ...e.baseline, enabled: value },
-      }));
+      setEditor((e) =>
+        e.agentId === agentId
+          ? {
+              ...e,
+              form: { ...e.form, enabled: value },
+              baseline: { ...e.baseline, enabled: value },
+            }
+          : e,
+      );
     apply(enabled);
     try {
-      requireUpdated(await configClient.updateArgosAgent(selectedAgent.id, { enabled }));
-      replaceAgent({ ...selectedAgent, enabled });
+      replaceAgent(requireUpdated(await configClient.updateArgosAgent(agentId, { enabled })));
     } catch (error) {
       apply(!enabled);
       showError(enabled ? "Agent could not be enabled" : "Agent could not be disabled", error);
@@ -488,6 +506,14 @@ export default function ArgosAgentsSettings() {
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
         event.preventDefault();
+        // A focused NumberField holds its typed value in a local draft until
+        // blur; flush it first. The commit lands through React state, so the
+        // save itself runs one tick later, reading the committed form.
+        if (activeNumberDraftCommit.current) {
+          activeNumberDraftCommit.current();
+          window.setTimeout(() => void saveRef.current(), 0);
+          return;
+        }
         void saveRef.current();
       }
     };
@@ -1081,6 +1107,10 @@ const FormModelPicker = ({
 };
 
 /** Number input that lets the user type freely and clamps on blur. */
+// The focused NumberField registers its pending commit here so a keyboard
+// save (Ctrl/Cmd+S) can flush the typed value before reading the form.
+const activeNumberDraftCommit: { current: (() => void) | null } = { current: null };
+
 const NumberField = ({
   id,
   label,
@@ -1105,10 +1135,20 @@ const NumberField = ({
   const [draft, setDraft] = useState<string | null>(null);
   const commit = () => {
     if (draft === null) return;
+    activeNumberDraftCommit.current = null;
     const parsed = draft.trim() === "" ? Number.NaN : Number(draft);
     onChange(normalizeNumericInput(parsed, range));
     setDraft(null);
   };
+  // Publish the pending commit while a draft exists; cleared on commit,
+  // unmount, or once the draft resolves.
+  useEffect(() => {
+    if (draft === null) return;
+    activeNumberDraftCommit.current = commit;
+    return () => {
+      if (activeNumberDraftCommit.current === commit) activeNumberDraftCommit.current = null;
+    };
+  });
   return (
     <Field>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
@@ -1338,7 +1378,7 @@ const AvatarCard = ({ form, updateForm }: { form: AgentConfigForm; updateForm: U
   >
     {form.avatarKind === "lucide" ? (
       <>
-        <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Icon">
+        <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Icon style">
           {LUCIDE_ICON_OPTIONS.map((iconName) => {
             const selected = form.lucideIcon === iconName;
             return (

@@ -47,8 +47,9 @@ const flush = async () => {
   for (let i = 0; i < 8; i++) await act(async () => await Promise.resolve());
 };
 
-const typeInto = (input: HTMLInputElement, value: string) => {
-  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+const typeInto = (input: HTMLInputElement | HTMLTextAreaElement, value: string) => {
+  const proto = input instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+  const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
   setter?.call(input, value);
   input.dispatchEvent(new Event("input", { bubbles: true }));
 };
@@ -120,6 +121,47 @@ describe("ArgosAgentsSettings page", () => {
     await act(async () => restore!.click());
     await flush();
     expect(updateArgosAgent).toHaveBeenCalledWith("argos", { avatar: null });
+
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
+  it("keeps edits made while a save is in flight", async () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    listedAgents = [agent, { id: "acp-1", name: "Claude Code", type: "acp", enabled: true } as Agent];
+    updateArgosAgent.mockClear();
+    const { default: ArgosAgentsSettings } = await import("#settings/components/ArgosAgentsSettings");
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    await act(async () => root.render(<ArgosAgentsSettings />));
+    await flush();
+
+    // The save hangs until the test releases it: edits made meanwhile must
+    // survive the response instead of being clobbered by it.
+    let release!: (value: Agent | null) => void;
+    updateArgosAgent.mockImplementationOnce(
+      () =>
+        new Promise<Agent | null>((resolve) => {
+          release = resolve;
+        }),
+    );
+    await act(async () => typeInto(container.querySelector<HTMLInputElement>("#argos-agent-name")!, "Slow save"));
+    const saveButton = Array.from(container.querySelectorAll("button")).find((b) => b.textContent?.startsWith("Save"));
+    await act(async () => saveButton!.click());
+    await act(async () =>
+      typeInto(container.querySelector<HTMLInputElement>("#argos-agent-description")!, "Edited during flight"),
+    );
+    await act(async () => release({ ...agent, name: "Slow save" } as Agent));
+    await flush();
+
+    const [savedId, payload] = updateArgosAgent.mock.calls[0];
+    expect(savedId).toBe("argos-1");
+    expect(payload.name).toBe("Slow save");
+    expect(payload.avatar).toBeUndefined();
+    // The in-flight edit survived and is pending as an unsaved change.
+    expect(container.querySelector<HTMLInputElement>("#argos-agent-description")?.value).toBe("Edited during flight");
+    expect(container.textContent).toContain("Unsaved changes");
 
     await act(async () => root.unmount());
     container.remove();
