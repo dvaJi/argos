@@ -52,4 +52,21 @@ describe("AgentRepository (in-memory)", () => {
     expect(repository.listAgents({ agentType: "argos" }).map((a) => a.id)).toContain(created.id);
     expect(repository.getAgentType("missing")).toBeNull();
   });
+
+  it("replaces enabledMcpServerIds and clears it on an explicit null", () => {
+    const repository = new AgentRepository();
+    const created = repository.createArgosAgent({ name: "Restricted", enabled: true });
+
+    repository.updateArgosAgent(created.id, { config: { enabledMcpServerIds: ["fs"] } });
+    expect(repository.getArgosAgentConfig(created.id)?.enabledMcpServerIds).toEqual(["fs"]);
+
+    // [] = allow nothing: an array must survive the merge.
+    repository.updateArgosAgent(created.id, { config: { enabledMcpServerIds: [] } });
+    expect(repository.getArgosAgentConfig(created.id)?.enabledMcpServerIds).toEqual([]);
+
+    // null = no restriction: the stored key must be deleted, not kept. A
+    // spread merge alone can never remove it.
+    repository.updateArgosAgent(created.id, { config: { enabledMcpServerIds: null } });
+    expect(repository.getArgosAgentConfig(created.id)?.enabledMcpServerIds).toBeUndefined();
+  });
 });

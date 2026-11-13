@@ -58,9 +58,9 @@ describe("buildAgentConfigFromForm", () => {
     expect(config.autoCompactionRetainRecentPairs).toBe(1);
   });
 
-  it("omits enabledMcpServerIds when every server is allowed", () => {
+  it("sends an explicit null when every server is allowed (clears a stored restriction)", () => {
     const form = buildFormFromAgent(makeAgent());
-    expect("enabledMcpServerIds" in buildAgentConfigFromForm(form)).toBe(false);
+    expect(buildAgentConfigFromForm(form).enabledMcpServerIds).toBeNull();
     expect(buildAgentConfigFromForm({ ...form, enabledMcpServerIds: ["fs"] }).enabledMcpServerIds).toEqual(["fs"]);
   });
 });

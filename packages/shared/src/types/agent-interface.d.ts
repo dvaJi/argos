@@ -597,7 +597,7 @@ export interface ArgosAgentConfig {
   systemPrompt?: string;
   permissionMode?: PermissionMode;
   disabledAgentTools?: string[];
-  enabledMcpServerIds?: string[];
+  enabledMcpServerIds?: string[] | null;
   enabledPluginIds?: string[];
   enabledSkillNames?: string[];
   orchestrationEnabled?: boolean;

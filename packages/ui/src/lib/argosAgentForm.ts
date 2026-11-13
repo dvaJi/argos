@@ -255,7 +255,11 @@ export const buildAgentConfigFromForm = (form: AgentConfigForm): ArgosAgentConfi
   // model too, so it must survive disabling long-term memory.
   decisionModel: selection(form.decisionModelProviderId, form.decisionModelModelId),
   orchestrationEnabled: form.orchestrationEnabled,
-  ...(form.enabledMcpServerIds === undefined ? {} : { enabledMcpServerIds: [...form.enabledMcpServerIds] }),
+  // null = no restriction. The explicit null is load-bearing: the main-process
+  // update merge spreads over the stored config, so an omitted key could never
+  // delete a saved restriction. [] stays "allow nothing" (the tool manager
+  // gates on Array.isArray).
+  enabledMcpServerIds: form.enabledMcpServerIds === undefined ? null : [...form.enabledMcpServerIds],
 });
 
 /**

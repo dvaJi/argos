@@ -421,7 +421,7 @@ export const ArgosAgentConfigSchema = zod.looseObject({
   systemPrompt: zod.string().optional(),
   permissionMode: zod.enum(["default", "full_access"]).optional(),
   disabledAgentTools: zod.array(zod.string()).optional(),
-  enabledMcpServerIds: zod.array(zod.string()).optional(),
+  enabledMcpServerIds: zod.array(zod.string()).nullish(),
   enabledPluginIds: zod.array(zod.string()).optional(),
   enabledSkillNames: zod.array(zod.string()).optional(),
   orchestrationEnabled: zod.boolean().optional(),

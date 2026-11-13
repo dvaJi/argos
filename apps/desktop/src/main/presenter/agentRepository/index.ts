@@ -182,6 +182,10 @@ export class AgentRepository {
       updates.config === undefined
         ? currentConfig
         : ({ ...currentConfig, ...clone(updates.config ?? {}) } as ArgosAgentConfig);
+    // Explicit null clears the stored MCP restriction: the spread above cannot
+    // delete keys, and an omitted key means "unchanged" (null = all allowed,
+    // [] keeps meaning "allow nothing").
+    if (updates.config?.enabledMcpServerIds === null) delete nextConfig.enabledMcpServerIds;
 
     this.agents.set(agentId, {
       ...row,
