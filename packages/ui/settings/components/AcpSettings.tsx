@@ -308,25 +308,31 @@ const useAcpSettingsController = () => {
     const targets = getAgentsWithUpdates(data.registryAgents);
     if (!targets.length || updatingAll) return;
     setUpdatingAll(true);
-    const outcomes = await updateAgentsSequentially(
-      targets,
-      (id) => configClient.updateAcpAgent(id),
-      // Mark each row as it is processed so the user sees progress.
-      (agent) => setBulkUpdatingId(agent.id),
-    );
-    setBulkUpdatingId(null);
-    const failed = outcomes.filter((o) => !o.ok);
-    if (failed.length === 0) {
-      toast({ title: `${targets.length} agent${targets.length === 1 ? "" : "s"} updated` });
-    } else {
-      toast({
-        title: `${failed.length} of ${targets.length} updates failed`,
-        description: failed.map((o) => `${o.agent.name}: ${o.ok ? "" : o.error}`).join("\n"),
-        variant: "destructive",
-        duration: 10_000,
-      });
+    try {
+      const outcomes = await updateAgentsSequentially(
+        targets,
+        (id) => configClient.updateAcpAgent(id),
+        // Mark each row as it is processed so the user sees progress.
+        (agent) => setBulkUpdatingId(agent.id),
+      );
+      const failed = outcomes.filter((o) => !o.ok);
+      if (failed.length === 0) {
+        toast({ title: `${targets.length} agent${targets.length === 1 ? "" : "s"} updated` });
+      } else {
+        toast({
+          title: `${failed.length} of ${targets.length} updates failed`,
+          description: failed.map((o) => `${o.agent.name}: ${o.ok ? "" : o.error}`).join("\n"),
+          variant: "destructive",
+          duration: 10_000,
+        });
+      }
+      await load();
+    } catch (error) {
+      showError("Agents could not be updated", error);
     }
-    await load();
+    // Reset after both paths (no finally: the React Compiler cannot compile
+    // try/finally without catch).
+    setBulkUpdatingId(null);
     setUpdatingAll(false);
   };
 
@@ -629,9 +635,13 @@ export default function AcpSettings() {
       return;
     }
     setManualSaving(true);
-    const ok = await controller.saveManualAgent(manualDraft);
+    try {
+      const ok = await controller.saveManualAgent(manualDraft);
+      if (ok) dispatchManualDraft({ type: "CLOSE" });
+    } catch (error) {
+      showError("Manual agent could not be saved", error);
+    }
     setManualSaving(false);
-    if (ok) dispatchManualDraft({ type: "CLOSE" });
   };
 
   return (
@@ -639,7 +649,7 @@ export default function AcpSettings() {
       <PageHeader enabled={data.enabled} toggling={controller.toggling} onToggle={controller.setAcpEnabled} />
 
       <div className="flex-1 overflow-y-auto">
-        {!data.enabled && data.loaded ? (
+        {!data.enabled && data.loaded && !data.loadError ? (
           <AcpDisabledState toggling={controller.toggling} onEnable={() => void controller.setAcpEnabled(true)} />
         ) : (
           <div className="flex flex-col gap-8 p-4">

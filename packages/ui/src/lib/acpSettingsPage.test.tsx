@@ -18,10 +18,11 @@ const npxAgent: AcpRegistryAgent = {
 };
 
 const updateAcpAgent = vi.fn<(id: string) => Promise<{ status: string; version?: string }>>();
+const getAcpEnabled = vi.fn<() => Promise<boolean>>(async () => true);
 
 vi.mock("#api/ConfigClient", () => ({
   createConfigClient: () => ({
-    getAcpEnabled: async () => true,
+    getAcpEnabled,
     listAcpRegistryAgents: async () => [npxAgent],
     listManualAcpAgents: async () => [],
     getAcpSharedMcpSelections: async () => [],
@@ -49,6 +50,8 @@ describe("AcpSettings page", () => {
     document.body.appendChild(container);
     updateAcpAgent.mockReset();
     updateAcpAgent.mockResolvedValue({ status: "installed", version: "0.106.0" });
+    getAcpEnabled.mockReset();
+    getAcpEnabled.mockResolvedValue(true);
   });
   afterEach(() => container.remove());
 
@@ -67,6 +70,20 @@ describe("AcpSettings page", () => {
     await act(async () => updateButton!.click());
     await flush();
     expect(updateAcpAgent).toHaveBeenCalledWith("claude-acp");
+
+    await act(async () => root.unmount());
+  });
+
+  it("shows the load error instead of the turned-off screen when the load fails", async () => {
+    getAcpEnabled.mockRejectedValue(new Error("daemon unreachable"));
+    const { default: AcpSettings } = await import("#settings/components/AcpSettings");
+    const root = createRoot(container);
+    await act(async () => root.render(<AcpSettings />));
+    await flush();
+
+    expect(container.textContent).toContain("Agents could not be loaded");
+    expect(container.textContent).toContain("daemon unreachable");
+    expect(container.textContent).not.toContain("ACP agents are turned off");
 
     await act(async () => root.unmount());
   });
