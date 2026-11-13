@@ -1,13 +1,13 @@
-import { useState, useEffect, useRef, useReducer } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
+import { configAgentsChangedEvent } from "@argos/shared-contracts/events";
 import { Button } from "#shadcn/components/ui/button";
 import { Badge } from "#shadcn/components/ui/badge";
 import { Input } from "#shadcn/components/ui/input";
 import { Textarea } from "#shadcn/components/ui/textarea";
 import { Switch } from "#shadcn/components/ui/switch";
-import { Separator } from "#shadcn/components/ui/separator";
 import { Collapsible, CollapsibleContent } from "#shadcn/components/ui/collapsible";
-import { Alert, AlertDescription, AlertTitle } from "#shadcn/components/ui/alert";
+import { Alert, AlertAction, AlertDescription, AlertTitle } from "#shadcn/components/ui/alert";
 import {
   Empty,
   EmptyContent,
@@ -38,11 +38,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from "#shadcn/components/ui/dialog";
-import type { AcpManualAgent, AcpRegistryAgent } from "@argos/shared/presenter";
+import type { AcpAgentInstallState, AcpManualAgent, AcpRegistryAgent } from "@argos/shared/presenter";
 import type { AgentTransferImpact } from "@argos/shared/types/agent-interface";
 import { createConfigClient } from "#api/ConfigClient";
 import { createSessionClient } from "#api/SessionClient";
+import { getArgosBridge } from "#api/core";
 import { toast } from "#/components/use-toast";
+import {
+  getAgentsWithUpdates,
+  getInstalledVersion,
+  hasAgentUpdate,
+  isPackageAgent,
+  updateAgentsSequentially,
+} from "#/lib/acpAgentUpdates";
 import AcpDebugDialog from "./AcpDebugDialog";
 import AcpDiagnostics from "./AcpDiagnostics";
 import AcpAgentIcon from "#/components/icons/AcpAgentIcon";
@@ -51,9 +59,28 @@ import AgentTransferDialog, { type TransferDialogAgent } from "#/components/agen
 
 const sessionClient = createSessionClient();
 
-type RegistryDialogFilter = "all" | "installed" | "not_installed";
-const parseEnvBlock = (value: string): Record<string, string> => {
-  return Object.fromEntries(
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+type PendingKind = "toggle" | "install" | "update" | "repair" | "env" | "uninstall";
+type RegistryFilter = "all" | "installed" | "available" | "updates";
+
+const errorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error));
+
+const showError = (title: string, error: unknown) => {
+  console.error(`[ACP] ${title}:`, error);
+  toast({ title, description: errorMessage(error), variant: "destructive" });
+};
+
+/** ensure/repair can *return* an error state instead of throwing — treat it as a failure. */
+const assertInstalled = (state: AcpAgentInstallState) => {
+  if (state.status === "error") throw new Error(state.error ?? "Installation failed");
+  return state;
+};
+
+const parseEnvBlock = (value: string): Record<string, string> =>
+  Object.fromEntries(
     value
       .split(/\r?\n/)
       .map((line) => line.trim())
@@ -65,87 +92,478 @@ const parseEnvBlock = (value: string): Record<string, string> => {
       })
       .filter(([key]) => key.length > 0),
   );
-};
+
 const stringifyEnvBlock = (env?: Record<string, string>) =>
   Object.entries(env ?? {})
     .map(([key, value]) => `${key}=${value}`)
     .join("\n");
-const formatArgs = (args?: string[]) => (args?.length ? args.join(" ") : "None");
+
 const buildPreviewCommand = (agent: AcpRegistryAgent) => {
-  if (agent.distribution.binary) {
-    const firstBinary = Object.values(agent.distribution.binary)[0];
-    if (firstBinary)
-      return firstBinary.args?.length ? `${firstBinary.cmd} ${formatArgs(firstBinary.args)}` : firstBinary.cmd;
-  }
-  if (agent.distribution.npx) {
-    return agent.distribution.npx.args?.length
-      ? `npx -y ${agent.distribution.npx.package} ${formatArgs(agent.distribution.npx.args)}`
-      : `npx -y ${agent.distribution.npx.package}`;
-  }
-  if (agent.distribution.uvx) {
-    return agent.distribution.uvx.args?.length
-      ? `uvx ${agent.distribution.uvx.package} ${formatArgs(agent.distribution.uvx.args)}`
-      : `uvx ${agent.distribution.uvx.package}`;
-  }
-  return "None";
+  const withArgs = (cmd: string, args?: string[]) => (args?.length ? `${cmd} ${args.join(" ")}` : cmd);
+  const { binary, npx, uvx } = agent.distribution;
+  const firstBinary = binary ? Object.values(binary)[0] : undefined;
+  if (firstBinary) return withArgs(firstBinary.cmd, firstBinary.args);
+  if (npx) return withArgs(`npx -y ${npx.package}`, npx.args);
+  if (uvx) return withArgs(`uvx ${uvx.package}`, uvx.args);
+  return "—";
 };
-const installBadgeLabel = (agent: AcpRegistryAgent) => {
-  const status = agent.installState?.status ?? "not_installed";
-  if (status === "installed") return agent.enabled ? "Enabled" : "Installed, off";
-  if (status === "installing") return "Installing";
-  if (status === "error") return "Error";
-  return "Not Installed";
+
+const distributionLabel = (agent: AcpRegistryAgent) => {
+  if (agent.distribution.binary) return "Binary";
+  if (agent.distribution.npx) return "npx";
+  if (agent.distribution.uvx) return "uvx";
+  return "Unknown";
 };
-const installBadgeClass = (agent: AcpRegistryAgent) => {
-  const status = agent.installState?.status ?? "not_installed";
-  if (status === "installed") return "text-foreground";
-  if (status === "installing") return "text-muted-foreground";
-  if (status === "error") return "border-destructive/40 text-destructive";
-  return "";
+
+const installStatus = (agent: AcpRegistryAgent) => agent.installState?.status ?? "not_installed";
+
+/** Anything Argos has touched (installed, mid-install, or failed) belongs in the main list. */
+const isOnDevice = (agent: AcpRegistryAgent) => installStatus(agent) !== "not_installed";
+
+const versionLine = (agent: AcpRegistryAgent) => {
+  const installed = getInstalledVersion(agent);
+  return installed ? `v${installed}` : `v${agent.version}`;
 };
-const registryActionLabel = (agent: AcpRegistryAgent) => {
-  const status = agent.installState?.status ?? "not_installed";
-  if (status === "installed") return agent.enabled ? "Enabled" : "Enable";
-  if (status === "installing") return "Installing";
-  if (status === "error") return "Repair";
-  return "Install";
+
+const updateSuccessToast = (agent: AcpRegistryAgent) =>
+  toast({
+    title: `${agent.name} updated to v${agent.version}`,
+    description: isPackageAgent(agent)
+      ? "The new package version is used the next time the agent starts."
+      : "The new version is installed and ready.",
+  });
+
+const usePendingMap = () => {
+  const [pending, setPending] = useState<Record<string, PendingKind>>({});
+  const start = useCallback((id: string, kind: PendingKind) => setPending((p) => ({ ...p, [id]: kind })), []);
+  const stop = useCallback(
+    (id: string) =>
+      setPending((p) => {
+        const next = { ...p };
+        delete next[id];
+        return next;
+      }),
+    [],
+  );
+  const run = useCallback(
+    async (id: string, kind: PendingKind, task: () => Promise<void>) => {
+      start(id, kind);
+      // Tasks report their own errors; this only guarantees the row unlocks.
+      await task().catch((error: unknown) => console.error("[ACP] action failed:", error));
+      stop(id);
+    },
+    [start, stop],
+  );
+  return { pending, run };
 };
-const registryActionVariant = (agent: AcpRegistryAgent) =>
-  agent.installState?.status === "installed" ? "outline" : "default";
-const registryActionIcon = (agent: AcpRegistryAgent) => {
-  const status = agent.installState?.status ?? "not_installed";
-  if (status === "installed") return agent.enabled ? "lucide:check" : "lucide:power";
-  if (status === "installing") return "lucide:loader";
-  if (status === "error") return "lucide:wrench";
-  return "lucide:download";
+
+// ---------------------------------------------------------------------------
+// Data controller
+// ---------------------------------------------------------------------------
+
+type AcpData = {
+  enabled: boolean;
+  registryAgents: AcpRegistryAgent[];
+  manualAgents: AcpManualAgent[];
+  sharedMcpCount: number;
+  loadError: string | null;
+  loaded: boolean;
 };
-const isUpdateAvailable = (agent: AcpRegistryAgent): boolean => {
-  if (agent.installState?.status !== "installed") return false;
-  const installedVersion = agent.installState?.version;
-  return Boolean(installedVersion) && installedVersion !== agent.version;
+
+const initialAcpData: AcpData = {
+  enabled: false,
+  registryAgents: [],
+  manualAgents: [],
+  sharedMcpCount: 0,
+  loadError: null,
+  loaded: false,
 };
-const updatePendingState = (current: Record<string, boolean>, id: string, pending: boolean) => {
-  const next = {
-    ...current,
-  };
-  if (pending) next[id] = true;
-  else delete next[id];
-  return next;
-};
-const incrementAgentRequest = (current: Record<string, number>, id: string) => ({
-  ...current,
-  [id]: (current[id] ?? 0) + 1,
-});
-const consumeAgentRequest = (current: Record<string, number>, id: string, request: number) =>
-  current[id] === request
-    ? {
-        ...current,
-        [id]: 0,
+
+const useAcpSettingsController = () => {
+  const configClient = useMemo(() => createConfigClient(), []);
+  const [data, setData] = useState<AcpData>(initialAcpData);
+  const [toggling, setToggling] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [updatingAll, setUpdatingAll] = useState(false);
+  /** Agent currently being processed by "Update all". */
+  const [bulkUpdatingId, setBulkUpdatingId] = useState<string | null>(null);
+  /** Only agents the user has edited; untouched agents render their saved env. */
+  const [envDrafts, setEnvDrafts] = useState<Record<string, string>>({});
+  const [connectionCheckRequests, setConnectionCheckRequests] = useState<Record<string, number>>({});
+  const { pending, run } = usePendingMap();
+
+  const loadSeq = useRef(0);
+  const load = useCallback(async () => {
+    const seq = ++loadSeq.current;
+    try {
+      const enabled = await configClient.getAcpEnabled();
+      if (!enabled) {
+        if (seq === loadSeq.current) setData({ ...initialAcpData, enabled: false, loaded: true });
+        return;
       }
-    : current;
-const subscribeToAgentChanges = (listener: () => void) =>
-  window.argos?.on?.("config.agents.changed" as never, listener) ?? (() => undefined);
-type ManualAgentDialogState = {
+      const [registryAgents, manualAgents, sharedMcp] = await Promise.all([
+        configClient.listAcpRegistryAgents(),
+        configClient.listManualAcpAgents(),
+        configClient.getAcpSharedMcpSelections(),
+      ]);
+      if (seq !== loadSeq.current) return;
+      setData({
+        enabled: true,
+        registryAgents,
+        manualAgents,
+        sharedMcpCount: sharedMcp.length,
+        loadError: null,
+        loaded: true,
+      });
+    } catch (error) {
+      console.error("[ACP] settings load error:", error);
+      if (seq === loadSeq.current) setData((d) => ({ ...d, loadError: errorMessage(error), loaded: true }));
+    }
+  }, [configClient]);
+
+  // Subscribe once. The desktop shell broadcasts config.agents.changed after
+  // agent mutations; every action below also reloads explicitly.
+  useEffect(() => {
+    queueMicrotask(() => void load());
+    const off = getArgosBridge().on(configAgentsChangedEvent.name, () => void load());
+    return () => off?.();
+  }, [load]);
+
+  const requestConnectionCheck = (id: string) => setConnectionCheckRequests((c) => ({ ...c, [id]: (c[id] ?? 0) + 1 }));
+  const consumeConnectionCheckRequest = (id: string, request: number) =>
+    setConnectionCheckRequests((c) => (c[id] === request ? { ...c, [id]: 0 } : c));
+
+  const setAcpEnabled = async (enabled: boolean) => {
+    if (toggling) return;
+    setToggling(true);
+    try {
+      await configClient.setAcpEnabled(enabled);
+      await load();
+    } catch (error) {
+      showError(enabled ? "Could not enable ACP" : "Could not disable ACP", error);
+    }
+    setToggling(false);
+  };
+
+  const refreshRegistry = async () => {
+    setRefreshing(true);
+    try {
+      await configClient.refreshAcpRegistry(true);
+      await load();
+    } catch (error) {
+      showError("Registry could not be refreshed", error);
+    }
+    setRefreshing(false);
+  };
+
+  const setRegistryAgentEnabled = (agent: AcpRegistryAgent, enabled: boolean) =>
+    run(agent.id, "toggle", async () => {
+      try {
+        await configClient.setAcpAgentEnabled(agent.id, enabled);
+        if (enabled) requestConnectionCheck(agent.id);
+      } catch (error) {
+        showError(enabled ? `${agent.name} could not be enabled` : `${agent.name} could not be disabled`, error);
+      }
+      await load();
+    });
+
+  const installAgent = (agent: AcpRegistryAgent) =>
+    run(agent.id, "install", async () => {
+      try {
+        assertInstalled(await configClient.ensureAcpAgentInstalled(agent.id));
+        await configClient.setAcpAgentEnabled(agent.id, true);
+        requestConnectionCheck(agent.id);
+        toast({ title: `${agent.name} installed`, description: "It is enabled and its connection is being checked." });
+      } catch (error) {
+        showError(`${agent.name} could not be installed`, error);
+      }
+      await load();
+    });
+
+  const repairAgent = (agent: AcpRegistryAgent) =>
+    run(agent.id, "repair", async () => {
+      try {
+        assertInstalled(await configClient.repairAcpAgent(agent.id));
+        if (agent.enabled) requestConnectionCheck(agent.id);
+        toast({ title: `${agent.name} repaired` });
+      } catch (error) {
+        showError(`${agent.name} could not be repaired`, error);
+      }
+      await load();
+    });
+
+  const updateAgent = (agent: AcpRegistryAgent) =>
+    run(agent.id, "update", async () => {
+      const [outcome] = await updateAgentsSequentially([agent], (id) => configClient.updateAcpAgent(id));
+      if (outcome.ok) {
+        updateSuccessToast(agent);
+        if (agent.enabled) requestConnectionCheck(agent.id);
+      } else {
+        showError(`${agent.name} could not be updated`, outcome.error);
+      }
+      await load();
+    });
+
+  const updateAll = async () => {
+    const targets = getAgentsWithUpdates(data.registryAgents);
+    if (!targets.length || updatingAll) return;
+    setUpdatingAll(true);
+    try {
+      const outcomes = await updateAgentsSequentially(
+        targets,
+        (id) => configClient.updateAcpAgent(id),
+        // Mark each row as it is processed so the user sees progress.
+        (agent) => setBulkUpdatingId(agent.id),
+      );
+      const failed = outcomes.filter((o) => !o.ok);
+      if (failed.length === 0) {
+        toast({ title: `${targets.length} agent${targets.length === 1 ? "" : "s"} updated` });
+      } else {
+        toast({
+          title: `${failed.length} of ${targets.length} updates failed`,
+          description: failed.map((o) => `${o.agent.name}: ${o.ok ? "" : o.error}`).join("\n"),
+          variant: "destructive",
+          duration: 10_000,
+        });
+      }
+      await load();
+    } catch (error) {
+      showError("Agents could not be updated", error);
+    }
+    // Reset after both paths (no finally: the React Compiler cannot compile
+    // try/finally without catch).
+    setBulkUpdatingId(null);
+    setUpdatingAll(false);
+  };
+
+  const getEnvValue = (agent: AcpRegistryAgent) => envDrafts[agent.id] ?? stringifyEnvBlock(agent.envOverride);
+  const isEnvDirty = (agent: AcpRegistryAgent) =>
+    agent.id in envDrafts && envDrafts[agent.id] !== stringifyEnvBlock(agent.envOverride);
+  const setEnvDraft = (id: string, value: string) => setEnvDrafts((d) => ({ ...d, [id]: value }));
+  const discardEnvDraft = (id: string) =>
+    setEnvDrafts((d) => {
+      const next = { ...d };
+      delete next[id];
+      return next;
+    });
+
+  const saveEnv = (agent: AcpRegistryAgent, value: string) =>
+    run(agent.id, "env", async () => {
+      try {
+        await configClient.setAcpAgentEnvOverride(agent.id, parseEnvBlock(value));
+        discardEnvDraft(agent.id);
+        toast({ title: `${agent.name} environment saved` });
+      } catch (error) {
+        showError("Environment could not be saved", error);
+      }
+      await load();
+    });
+
+  const setManualAgentEnabled = (agent: AcpManualAgent, enabled: boolean) =>
+    run(agent.id, "toggle", async () => {
+      try {
+        await configClient.updateManualAcpAgent(agent.id, { enabled });
+        if (enabled) requestConnectionCheck(agent.id);
+      } catch (error) {
+        showError(enabled ? `${agent.name} could not be enabled` : `${agent.name} could not be disabled`, error);
+      }
+      await load();
+    });
+
+  const deleteManualAgent = async (agent: AcpManualAgent) => {
+    try {
+      await configClient.removeManualAcpAgent(agent.id);
+      toast({ title: `${agent.name} removed` });
+    } catch (error) {
+      showError(`${agent.name} could not be removed`, error);
+    }
+    await load();
+  };
+
+  const saveManualAgent = async (draft: ManualAgentDraft): Promise<boolean> => {
+    const args = draft.argsText
+      .split(/\r?\n/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const payload = {
+      name: draft.name.trim(),
+      command: draft.command.trim(),
+      args: args.length ? args : undefined,
+      env: parseEnvBlock(draft.env),
+      enabled: draft.enabled,
+    };
+    try {
+      if (draft.editId) {
+        const wasEnabled = Boolean(data.manualAgents.find((a) => a.id === draft.editId)?.enabled);
+        await configClient.updateManualAcpAgent(draft.editId, payload);
+        if (payload.enabled && !wasEnabled) requestConnectionCheck(draft.editId);
+      } else {
+        const added = await configClient.addManualAcpAgent(payload);
+        if (payload.enabled) requestConnectionCheck(added.id);
+      }
+      toast({ title: `${payload.name} saved` });
+      await load();
+      return true;
+    } catch (error) {
+      showError("Custom agent could not be saved", error);
+      return false;
+    }
+  };
+
+  return {
+    configClient,
+    data,
+    setData,
+    load,
+    toggling,
+    refreshing,
+    updatingAll,
+    bulkUpdatingId,
+    pending,
+    run,
+    connectionCheckRequests,
+    consumeConnectionCheckRequest,
+    setAcpEnabled,
+    refreshRegistry,
+    setRegistryAgentEnabled,
+    installAgent,
+    repairAgent,
+    updateAgent,
+    updateAll,
+    getEnvValue,
+    isEnvDirty,
+    setEnvDraft,
+    discardEnvDraft,
+    saveEnv,
+    setManualAgentEnabled,
+    deleteManualAgent,
+    saveManualAgent,
+  };
+};
+
+type Controller = ReturnType<typeof useAcpSettingsController>;
+
+// ---------------------------------------------------------------------------
+// Uninstall flow (registry agents may own conversations that must move first)
+// ---------------------------------------------------------------------------
+
+const useUninstallFlow = (controller: Controller) => {
+  const { configClient, load, run } = controller;
+  const [agent, setAgent] = useState<AcpRegistryAgent | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [impact, setImpact] = useState<AgentTransferImpact | null>(null);
+  const [impactLoading, setImpactLoading] = useState(false);
+  const [impactError, setImpactError] = useState<string | null>(null);
+  const [targets, setTargets] = useState<TransferDialogAgent[]>([]);
+  const [transferBusy, setTransferBusy] = useState(false);
+  const [transferError, setTransferError] = useState<string | null>(null);
+  // Guards against a slow impact lookup overwriting a newer selection.
+  const requestRef = useRef(0);
+
+  const lookupImpact = (target: AcpRegistryAgent) => {
+    const request = ++requestRef.current;
+    setImpact(null);
+    setImpactError(null);
+    setImpactLoading(true);
+    void Promise.all([sessionClient.getAgentTransferImpact(target.id), configClient.listAgents()])
+      .then(([nextImpact, agents]) => {
+        if (request !== requestRef.current) return;
+        setImpact(nextImpact);
+        setTargets(agents ?? []);
+      })
+      .catch((error) => {
+        console.warn("[ACP] uninstall impact lookup failed:", error);
+        if (request !== requestRef.current) return;
+        // Fail closed: a failed lookup must not read as "no conversations".
+        setImpactError(errorMessage(error));
+      })
+      .finally(() => {
+        if (request === requestRef.current) setImpactLoading(false);
+      });
+  };
+
+  const open = (target: AcpRegistryAgent) => {
+    setAgent(target);
+    setTransferError(null);
+    setConfirmOpen(true);
+    lookupImpact(target);
+  };
+
+  const finish = () => {
+    requestRef.current++;
+    setConfirmOpen(false);
+    setTransferOpen(false);
+    setAgent(null);
+    setImpact(null);
+    setImpactError(null);
+    setTransferError(null);
+  };
+
+  const confirm = async () => {
+    const target = agent;
+    if (!target || impactLoading || impactError) return;
+    if ((impact?.totalSessions ?? 0) > 0) {
+      setConfirmOpen(false);
+      setTransferOpen(true);
+      return;
+    }
+    setConfirmOpen(false);
+    await run(target.id, "uninstall", async () => {
+      try {
+        await configClient.uninstallAcpRegistryAgent(target.id);
+        toast({ title: `${target.name} uninstalled` });
+      } catch (error) {
+        showError(`${target.name} could not be uninstalled`, error);
+      }
+      await load();
+    });
+    finish();
+  };
+
+  const withSessions = async (settle: (agentId: string) => Promise<unknown>) => {
+    const target = agent;
+    if (!target) return;
+    setTransferBusy(true);
+    setTransferError(null);
+    try {
+      await settle(target.id);
+      await configClient.uninstallAcpRegistryAgent(target.id);
+      await load();
+      finish();
+      toast({ title: `${target.name} uninstalled` });
+    } catch (error) {
+      setTransferError(errorMessage(error));
+    }
+    setTransferBusy(false);
+  };
+
+  return {
+    agent,
+    confirmOpen,
+    setConfirmOpen,
+    transferOpen,
+    setTransferOpen,
+    impact,
+    impactLoading,
+    impactError,
+    targets,
+    transferBusy,
+    transferError,
+    open,
+    retry: () => agent && lookupImpact(agent),
+    confirm,
+    moveAndUninstall: (targetAgentId: string) =>
+      withSessions((id) => sessionClient.moveAgentSessions(id, targetAgentId)),
+    deleteAndUninstall: () => withSessions((id) => sessionClient.deleteAgentSessions(id)),
+  };
+};
+
+// ---------------------------------------------------------------------------
+// Custom agent dialog state
+// ---------------------------------------------------------------------------
+
+type ManualAgentDraft = {
   open: boolean;
   editId: string;
   name: string;
@@ -154,15 +572,13 @@ type ManualAgentDialogState = {
   env: string;
   enabled: boolean;
 };
-type ManualAgentDialogAction =
+
+type ManualAgentDraftAction =
   | { type: "OPEN"; agent?: AcpManualAgent }
   | { type: "CLOSE" }
-  | { type: "SET_NAME"; value: string }
-  | { type: "SET_COMMAND"; value: string }
-  | { type: "SET_ARGS_TEXT"; value: string }
-  | { type: "SET_ENV"; value: string }
-  | { type: "SET_ENABLED"; value: boolean };
-const initialManualAgentDialog: ManualAgentDialogState = {
+  | { type: "SET"; patch: Partial<Omit<ManualAgentDraft, "open" | "editId">> };
+
+const initialManualDraft: ManualAgentDraft = {
   open: false,
   editId: "",
   name: "",
@@ -171,10 +587,8 @@ const initialManualAgentDialog: ManualAgentDialogState = {
   env: "",
   enabled: true,
 };
-const manualAgentDialogReducer = (
-  state: ManualAgentDialogState,
-  action: ManualAgentDialogAction,
-): ManualAgentDialogState => {
+
+const manualDraftReducer = (state: ManualAgentDraft, action: ManualAgentDraftAction): ManualAgentDraft => {
   switch (action.type) {
     case "OPEN":
       return {
@@ -188,696 +602,240 @@ const manualAgentDialogReducer = (
       };
     case "CLOSE":
       return { ...state, open: false };
-    case "SET_NAME":
-      return { ...state, name: action.value };
-    case "SET_COMMAND":
-      return { ...state, command: action.value };
-    case "SET_ARGS_TEXT":
-      return { ...state, argsText: action.value };
-    case "SET_ENV":
-      return { ...state, env: action.value };
-    case "SET_ENABLED":
-      return { ...state, enabled: action.value };
-  }
-};
-type AcpDataState = {
-  enabled: boolean;
-  registryAgents: AcpRegistryAgent[];
-  manualAgents: AcpManualAgent[];
-  sharedMcpCount: number;
-  loadError: string | null;
-};
-type AcpDataAction =
-  | { type: "SET_LOAD_ERROR"; message: string | null }
-  | { type: "SET_ENABLED"; enabled: boolean }
-  | { type: "CLEAR_AGENTS" }
-  | { type: "SET_AGENTS"; registryAgents: AcpRegistryAgent[]; manualAgents: AcpManualAgent[] }
-  | { type: "SET_REGISTRY_AGENTS"; registryAgents: AcpRegistryAgent[] }
-  | { type: "SET_SHARED_MCP_COUNT"; count: number };
-const initialAcpData: AcpDataState = {
-  enabled: false,
-  registryAgents: [],
-  manualAgents: [],
-  sharedMcpCount: 0,
-  loadError: null,
-};
-const acpDataReducer = (state: AcpDataState, action: AcpDataAction): AcpDataState => {
-  switch (action.type) {
-    case "SET_LOAD_ERROR":
-      return { ...state, loadError: action.message };
-    case "SET_ENABLED":
-      return { ...state, enabled: action.enabled };
-    case "CLEAR_AGENTS":
-      return { ...state, registryAgents: [], manualAgents: [], sharedMcpCount: 0 };
-    case "SET_AGENTS":
-      return { ...state, registryAgents: action.registryAgents, manualAgents: action.manualAgents };
-    case "SET_REGISTRY_AGENTS":
-      return { ...state, registryAgents: action.registryAgents };
-    case "SET_SHARED_MCP_COUNT":
-      return { ...state, sharedMcpCount: action.count };
+    case "SET":
+      return { ...state, ...action.patch };
   }
 };
 
-const useAcpSettingsController = () => {
-  const configClient = createConfigClient();
-  const [acpData, dispatchAcpData] = useReducer(acpDataReducer, initialAcpData);
-  const [toggling, setToggling] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [envDrafts, setEnvDrafts] = useState<Record<string, string>>({});
-  const [agentPending, setAgentPending] = useState<Record<string, boolean>>({});
-  const [connectionCheckRequests, setConnectionCheckRequests] = useState<Record<string, number>>({});
-  const [uninstallOpen, setUninstallOpen] = useState(false);
-  const [uninstallAgent, setUninstallAgent] = useState<AcpRegistryAgent | null>(null);
-  const [uninstallImpact, setUninstallImpact] = useState<AgentTransferImpact | null>(null);
-  const [uninstallImpactLoading, setUninstallImpactLoading] = useState(false);
-  const [uninstallImpactError, setUninstallImpactError] = useState<string | null>(null);
-  const [uninstallTransferOpen, setUninstallTransferOpen] = useState(false);
-  const [uninstallTransferBusy, setUninstallTransferBusy] = useState(false);
-  const [uninstallTransferError, setUninstallTransferError] = useState<string | null>(null);
-  const [uninstallTargets, setUninstallTargets] = useState<TransferDialogAgent[]>([]);
-  const setPending = (id: string, pending: boolean) =>
-    setAgentPending((current) => updatePendingState(current, id, pending));
-  const requestConnectionCheck = (id: string) =>
-    setConnectionCheckRequests((current) => incrementAgentRequest(current, id));
-  const consumeConnectionCheckRequest = (id: string, request: number) => {
-    setConnectionCheckRequests((current) => consumeAgentRequest(current, id, request));
-  };
-  const syncEnvDrafts = (agents: AcpRegistryAgent[]) => {
-    const drafts: Record<string, string> = {};
-    agents.forEach((agent) => {
-      drafts[agent.id] = stringifyEnvBlock(agent.envOverride);
-    });
-    setEnvDrafts(drafts);
-  };
-  const loadAcpData = async () => {
-    try {
-      const enabled = await configClient.getAcpEnabled();
-      dispatchAcpData({ type: "SET_LOAD_ERROR", message: null });
-      dispatchAcpData({ type: "SET_ENABLED", enabled });
-      if (!enabled) {
-        dispatchAcpData({ type: "CLEAR_AGENTS" });
-        return;
-      }
-      const [registryList, manualList] = await Promise.all([
-        configClient.listAcpRegistryAgents(),
-        configClient.listManualAcpAgents(),
-      ]);
-      dispatchAcpData({ type: "SET_AGENTS", registryAgents: registryList, manualAgents: manualList });
-      syncEnvDrafts(registryList);
-      const sharedMcp = await configClient.getAcpSharedMcpSelections();
-      dispatchAcpData({ type: "SET_SHARED_MCP_COUNT", count: sharedMcp.length });
-    } catch (error) {
-      console.error("[ACP] settings error:", error);
-      dispatchAcpData({
-        type: "SET_LOAD_ERROR",
-        message: error instanceof Error ? error.message : "ACP settings could not be loaded.",
-      });
-    }
-    setLoading(false);
-  };
-  useEffect(() => {
-    queueMicrotask(() => void loadAcpData());
-    return subscribeToAgentChanges(() => void loadAcpData());
-  }, [loadAcpData]);
-  const setEnvDraft = (id: string, value: string) => {
-    setEnvDrafts((current) => ({
-      ...current,
-      [id]: value,
-    }));
-  };
-  const handleToggle = async (enabled: boolean) => {
-    if (toggling) return;
-    setToggling(true);
-    try {
-      await configClient.setAcpEnabled(enabled);
-      dispatchAcpData({ type: "SET_ENABLED", enabled });
-      if (enabled) await loadAcpData();
-    } catch (error) {
-      console.error("[ACP] toggle error:", error);
-    }
-    setToggling(false);
-  };
-  const refreshRegistry = async () => {
-    setRefreshing(true);
-    try {
-      const list = await configClient.refreshAcpRegistry(true);
-      dispatchAcpData({ type: "SET_REGISTRY_AGENTS", registryAgents: list });
-      syncEnvDrafts(list);
-    } catch (error) {
-      console.error("[ACP] refresh error:", error);
-    }
-    setRefreshing(false);
-  };
-  const toggleRegistryAgent = async (agent: AcpRegistryAgent, enabled: boolean) => {
-    setPending(agent.id, true);
-    try {
-      await configClient.setAcpAgentEnabled(agent.id, enabled);
-      if (enabled) requestConnectionCheck(agent.id);
-      await loadAcpData();
-    } catch (error) {
-      console.error(error);
-      toast({
-        title: enabled ? "Agent could not be enabled" : "Agent could not be disabled",
-        description: error instanceof Error ? error.message : String(error),
-        variant: "destructive",
-      });
-    }
-    setPending(agent.id, false);
-  };
-  const saveEnvOverride = async (agent: AcpRegistryAgent) => {
-    setPending(agent.id, true);
-    try {
-      await configClient.setAcpAgentEnvOverride(agent.id, parseEnvBlock(envDrafts[agent.id] ?? ""));
-      await loadAcpData();
-      toast({
-        title: "Saved",
-      });
-    } catch (error) {
-      console.error(error);
-      await loadAcpData();
-      toast({
-        title: "Environment could not be saved",
-        description: error instanceof Error ? error.message : String(error),
-        variant: "destructive",
-      });
-    }
-    setPending(agent.id, false);
-  };
-  const clearEnvOverride = async (agent: AcpRegistryAgent) => {
-    setEnvDrafts((d) => ({
-      ...d,
-      [agent.id]: "",
-    }));
-    await saveEnvOverride(agent);
-  };
-  const installRegistryAgent = async (agent: AcpRegistryAgent) => {
-    setPending(agent.id, true);
-    try {
-      const isFreshInstall = agent.installState?.status !== "installed" && agent.installState?.status !== "error";
-      if (agent.installState?.status === "error") {
-        await configClient.repairAcpAgent(agent.id);
-      } else {
-        await configClient.ensureAcpAgentInstalled(agent.id);
-      }
-      if (isFreshInstall) {
-        await configClient.setAcpAgentEnabled(agent.id, true);
-        requestConnectionCheck(agent.id);
-        toast({
-          title: `${agent.name} installed and enabled`,
-          description: "Checking its connection now.",
-        });
-      }
-      await loadAcpData();
-    } catch (error) {
-      console.error(error);
-      await loadAcpData();
-      toast({
-        title: "Agent setup did not finish",
-        description: error instanceof Error ? error.message : String(error),
-        variant: "destructive",
-      });
-    }
-    setPending(agent.id, false);
-  };
-  const repairRegistryAgent = async (agent: AcpRegistryAgent) => {
-    setPending(agent.id, true);
-    try {
-      await configClient.repairAcpAgent(agent.id);
-      await loadAcpData();
-    } catch (error) {
-      console.error(error);
-    }
-    setPending(agent.id, false);
-  };
-  const updateRegistryAgent = async (agent: AcpRegistryAgent) => {
-    setPending(agent.id, true);
-    try {
-      const state = await configClient.updateAcpAgent(agent.id);
-      const isBinary = agent.distribution.binary;
-      toast({
-        title: isBinary ? `${agent.name} updated` : `${agent.name} is up to date`,
-        description: isBinary
-          ? `Installed v${state.version}.`
-          : "Package-based agents resolve the latest version at launch.",
-      });
-      requestConnectionCheck(agent.id);
-      await loadAcpData();
-    } catch (error) {
-      console.error(error);
-      await loadAcpData();
-      toast({
-        title: "Agent update did not finish",
-        description: error instanceof Error ? error.message : String(error),
-        variant: "destructive",
-      });
-    }
-    setPending(agent.id, false);
-  };
-  const uninstallRegistryAgent = async (agent: AcpRegistryAgent) => {
-    setPending(agent.id, true);
-    try {
-      await configClient.uninstallAcpRegistryAgent(agent.id);
-      await loadAcpData();
-      toast({
-        title: "Agent removed",
-      });
-    } catch (error) {
-      console.error(error);
-    }
-    setPending(agent.id, false);
-  };
-  const confirmRegistryAgentUninstall = (agent: AcpRegistryAgent) => {
-    setUninstallAgent(agent);
-    setUninstallOpen(true);
-    setUninstallImpact(null);
-    setUninstallImpactError(null);
-    setUninstallImpactLoading(true);
-    setUninstallTransferError(null);
-    // Prefetch the conversation impact so the confirm step can route to the
-    // transfer dialog when the agent still owns conversations. Responses are
-    // associated with the agent that requested them so a stale lookup can
-    // never overwrite a newer selection.
-    void Promise.all([sessionClient.getAgentTransferImpact(agent.id), configClient.listAgents()])
-      .then(([impact, agents]) => {
-        if (uninstallAgent !== agent) return;
-        setUninstallImpact(impact);
-        setUninstallTargets(agents ?? []);
-      })
-      .catch((error) => {
-        console.warn("[ACP] uninstall impact lookup failed:", error);
-        if (uninstallAgent !== agent) return;
-        // Fail-closed: a failed lookup must not read as "no conversations".
-        setUninstallImpactError(error instanceof Error ? error.message : String(error));
-      })
-      .finally(() => {
-        if (uninstallAgent === agent) setUninstallImpactLoading(false);
-      });
-  };
-  const retryUninstallImpact = (agent: AcpRegistryAgent) => {
-    setUninstallImpactError(null);
-    confirmRegistryAgentUninstall(agent);
-  };
-  const finishUninstall = () => {
-    setUninstallOpen(false);
-    setUninstallTransferOpen(false);
-    setUninstallAgent(null);
-    setUninstallImpact(null);
-    setUninstallImpactError(null);
-    setUninstallTransferError(null);
-  };
-  const confirmRegistryAgentUninstallAction = async () => {
-    const agent = uninstallAgent;
-    if (!agent) return;
-    // Conversations still bound to this agent must be moved or deleted
-    // first — route to the transfer dialog instead of failing the uninstall.
-    if (uninstallImpactLoading || uninstallImpactError) return;
-    if ((uninstallImpact?.totalSessions ?? 0) > 0) {
-      setUninstallOpen(false);
-      setUninstallTransferOpen(true);
-      return;
-    }
-    setUninstallOpen(false);
-    await uninstallRegistryAgent(agent);
-    finishUninstall();
-  };
-  const handleUninstallWithMove = async (payload: { targetAgentId: string }) => {
-    const agent = uninstallAgent;
-    if (!agent) return;
-    setUninstallTransferBusy(true);
-    setUninstallTransferError(null);
-    try {
-      await sessionClient.moveAgentSessions(agent.id, payload.targetAgentId);
-      await configClient.uninstallAcpRegistryAgent(agent.id);
-      await loadAcpData();
-      finishUninstall();
-      toast({ title: "Agent removed" });
-    } catch (error) {
-      setUninstallTransferError(error instanceof Error ? error.message : String(error));
-    }
-    setUninstallTransferBusy(false);
-  };
-  const handleUninstallWithDelete = async () => {
-    const agent = uninstallAgent;
-    if (!agent) return;
-    setUninstallTransferBusy(true);
-    setUninstallTransferError(null);
-    try {
-      await sessionClient.deleteAgentSessions(agent.id);
-      await configClient.uninstallAcpRegistryAgent(agent.id);
-      await loadAcpData();
-      finishUninstall();
-      toast({ title: "Agent removed" });
-    } catch (error) {
-      setUninstallTransferError(error instanceof Error ? error.message : String(error));
-    }
-    setUninstallTransferBusy(false);
-  };
-  const handleRegistryCatalogAction = async (agent: AcpRegistryAgent) => {
-    const status = agent.installState?.status ?? "not_installed";
-    if (agentPending[agent.id] || status === "installing") return;
-    if (status === "installed") {
-      if (!agent.enabled) await toggleRegistryAgent(agent, true);
-      return;
-    }
-    await installRegistryAgent(agent);
-  };
-  const toggleManualAgentEnabled = async (agent: AcpManualAgent, value: boolean) => {
-    setPending(agent.id, true);
-    try {
-      await configClient.updateManualAcpAgent(agent.id, {
-        enabled: value,
-      });
-      if (value) requestConnectionCheck(agent.id);
-      await loadAcpData();
-    } catch (error) {
-      console.error("[ACP] manual agent toggle error:", error);
-    }
-    setPending(agent.id, false);
-  };
-  const deleteManualAgent = async (agent: AcpManualAgent) => {
-    try {
-      await configClient.removeManualAcpAgent(agent.id);
-      await loadAcpData();
-    } catch (error) {
-      console.error(error);
-    }
-  };
-  return {
-    acpData,
-    dispatchAcpData,
-    toggling,
-    loading,
-    refreshing,
-    envDrafts,
-    agentPending,
-    connectionCheckRequests,
-    uninstallOpen,
-    uninstallAgent,
-    setUninstallOpen,
-    loadAcpData,
-    setEnvDraft,
-    handleToggle,
-    refreshRegistry,
-    toggleRegistryAgent,
-    saveEnvOverride,
-    clearEnvOverride,
-    repairRegistryAgent,
-    updateRegistryAgent,
-    confirmRegistryAgentUninstall,
-    confirmRegistryAgentUninstallAction,
-    uninstallImpact,
-    uninstallImpactLoading,
-    uninstallImpactError,
-    retryUninstallImpact,
-    uninstallTransferOpen,
-    uninstallTransferBusy,
-    uninstallTransferError,
-    uninstallTargets,
-    setUninstallTransferOpen,
-    handleUninstallWithMove,
-    handleUninstallWithDelete,
-    handleRegistryCatalogAction,
-    toggleManualAgentEnabled,
-    deleteManualAgent,
-    requestConnectionCheck,
-    consumeConnectionCheckRequest,
-  };
-};
+// ---------------------------------------------------------------------------
+// Page
+// ---------------------------------------------------------------------------
+
 export default function AcpSettings() {
   const controller = useAcpSettingsController();
-  const {
-    acpData,
-    toggling,
-    loading,
-    refreshing,
-    envDrafts,
-    agentPending,
-    connectionCheckRequests,
-    uninstallOpen,
-    uninstallAgent,
-    setUninstallOpen,
-    loadAcpData,
-    setEnvDraft,
-    handleToggle,
-    refreshRegistry,
-    toggleRegistryAgent,
-    saveEnvOverride,
-    clearEnvOverride,
-    repairRegistryAgent,
-    updateRegistryAgent,
-    confirmRegistryAgentUninstall,
-    confirmRegistryAgentUninstallAction,
-    uninstallImpact,
-    uninstallImpactLoading,
-    uninstallImpactError,
-    retryUninstallImpact,
-    uninstallTransferOpen,
-    uninstallTransferBusy,
-    uninstallTransferError,
-    uninstallTargets,
-    setUninstallTransferOpen,
-    handleUninstallWithMove,
-    handleUninstallWithDelete,
-    handleRegistryCatalogAction,
-    toggleManualAgentEnabled,
-    deleteManualAgent,
-    consumeConnectionCheckRequest,
-  } = controller;
-  const [manualSectionOpen, setManualSectionOpen] = useState(false);
-  const [sharedMcpOpen, setSharedMcpOpen] = useState(false);
-  const [agentConfigurationOpen, setAgentConfigurationOpen] = useState<Record<string, boolean>>({});
-  const [registryDialogOpen, setRegistryDialogOpen] = useState(false);
-  const [registrySearch, setRegistrySearch] = useState("");
-  const [registryFilter, setRegistryFilter] = useState<RegistryDialogFilter>("all");
-  const [debugOpen, setDebugOpen] = useState(false);
-  const [debugAgentId, setDebugAgentId] = useState("");
-  const [debugAgentName, setDebugAgentName] = useState("");
-  const [manualDialog, dispatchManualDialog] = useReducer(manualAgentDialogReducer, initialManualAgentDialog);
+  const uninstall = useUninstallFlow(controller);
+  const { data } = controller;
+
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [registryOpen, setRegistryOpen] = useState(false);
+  const [debugTarget, setDebugTarget] = useState<{ id: string; name: string } | null>(null);
+  const [manualDraft, dispatchManualDraft] = useReducer(manualDraftReducer, initialManualDraft);
   const [manualSaving, setManualSaving] = useState(false);
-  const openManualDialog = (agent?: AcpManualAgent) => {
-    dispatchManualDialog({ type: "OPEN", agent });
-  };
-  const openInspector = (agentId: string, agentName: string) => {
-    setDebugAgentId(agentId);
-    setDebugAgentName(agentName);
-    setDebugOpen(true);
-  };
+  const [manualToDelete, setManualToDelete] = useState<AcpManualAgent | null>(null);
+
+  const installedAgents = data.registryAgents.filter(isOnDevice);
+  const updates = getAgentsWithUpdates(data.registryAgents);
+  const loading = !data.loaded;
+
+  const openRegistry = () => setRegistryOpen(true);
+
   const saveManualAgent = async () => {
-    if (!manualDialog.name.trim() || !manualDialog.command.trim()) {
-      toast({
-        title: "Missing fields",
-        description: "Name and command are required",
-        variant: "destructive",
-      });
+    if (!manualDraft.name.trim() || !manualDraft.command.trim()) {
+      toast({ title: "Name and command are required", variant: "destructive" });
       return;
     }
-    const configClient = createConfigClient();
     setManualSaving(true);
     try {
-      const args = manualDialog.argsText
-        .split(/\r?\n/)
-        .map((s) => s.trim())
-        .filter(Boolean);
-      const payload = {
-        name: manualDialog.name.trim(),
-        command: manualDialog.command.trim(),
-        args: args.length ? args : undefined,
-        env: parseEnvBlock(manualDialog.env),
-        enabled: manualDialog.enabled,
-      };
-      const wasEnabled = manualDialog.editId
-        ? Boolean(acpData.manualAgents.find((agent) => agent.id === manualDialog.editId)?.enabled)
-        : false;
-      if (manualDialog.editId) {
-        await configClient.updateManualAcpAgent(manualDialog.editId, payload);
-      } else {
-        const addedAgent = await configClient.addManualAcpAgent(payload);
-        if (payload.enabled) {
-          controller.requestConnectionCheck(addedAgent.id);
-          setManualSectionOpen(true);
-        }
-      }
-      if (manualDialog.editId && payload.enabled && !wasEnabled) controller.requestConnectionCheck(manualDialog.editId);
-      dispatchManualDialog({ type: "CLOSE" });
-      await loadAcpData();
-      toast({
-        title: "Saved",
-      });
+      const ok = await controller.saveManualAgent(manualDraft);
+      if (ok) dispatchManualDraft({ type: "CLOSE" });
     } catch (error) {
-      console.error(error);
+      showError("Manual agent could not be saved", error);
     }
     setManualSaving(false);
   };
 
-  // Auto-expand the Custom agents section once data loads if custom agents exist,
-  // so users with custom agents don't see an always-collapsed section.
-  const didAutoExpandManualRef = useRef(false);
-  useEffect(() => {
-    if (didAutoExpandManualRef.current || acpData.manualAgents.length === 0) return;
-    didAutoExpandManualRef.current = true;
-    setManualSectionOpen(true);
-  }, [acpData.manualAgents]);
-  const installedRegistryAgents = acpData.registryAgents.filter((a) => a.installState?.status === "installed");
-  const showSharedMcpSection = installedRegistryAgents.length > 0 || acpData.manualAgents.length > 0;
-  const filteredRegistryCatalogAgents = (() => {
-    const keyword = registrySearch.trim().toLowerCase();
-    return acpData.registryAgents.filter((agent) => {
-      const matchKeyword =
-        !keyword ||
-        agent.name.toLowerCase().includes(keyword) ||
-        agent.id.toLowerCase().includes(keyword) ||
-        (agent.description ?? "").toLowerCase().includes(keyword);
-      if (!matchKeyword) return false;
-      if (registryFilter === "installed") return agent.installState?.status === "installed";
-      if (registryFilter === "not_installed") return agent.installState?.status !== "installed";
-      return true;
-    });
-  })();
   return (
     <div data-testid="settings-acp-page" className="flex size-full flex-col">
-      <AcpSettingsHeader enabled={acpData.enabled} toggling={toggling} onToggle={handleToggle} />
+      <PageHeader enabled={data.enabled} toggling={controller.toggling} onToggle={controller.setAcpEnabled} />
 
       <div className="flex-1 overflow-y-auto">
-        {acpData.enabled ? (
-          <div className="flex flex-col gap-6 p-4">
-            {acpData.loadError && (
+        {!data.enabled && data.loaded && !data.loadError ? (
+          <AcpDisabledState toggling={controller.toggling} onEnable={() => void controller.setAcpEnabled(true)} />
+        ) : (
+          <div className="flex flex-col gap-8 p-4">
+            {data.loadError && (
               <Alert variant="destructive">
                 <Icon icon="lucide:triangle-alert" />
-                <AlertTitle>ACP settings could not be loaded</AlertTitle>
-                <AlertDescription>{acpData.loadError}</AlertDescription>
+                <AlertTitle>Agents could not be loaded</AlertTitle>
+                <AlertDescription>{data.loadError}</AlertDescription>
+                <AlertAction>
+                  <Button size="sm" variant="outline" onClick={() => void controller.load()}>
+                    Retry
+                  </Button>
+                </AlertAction>
               </Alert>
             )}
 
-            {showSharedMcpSection && (
-              <SharedMcpSection
-                open={sharedMcpOpen}
-                onOpenChange={setSharedMcpOpen}
-                sharedMcpCount={acpData.sharedMcpCount}
-                onUpdateSelectionsCount={(count: number) =>
-                  controller.dispatchAcpData({ type: "SET_SHARED_MCP_COUNT", count })
-                }
+            {updates.length > 0 && (
+              <UpdatesBanner
+                agents={updates}
+                updatingAll={controller.updatingAll}
+                onUpdateAll={() => void controller.updateAll()}
               />
             )}
 
-            <AgentsSection
-              loading={loading}
-              agents={installedRegistryAgents}
-              agentPending={agentPending}
-              agentConfigurationOpen={agentConfigurationOpen}
-              envDrafts={envDrafts}
-              connectionCheckRequests={connectionCheckRequests}
-              onAddCustom={() => openManualDialog()}
-              onBrowseRegistry={() => setRegistryDialogOpen(true)}
-              onConfigurationOpenChange={(agentId, open) =>
-                setAgentConfigurationOpen((current) => ({
-                  ...current,
-                  [agentId]: open,
-                }))
-              }
-              onConfigurationToggle={(agentId) =>
-                setAgentConfigurationOpen((current) => ({
-                  ...current,
-                  [agentId]: !current[agentId],
-                }))
-              }
-              onToggleEnabled={toggleRegistryAgent}
-              onUpdate={updateRegistryAgent}
-              onEnvDraftChange={setEnvDraft}
-              onSaveEnv={saveEnvOverride}
-              onClearEnv={clearEnvOverride}
-              onRepair={repairRegistryAgent}
-              onOpenInspector={openInspector}
-              onConfirmUninstall={confirmRegistryAgentUninstall}
-              onCheckRequestHandled={consumeConnectionCheckRequest}
-            />
+            <section className="flex flex-col gap-3" aria-labelledby="acp-installed-heading">
+              <SectionHeader
+                id="acp-installed-heading"
+                title="Installed agents"
+                description="Agents from the ACP registry that Argos installs and keeps up to date."
+                action={
+                  <Button size="sm" onClick={() => openRegistry()}>
+                    <Icon icon="lucide:download" />
+                    Browse registry
+                  </Button>
+                }
+              />
+              {loading ? (
+                <ListSkeleton />
+              ) : installedAgents.length === 0 ? (
+                <Empty className="border">
+                  <EmptyHeader>
+                    <EmptyMedia variant="icon">
+                      <Icon icon="lucide:bot" />
+                    </EmptyMedia>
+                    <EmptyTitle>No agents installed</EmptyTitle>
+                    <EmptyDescription>
+                      Pick an agent from the registry. Argos installs it, enables it and checks the connection.
+                    </EmptyDescription>
+                  </EmptyHeader>
+                  <EmptyContent>
+                    <Button onClick={() => openRegistry()}>
+                      <Icon icon="lucide:download" />
+                      Browse registry
+                    </Button>
+                  </EmptyContent>
+                </Empty>
+              ) : (
+                <div className="divide-y overflow-hidden rounded-xl border bg-card">
+                  {installedAgents.map((agent) => (
+                    <InstalledAgentRow
+                      key={agent.id}
+                      agent={agent}
+                      controller={controller}
+                      expanded={Boolean(expanded[agent.id])}
+                      onExpandedChange={(open) => setExpanded((e) => ({ ...e, [agent.id]: open }))}
+                      onOpenDebug={() => setDebugTarget({ id: agent.id, name: agent.name })}
+                      onUninstall={() => uninstall.open(agent)}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
 
-            <Separator />
+            <section className="flex flex-col gap-3" aria-labelledby="acp-custom-heading">
+              <SectionHeader
+                id="acp-custom-heading"
+                title="Custom agents"
+                description="Run any ACP-compatible command that is not in the registry."
+                action={
+                  <Button size="sm" variant="outline" onClick={() => dispatchManualDraft({ type: "OPEN" })}>
+                    <Icon icon="lucide:plus" />
+                    Add custom agent
+                  </Button>
+                }
+              />
+              {loading ? (
+                <Skeleton className="h-16 w-full rounded-xl" />
+              ) : data.manualAgents.length === 0 ? (
+                <p className="rounded-xl border border-dashed px-4 py-5 text-center text-xs text-muted-foreground">
+                  No custom agents yet.
+                </p>
+              ) : (
+                <div className="divide-y overflow-hidden rounded-xl border bg-card">
+                  {data.manualAgents.map((agent) => (
+                    <ManualAgentRow
+                      key={agent.id}
+                      agent={agent}
+                      controller={controller}
+                      onEdit={() => dispatchManualDraft({ type: "OPEN", agent })}
+                      onOpenDebug={() => setDebugTarget({ id: agent.id, name: agent.name })}
+                      onDelete={() => setManualToDelete(agent)}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
 
-            <ManualAgentsSection
-              loading={loading}
-              open={manualSectionOpen}
-              onOpenChange={setManualSectionOpen}
-              agents={acpData.manualAgents}
-              agentPending={agentPending}
-              connectionCheckRequests={connectionCheckRequests}
-              onAddCustom={() => openManualDialog()}
-              onEdit={openManualDialog}
-              onToggleEnabled={toggleManualAgentEnabled}
-              onOpenInspector={openInspector}
-              onDelete={deleteManualAgent}
-              onCheckRequestHandled={consumeConnectionCheckRequest}
-            />
+            {(installedAgents.length > 0 || data.manualAgents.length > 0) && (
+              <SharedMcpSection
+                count={data.sharedMcpCount}
+                onCountChange={(count) =>
+                  controller.setData((d) => (d.sharedMcpCount === count ? d : { ...d, sharedMcpCount: count }))
+                }
+              />
+            )}
           </div>
-        ) : (
-          <div className="p-6 text-sm text-muted-foreground text-center">Enable ACP to manage agents</div>
         )}
       </div>
 
       <ManualAgentDialog
-        state={manualDialog}
-        dispatch={dispatchManualDialog}
+        state={manualDraft}
+        dispatch={dispatchManualDraft}
         saving={manualSaving}
         onSave={() => void saveManualAgent()}
       />
 
-      <RegistryDialog
-        open={registryDialogOpen}
-        onOpenChange={setRegistryDialogOpen}
-        loading={loading}
-        refreshing={refreshing}
-        hasAnyAgents={acpData.registryAgents.length > 0}
-        agents={filteredRegistryCatalogAgents}
-        agentPending={agentPending}
-        search={registrySearch}
-        onSearchChange={setRegistrySearch}
-        filter={registryFilter}
-        onFilterChange={setRegistryFilter}
-        onRefresh={() => void refreshRegistry()}
-        onUpdate={updateRegistryAgent}
-        onCatalogAction={handleRegistryCatalogAction}
-        onClearFilters={() => {
-          setRegistrySearch("");
-          setRegistryFilter("all");
-        }}
-      />
+      <RegistryDialog open={registryOpen} onOpenChange={setRegistryOpen} controller={controller} />
 
-      <UninstallAlertDialog
-        open={uninstallOpen}
-        agent={uninstallAgent}
-        impactLoading={uninstallImpactLoading}
-        hasConversations={(uninstallImpact?.totalSessions ?? 0) > 0}
-        impactError={uninstallImpactError}
-        onRetryImpact={() => uninstallAgent && retryUninstallImpact(uninstallAgent)}
-        onOpenChange={setUninstallOpen}
-        onCancel={() => setUninstallOpen(false)}
-        onConfirm={() => void confirmRegistryAgentUninstallAction()}
-      />
+      <AlertDialog open={Boolean(manualToDelete)} onOpenChange={(open) => !open && setManualToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove {manualToDelete?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>The custom agent configuration will be deleted.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                const target = manualToDelete;
+                setManualToDelete(null);
+                if (target) void controller.deleteManualAgent(target);
+              }}
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <UninstallAlertDialog flow={uninstall} />
 
       <AgentTransferDialog
-        open={uninstallTransferOpen}
+        open={uninstall.transferOpen}
         mode="delete-agent"
-        sourceAgentId={uninstallAgent?.id ?? ""}
-        sourceAgentName={uninstallAgent?.name ?? ""}
-        agents={uninstallTargets}
-        impact={uninstallImpact}
-        loading={uninstallImpactLoading}
-        busy={uninstallTransferBusy}
-        error={uninstallTransferError}
-        title={uninstallAgent ? `Uninstall ${uninstallAgent.name}` : undefined}
+        sourceAgentId={uninstall.agent?.id ?? ""}
+        sourceAgentName={uninstall.agent?.name ?? ""}
+        agents={uninstall.targets}
+        impact={uninstall.impact}
+        loading={uninstall.impactLoading}
+        busy={uninstall.transferBusy}
+        error={uninstall.transferError}
+        title={uninstall.agent ? `Uninstall ${uninstall.agent.name}` : undefined}
         // Settlement handles active/queued sessions during the move or
         // delete, so pre-computed "blocked" samples must not gate the flow.
         allowBlocked
-        onOpenChange={setUninstallTransferOpen}
-        onConfirmMove={(payload) => void handleUninstallWithMove(payload)}
-        onConfirmDelete={() => void handleUninstallWithDelete()}
+        onOpenChange={uninstall.setTransferOpen}
+        onConfirmMove={(payload) => void uninstall.moveAndUninstall(payload.targetAgentId)}
+        onConfirmDelete={() => void uninstall.deleteAndUninstall()}
       />
 
-      <AcpDebugDialog open={debugOpen} agentId={debugAgentId} agentName={debugAgentName} onOpenChange={setDebugOpen} />
+      <AcpDebugDialog
+        open={Boolean(debugTarget)}
+        agentId={debugTarget?.id ?? ""}
+        agentName={debugTarget?.name ?? ""}
+        onOpenChange={(open) => !open && setDebugTarget(null)}
+      />
     </div>
   );
 }
-const AcpSettingsHeader = ({
+
+// ---------------------------------------------------------------------------
+// Layout pieces
+// ---------------------------------------------------------------------------
+
+const PageHeader = ({
   enabled,
   toggling,
   onToggle,
@@ -886,565 +844,470 @@ const AcpSettingsHeader = ({
   toggling: boolean;
   onToggle: (enabled: boolean) => void;
 }) => (
-  <div className="flex shrink-0 flex-col gap-2 border-b px-4 py-3">
-    <div className="flex items-start justify-between gap-4">
-      <div className="flex min-w-0 flex-col gap-1">
-        <h1 className="text-lg font-semibold tracking-tight">Agent Client Protocol</h1>
-        <p className="text-sm text-muted-foreground">Connect external coding agents to Argos.</p>
-      </div>
-      <div className="flex items-center gap-3">
-        <div className="text-right">
-          <div className="text-sm font-medium">ACP {enabled ? "enabled" : "disabled"}</div>
-          <p className="text-xs text-muted-foreground">Applies to all agents</p>
-        </div>
-        <Switch
-          aria-label="Enable Agent Client Protocol"
-          dir="ltr"
-          checked={enabled}
-          onCheckedChange={onToggle}
-          disabled={toggling}
-        />
-      </div>
-    </div>
-
-    {enabled && (
-      <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        <Icon icon="lucide:route" className="size-3.5 shrink-0" />
-        Install enables an agent and checks its default connection automatically.
+  <div className="flex shrink-0 items-start justify-between gap-4 border-b px-4 py-3">
+    <div className="flex min-w-0 flex-col gap-1">
+      <h1 className="text-lg font-semibold tracking-tight">ACP agents</h1>
+      <p className="text-sm text-muted-foreground">
+        Use external coding agents (Claude Code, Codex, Gemini, …) through the Agent Client Protocol.
       </p>
-    )}
-  </div>
-);
-const SharedMcpSection = ({
-  open,
-  onOpenChange,
-  sharedMcpCount,
-  onUpdateSelectionsCount,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  sharedMcpCount: number;
-  onUpdateSelectionsCount: (count: number) => void;
-}) => (
-  <Collapsible open={open} onOpenChange={onOpenChange} className="flex flex-col gap-4">
-    <div className="flex items-start justify-between gap-4">
-      <div>
-        <h2 className="text-base font-semibold">Shared MCP access</h2>
-        <p className="text-sm text-muted-foreground">Manage which MCP tools are shared with ACP agents</p>
-      </div>
-      <div className="flex items-center gap-2">
-        <Badge variant="outline">MCP Access: {sharedMcpCount}</Badge>
-        <Button size="sm" variant="outline" aria-expanded={open} onClick={() => onOpenChange(!open)}>
-          {open ? "Collapse" : "Expand"}
-        </Button>
-      </div>
     </div>
-    <CollapsibleContent>
-      <div className="rounded-xl border px-4 py-4">
-        <AgentMcpSelector onUpdateSelections={(selections: string[]) => onUpdateSelectionsCount(selections.length)} />
-      </div>
-    </CollapsibleContent>
-  </Collapsible>
-);
-const AgentsLoadingSkeleton = () => (
-  <div className="flex flex-col overflow-hidden rounded-xl border" aria-label="Loading agents">
-    {[0, 1].map((item) => (
-      <div key={item} className="flex items-center gap-3 border-b px-4 py-5 last:border-b-0">
-        <Skeleton className="size-10 shrink-0 rounded-lg" />
-        <div className="flex flex-1 flex-col gap-2">
-          <Skeleton className="h-4 w-36" />
-          <Skeleton className="h-3 w-64 max-w-full" />
-        </div>
-        <Skeleton className="h-8 w-20" />
-      </div>
-    ))}
+    <div className="flex shrink-0 items-center gap-2 pt-1">
+      {toggling && <Spinner />}
+      <label htmlFor="acp-master-switch" className="text-sm text-muted-foreground">
+        {enabled ? "On" : "Off"}
+      </label>
+      <Switch
+        id="acp-master-switch"
+        aria-label="Enable Agent Client Protocol"
+        dir="ltr"
+        checked={enabled}
+        onCheckedChange={onToggle}
+        disabled={toggling}
+      />
+    </div>
   </div>
 );
-const AgentsEmptyState = ({ onBrowseRegistry }: { onBrowseRegistry: () => void }) => (
-  <Empty className="border">
+
+const AcpDisabledState = ({ toggling, onEnable }: { toggling: boolean; onEnable: () => void }) => (
+  <Empty className="m-4 border">
     <EmptyHeader>
       <EmptyMedia variant="icon">
-        <Icon icon="lucide:bot" />
+        <Icon icon="lucide:plug-zap" />
       </EmptyMedia>
-      <EmptyTitle>No agents installed</EmptyTitle>
-      <EmptyDescription>Choose an ACP agent from the registry. Argos will install and enable it.</EmptyDescription>
+      <EmptyTitle>ACP agents are turned off</EmptyTitle>
+      <EmptyDescription>Turn on ACP to install agents from the registry or add your own.</EmptyDescription>
     </EmptyHeader>
     <EmptyContent>
-      <Button onClick={onBrowseRegistry}>
-        <Icon icon="lucide:download" />
-        Browse registry
+      <Button disabled={toggling} onClick={onEnable}>
+        {toggling ? <Spinner /> : <Icon icon="lucide:power" />}
+        Turn on ACP
       </Button>
     </EmptyContent>
   </Empty>
 );
-const RegistryAgentCard = ({
+
+const SectionHeader = ({
+  id,
+  title,
+  description,
+  action,
+}: {
+  id: string;
+  title: string;
+  description: string;
+  action?: React.ReactNode;
+}) => (
+  <div className="flex items-end justify-between gap-4">
+    <div className="min-w-0">
+      <h2 id={id} className="text-sm font-semibold">
+        {title}
+      </h2>
+      <p className="text-xs text-muted-foreground">{description}</p>
+    </div>
+    {action && <div className="flex shrink-0 items-center gap-2">{action}</div>}
+  </div>
+);
+
+const ListSkeleton = () => (
+  <div className="flex flex-col overflow-hidden rounded-xl border" aria-label="Loading agents">
+    {[0, 1].map((item) => (
+      <div key={item} className="flex items-center gap-3 border-b px-3 py-4 last:border-b-0">
+        <Skeleton className="size-8 shrink-0 rounded-lg" />
+        <div className="flex flex-1 flex-col gap-2">
+          <Skeleton className="h-4 w-36" />
+          <Skeleton className="h-3 w-64 max-w-full" />
+        </div>
+        <Skeleton className="h-5 w-9 rounded-full" />
+      </div>
+    ))}
+  </div>
+);
+
+const UpdatesBanner = ({
+  agents,
+  updatingAll,
+  onUpdateAll,
+}: {
+  agents: AcpRegistryAgent[];
+  updatingAll: boolean;
+  onUpdateAll: () => void;
+}) => (
+  <Alert className="border-amber-500/40 bg-amber-500/5">
+    <Icon icon="lucide:arrow-up-circle" className="text-amber-600" />
+    <AlertTitle>
+      {agents.length === 1 ? "1 agent update available" : `${agents.length} agent updates available`}
+    </AlertTitle>
+    <AlertDescription className="pr-28">
+      {agents.map((agent) => `${agent.name} ${versionLine(agent)} → v${agent.version}`).join(" · ")}
+    </AlertDescription>
+    <AlertAction>
+      <Button size="sm" disabled={updatingAll} onClick={onUpdateAll}>
+        {updatingAll ? <Spinner /> : <Icon icon="lucide:download" />}
+        {agents.length === 1 ? "Update" : "Update all"}
+      </Button>
+    </AlertAction>
+  </Alert>
+);
+
+const UpdateButton = ({
   agent,
-  configOpen,
-  pending,
-  envDraft,
-  checkRequest,
-  onConfigurationOpenChange,
-  onConfigurationToggle,
-  onToggleEnabled,
+  busy,
+  disabled,
   onUpdate,
-  onEnvDraftChange,
-  onSaveEnv,
-  onClearEnv,
-  onRepair,
-  onOpenInspector,
-  onConfirmUninstall,
-  onCheckRequestHandled,
 }: {
   agent: AcpRegistryAgent;
-  configOpen: boolean;
-  pending: boolean;
-  envDraft: string;
-  checkRequest: number;
-  onConfigurationOpenChange: (open: boolean) => void;
-  onConfigurationToggle: () => void;
-  onToggleEnabled: (agent: AcpRegistryAgent, enabled: boolean) => void;
-  onUpdate: (agent: AcpRegistryAgent) => void;
-  onEnvDraftChange: (agentId: string, value: string) => void;
-  onSaveEnv: (agent: AcpRegistryAgent) => void;
-  onClearEnv: (agent: AcpRegistryAgent) => void;
-  onRepair: (agent: AcpRegistryAgent) => void;
-  onOpenInspector: (agentId: string, agentName: string) => void;
-  onConfirmUninstall: (agent: AcpRegistryAgent) => void;
-  onCheckRequestHandled: (agentId: string, request: number) => void;
+  busy: boolean;
+  disabled: boolean;
+  onUpdate: () => void;
 }) => (
-  <Collapsible open={configOpen} onOpenChange={onConfigurationOpenChange}>
-    <article>
-      <div className="flex flex-col gap-3 px-3 py-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex min-w-0 items-start gap-3">
+  <Tooltip>
+    <TooltipTrigger
+      render={
+        <Button
+          size="sm"
+          variant="outline"
+          className="border-amber-500/40 text-amber-700 hover:bg-amber-500/10 hover:text-amber-700 dark:text-amber-400"
+          disabled={disabled}
+          onClick={onUpdate}
+        />
+      }
+    >
+      {busy ? <Spinner /> : <Icon icon="lucide:arrow-up-circle" />}
+      {busy ? "Updating" : `Update to v${agent.version}`}
+    </TooltipTrigger>
+    <TooltipContent>
+      {isPackageAgent(agent)
+        ? `${distributionLabel(agent)} package — the new version is fetched the next time the agent starts.`
+        : "Downloads and installs the new version."}
+    </TooltipContent>
+  </Tooltip>
+);
+
+// ---------------------------------------------------------------------------
+// Installed registry agent row
+// ---------------------------------------------------------------------------
+
+const InstalledAgentRow = ({
+  agent,
+  controller,
+  expanded,
+  onExpandedChange,
+  onOpenDebug,
+  onUninstall,
+}: {
+  agent: AcpRegistryAgent;
+  controller: Controller;
+  expanded: boolean;
+  onExpandedChange: (open: boolean) => void;
+  onOpenDebug: () => void;
+  onUninstall: () => void;
+}) => {
+  const pendingKind = controller.pending[agent.id];
+  const busy = Boolean(pendingKind) || controller.updatingAll;
+  const status = installStatus(agent);
+  const updateAvailable = hasAgentUpdate(agent);
+  const envValue = controller.getEnvValue(agent);
+  const envDirty = controller.isEnvDirty(agent);
+
+  return (
+    <Collapsible open={expanded} onOpenChange={onExpandedChange}>
+      <article>
+        <div className="flex items-center gap-3 px-3 py-3">
           <AcpAgentIcon
             agentId={agent.id}
             icon={agent.icon}
             alt={agent.name}
             fallbackText={agent.name}
-            customClass="size-8"
+            customClass="size-8 shrink-0"
           />
-          <div className="min-w-0">
-            <h3 className="truncate text-sm font-semibold">{agent.name}</h3>
-            <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
-              {agent.description || `Built-in ${agent.name} agent`}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <h3 className="truncate text-sm font-semibold">{agent.name}</h3>
+              {status === "error" && (
+                <Badge variant="outline" className="border-destructive/40 text-destructive">
+                  Needs repair
+                </Badge>
+              )}
+              {status === "installing" && <Badge variant="outline">Installing</Badge>}
+              {status === "installed" && !agent.enabled && <Badge variant="outline">Off</Badge>}
+            </div>
+            <p className="mt-0.5 truncate text-xs text-muted-foreground">
+              {versionLine(agent)}
+              {updateAvailable && (
+                <span className="text-amber-700 dark:text-amber-400"> · v{agent.version} available</span>
+              )}
+              {" · "}
+              {distributionLabel(agent)}
+              {agent.description ? ` · ${agent.description}` : ""}
             </p>
           </div>
+
+          <div className="flex shrink-0 items-center gap-1">
+            {updateAvailable && (
+              <UpdateButton
+                agent={agent}
+                busy={pendingKind === "update" || controller.bulkUpdatingId === agent.id}
+                disabled={busy}
+                onUpdate={() => void controller.updateAgent(agent)}
+              />
+            )}
+            {status === "error" && (
+              <Button size="sm" variant="outline" disabled={busy} onClick={() => void controller.repairAgent(agent)}>
+                {pendingKind === "repair" ? <Spinner /> : <Icon icon="lucide:wrench" />}
+                Repair
+              </Button>
+            )}
+            <div className="flex items-center px-1.5">
+              <Switch
+                aria-label={`${agent.enabled ? "Disable" : "Enable"} ${agent.name}`}
+                checked={agent.enabled}
+                disabled={busy || status !== "installed"}
+                onCheckedChange={(value) => void controller.setRegistryAgentEnabled(agent, value)}
+              />
+            </div>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    size="icon-sm"
+                    variant="ghost"
+                    aria-label={`${expanded ? "Hide" : "Show"} ${agent.name} settings`}
+                    aria-expanded={expanded}
+                    onClick={() => onExpandedChange(!expanded)}
+                  />
+                }
+              >
+                <Icon icon={expanded ? "lucide:chevron-up" : "lucide:settings-2"} />
+              </TooltipTrigger>
+              <TooltipContent>{expanded ? "Hide settings" : "Settings"}</TooltipContent>
+            </Tooltip>
+          </div>
         </div>
-        <div className="flex items-center gap-1 lg:justify-end">
-          {isUpdateAvailable(agent) && (
-            <>
-              {agent.distribution.binary ? (
+
+        {status === "error" && agent.installState?.error && (
+          <p className="mx-3 mb-3 rounded-md bg-destructive/10 px-2.5 py-1.5 font-mono text-xs break-words text-destructive">
+            {agent.installState.error}
+          </p>
+        )}
+
+        <AcpDiagnostics
+          agentId={agent.id}
+          agentName={agent.name}
+          launchSource={agent.source}
+          canRun={agent.enabled && status === "installed"}
+          autoCheckRequest={controller.connectionCheckRequests[agent.id] ?? 0}
+          onAutoCheckHandled={(request) => controller.consumeConnectionCheckRequest(agent.id, request)}
+        />
+
+        <CollapsibleContent>
+          <div className="flex flex-col gap-4 border-t bg-muted/20 px-3 py-4">
+            <dl className="grid gap-3 text-xs sm:grid-cols-4">
+              <DetailItem
+                label="Installed"
+                value={getInstalledVersion(agent) ? `v${getInstalledVersion(agent)}` : "—"}
+              />
+              <DetailItem label="Latest" value={`v${agent.version}`} />
+              <DetailItem label="Agent ID" value={agent.id} mono />
+              <DetailItem label="Command" value={buildPreviewCommand(agent)} mono />
+            </dl>
+
+            <Field>
+              <FieldLabel htmlFor={`acp-env-${agent.id}`}>Environment variables</FieldLabel>
+              <Textarea
+                id={`acp-env-${agent.id}`}
+                value={envValue}
+                onChange={(event) => controller.setEnvDraft(agent.id, event.target.value)}
+                className="min-h-24 font-mono text-xs"
+                placeholder="API_KEY=value"
+              />
+              <FieldDescription>One KEY=value per line. Passed to the agent process when it starts.</FieldDescription>
+            </Field>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Button size="sm" disabled={busy || !envDirty} onClick={() => void controller.saveEnv(agent, envValue)}>
+                {pendingKind === "env" && <Spinner />}
+                Save environment
+              </Button>
+              {envDirty && (
+                <Button size="sm" variant="ghost" disabled={busy} onClick={() => controller.discardEnvDraft(agent.id)}>
+                  Discard changes
+                </Button>
+              )}
+              <div className="ml-auto flex flex-wrap items-center gap-2">
                 <Button
                   size="sm"
-                  variant="outline"
-                  className="gap-1.5 border-amber-500/40 text-amber-600 hover:bg-amber-500/10 hover:text-amber-600"
-                  disabled={pending}
-                  onClick={() => void onUpdate(agent)}
+                  variant="ghost"
+                  disabled={!agent.enabled || busy}
+                  title={agent.enabled ? undefined : "Enable this agent first"}
+                  onClick={onOpenDebug}
                 >
-                  <Icon icon="lucide:arrow-up-circle" />
-                  Update
+                  <Icon icon="lucide:bug" />
+                  Debug console
                 </Button>
-              ) : (
-                <span
-                  className="px-2 text-xs text-muted-foreground"
-                  title="Package-based agents resolve the latest version at launch."
+                {status !== "error" && (
+                  <Button size="sm" variant="ghost" disabled={busy} onClick={() => void controller.repairAgent(agent)}>
+                    {pendingKind === "repair" ? <Spinner /> : <Icon icon="lucide:wrench" />}
+                    Reinstall
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-destructive hover:text-destructive"
+                  disabled={busy}
+                  onClick={onUninstall}
                 >
-                  Up to date at launch
-                </span>
-              )}
-            </>
-          )}
+                  <Icon icon="lucide:trash-2" />
+                  Uninstall
+                </Button>
+              </div>
+            </div>
+          </div>
+        </CollapsibleContent>
+      </article>
+    </Collapsible>
+  );
+};
+
+const DetailItem = ({ label, value, mono }: { label: string; value: string; mono?: boolean }) => (
+  <div className="min-w-0">
+    <dt className="font-medium text-foreground">{label}</dt>
+    <dd className={`truncate text-muted-foreground ${mono ? "font-mono" : ""}`} title={value}>
+      {value}
+    </dd>
+  </div>
+);
+
+// ---------------------------------------------------------------------------
+// Custom agent row + dialog
+// ---------------------------------------------------------------------------
+
+const ManualAgentRow = ({
+  agent,
+  controller,
+  onEdit,
+  onOpenDebug,
+  onDelete,
+}: {
+  agent: AcpManualAgent;
+  controller: Controller;
+  onEdit: () => void;
+  onOpenDebug: () => void;
+  onDelete: () => void;
+}) => {
+  const busy = Boolean(controller.pending[agent.id]);
+  return (
+    <article>
+      <div className="flex items-center gap-3 px-3 py-3">
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted">
+          <Icon icon="lucide:terminal-square" className="size-4" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <h3 className="truncate text-sm font-semibold">{agent.name}</h3>
+            {!agent.enabled && <Badge variant="outline">Off</Badge>}
+          </div>
+          <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">
+            {[agent.command, ...(agent.args ?? [])].join(" ")}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
           <div className="flex items-center px-1.5">
             <Switch
               aria-label={`${agent.enabled ? "Disable" : "Enable"} ${agent.name}`}
               checked={agent.enabled}
-              disabled={pending}
-              onCheckedChange={(value) => onToggleEnabled(agent, value)}
+              disabled={busy}
+              onCheckedChange={(value) => void controller.setManualAgentEnabled(agent, value)}
             />
           </div>
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  size="icon-sm"
-                  variant="ghost"
-                  aria-label={`${configOpen ? "Hide" : "Show"} ${agent.name} setup`}
-                  aria-expanded={configOpen}
-                  onClick={onConfigurationToggle}
-                />
-              }
-            >
-              <Icon icon="lucide:settings-2" />
-            </TooltipTrigger>
-            <TooltipContent>{configOpen ? "Hide setup" : "Configure agent"}</TooltipContent>
-          </Tooltip>
+          <IconAction icon="lucide:pencil" label={`Edit ${agent.name}`} tooltip="Edit" onClick={onEdit} />
+          <IconAction
+            icon="lucide:bug"
+            label={`Open ${agent.name} debug console`}
+            tooltip={agent.enabled ? "Debug console" : "Enable the agent first"}
+            disabled={!agent.enabled}
+            onClick={onOpenDebug}
+          />
+          <IconAction
+            icon="lucide:trash-2"
+            label={`Delete ${agent.name}`}
+            tooltip="Remove"
+            destructive
+            onClick={onDelete}
+          />
         </div>
       </div>
-
       <AcpDiagnostics
         agentId={agent.id}
         agentName={agent.name}
         launchSource={agent.source}
         canRun={agent.enabled}
-        autoCheckRequest={checkRequest}
-        onAutoCheckHandled={(request) => onCheckRequestHandled(agent.id, request)}
+        autoCheckRequest={controller.connectionCheckRequests[agent.id] ?? 0}
+        onAutoCheckHandled={(request) => controller.consumeConnectionCheckRequest(agent.id, request)}
       />
-
-      <CollapsibleContent>
-        <div className="flex flex-col gap-4 border-t px-3 py-3">
-          <dl className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-3">
-            <div>
-              <dt className="font-medium text-foreground">Agent ID</dt>
-              <dd className="truncate font-mono">{agent.id}</dd>
-            </div>
-            <div>
-              <dt className="font-medium text-foreground">Version</dt>
-              <dd className="truncate">{agent.version}</dd>
-            </div>
-            <div>
-              <dt className="font-medium text-foreground">Command</dt>
-              <dd className="truncate font-mono">{buildPreviewCommand(agent)}</dd>
-            </div>
-          </dl>
-
-          <Field>
-            <FieldLabel htmlFor={`acp-env-${agent.id}`}>Environment overrides</FieldLabel>
-            <Textarea
-              id={`acp-env-${agent.id}`}
-              value={envDraft}
-              onChange={(event) => onEnvDraftChange(agent.id, event.target.value)}
-              className="min-h-24 font-mono text-xs"
-              placeholder="KEY=value"
-            />
-            <FieldDescription>One KEY=value pair per line. Values are stored with this agent.</FieldDescription>
-          </Field>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <Button size="sm" disabled={pending} onClick={() => void onSaveEnv(agent)}>
-              {pending && <Spinner />}
-              Save environment
-            </Button>
-            <Button size="sm" variant="ghost" disabled={pending} onClick={() => void onClearEnv(agent)}>
-              Clear
-            </Button>
-            <Button size="sm" variant="outline" disabled={pending} onClick={() => void onRepair(agent)}>
-              <Icon icon="lucide:wrench" />
-              Repair installation
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={!agent.enabled || pending}
-              title={agent.enabled ? undefined : "Enable this agent before opening the debug console"}
-              onClick={() => onOpenInspector(agent.id, agent.name)}
-            >
-              <Icon icon="lucide:bug" />
-              Open debug console
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="text-destructive hover:text-destructive"
-              disabled={pending}
-              onClick={() => onConfirmUninstall(agent)}
-            >
-              <Icon icon="lucide:trash-2" />
-              Uninstall
-            </Button>
-          </div>
-        </div>
-      </CollapsibleContent>
     </article>
-  </Collapsible>
-);
-const AgentsSection = ({
-  loading,
-  agents,
-  agentPending,
-  agentConfigurationOpen,
-  envDrafts,
-  connectionCheckRequests,
-  onAddCustom,
-  onBrowseRegistry,
-  onConfigurationOpenChange,
-  onConfigurationToggle,
-  onToggleEnabled,
-  onUpdate,
-  onEnvDraftChange,
-  onSaveEnv,
-  onClearEnv,
-  onRepair,
-  onOpenInspector,
-  onConfirmUninstall,
-  onCheckRequestHandled,
-}: {
-  loading: boolean;
-  agents: AcpRegistryAgent[];
-  agentPending: Record<string, boolean>;
-  agentConfigurationOpen: Record<string, boolean>;
-  envDrafts: Record<string, string>;
-  connectionCheckRequests: Record<string, number>;
-  onAddCustom: () => void;
-  onBrowseRegistry: () => void;
-  onConfigurationOpenChange: (agentId: string, open: boolean) => void;
-  onConfigurationToggle: (agentId: string) => void;
-  onToggleEnabled: (agent: AcpRegistryAgent, enabled: boolean) => void;
-  onUpdate: (agent: AcpRegistryAgent) => void;
-  onEnvDraftChange: (agentId: string, value: string) => void;
-  onSaveEnv: (agent: AcpRegistryAgent) => void;
-  onClearEnv: (agent: AcpRegistryAgent) => void;
-  onRepair: (agent: AcpRegistryAgent) => void;
-  onOpenInspector: (agentId: string, agentName: string) => void;
-  onConfirmUninstall: (agent: AcpRegistryAgent) => void;
-  onCheckRequestHandled: (agentId: string, request: number) => void;
-}) => (
-  <section className="flex flex-col gap-4">
-    <div className="flex items-start justify-between gap-4">
-      <div>
-        <h2 className="text-sm font-semibold">Agents</h2>
-        <p className="text-xs text-muted-foreground">Manage installed agents and verify their connections.</p>
-      </div>
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        <Button size="sm" variant="outline" onClick={onAddCustom}>
-          <Icon icon="lucide:plus" />
-          Add custom
-        </Button>
-        <Button size="sm" onClick={onBrowseRegistry}>
-          <Icon icon="lucide:download" />
-          Browse registry
-        </Button>
-      </div>
-    </div>
+  );
+};
 
-    {loading && !agents.length ? (
-      <AgentsLoadingSkeleton />
-    ) : !agents.length ? (
-      <AgentsEmptyState onBrowseRegistry={onBrowseRegistry} />
-    ) : (
-      <div className="divide-y overflow-hidden rounded-xl border bg-card">
-        {agents.map((agent) => (
-          <RegistryAgentCard
-            key={agent.id}
-            agent={agent}
-            configOpen={Boolean(agentConfigurationOpen[agent.id])}
-            pending={Boolean(agentPending[agent.id])}
-            envDraft={envDrafts[agent.id] ?? ""}
-            checkRequest={connectionCheckRequests[agent.id] ?? 0}
-            onConfigurationOpenChange={(open) => onConfigurationOpenChange(agent.id, open)}
-            onConfigurationToggle={() => onConfigurationToggle(agent.id)}
-            onToggleEnabled={onToggleEnabled}
-            onUpdate={(target) => void onUpdate(target)}
-            onEnvDraftChange={onEnvDraftChange}
-            onSaveEnv={(target) => void onSaveEnv(target)}
-            onClearEnv={(target) => void onClearEnv(target)}
-            onRepair={(target) => void onRepair(target)}
-            onOpenInspector={onOpenInspector}
-            onConfirmUninstall={onConfirmUninstall}
-            onCheckRequestHandled={onCheckRequestHandled}
-          />
-        ))}
-      </div>
-    )}
-  </section>
-);
-const ManualAgentRow = ({
-  agent,
-  pending,
-  checkRequest,
-  onToggleEnabled,
-  onEdit,
-  onOpenInspector,
-  onDelete,
-  onCheckRequestHandled,
+const IconAction = ({
+  icon,
+  label,
+  tooltip,
+  disabled,
+  destructive,
+  onClick,
 }: {
-  agent: AcpManualAgent;
-  pending: boolean;
-  checkRequest: number;
-  onToggleEnabled: (agent: AcpManualAgent, value: boolean) => void;
-  onEdit: (agent: AcpManualAgent) => void;
-  onOpenInspector: (agentId: string, agentName: string) => void;
-  onDelete: (agent: AcpManualAgent) => void;
-  onCheckRequestHandled: (agentId: string, request: number) => void;
+  icon: string;
+  label: string;
+  tooltip: string;
+  disabled?: boolean;
+  destructive?: boolean;
+  onClick: () => void;
 }) => (
-  <article>
-    <div className="flex flex-col gap-3 px-3 py-3 lg:flex-row lg:items-center lg:justify-between">
-      <div className="flex min-w-0 items-start gap-3">
-        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted">
-          <Icon icon="lucide:terminal-square" className="size-4" />
-        </div>
-        <div className="min-w-0">
-          <h3 className="truncate text-sm font-semibold">{agent.name}</h3>
-          <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">{agent.command}</p>
-        </div>
-      </div>
-      <div className="flex items-center gap-1">
-        <div className="flex items-center px-1.5">
-          <Switch
-            aria-label={`${agent.enabled ? "Disable" : "Enable"} ${agent.name}`}
-            checked={agent.enabled}
-            disabled={pending}
-            onCheckedChange={(value) => onToggleEnabled(agent, value)}
-          />
-        </div>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button size="icon-sm" variant="ghost" aria-label={`Edit ${agent.name}`} onClick={() => onEdit(agent)} />
-            }
-          >
-            <Icon icon="lucide:pencil" />
-          </TooltipTrigger>
-          <TooltipContent>Edit agent</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                size="icon-sm"
-                variant="ghost"
-                aria-label={`Open ${agent.name} debug console`}
-                disabled={!agent.enabled}
-                onClick={() => onOpenInspector(agent.id, agent.name)}
-              />
-            }
-          >
-            <Icon icon="lucide:bug" />
-          </TooltipTrigger>
-          <TooltipContent>{agent.enabled ? "Open debug console" : "Enable the agent before debugging"}</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                size="icon-sm"
-                variant="ghost"
-                className="text-destructive hover:text-destructive"
-                aria-label={`Delete ${agent.name}`}
-                onClick={() => {
-                  if (window.confirm(`Delete agent "${agent.name}"?`)) {
-                    void onDelete(agent);
-                  }
-                }}
-              />
-            }
-          >
-            <Icon icon="lucide:trash-2" />
-          </TooltipTrigger>
-          <TooltipContent>Delete agent</TooltipContent>
-        </Tooltip>
-      </div>
-    </div>
-    <AcpDiagnostics
-      agentId={agent.id}
-      agentName={agent.name}
-      launchSource={agent.source}
-      canRun={agent.enabled}
-      autoCheckRequest={checkRequest}
-      onAutoCheckHandled={(request) => onCheckRequestHandled(agent.id, request)}
-    />
-  </article>
+  <Tooltip>
+    <TooltipTrigger
+      render={
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          className={destructive ? "text-destructive hover:text-destructive" : undefined}
+          aria-label={label}
+          disabled={disabled}
+          onClick={onClick}
+        />
+      }
+    >
+      <Icon icon={icon} />
+    </TooltipTrigger>
+    <TooltipContent>{tooltip}</TooltipContent>
+  </Tooltip>
 );
-const ManualAgentsSection = ({
-  loading,
-  open,
-  onOpenChange,
-  agents,
-  agentPending,
-  connectionCheckRequests,
-  onAddCustom,
-  onEdit,
-  onToggleEnabled,
-  onOpenInspector,
-  onDelete,
-  onCheckRequestHandled,
-}: {
-  loading: boolean;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  agents: AcpManualAgent[];
-  agentPending: Record<string, boolean>;
-  connectionCheckRequests: Record<string, number>;
-  onAddCustom: () => void;
-  onEdit: (agent: AcpManualAgent) => void;
-  onToggleEnabled: (agent: AcpManualAgent, value: boolean) => void;
-  onOpenInspector: (agentId: string, agentName: string) => void;
-  onDelete: (agent: AcpManualAgent) => void;
-  onCheckRequestHandled: (agentId: string, request: number) => void;
-}) => (
-  <Collapsible open={open} onOpenChange={onOpenChange} className="flex flex-col gap-4">
-    <div className="flex items-start justify-between gap-4">
-      <div>
-        <h2 className="text-sm font-semibold">Custom agents</h2>
-        <p className="text-xs text-muted-foreground">Agents configured with your own command and arguments.</p>
-      </div>
-      <div className="flex items-center gap-2">
-        <Button size="sm" variant="outline" aria-expanded={open} onClick={() => onOpenChange(!open)}>
-          {open ? "Collapse" : "Expand"}
-        </Button>
-      </div>
-    </div>
 
-    <CollapsibleContent>
-      {loading && !agents.length ? (
-        <Skeleton className="h-24 w-full" />
-      ) : !agents.length ? (
-        <Empty className="border py-8">
-          <EmptyHeader>
-            <EmptyTitle>No custom agents</EmptyTitle>
-            <EmptyDescription>Add one when an agent is not available in the registry.</EmptyDescription>
-          </EmptyHeader>
-          <EmptyContent>
-            <Button size="sm" variant="outline" onClick={onAddCustom}>
-              <Icon icon="lucide:plus" />
-              Add custom agent
-            </Button>
-          </EmptyContent>
-        </Empty>
-      ) : (
-        <div className="divide-y overflow-hidden rounded-xl border bg-card">
-          {agents.map((agent) => (
-            <ManualAgentRow
-              key={agent.id}
-              agent={agent}
-              pending={Boolean(agentPending[agent.id])}
-              checkRequest={connectionCheckRequests[agent.id] ?? 0}
-              onToggleEnabled={onToggleEnabled}
-              onEdit={onEdit}
-              onOpenInspector={onOpenInspector}
-              onDelete={onDelete}
-              onCheckRequestHandled={onCheckRequestHandled}
-            />
-          ))}
-        </div>
-      )}
-    </CollapsibleContent>
-  </Collapsible>
-);
 const ManualAgentDialog = ({
   state,
   dispatch,
   saving,
   onSave,
 }: {
-  state: ManualAgentDialogState;
-  dispatch: React.Dispatch<ManualAgentDialogAction>;
+  state: ManualAgentDraft;
+  dispatch: React.Dispatch<ManualAgentDraftAction>;
   saving: boolean;
   onSave: () => void;
 }) => (
-  <Dialog open={state.open} onOpenChange={(open) => dispatch({ type: open ? "OPEN" : "CLOSE" })}>
+  <Dialog open={state.open} onOpenChange={(open) => !open && dispatch({ type: "CLOSE" })}>
     <DialogContent className="sm:max-w-[560px]">
       <DialogHeader>
-        <DialogTitle>{state.editId ? "Edit Custom Agent" : "Add Custom Agent"}</DialogTitle>
-        <DialogDescription>Configure a custom ACP agent with command and arguments.</DialogDescription>
+        <DialogTitle>{state.editId ? "Edit custom agent" : "Add custom agent"}</DialogTitle>
+        <DialogDescription>Any command that speaks the Agent Client Protocol over stdio.</DialogDescription>
       </DialogHeader>
       <FieldGroup className="gap-4">
         <Field>
-          <FieldLabel htmlFor="acp-manual-name">Agent name</FieldLabel>
+          <FieldLabel htmlFor="acp-manual-name">Name</FieldLabel>
           <Input
             id="acp-manual-name"
             value={state.name}
-            onChange={(e) => dispatch({ type: "SET_NAME", value: e.target.value })}
-            placeholder="My Agent"
+            onChange={(e) => dispatch({ type: "SET", patch: { name: e.target.value } })}
+            placeholder="My agent"
           />
         </Field>
         <Field>
@@ -1452,8 +1315,9 @@ const ManualAgentDialog = ({
           <Input
             id="acp-manual-command"
             value={state.command}
-            onChange={(e) => dispatch({ type: "SET_COMMAND", value: e.target.value })}
-            placeholder="npx -y my-agent"
+            onChange={(e) => dispatch({ type: "SET", patch: { command: e.target.value } })}
+            className="font-mono"
+            placeholder="npx"
           />
         </Field>
         <Field>
@@ -1461,32 +1325,32 @@ const ManualAgentDialog = ({
           <Textarea
             id="acp-manual-args"
             value={state.argsText}
-            onChange={(e) => dispatch({ type: "SET_ARGS_TEXT", value: e.target.value })}
-            className="min-h-[96px] font-mono text-xs"
-            placeholder="--arg1&#10;--arg2"
+            onChange={(e) => dispatch({ type: "SET", patch: { argsText: e.target.value } })}
+            className="min-h-[80px] font-mono text-xs"
+            placeholder={"-y\nmy-acp-agent\n--acp"}
           />
-          <FieldDescription>Enter one argument per line.</FieldDescription>
+          <FieldDescription>One argument per line.</FieldDescription>
         </Field>
         <Field>
-          <FieldLabel htmlFor="acp-manual-env">Environment</FieldLabel>
+          <FieldLabel htmlFor="acp-manual-env">Environment variables</FieldLabel>
           <Textarea
             id="acp-manual-env"
             value={state.env}
-            onChange={(e) => dispatch({ type: "SET_ENV", value: e.target.value })}
-            className="min-h-[120px] font-mono text-xs"
-            placeholder="API_KEY=xxx"
+            onChange={(e) => dispatch({ type: "SET", patch: { env: e.target.value } })}
+            className="min-h-[80px] font-mono text-xs"
+            placeholder="API_KEY=value"
           />
-          <FieldDescription>Enter one KEY=value pair per line.</FieldDescription>
+          <FieldDescription>One KEY=value per line.</FieldDescription>
         </Field>
         <Field orientation="horizontal" className="rounded-lg border px-3 py-3">
           <div className="flex flex-1 flex-col gap-1">
             <FieldLabel htmlFor="acp-manual-enabled">Enabled</FieldLabel>
-            <FieldDescription>Make this agent available immediately after saving.</FieldDescription>
+            <FieldDescription>Make the agent available in chats right away.</FieldDescription>
           </div>
           <Switch
             id="acp-manual-enabled"
             checked={state.enabled}
-            onCheckedChange={(checked) => dispatch({ type: "SET_ENABLED", value: checked })}
+            onCheckedChange={(checked) => dispatch({ type: "SET", patch: { enabled: checked } })}
           />
         </Field>
       </FieldGroup>
@@ -1502,298 +1366,346 @@ const ManualAgentDialog = ({
     </DialogContent>
   </Dialog>
 );
-const RegistryCatalogRow = ({
-  agent,
-  pending,
-  onUpdate,
-  onCatalogAction,
-}: {
-  agent: AcpRegistryAgent;
-  pending: boolean;
-  onUpdate: (agent: AcpRegistryAgent) => void;
-  onCatalogAction: (agent: AcpRegistryAgent) => void;
-}) => (
-  <div key={agent.id} className="flex items-start gap-3 bg-card px-3 py-3 transition-colors hover:bg-accent/30">
-    <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/60 bg-muted/40">
-      <AcpAgentIcon
-        agentId={agent.id}
-        icon={agent.icon}
-        alt={agent.name}
-        fallbackText={agent.name}
-        customClass="size-6"
-      />
-    </div>
 
-    <div className="min-w-0 flex-1">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="truncate text-sm font-semibold">{agent.name}</span>
-            <Badge className={installBadgeClass(agent)} variant="outline">
-              {installBadgeLabel(agent)}
-            </Badge>
+// ---------------------------------------------------------------------------
+// Shared MCP
+// ---------------------------------------------------------------------------
+
+const SharedMcpSection = ({ count, onCountChange }: { count: number; onCountChange: (count: number) => void }) => {
+  const [open, setOpen] = useState(false);
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <section className="overflow-hidden rounded-xl border">
+        <button
+          type="button"
+          className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left transition-colors hover:bg-accent/40"
+          aria-expanded={open}
+          onClick={() => setOpen(!open)}
+        >
+          <div className="min-w-0">
+            <span className="block text-sm font-semibold">Shared MCP servers</span>
+            <p className="text-xs text-muted-foreground">
+              MCP servers every ACP agent can use, in addition to its own.
+            </p>
           </div>
-          <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
-            {agent.description || `Built-in ${agent.name} agent`}
-          </p>
-        </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <Badge variant="secondary">{count === 0 ? "None shared" : `${count} shared`}</Badge>
+            <Icon icon={open ? "lucide:chevron-up" : "lucide:chevron-down"} className="size-4 text-muted-foreground" />
+          </div>
+        </button>
+        <CollapsibleContent>
+          <div className="border-t px-4 py-4">
+            <AgentMcpSelector onUpdateSelections={(selections: string[]) => onCountChange(selections.length)} />
+          </div>
+        </CollapsibleContent>
+      </section>
+    </Collapsible>
+  );
+};
 
-        <div className="flex shrink-0 items-center gap-2">
-          {isUpdateAvailable(agent) &&
-            (agent.distribution.binary ? (
-              <Button
-                size="sm"
-                variant="outline"
-                className="border-amber-500/40 text-amber-600 hover:bg-amber-500/10 hover:text-amber-600"
-                disabled={pending || (agent.installState?.status ?? "not_installed") === "installing"}
-                onClick={() => void onUpdate(agent)}
-              >
-                <Icon icon="lucide:arrow-up-circle" />
-                Update
-              </Button>
-            ) : (
-              <span
-                className="px-1 text-xs text-muted-foreground"
-                title="Package-based agents resolve the latest version at launch."
-              >
-                Latest at launch
-              </span>
-            ))}
-          <Button
-            size="sm"
-            variant={registryActionVariant(agent)}
-            disabled={
-              pending ||
-              (agent.installState?.status ?? "not_installed") === "installing" ||
-              (agent.installState?.status === "installed" && agent.enabled)
-            }
-            onClick={() => void onCatalogAction(agent)}
-          >
-            <Icon
-              icon={registryActionIcon(agent)}
-              className={agent.installState?.status === "installing" ? "animate-spin" : undefined}
-            />
-            {registryActionLabel(agent)}
-          </Button>
-        </div>
-      </div>
+// ---------------------------------------------------------------------------
+// Registry dialog
+// ---------------------------------------------------------------------------
 
-      <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-        <span className="font-mono">{agent.id}</span>
-        <span aria-hidden="true">·</span>
-        <span>v{agent.version}</span>
-        {isUpdateAvailable(agent) && (
-          <>
-            <span aria-hidden="true">·</span>
-            <Badge variant="secondary">Update available</Badge>
-          </>
-        )}
-        {agent.repository && (
-          <>
-            <span aria-hidden="true">·</span>
-            <a
-              href={agent.repository}
-              target="_blank"
-              rel="noreferrer noopener"
-              title={agent.repository}
-              className="inline-flex items-center gap-1 transition-colors hover:text-foreground"
-            >
-              Repository
-              <Icon icon="lucide:external-link" className="size-3" />
-            </a>
-          </>
-        )}
-      </div>
-    </div>
-  </div>
-);
 const RegistryDialog = ({
   open,
   onOpenChange,
-  loading,
-  refreshing,
-  hasAnyAgents,
-  agents,
-  agentPending,
-  search,
-  onSearchChange,
-  filter,
-  onFilterChange,
-  onRefresh,
-  onUpdate,
-  onCatalogAction,
-  onClearFilters,
+  controller,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  loading: boolean;
-  refreshing: boolean;
-  hasAnyAgents: boolean;
-  agents: AcpRegistryAgent[];
-  agentPending: Record<string, boolean>;
-  search: string;
-  onSearchChange: (value: string) => void;
-  filter: RegistryDialogFilter;
-  onFilterChange: (filter: RegistryDialogFilter) => void;
-  onRefresh: () => void;
-  onUpdate: (agent: AcpRegistryAgent) => void;
-  onCatalogAction: (agent: AcpRegistryAgent) => void;
-  onClearFilters: () => void;
-}) => (
-  <Dialog open={open} onOpenChange={onOpenChange}>
-    <DialogContent showCloseButton={false} className="sm:max-w-[760px] p-0 overflow-hidden">
-      <div className="flex flex-col max-h-[80vh]">
-        <DialogHeader className="flex flex-col gap-4 border-b px-5 pt-5 pb-4 text-left">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-            <div className="flex flex-col gap-1">
-              <DialogTitle>Browse ACP registry</DialogTitle>
-              <DialogDescription>Install an agent and Argos will enable it automatically.</DialogDescription>
-            </div>
-            <div className="flex items-center gap-2 self-end lg:self-start">
-              <Button size="sm" variant="outline" disabled={refreshing} onClick={onRefresh}>
-                {refreshing ? <Spinner /> : <Icon icon="lucide:refresh-cw" />}
-                Refresh
-              </Button>
-              <Button size="icon" variant="ghost" aria-label="Close" onClick={() => onOpenChange(false)}>
-                <Icon icon="lucide:x" />
-              </Button>
-            </div>
-          </div>
+  controller: Controller;
+}) => {
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<RegistryFilter>("all");
 
-          <div className="flex flex-col gap-3">
+  const all = controller.data.registryAgents;
+  const counts: Record<RegistryFilter, number> = {
+    all: all.length,
+    installed: all.filter(isOnDevice).length,
+    available: all.filter((a) => !isOnDevice(a)).length,
+    updates: all.filter(hasAgentUpdate).length,
+  };
+  const keyword = search.trim().toLowerCase();
+  const visible = all.filter((agent) => {
+    if (
+      keyword &&
+      !agent.name.toLowerCase().includes(keyword) &&
+      !agent.id.toLowerCase().includes(keyword) &&
+      !(agent.description ?? "").toLowerCase().includes(keyword)
+    ) {
+      return false;
+    }
+    if (filter === "installed") return isOnDevice(agent);
+    if (filter === "available") return !isOnDevice(agent);
+    if (filter === "updates") return hasAgentUpdate(agent);
+    return true;
+  });
+
+  const filters: Array<{ id: RegistryFilter; label: string }> = [
+    { id: "all", label: "All" },
+    { id: "installed", label: "Installed" },
+    { id: "available", label: "Not installed" },
+    { id: "updates", label: "Updates" },
+  ];
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent showCloseButton={false} className="overflow-hidden p-0 sm:max-w-[760px]">
+        <div className="flex max-h-[80vh] flex-col">
+          <DialogHeader className="flex flex-col gap-4 border-b px-5 pt-5 pb-4 text-left">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex flex-col gap-1">
+                <DialogTitle>ACP registry</DialogTitle>
+                <DialogDescription>Install an agent and Argos enables it and checks its connection.</DialogDescription>
+              </div>
+              <div className="flex items-center gap-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={controller.refreshing}
+                  onClick={() => void controller.refreshRegistry()}
+                >
+                  {controller.refreshing ? <Spinner /> : <Icon icon="lucide:refresh-cw" />}
+                  Check for updates
+                </Button>
+                <Button size="icon" variant="ghost" aria-label="Close" onClick={() => onOpenChange(false)}>
+                  <Icon icon="lucide:x" />
+                </Button>
+              </div>
+            </div>
+
             <div className="relative">
               <Icon
                 icon="lucide:search"
-                className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
               />
               <Input
                 value={search}
-                onChange={(e) => onSearchChange(e.target.value)}
+                onChange={(e) => setSearch(e.target.value)}
                 className="pl-10"
                 placeholder="Search agents"
               />
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              <Button
-                size="sm"
-                variant={filter === "all" ? "default" : "outline"}
-                onClick={() => onFilterChange("all")}
-              >
-                All
-              </Button>
-              <Button
-                size="sm"
-                variant={filter === "installed" ? "default" : "outline"}
-                onClick={() => onFilterChange("installed")}
-              >
-                Installed
-              </Button>
-              <Button
-                size="sm"
-                variant={filter === "not_installed" ? "default" : "outline"}
-                onClick={() => onFilterChange("not_installed")}
-              >
-                Not Installed
-              </Button>
-            </div>
-          </div>
-        </DialogHeader>
-
-        <div className="flex-1 overflow-y-auto px-5 py-4">
-          {loading && !hasAnyAgents ? (
-            <div className="flex flex-col gap-3 py-4" aria-label="Loading registry">
-              {[0, 1, 2].map((item) => (
-                <div key={item} className="flex items-center gap-3">
-                  <Skeleton className="size-10 rounded-lg" />
-                  <div className="flex flex-1 flex-col gap-2">
-                    <Skeleton className="h-4 w-40" />
-                    <Skeleton className="h-3 w-full max-w-96" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : !agents.length ? (
-            <Empty className="py-10">
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <Icon icon="lucide:search-x" />
-                </EmptyMedia>
-                <EmptyTitle>No matching agents</EmptyTitle>
-                <EmptyDescription>Try a different search or clear the current filter.</EmptyDescription>
-              </EmptyHeader>
-              <EmptyContent>
-                <Button size="sm" variant="outline" onClick={onClearFilters}>
-                  Clear filters
+            <div className="flex flex-wrap gap-2" role="tablist">
+              {filters.map((item) => (
+                <Button
+                  key={item.id}
+                  size="sm"
+                  role="tab"
+                  aria-selected={filter === item.id}
+                  variant={filter === item.id ? "default" : "outline"}
+                  onClick={() => setFilter(item.id)}
+                >
+                  {item.label}
+                  <span className="text-xs opacity-70">{counts[item.id]}</span>
                 </Button>
-              </EmptyContent>
-            </Empty>
-          ) : (
-            <div className="divide-y overflow-hidden rounded-xl border">
-              {agents.map((agent) => (
-                <RegistryCatalogRow
-                  key={agent.id}
-                  agent={agent}
-                  pending={Boolean(agentPending[agent.id])}
-                  onUpdate={(target) => void onUpdate(target)}
-                  onCatalogAction={(target) => void onCatalogAction(target)}
-                />
               ))}
             </div>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto px-5 py-4">
+            {!controller.data.loaded ? (
+              <ListSkeleton />
+            ) : visible.length === 0 ? (
+              <Empty className="py-10">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <Icon icon={filter === "updates" ? "lucide:circle-check" : "lucide:search-x"} />
+                  </EmptyMedia>
+                  <EmptyTitle>
+                    {filter === "updates" && !keyword ? "Everything is up to date" : "No matching agents"}
+                  </EmptyTitle>
+                  <EmptyDescription>
+                    {filter === "updates" && !keyword
+                      ? "Use “Check for updates” to fetch the latest registry."
+                      : "Try a different search or filter."}
+                  </EmptyDescription>
+                </EmptyHeader>
+                {(keyword || filter !== "all") && (
+                  <EmptyContent>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setSearch("");
+                        setFilter("all");
+                      }}
+                    >
+                      Show all agents
+                    </Button>
+                  </EmptyContent>
+                )}
+              </Empty>
+            ) : (
+              <div className="divide-y overflow-hidden rounded-xl border">
+                {visible.map((agent) => (
+                  <RegistryCatalogRow key={agent.id} agent={agent} controller={controller} />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+const RegistryCatalogRow = ({ agent, controller }: { agent: AcpRegistryAgent; controller: Controller }) => {
+  const pendingKind = controller.pending[agent.id];
+  const busy = Boolean(pendingKind) || controller.updatingAll;
+  const status = installStatus(agent);
+  const updateAvailable = hasAgentUpdate(agent);
+
+  const primaryAction = (() => {
+    if (status === "installing" || pendingKind === "install") {
+      return (
+        <Button size="sm" disabled>
+          <Spinner />
+          Installing
+        </Button>
+      );
+    }
+    if (status === "error") {
+      return (
+        <Button size="sm" disabled={busy} onClick={() => void controller.repairAgent(agent)}>
+          {pendingKind === "repair" ? <Spinner /> : <Icon icon="lucide:wrench" />}
+          Repair
+        </Button>
+      );
+    }
+    if (status === "not_installed") {
+      return (
+        <Button size="sm" disabled={busy} onClick={() => void controller.installAgent(agent)}>
+          <Icon icon="lucide:download" />
+          Install
+        </Button>
+      );
+    }
+    if (updateAvailable) {
+      return (
+        <UpdateButton
+          agent={agent}
+          busy={pendingKind === "update" || controller.bulkUpdatingId === agent.id}
+          disabled={busy}
+          onUpdate={() => void controller.updateAgent(agent)}
+        />
+      );
+    }
+    if (!agent.enabled) {
+      return (
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={busy}
+          onClick={() => void controller.setRegistryAgentEnabled(agent, true)}
+        >
+          {pendingKind === "toggle" ? <Spinner /> : <Icon icon="lucide:power" />}
+          Enable
+        </Button>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1 px-2 text-xs text-muted-foreground">
+        <Icon icon="lucide:check" className="size-3.5" />
+        Installed
+      </span>
+    );
+  })();
+
+  return (
+    <div className="flex items-start gap-3 bg-card px-3 py-3 transition-colors hover:bg-accent/30">
+      <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/60 bg-muted/40">
+        <AcpAgentIcon
+          agentId={agent.id}
+          icon={agent.icon}
+          alt={agent.name}
+          fallbackText={agent.name}
+          customClass="size-6"
+        />
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <span className="truncate text-sm font-semibold">{agent.name}</span>
+            <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+              {agent.description || `${agent.name} ACP agent`}
+            </p>
+          </div>
+          <div className="shrink-0">{primaryAction}</div>
+        </div>
+
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+          <span>
+            {updateAvailable ? (
+              <>
+                {versionLine(agent)} → <span className="text-amber-700 dark:text-amber-400">v{agent.version}</span>
+              </>
+            ) : (
+              `v${agent.version}`
+            )}
+          </span>
+          <span aria-hidden="true">·</span>
+          <span>{distributionLabel(agent)}</span>
+          {agent.repository && (
+            <>
+              <span aria-hidden="true">·</span>
+              <a
+                href={agent.repository}
+                target="_blank"
+                rel="noreferrer noopener"
+                title={agent.repository}
+                className="inline-flex items-center gap-1 transition-colors hover:text-foreground"
+              >
+                Repository
+                <Icon icon="lucide:external-link" className="size-3" />
+              </a>
+            </>
           )}
         </div>
       </div>
-    </DialogContent>
-  </Dialog>
-);
-const UninstallAlertDialog = ({
-  open,
-  agent,
-  impactLoading,
-  hasConversations,
-  impactError,
-  onRetryImpact,
-  onOpenChange,
-  onCancel,
-  onConfirm,
-}: {
-  open: boolean;
-  agent: AcpRegistryAgent | null;
-  impactLoading: boolean;
-  hasConversations: boolean;
-  impactError: string | null;
-  onRetryImpact: () => void;
-  onOpenChange: (open: boolean) => void;
-  onCancel: () => void;
-  onConfirm: () => void;
-}) => (
-  <AlertDialog open={open} onOpenChange={onOpenChange}>
-    <AlertDialogContent>
-      <AlertDialogHeader>
-        <AlertDialogTitle>{agent ? `Uninstall ${agent.name}?` : "Uninstall Agent?"}</AlertDialogTitle>
-        <AlertDialogDescription>
-          {impactError ? (
-            <span className="text-destructive">Could not check conversations: {impactError}</span>
-          ) : hasConversations ? (
-            "This agent still has conversations. You can move them to another agent or delete them before removal. The agent and its configuration will be removed either way."
-          ) : impactLoading ? (
-            "Checking for related conversations..."
-          ) : (
-            "This will remove the agent and its configuration. You can reinstall it from the registry later."
-          )}
-        </AlertDialogDescription>
-      </AlertDialogHeader>
-      <AlertDialogFooter>
-        {impactError ? <AlertDialogAction onClick={onRetryImpact}>Retry</AlertDialogAction> : null}
-        <AlertDialogCancel onClick={onCancel}>Cancel</AlertDialogCancel>
-        <AlertDialogAction
-          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-          disabled={!agent || impactLoading || Boolean(impactError)}
-          onClick={onConfirm}
-        >
-          {hasConversations ? "Continue" : "Uninstall"}
-        </AlertDialogAction>
-      </AlertDialogFooter>
-    </AlertDialogContent>
-  </AlertDialog>
-);
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Uninstall confirm
+// ---------------------------------------------------------------------------
+
+const UninstallAlertDialog = ({ flow }: { flow: ReturnType<typeof useUninstallFlow> }) => {
+  const hasConversations = (flow.impact?.totalSessions ?? 0) > 0;
+  return (
+    <AlertDialog open={flow.confirmOpen} onOpenChange={flow.setConfirmOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{flow.agent ? `Uninstall ${flow.agent.name}?` : "Uninstall agent?"}</AlertDialogTitle>
+          <AlertDialogDescription>
+            {flow.impactError ? (
+              <span className="text-destructive">Could not check conversations: {flow.impactError}</span>
+            ) : flow.impactLoading ? (
+              "Checking for related conversations…"
+            ) : hasConversations ? (
+              "This agent still has conversations. Next you can move them to another agent or delete them."
+            ) : (
+              "The agent and its settings will be removed. You can reinstall it from the registry later."
+            )}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          {flow.impactError ? <AlertDialogAction onClick={() => flow.retry()}>Retry</AlertDialogAction> : null}
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            disabled={!flow.agent || flow.impactLoading || Boolean(flow.impactError)}
+            onClick={() => void flow.confirm()}
+          >
+            {flow.impactLoading && <Spinner />}
+            {hasConversations ? "Continue" : "Uninstall"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+};
