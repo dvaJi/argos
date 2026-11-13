@@ -54,6 +54,16 @@ const UpdateArgosAgentInputSchema = zod.object({
   config: ArgosAgentConfigSchema.nullable().optional(),
 });
 
+/**
+ * Thread-sidebar lifecycle timers (docs/features/thread-archive), in days;
+ * null = off. Defaults applied by the UI: settle 7, archive 30, delete off.
+ */
+export const ThreadSidebarLifecycleSettingsSchema = zod.object({
+  autoSettleDays: zod.number().int().positive().nullable(),
+  autoArchiveDays: zod.number().int().positive().nullable(),
+  autoDeleteDays: zod.number().int().positive().nullable(),
+});
+
 export const CONFIG_ENTRY_KEYS = [
   "init_complete",
   "preferredModel",
@@ -67,6 +77,7 @@ export const CONFIG_ENTRY_KEYS = [
   "providerTimestamps",
   "sidebar_group_mode",
   "thread_sidebar_enabled",
+  "thread_sidebar_lifecycle",
   "pi_enable_powershell_tool",
   "input_enabledMcpTools",
   "remoteControl",
@@ -87,6 +98,7 @@ export const ConfigEntryValuesSchema = zod.object({
   providerTimestamps: zod.record(zod.string(), zod.number().int()),
   sidebar_group_mode: zod.string(),
   thread_sidebar_enabled: zod.boolean(),
+  thread_sidebar_lifecycle: ThreadSidebarLifecycleSettingsSchema,
   pi_enable_powershell_tool: zod.boolean(),
   input_enabledMcpTools: zod.array(zod.string()),
   // Remote-control config is a large nested blob owned/validated by
@@ -143,6 +155,10 @@ export const ConfigEntryChangeSchema = zod.discriminatedUnion("key", [
   zod.object({
     key: zod.literal("thread_sidebar_enabled"),
     value: zod.boolean(),
+  }),
+  zod.object({
+    key: zod.literal("thread_sidebar_lifecycle"),
+    value: ThreadSidebarLifecycleSettingsSchema,
   }),
   zod.object({
     key: zod.literal("pi_enable_powershell_tool"),

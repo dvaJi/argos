@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as MainRouteImport } from './routes/_main'
+import { Route as ArchiveRouteImport } from './routes/archive'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as UsageRouteImport } from './routes/usage'
 import { Route as MainIndexRouteImport } from './routes/_main/index'
@@ -28,6 +29,7 @@ import { Route as SettingsMcpRouteImport } from './routes/settings/mcp'
 import { Route as SettingsNotificationsHooksRouteImport } from './routes/settings/notifications-hooks'
 import { Route as SettingsOverviewRouteImport } from './routes/settings/overview'
 import { Route as SettingsPluginsRouteImport } from './routes/settings/plugins'
+import { Route as SettingsProjectsRouteImport } from './routes/settings/projects'
 import { Route as SettingsPromptRouteImport } from './routes/settings/prompt'
 import { Route as SettingsProviderRouteImport } from './routes/settings/provider'
 import { Route as SettingsRemoteRouteImport } from './routes/settings/remote'
@@ -35,11 +37,17 @@ import { Route as SettingsScheduledTasksRouteImport } from './routes/settings/sc
 import { Route as SettingsServerRouteImport } from './routes/settings/server'
 import { Route as SettingsShortcutRouteImport } from './routes/settings/shortcut'
 import { Route as SettingsSkillsRouteImport } from './routes/settings/skills'
+import { Route as SettingsToolchainsRouteImport } from './routes/settings/toolchains'
 import { Route as SettingsProviderIndexRouteImport } from './routes/settings/provider/index'
 import { Route as SettingsProviderProviderIdRouteImport } from './routes/settings/provider/$providerId'
 
 const MainRoute = MainRouteImport.update({
   id: '/_main',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ArchiveRoute = ArchiveRouteImport.update({
+  id: '/archive',
+  path: '/archive',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsRoute = SettingsRouteImport.update({
@@ -133,6 +141,11 @@ const SettingsPluginsRoute = SettingsPluginsRouteImport.update({
   path: '/plugins',
   getParentRoute: () => SettingsRoute,
 } as any)
+const SettingsProjectsRoute = SettingsProjectsRouteImport.update({
+  id: '/projects',
+  path: '/projects',
+  getParentRoute: () => SettingsRoute,
+} as any)
 const SettingsPromptRoute = SettingsPromptRouteImport.update({
   id: '/prompt',
   path: '/prompt',
@@ -168,6 +181,11 @@ const SettingsSkillsRoute = SettingsSkillsRouteImport.update({
   path: '/skills',
   getParentRoute: () => SettingsRoute,
 } as any)
+const SettingsToolchainsRoute = SettingsToolchainsRouteImport.update({
+  id: '/toolchains',
+  path: '/toolchains',
+  getParentRoute: () => SettingsRoute,
+} as any)
 const SettingsProviderIndexRoute = SettingsProviderIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -182,6 +200,7 @@ const SettingsProviderProviderIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof MainIndexRoute
+  '/archive': typeof ArchiveRoute
   '/settings': typeof SettingsRouteWithChildren
   '/usage': typeof UsageRoute
   '/chat': typeof MainChatRoute
@@ -198,6 +217,7 @@ export interface FileRoutesByFullPath {
   '/settings/notifications-hooks': typeof SettingsNotificationsHooksRoute
   '/settings/overview': typeof SettingsOverviewRoute
   '/settings/plugins': typeof SettingsPluginsRoute
+  '/settings/projects': typeof SettingsProjectsRoute
   '/settings/prompt': typeof SettingsPromptRoute
   '/settings/provider': typeof SettingsProviderRouteWithChildren
   '/settings/remote': typeof SettingsRemoteRoute
@@ -205,11 +225,13 @@ export interface FileRoutesByFullPath {
   '/settings/server': typeof SettingsServerRoute
   '/settings/shortcut': typeof SettingsShortcutRoute
   '/settings/skills': typeof SettingsSkillsRoute
+  '/settings/toolchains': typeof SettingsToolchainsRoute
   '/settings/': typeof SettingsIndexRoute
   '/settings/provider/$providerId': typeof SettingsProviderProviderIdRoute
   '/settings/provider/': typeof SettingsProviderIndexRoute
 }
 export interface FileRoutesByTo {
+  '/archive': typeof ArchiveRoute
   '/usage': typeof UsageRoute
   '/chat': typeof MainChatRoute
   '/welcome': typeof MainWelcomeRoute
@@ -225,12 +247,14 @@ export interface FileRoutesByTo {
   '/settings/notifications-hooks': typeof SettingsNotificationsHooksRoute
   '/settings/overview': typeof SettingsOverviewRoute
   '/settings/plugins': typeof SettingsPluginsRoute
+  '/settings/projects': typeof SettingsProjectsRoute
   '/settings/prompt': typeof SettingsPromptRoute
   '/settings/remote': typeof SettingsRemoteRoute
   '/settings/scheduled-tasks': typeof SettingsScheduledTasksRoute
   '/settings/server': typeof SettingsServerRoute
   '/settings/shortcut': typeof SettingsShortcutRoute
   '/settings/skills': typeof SettingsSkillsRoute
+  '/settings/toolchains': typeof SettingsToolchainsRoute
   '/': typeof MainIndexRoute
   '/settings': typeof SettingsIndexRoute
   '/settings/provider/$providerId': typeof SettingsProviderProviderIdRoute
@@ -239,6 +263,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_main': typeof MainRouteWithChildren
+  '/archive': typeof ArchiveRoute
   '/settings': typeof SettingsRouteWithChildren
   '/usage': typeof UsageRoute
   '/_main/chat': typeof MainChatRoute
@@ -255,6 +280,7 @@ export interface FileRoutesById {
   '/settings/notifications-hooks': typeof SettingsNotificationsHooksRoute
   '/settings/overview': typeof SettingsOverviewRoute
   '/settings/plugins': typeof SettingsPluginsRoute
+  '/settings/projects': typeof SettingsProjectsRoute
   '/settings/prompt': typeof SettingsPromptRoute
   '/settings/provider': typeof SettingsProviderRouteWithChildren
   '/settings/remote': typeof SettingsRemoteRoute
@@ -262,6 +288,7 @@ export interface FileRoutesById {
   '/settings/server': typeof SettingsServerRoute
   '/settings/shortcut': typeof SettingsShortcutRoute
   '/settings/skills': typeof SettingsSkillsRoute
+  '/settings/toolchains': typeof SettingsToolchainsRoute
   '/_main/': typeof MainIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/settings/provider/$providerId': typeof SettingsProviderProviderIdRoute
@@ -271,6 +298,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/archive'
     | '/settings'
     | '/usage'
     | '/chat'
@@ -287,6 +315,7 @@ export interface FileRouteTypes {
     | '/settings/notifications-hooks'
     | '/settings/overview'
     | '/settings/plugins'
+    | '/settings/projects'
     | '/settings/prompt'
     | '/settings/provider'
     | '/settings/remote'
@@ -294,11 +323,13 @@ export interface FileRouteTypes {
     | '/settings/server'
     | '/settings/shortcut'
     | '/settings/skills'
+    | '/settings/toolchains'
     | '/settings/'
     | '/settings/provider/$providerId'
     | '/settings/provider/'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/archive'
     | '/usage'
     | '/chat'
     | '/welcome'
@@ -314,12 +345,14 @@ export interface FileRouteTypes {
     | '/settings/notifications-hooks'
     | '/settings/overview'
     | '/settings/plugins'
+    | '/settings/projects'
     | '/settings/prompt'
     | '/settings/remote'
     | '/settings/scheduled-tasks'
     | '/settings/server'
     | '/settings/shortcut'
     | '/settings/skills'
+    | '/settings/toolchains'
     | '/'
     | '/settings'
     | '/settings/provider/$providerId'
@@ -327,6 +360,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_main'
+    | '/archive'
     | '/settings'
     | '/usage'
     | '/_main/chat'
@@ -343,6 +377,7 @@ export interface FileRouteTypes {
     | '/settings/notifications-hooks'
     | '/settings/overview'
     | '/settings/plugins'
+    | '/settings/projects'
     | '/settings/prompt'
     | '/settings/provider'
     | '/settings/remote'
@@ -350,6 +385,7 @@ export interface FileRouteTypes {
     | '/settings/server'
     | '/settings/shortcut'
     | '/settings/skills'
+    | '/settings/toolchains'
     | '/_main/'
     | '/settings/'
     | '/settings/provider/$providerId'
@@ -358,6 +394,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   MainRoute: typeof MainRouteWithChildren
+  ArchiveRoute: typeof ArchiveRoute
   SettingsRoute: typeof SettingsRouteWithChildren
   UsageRoute: typeof UsageRoute
 }
@@ -369,6 +406,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof MainRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/archive': {
+      id: '/archive'
+      path: '/archive'
+      fullPath: '/archive'
+      preLoaderRoute: typeof ArchiveRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings': {
@@ -497,6 +541,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsPluginsRouteImport
       parentRoute: typeof SettingsRoute
     }
+    '/settings/projects': {
+      id: '/settings/projects'
+      path: '/projects'
+      fullPath: '/settings/projects'
+      preLoaderRoute: typeof SettingsProjectsRouteImport
+      parentRoute: typeof SettingsRoute
+    }
     '/settings/prompt': {
       id: '/settings/prompt'
       path: '/prompt'
@@ -544,6 +595,13 @@ declare module '@tanstack/react-router' {
       path: '/skills'
       fullPath: '/settings/skills'
       preLoaderRoute: typeof SettingsSkillsRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/toolchains': {
+      id: '/settings/toolchains'
+      path: '/toolchains'
+      fullPath: '/settings/toolchains'
+      preLoaderRoute: typeof SettingsToolchainsRouteImport
       parentRoute: typeof SettingsRoute
     }
     '/settings/provider/': {
@@ -603,6 +661,7 @@ interface SettingsRouteChildren {
   SettingsNotificationsHooksRoute: typeof SettingsNotificationsHooksRoute
   SettingsOverviewRoute: typeof SettingsOverviewRoute
   SettingsPluginsRoute: typeof SettingsPluginsRoute
+  SettingsProjectsRoute: typeof SettingsProjectsRoute
   SettingsPromptRoute: typeof SettingsPromptRoute
   SettingsProviderRoute: typeof SettingsProviderRouteWithChildren
   SettingsRemoteRoute: typeof SettingsRemoteRoute
@@ -610,6 +669,7 @@ interface SettingsRouteChildren {
   SettingsServerRoute: typeof SettingsServerRoute
   SettingsShortcutRoute: typeof SettingsShortcutRoute
   SettingsSkillsRoute: typeof SettingsSkillsRoute
+  SettingsToolchainsRoute: typeof SettingsToolchainsRoute
   SettingsIndexRoute: typeof SettingsIndexRoute
 }
 
@@ -626,6 +686,7 @@ const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsNotificationsHooksRoute: SettingsNotificationsHooksRoute,
   SettingsOverviewRoute: SettingsOverviewRoute,
   SettingsPluginsRoute: SettingsPluginsRoute,
+  SettingsProjectsRoute: SettingsProjectsRoute,
   SettingsPromptRoute: SettingsPromptRoute,
   SettingsProviderRoute: SettingsProviderRouteWithChildren,
   SettingsRemoteRoute: SettingsRemoteRoute,
@@ -633,6 +694,7 @@ const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsServerRoute: SettingsServerRoute,
   SettingsShortcutRoute: SettingsShortcutRoute,
   SettingsSkillsRoute: SettingsSkillsRoute,
+  SettingsToolchainsRoute: SettingsToolchainsRoute,
   SettingsIndexRoute: SettingsIndexRoute,
 }
 
@@ -642,6 +704,7 @@ const SettingsRouteWithChildren = SettingsRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   MainRoute: MainRouteWithChildren,
+  ArchiveRoute: ArchiveRoute,
   SettingsRoute: SettingsRouteWithChildren,
   UsageRoute: UsageRoute,
 }

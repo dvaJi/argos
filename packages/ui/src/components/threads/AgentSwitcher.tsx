@@ -10,7 +10,7 @@ import {
 } from "#shadcn/components/ui/dropdown-menu";
 import { agentStore, setSelectedAgent } from "#/stores/ui/agent";
 import { sessionStore } from "#/stores/ui/session";
-import { useThreadSidebarStore } from "#/stores/ui/threadSidebar";
+import { useIsSessionSettled } from "#/stores/ui/threadSidebar";
 import AgentAvatar from "../icons/AgentAvatar";
 import { resolveEffectiveAgent } from "#/lib/effectiveAgent";
 import { cn } from "#/lib/utils";
@@ -40,7 +40,7 @@ interface AgentSwitcherProps {
 export default function AgentSwitcher({ variant = "topbar", className }: AgentSwitcherProps) {
   const { agents, selectedAgentId } = useSelector(agentStore);
   const { activeSessionId, sessions } = useSelector(sessionStore);
-  const { settledAtById } = useThreadSidebarStore();
+  const activeSessionSettled = useIsSessionSettled(activeSessionId);
   const enabledAgents = agents.filter((a) => a.enabled);
   const currentAgent = (() => {
     const activeSession = activeSessionId ? (sessions.find((s) => s.id === activeSessionId) ?? null) : null;
@@ -55,7 +55,7 @@ export default function AgentSwitcher({ variant = "topbar", className }: AgentSw
     const active = sessions.find((s) => s.id === activeSessionId);
     if (!active) return true;
     if (active.agentId === targetAgentId) return true;
-    return active.id in settledAtById;
+    return activeSessionSettled;
   };
   const handleSelect = (targetAgentId: string) => {
     if (!canSwitchTo(targetAgentId)) return;

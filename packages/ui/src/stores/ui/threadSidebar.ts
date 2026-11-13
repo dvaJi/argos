@@ -1,61 +1,76 @@
 import { Store } from "@tanstack/store";
 import { useSelector } from "@tanstack/react-store";
+import { useEffect, useState } from "react";
 import { createConfigClient } from "../../../api/ConfigClient";
-import { sessionStore, type UISession } from "./session";
+import { onSessionUnarchived, sessionStore, type UISession } from "./session";
 import {
-  diffWorkingTransitions,
+  DEFAULT_LIFECYCLE_SETTINGS,
+  daysToMs,
+  normalizeLifecycleSettings,
+  resolveSettled,
+  type LifecycleContext,
+  type LifecycleSettings,
+} from "#/components/threads/threadSidebarLogic";
+import {
+  diffSessionTransitions,
   omitKey,
-  parseSettledRecord,
+  parseOverrideRecord,
+  parseSnoozeRecord,
+  parseTimestampRecord,
   pruneLifecycleEntries,
-  type SettledAtMap,
-  type SnoozedUntilMap,
+  type OverrideMap,
+  type SnoozeMap,
+  type TimestampMap,
 } from "./threadSidebarState";
 
 /**
- * Thread sidebar experiment state (v2, t3code parity —
- * docs/features/thread-sidebar-t3-parity; fixes in docs/issues/thread-sidebar-fixes,
- * polish in docs/features/thread-sidebar-polish).
+ * Thread sidebar experiment state (v3, t3code inbox model —
+ * docs/features/thread-sidebar-v3).
  *
- * When enabled, the main left sidebar renders a t3code-style thread
- * lifecycle view (Pinned / Active / Snoozed / Settled) instead of the
- * agent/project history grouping. The flag is daemon-persisted
- * (`thread_sidebar_enabled` config entry), off by default, toggled from
- * Settings → Appearance.
+ * When enabled, the main left sidebar renders a t3code-style lifecycle view
+ * (Pinned / Active / Working / Snoozed / Settled) instead of the agent/project
+ * history grouping. The flag is daemon-persisted (`thread_sidebar_enabled`),
+ * off by default, toggled from Settings → Appearance.
  *
- * Client-side lifecycle state (the experiment has no daemon schema):
- *  - `settledAtById`: settled flag + timestamp per session (v2 storage; v1
- *    boolean values migrate to timestamp 0 = unknown, sorted by updatedAt).
- *  - `snoozedUntilById`: absolute wake time per session. UI-only snooze —
- *    wake evaluation happens in the renderer; entries are kept after waking
- *    so rows can show a "Woke" pill until the thread is opened.
- *  - `workingSinceById`: persisted so the live "Working Ns" pill survives
- *    restarts instead of resetting to 0s.
- *  - `settledShelfExpanded` / `snoozedShelfExpanded`: shelf collapse states.
+ * Lifecycle state is renderer-local (the daemon has no schema for it):
+ *  - `overrideById`: manual settle / un-settle (un-settle exempts auto-settle).
+ *  - `snoozeById`: wake time + snoozed-at (+ early wake). Kept after waking so
+ *    rows show "Woke" until the thread is opened or the notice dismissed.
+ *  - `workingSinceById`: last send time; drives the Working sort + elapsed pill.
+ *  - `returnedAtById`: observed working → idle time; drives the inbox sort.
+ *  - shelf flags (collapsed by default, like t3code).
  *
- * Pure pieces of this module (storage parsing, working-since diffing,
- * pruning) live in `threadSidebarState.ts` for direct unit testing.
+ * Pure pieces live in `threadSidebarState.ts`; view rules in
+ * `components/threads/threadSidebarLogic.ts`.
  */
 
 const THREAD_SIDEBAR_ENABLED_KEY = "thread_sidebar_enabled";
-const SETTLED_STORAGE_KEY = "argos:thread-sidebar:settled";
+const THREAD_SIDEBAR_LIFECYCLE_KEY = "thread_sidebar_lifecycle";
+const OVERRIDE_STORAGE_KEY = "argos:thread-sidebar:override";
+const LEGACY_SETTLED_STORAGE_KEY = "argos:thread-sidebar:settled";
 const SNOOZED_STORAGE_KEY = "argos:thread-sidebar:snoozed";
-const SETTLED_SHELF_EXPANDED_KEY = "argos:thread-sidebar:settled-expanded";
-const SNOOZED_SHELF_EXPANDED_KEY = "argos:thread-sidebar:snoozed-expanded";
 const WORKING_SINCE_STORAGE_KEY = "argos:thread-sidebar:working-since";
+const RETURNED_AT_STORAGE_KEY = "argos:thread-sidebar:returned-at";
+const SHELF_KEYS = {
+  working: "argos:thread-sidebar:working-expanded",
+  snoozed: "argos:thread-sidebar:snoozed-expanded",
+  settled: "argos:thread-sidebar:settled-expanded",
+} as const;
 
-const LIFECYCLE_STORAGE_KEYS = new Set([
-  SETTLED_STORAGE_KEY,
+export type ThreadShelf = keyof typeof SHELF_KEYS;
+
+const SYNCED_STORAGE_KEYS = new Set<string>([
+  OVERRIDE_STORAGE_KEY,
   SNOOZED_STORAGE_KEY,
-  SETTLED_SHELF_EXPANDED_KEY,
-  SNOOZED_SHELF_EXPANDED_KEY,
+  RETURNED_AT_STORAGE_KEY,
+  ...Object.values(SHELF_KEYS),
 ]);
 
-function readJson<T>(key: string): T | null {
+function readJson(key: string): unknown {
   if (typeof window === "undefined") return null;
   try {
     const raw = window.localStorage.getItem(key);
-    if (!raw) return null;
-    return JSON.parse(raw) as T;
+    return raw ? (JSON.parse(raw) as unknown) : null;
   } catch {
     return null;
   }
@@ -70,74 +85,71 @@ function writeJson(key: string, value: unknown): void {
   }
 }
 
-function loadSettledFromStorage(): SettledAtMap {
-  return parseSettledRecord(readJson<unknown>(SETTLED_STORAGE_KEY));
-}
+const loadOverrides = (): OverrideMap =>
+  parseOverrideRecord(readJson(OVERRIDE_STORAGE_KEY), readJson(LEGACY_SETTLED_STORAGE_KEY));
+const loadSnoozes = (): SnoozeMap => parseSnoozeRecord(readJson(SNOOZED_STORAGE_KEY));
+// t3code defaults every shelf to collapsed.
+const loadShelf = (shelf: ThreadShelf): boolean => readJson(SHELF_KEYS[shelf]) === true;
 
-function loadSnoozedFromStorage(): SnoozedUntilMap {
-  const raw = readJson<Record<string, unknown>>(SNOOZED_STORAGE_KEY);
-  const next: SnoozedUntilMap = {};
-  if (!raw) return next;
-  for (const [id, until] of Object.entries(raw)) {
-    if (typeof until === "number" && until > 0) next[id] = until;
-  }
-  return next;
-}
+const persistOverrides = (byId: OverrideMap) => writeJson(OVERRIDE_STORAGE_KEY, { v: 3, byId });
+const persistSnoozes = (byId: SnoozeMap) => writeJson(SNOOZED_STORAGE_KEY, { v: 2, byId });
+const persistWorkingSince = (byId: TimestampMap) => writeJson(WORKING_SINCE_STORAGE_KEY, byId);
+const persistReturnedAt = (byId: TimestampMap) => writeJson(RETURNED_AT_STORAGE_KEY, byId);
 
-function loadShelfExpanded(key: string): boolean {
-  const raw = readJson<boolean>(key);
-  // t3code defaults both shelves to expanded.
-  return typeof raw === "boolean" ? raw : true;
-}
-
-function persistWorkingSince(workingSinceById: Record<string, number>): void {
-  writeJson(WORKING_SINCE_STORAGE_KEY, workingSinceById);
-}
-
-export const threadSidebarStore = new Store<{
+export interface ThreadSidebarState {
   enabled: boolean;
   enabledLoaded: boolean;
-  workingSinceById: Record<string, number>;
-  settledAtById: SettledAtMap;
-  snoozedUntilById: SnoozedUntilMap;
-  settledShelfExpanded: boolean;
-  snoozedShelfExpanded: boolean;
-}>({
+  overrideById: OverrideMap;
+  snoozeById: SnoozeMap;
+  workingSinceById: TimestampMap;
+  returnedAtById: TimestampMap;
+  shelfExpanded: Record<ThreadShelf, boolean>;
+  /** Settle / archive / delete timers (daemon-persisted config entry). */
+  lifecycleSettings: LifecycleSettings;
+  /** Sweeps wait for the persisted timers so defaults never act on a user's "Off". */
+  lifecycleLoaded: boolean;
+}
+
+export const threadSidebarStore = new Store<ThreadSidebarState>({
   enabled: false,
   enabledLoaded: false,
-  workingSinceById: (() => {
-    // Drop persisted entries for sessions that are no longer working at load
-    // time. Sessions usually load after this module initializes, so entries
-    // for still-working sessions are kept here and re-validated by the
-    // first-observation diff below once the session list arrives.
-    const persisted = readJson<Record<string, unknown>>(WORKING_SINCE_STORAGE_KEY);
-    const next: Record<string, number> = {};
-    if (!persisted) return next;
-    for (const [id, since] of Object.entries(persisted)) {
-      if (typeof since === "number" && since > 0) next[id] = since;
-    }
-    return next;
-  })(),
-  settledAtById: loadSettledFromStorage(),
-  snoozedUntilById: loadSnoozedFromStorage(),
-  settledShelfExpanded: loadShelfExpanded(SETTLED_SHELF_EXPANDED_KEY),
-  snoozedShelfExpanded: loadShelfExpanded(SNOOZED_SHELF_EXPANDED_KEY),
+  overrideById: loadOverrides(),
+  snoozeById: loadSnoozes(),
+  workingSinceById: parseTimestampRecord(readJson(WORKING_SINCE_STORAGE_KEY)),
+  returnedAtById: parseTimestampRecord(readJson(RETURNED_AT_STORAGE_KEY)),
+  shelfExpanded: { working: loadShelf("working"), snoozed: loadShelf("snoozed"), settled: loadShelf("settled") },
+  lifecycleSettings: DEFAULT_LIFECYCLE_SETTINGS,
+  lifecycleLoaded: false,
 });
 
 const configClient = createConfigClient();
 
-// Live-sync the experiment flag: the daemon/desktop publish
-// `config.entries.changed` after `config.updateEntries`, so a toggle in
-// the settings window applies to the main window immediately (no restart).
-if (typeof window !== "undefined") {
-  configClient.onEntriesChanged((payload) => {
-    if (payload.changedKeys.includes(THREAD_SIDEBAR_ENABLED_KEY)) {
-      void loadThreadSidebarEnabled();
-    }
-  });
+export async function loadThreadSidebarLifecycle(): Promise<void> {
+  try {
+    const raw = await configClient.getSetting(THREAD_SIDEBAR_LIFECYCLE_KEY);
+    threadSidebarStore.setState((prev) => ({
+      ...prev,
+      lifecycleSettings: normalizeLifecycleSettings(raw),
+      lifecycleLoaded: true,
+    }));
+  } catch (loadError) {
+    console.warn("[threadSidebar] Failed to load lifecycle settings:", loadError);
+  }
+}
+
+export async function setThreadSidebarLifecycle(next: LifecycleSettings): Promise<void> {
+  const previous = threadSidebarStore.state.lifecycleSettings;
+  threadSidebarStore.setState((prev) => ({ ...prev, lifecycleSettings: next }));
+  try {
+    await configClient.setSetting(THREAD_SIDEBAR_LIFECYCLE_KEY, next);
+  } catch (persistError) {
+    console.warn("[threadSidebar] Failed to persist lifecycle settings:", persistError);
+    threadSidebarStore.setState((prev) => ({ ...prev, lifecycleSettings: previous }));
+  }
 }
 
 export async function loadThreadSidebarEnabled(): Promise<void> {
+  void loadThreadSidebarLifecycle();
   try {
     const enabled = (await configClient.getSetting(THREAD_SIDEBAR_ENABLED_KEY)) ?? false;
     threadSidebarStore.setState((prev) => ({ ...prev, enabled: Boolean(enabled), enabledLoaded: true }));
@@ -158,158 +170,227 @@ export async function setThreadSidebarEnabled(enabled: boolean): Promise<void> {
 }
 
 if (typeof window !== "undefined") {
-  // Reflect session-status flips into workingSinceById. TanStack Store's
-  // `subscribe(fn)` only receives the new state, so we keep a closure
-  // reference to the previous `sessions` array to diff transitions. The diff
-  // is first-observation-aware: the first loaded batch keeps persisted
-  // working-since values instead of resetting them to `now` (restart
-  // survival — see diffWorkingTransitions).
+  // Live-sync the experiment flag across windows (settings → main window).
+  configClient.onEntriesChanged((payload) => {
+    if (payload.changedKeys.includes(THREAD_SIDEBAR_ENABLED_KEY)) void loadThreadSidebarEnabled();
+    else if (payload.changedKeys.includes(THREAD_SIDEBAR_LIFECYCLE_KEY)) void loadThreadSidebarLifecycle();
+  });
+
+  // A thread restored from the archive returns to Active (and is exempt from
+  // auto-settle, so the next sweep cannot re-archive it).
+  onSessionUnarchived((sessionId) => unsettleSession(sessionId));
+
+  // Reflect session-status flips (turn start clears overrides, send →
+  // working → returned, early snooze wake). TanStack Store's subscribe only passes the new state, so keep the
+  // previous sessions in a closure to diff transitions.
   let previousSessions: UISession[] = sessionStore.state.sessions;
+  let previousActiveSessionId: string | null = sessionStore.state.activeSessionId;
   let lifecycleSwept = false;
   sessionStore.subscribe((state) => {
-    const working = diffWorkingTransitions(
+    const current = threadSidebarStore.state;
+    const transition = diffSessionTransitions(
       state.sessions,
       previousSessions,
-      threadSidebarStore.state.workingSinceById,
+      {
+        overrideById: current.overrideById,
+        workingSinceById: current.workingSinceById,
+        returnedAtById: current.returnedAtById,
+        snoozeById: current.snoozeById,
+      },
       Date.now(),
     );
     previousSessions = state.sessions;
-    if (working.changed) {
-      threadSidebarStore.setState((prev) => ({ ...prev, workingSinceById: working.next }));
-      persistWorkingSince(working.next);
+    if (transition.changed) {
+      threadSidebarStore.setState((prev) => ({ ...prev, ...transition.next }));
+      if (transition.next.workingSinceById !== current.workingSinceById) {
+        persistWorkingSince(transition.next.workingSinceById);
+      }
+      if (transition.next.returnedAtById !== current.returnedAtById) persistReturnedAt(transition.next.returnedAtById);
+      if (transition.next.snoozeById !== current.snoozeById) persistSnoozes(transition.next.snoozeById);
+      if (transition.next.overrideById !== current.overrideById) persistOverrides(transition.next.overrideById);
     }
-    // One-time sweep once the whole history is loaded: drop lifecycle
-    // entries for sessions that no longer exist. Gate on hasLoadedInitialPage
-    // (hasMore starts false and upserts can land before the initial page) and
-    // never sweep while pages remain unloaded — with paging, an absent id is
-    // not proof of deletion.
+    // Opening a thread by any path (list click, Alt/⌘+N, original sidebar,
+    // route restore) acknowledges its "Woke" notice.
+    if (state.activeSessionId !== previousActiveSessionId) {
+      previousActiveSessionId = state.activeSessionId;
+      if (state.activeSessionId) markThreadOpened(state.activeSessionId);
+    }
+    // One-time prune once the whole history is loaded; with paging, an absent
+    // id is not proof of deletion until !hasMore.
     if (!lifecycleSwept && state.hasLoadedInitialPage && state.sessions.length > 0 && !state.hasMore) {
       lifecycleSwept = true;
-      const knownIds = new Set(state.sessions.map((session) => session.id));
+      const latest = threadSidebarStore.state;
       const pruned = pruneLifecycleEntries(
         {
-          settledAtById: threadSidebarStore.state.settledAtById,
-          snoozedUntilById: threadSidebarStore.state.snoozedUntilById,
-          workingSinceById: working.changed ? working.next : threadSidebarStore.state.workingSinceById,
+          overrideById: latest.overrideById,
+          snoozeById: latest.snoozeById,
+          workingSinceById: latest.workingSinceById,
+          returnedAtById: latest.returnedAtById,
         },
-        knownIds,
+        new Set(state.sessions.map((session) => session.id)),
       );
       if (pruned.changed) {
         threadSidebarStore.setState((prev) => ({ ...prev, ...pruned.next }));
-        writeJson(SETTLED_STORAGE_KEY, { v: 2, byId: pruned.next.settledAtById });
-        writeJson(SNOOZED_STORAGE_KEY, pruned.next.snoozedUntilById);
-        persistWorkingSince(pruned.next.workingSinceById);
+        persistAll(pruned.next);
       }
     }
   });
 
-  // Cross-window sync: `storage` events fire only in *other* windows, so the
-  // writing window never loops. workingSinceById is intentionally not synced
-  // (per-window timing would fight the transition diff above).
+  // Cross-window sync: `storage` fires only in *other* windows, so no loops.
+  // workingSinceById is per-window observation and is not synced.
   window.addEventListener("storage", (event) => {
-    if (event.key !== null && !LIFECYCLE_STORAGE_KEYS.has(event.key)) return;
+    if (event.key !== null && !SYNCED_STORAGE_KEYS.has(event.key)) return;
     threadSidebarStore.setState((prev) => ({
       ...prev,
-      settledAtById: loadSettledFromStorage(),
-      snoozedUntilById: loadSnoozedFromStorage(),
-      settledShelfExpanded: loadShelfExpanded(SETTLED_SHELF_EXPANDED_KEY),
-      snoozedShelfExpanded: loadShelfExpanded(SNOOZED_SHELF_EXPANDED_KEY),
+      overrideById: loadOverrides(),
+      snoozeById: loadSnoozes(),
+      returnedAtById: parseTimestampRecord(readJson(RETURNED_AT_STORAGE_KEY)),
+      shelfExpanded: { working: loadShelf("working"), snoozed: loadShelf("snoozed"), settled: loadShelf("settled") },
     }));
   });
 }
 
-// --- Settle (t3code: explicit lifecycle action; settles sort by settledAt) ---
+function persistAll(
+  maps: Pick<ThreadSidebarState, "overrideById" | "snoozeById" | "workingSinceById" | "returnedAtById">,
+) {
+  persistOverrides(maps.overrideById);
+  persistSnoozes(maps.snoozeById);
+  persistWorkingSince(maps.workingSinceById);
+  persistReturnedAt(maps.returnedAtById);
+}
 
+function setOverrides(next: OverrideMap): void {
+  threadSidebarStore.setState((prev) => ({ ...prev, overrideById: next }));
+  persistOverrides(next);
+}
+
+function setSnoozes(next: SnoozeMap): void {
+  threadSidebarStore.setState((prev) => ({ ...prev, snoozeById: next }));
+  persistSnoozes(next);
+}
+
+// --- Settle / un-settle ---
+
+/** Manual settle. Callers also unpin (settle beats pin, as in t3code). Clears any snooze. */
 export function settleSession(id: string): void {
-  const at = Date.now();
-  const next: SettledAtMap = { ...threadSidebarStore.state.settledAtById, [id]: at };
-  threadSidebarStore.setState((prev) => ({ ...prev, settledAtById: next }));
-  writeJson(SETTLED_STORAGE_KEY, { v: 2, byId: next });
-}
-
-export function unsettleSession(id: string): void {
-  if (!(id in threadSidebarStore.state.settledAtById)) return;
-  const next: SettledAtMap = omitKey(threadSidebarStore.state.settledAtById, id);
-  threadSidebarStore.setState((prev) => ({ ...prev, settledAtById: next }));
-  writeJson(SETTLED_STORAGE_KEY, { v: 2, byId: next });
-}
-
-/**
- * Lifecycle cleanup for a deleted session: remove its settled/snoozed/
- * working-since entries from state and storage. Called from every delete
- * path (experiment rows and the original sidebar's delete dialog).
- */
-export function notifySessionDeleted(id: string): void {
-  const prev = threadSidebarStore.state;
-  const settledAtById = omitKey(prev.settledAtById, id);
-  const snoozedUntilById = omitKey(prev.snoozedUntilById, id);
-  const workingSinceById = omitKey(prev.workingSinceById, id);
-  if (
-    settledAtById === prev.settledAtById &&
-    snoozedUntilById === prev.snoozedUntilById &&
-    workingSinceById === prev.workingSinceById
-  ) {
-    return;
-  }
-  threadSidebarStore.setState((state) => ({ ...state, settledAtById, snoozedUntilById, workingSinceById }));
-  writeJson(SETTLED_STORAGE_KEY, { v: 2, byId: settledAtById });
-  writeJson(SNOOZED_STORAGE_KEY, snoozedUntilById);
-  persistWorkingSince(workingSinceById);
-}
-
-/** Settled at ms (0 = legacy entry with unknown time), or undefined when not settled. */
-export function getSettledAt(id: string): number | undefined {
-  const at = threadSidebarStore.state.settledAtById[id];
-  return typeof at === "number" ? at : undefined;
-}
-
-/** React hook: subscribe to the settled flag for a single session id. */
-export function useIsSessionSettled(id: string | null | undefined): boolean {
-  const settledAtById = useSelector(threadSidebarStore, (s) => s.settledAtById);
-  if (!id) return false;
-  return id in settledAtById;
-}
-
-// --- Snooze (UI-only: wake evaluation happens in the renderer) ---
-
-export function snoozeSession(id: string, durationMs: number): void {
-  const until = Date.now() + durationMs;
-  const next: SnoozedUntilMap = { ...threadSidebarStore.state.snoozedUntilById, [id]: until };
-  threadSidebarStore.setState((prev) => ({ ...prev, snoozedUntilById: next }));
-  writeJson(SNOOZED_STORAGE_KEY, next);
-}
-
-export function unsnoozeSession(id: string): void {
-  if (!(id in threadSidebarStore.state.snoozedUntilById)) return;
-  const next: SnoozedUntilMap = omitKey(threadSidebarStore.state.snoozedUntilById, id);
-  threadSidebarStore.setState((prev) => ({ ...prev, snoozedUntilById: next }));
-  writeJson(SNOOZED_STORAGE_KEY, next);
-}
-
-/**
- * A session is "woke" when its snooze entry exists but the wake time has
- * passed. The entry is intentionally kept until `markThreadOpened` so the row
- * can show the "Woke" pill.
- */
-export function isSessionWoke(id: string, now: number): boolean {
-  const until = threadSidebarStore.state.snoozedUntilById[id];
-  return typeof until === "number" && until <= now;
-}
-
-export function markThreadOpened(id: string): void {
+  setOverrides({ ...threadSidebarStore.state.overrideById, [id]: { state: "settled", at: Date.now() } });
   unsnoozeSession(id);
 }
 
-// --- Shelf collapse states ---
-
-export function setSettledShelfExpanded(expanded: boolean): void {
-  threadSidebarStore.setState((prev) => ({ ...prev, settledShelfExpanded: expanded }));
-  writeJson(SETTLED_SHELF_EXPANDED_KEY, expanded);
+/** Manual un-settle: returns to Active and exempts the thread from auto-settle. */
+export function unsettleSession(id: string): void {
+  setOverrides({ ...threadSidebarStore.state.overrideById, [id]: { state: "active", at: Date.now() } });
 }
 
-export function setSnoozedShelfExpanded(expanded: boolean): void {
-  threadSidebarStore.setState((prev) => ({ ...prev, snoozedShelfExpanded: expanded }));
-  writeJson(SNOOZED_SHELF_EXPANDED_KEY, expanded);
+/**
+ * Sending a message starts a turn: like t3code, clear any override (the
+ * thread is live again and its inactivity clock restarts) and wake it.
+ */
+export function resumeThreadOnSend(id: string): void {
+  const next = omitKey(threadSidebarStore.state.overrideById, id);
+  if (next !== threadSidebarStore.state.overrideById) setOverrides(next);
+  unsnoozeSession(id);
+}
+
+// --- Snooze (UI-only; wake evaluation happens in the renderer) ---
+
+export function snoozeSession(id: string, until: number): void {
+  setSnoozes({ ...threadSidebarStore.state.snoozeById, [id]: { until, at: Date.now() } });
+}
+
+export function unsnoozeSession(id: string): void {
+  const next = omitKey(threadSidebarStore.state.snoozeById, id);
+  if (next !== threadSidebarStore.state.snoozeById) setSnoozes(next);
+}
+
+/**
+ * Opening a thread acknowledges a "Woke" notice (and a manual wake clears the
+ * snooze). The wake time is stamped as the thread's latest activity first:
+ * deleting the snooze entry alone would drop the thread back to its old inbox
+ * position, where activity older than the settle horizon would instantly
+ * re-settle it (and make it archive-eligible again).
+ */
+export function markThreadOpened(id: string): void {
+  const entry = threadSidebarStore.state.snoozeById[id];
+  if (!entry || (entry.wokeAt === undefined && entry.until > Date.now())) return;
+  const wokeAt = entry.wokeAt ?? Date.now();
+  const returnedAtById = threadSidebarStore.state.returnedAtById;
+  if ((returnedAtById[id] ?? 0) < wokeAt) {
+    const next = { ...returnedAtById, [id]: wokeAt };
+    threadSidebarStore.setState((prev) => ({ ...prev, returnedAtById: next }));
+    persistReturnedAt(next);
+  }
+  unsnoozeSession(id);
+}
+
+// --- Shelves ---
+
+export function setShelfExpanded(shelf: ThreadShelf, expanded: boolean): void {
+  threadSidebarStore.setState((prev) => ({ ...prev, shelfExpanded: { ...prev.shelfExpanded, [shelf]: expanded } }));
+  writeJson(SHELF_KEYS[shelf], expanded);
+}
+
+// --- Deletion cleanup ---
+
+/** Remove a deleted session's lifecycle entries (called from every delete path). */
+export function notifySessionDeleted(id: string): void {
+  const prev = threadSidebarStore.state;
+  const next = {
+    overrideById: omitKey(prev.overrideById, id),
+    snoozeById: omitKey(prev.snoozeById, id),
+    workingSinceById: omitKey(prev.workingSinceById, id),
+    returnedAtById: omitKey(prev.returnedAtById, id),
+  };
+  if (
+    next.overrideById === prev.overrideById &&
+    next.snoozeById === prev.snoozeById &&
+    next.workingSinceById === prev.workingSinceById &&
+    next.returnedAtById === prev.returnedAtById
+  ) {
+    return;
+  }
+  threadSidebarStore.setState((state) => ({ ...state, ...next }));
+  persistAll(next);
+}
+
+// --- Effective settled (shared rule: list, banner, agent switcher) ---
+
+export function lifecycleContext(state: ThreadSidebarState, now: number): LifecycleContext {
+  return {
+    overrideById: state.overrideById,
+    snoozeById: state.snoozeById,
+    workingSinceById: state.workingSinceById,
+    returnedAtById: state.returnedAtById,
+    now,
+    autoSettleAfterMs: daysToMs(state.lifecycleSettings.autoSettleDays),
+  };
+}
+
+export function isSessionEffectivelySettled(session: UISession | undefined, now = Date.now()): boolean {
+  if (!session) return false;
+  return resolveSettled(session, lifecycleContext(threadSidebarStore.state, now)).settled;
+}
+
+/** Minute clock for consumers that only need coarse time (auto-settle). */
+function useMinuteClock(): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const interval = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(interval);
+  }, []);
+  return now;
+}
+
+/** React hook: effective settled state (manual or auto) for one session id. */
+export function useIsSessionSettled(id: string | null | undefined): boolean {
+  const now = useMinuteClock();
+  const state = useSelector(threadSidebarStore);
+  const session = useSelector(sessionStore, (s) =>
+    id ? s.sessions.find((candidate) => candidate.id === id) : undefined,
+  );
+  if (!id) return false;
+  if (!session) return state.overrideById[id]?.state === "settled";
+  return resolveSettled(session, lifecycleContext(state, now)).settled;
 }
 
 export function useThreadSidebarStore() {
@@ -318,5 +399,7 @@ export function useThreadSidebarStore() {
     ...state,
     loadThreadSidebarEnabled,
     setThreadSidebarEnabled,
+    loadThreadSidebarLifecycle,
+    setThreadSidebarLifecycle,
   };
 }

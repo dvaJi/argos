@@ -116,6 +116,8 @@ export const sessionsListLightweightRoute = defineRouteContract({
     includeSubagents: zod.boolean().optional(),
     agentId: EntityIdSchema.optional(),
     prioritizeSessionId: EntityIdSchema.optional(),
+    /** Default `exclude`; `only` pages archived sessions by archive time. */
+    archived: zod.enum(["exclude", "only"]).optional(),
   }),
   output: zod.object({
     items: zod.array(SessionListItemSchema),
@@ -411,6 +413,17 @@ export const sessionsTogglePinnedRoute = defineRouteContract({
   input: zod.object({
     sessionId: EntityIdSchema,
     pinned: zod.boolean(),
+  }),
+  output: zod.object({
+    updated: zod.literal(true),
+  }),
+});
+
+export const sessionsSetArchivedRoute = defineRouteContract({
+  name: "sessions.setArchived",
+  input: zod.object({
+    sessionId: EntityIdSchema,
+    archived: zod.boolean(),
   }),
   output: zod.object({
     updated: zod.literal(true),

@@ -57,6 +57,7 @@ import {
   sessionsSetSubagentEnabledRoute,
   sessionsSteerPendingInputRoute,
   sessionsTogglePinnedRoute,
+  sessionsSetArchivedRoute,
   sessionsTranslateTextRoute,
   sessionsUpdateDisabledAgentToolsRoute,
   sessionsUpdateGenerationSettingsRoute,
@@ -120,6 +121,8 @@ export function createSessionClient(bridge: ArgosBridge = getArgosBridge()) {
     includeSubagents?: boolean;
     agentId?: string;
     prioritizeSessionId?: string;
+    /** Default `exclude`; `only` pages archived sessions by archive time. */
+    archived?: "exclude" | "only";
   }) {
     return await bridge.invoke(sessionsListLightweightRoute.name, input ?? {});
   }
@@ -275,6 +278,10 @@ export function createSessionClient(bridge: ArgosBridge = getArgosBridge()) {
 
   async function toggleSessionPinned(sessionId: string, pinned: boolean) {
     await bridge.invoke(sessionsTogglePinnedRoute.name, { sessionId, pinned });
+  }
+
+  async function setSessionArchived(sessionId: string, archived: boolean) {
+    await bridge.invoke(sessionsSetArchivedRoute.name, { sessionId, archived });
   }
 
   async function clearSessionMessages(sessionId: string) {
@@ -507,6 +514,7 @@ export function createSessionClient(bridge: ArgosBridge = getArgosBridge()) {
     getAgents,
     renameSession,
     toggleSessionPinned,
+    setSessionArchived,
     clearSessionMessages,
     compactSession,
     exportSession,

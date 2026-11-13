@@ -6,6 +6,7 @@ export const SettingsRouteNameSchema = zod.enum([
   "settings-common",
   "settings-display",
   "settings-environments",
+  "settings-projects",
   "settings-provider",
   "settings-dashboard",
   "settings-mcp",

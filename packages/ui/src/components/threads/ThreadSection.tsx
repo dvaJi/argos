@@ -20,10 +20,9 @@ interface ThreadSectionProps {
 }
 
 /**
- * Section shell for the thread sidebar (label, optional collapsible toggle,
- * optional show-more row). Children are responsible for the row list so the
- * caller keeps control of row props; this only dedupes the section chrome
- * that was previously duplicated across Pinned/Active/Snoozed/Settled.
+ * Shelf shell for the thread sidebar (label, optional collapsible toggle,
+ * optional show-more row) used by Working / Snoozed / Settled. Children are
+ * the rows to render; collapse filtering is the caller's job.
  */
 export default function ThreadSection({
   label,
@@ -53,8 +52,10 @@ export default function ThreadSection({
   return (
     <section aria-label={`${label} threads`} className="flex min-h-0 flex-col gap-1">
       {header}
-      {(!collapsible || expanded) && children}
-      {showMore && showMore.remaining > 0 && (
+      {/* Callers pass only the rows to render: a collapsed shelf still shows
+          the open thread (t3code routeThreadOnly). */}
+      {children}
+      {expanded && showMore && showMore.remaining > 0 && (
         <button
           type="button"
           data-testid={showMore.testId}

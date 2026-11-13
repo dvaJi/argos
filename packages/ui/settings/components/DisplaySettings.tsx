@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Icon } from "@iconify/react";
+import { useRouter } from "@tanstack/react-router";
 import { Button } from "#shadcn/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#shadcn/components/ui/select";
 import { Switch } from "#shadcn/components/ui/switch";
@@ -21,6 +22,7 @@ import {
 } from "#/stores/uiSettingsStore";
 import { useFloatingButtonStore, setFloatingButtonEnabled } from "#/stores/floatingButton";
 import { useThreadSidebarStore } from "#/stores/ui/threadSidebar";
+import { LIFECYCLE_DAY_OPTIONS, type LifecycleSettings } from "#/components/threads/threadSidebarLogic";
 import { useThemeStore, type ThemeMode } from "#/stores/theme";
 import FontSettingsSection from "./display/FontSettingsSection";
 import SettingsPageShell from "./control-center/SettingsPageShell";
@@ -62,6 +64,10 @@ export default function DisplaySettings() {
   const uiSettingsStore = useUiSettingsStore();
   const floatingButtonStore = useFloatingButtonStore();
   const threadSidebar = useThreadSidebarStore();
+  const router = useRouter();
+  // The standalone settings window has its own router without /archive.
+  const canOpenArchive = "/archive" in (router.routesByPath as unknown as Record<string, unknown>);
+  const [pendingAutoDeleteDays, setPendingAutoDeleteDays] = useState<number | null>(null);
   const themeStore = useThemeStore();
   const [isUpdatingTheme, setIsUpdatingTheme] = useState(false);
   const [fontSizeLevel, setFontSizeLevel] = useState(() => uiSettingsStore.fontSizeLevel);
@@ -128,6 +134,47 @@ export default function DisplaySettings() {
   const handleThreadSidebarChange = (value: boolean) => {
     void threadSidebar.setThreadSidebarEnabled(value);
   };
+  const updateLifecycle = (patch: Partial<LifecycleSettings>) => {
+    void threadSidebar.setThreadSidebarLifecycle({ ...threadSidebar.lifecycleSettings, ...patch });
+  };
+  const handleAutoDeleteChange = (days: number | null) => {
+    const current = threadSidebar.lifecycleSettings.autoDeleteDays;
+    // Enabling (or shortening) auto-delete destroys history: confirm first.
+    if (days !== null && (current === null || days < current)) {
+      setPendingAutoDeleteDays(days);
+      return;
+    }
+    updateLifecycle({ autoDeleteDays: days });
+  };
+  const lifecycleRows: Array<{
+    key: keyof LifecycleSettings;
+    label: string;
+    hint: string;
+    icon: string;
+    onChange: (days: number | null) => void;
+  }> = [
+    {
+      key: "autoSettleDays",
+      label: "Auto-settle after",
+      hint: "Idle threads move from Active to Settled",
+      icon: "lucide:check-check",
+      onChange: (days) => updateLifecycle({ autoSettleDays: days }),
+    },
+    {
+      key: "autoArchiveDays",
+      label: "Auto-archive after",
+      hint: "Settled threads leave the sidebar (restorable from Archived threads)",
+      icon: "lucide:archive",
+      onChange: (days) => updateLifecycle({ autoArchiveDays: days }),
+    },
+    {
+      key: "autoDeleteDays",
+      label: "Auto-delete after",
+      hint: "Archived threads are permanently deleted — history is lost",
+      icon: "lucide:trash-2",
+      onChange: handleAutoDeleteChange,
+    },
+  ];
   return (
     <>
       <SettingsPageShell title="Appearance" eyebrow="Setup" data-testid="settings-appearance-page">
@@ -320,12 +367,98 @@ export default function DisplaySettings() {
               </div>
             </div>
             <div className="text-xs text-muted-foreground">
-              Replace the left sidebar with a task-oriented thread list (Active, Pinned, Snoozed, Settled) —
+              Replace the left sidebar with a task-oriented thread list (Pinned, Active, Working, Snoozed, Settled) —
               t3code-inspired
             </div>
+            {threadSidebar.enabled && (
+              <div
+                data-testid="thread-lifecycle-settings"
+                className="mt-1 flex flex-col gap-2 border-l border-border pl-3"
+              >
+                {lifecycleRows.map((row) => {
+                  const value = threadSidebar.lifecycleSettings[row.key];
+                  return (
+                    <div key={row.key} className="flex items-center gap-3">
+                      <span className="flex min-w-[200px] shrink-0 flex-col">
+                        <span className="flex items-center gap-2 text-sm">
+                          <Icon icon={row.icon} className="h-3.5 w-3.5 text-muted-foreground" />
+                          {row.label}
+                        </span>
+                        <span className="text-xs text-muted-foreground">{row.hint}</span>
+                      </span>
+                      <div className="ml-auto w-32">
+                        <Select
+                          value={value === null ? "off" : String(value)}
+                          onValueChange={(next) => {
+                            if (!next) return;
+                            row.onChange(next === "off" ? null : Number(next));
+                          }}
+                        >
+                          <SelectTrigger id={`thread-lifecycle-${row.key}`} data-testid={`thread-lifecycle-${row.key}`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="off">Off</SelectItem>
+                            {LIFECYCLE_DAY_OPTIONS.map((days) => (
+                              <SelectItem key={days} value={String(days)}>
+                                {days} {days === 1 ? "day" : "days"}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {canOpenArchive && (
+              <Button
+                variant="link"
+                size="sm"
+                className="h-auto self-start px-0 text-xs"
+                data-testid="settings-open-archive"
+                onClick={() => void router.navigate({ to: "/archive" })}
+              >
+                <Icon icon="lucide:archive" className="mr-1 h-3.5 w-3.5" />
+                View archived threads
+              </Button>
+            )}
           </div>
         </div>
       </SettingsPageShell>
+
+      <Dialog
+        open={pendingAutoDeleteDays !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingAutoDeleteDays(null);
+        }}
+      >
+        <DialogContent data-testid="auto-delete-warning">
+          <DialogHeader>
+            <DialogTitle>Permanently delete archived threads?</DialogTitle>
+            <DialogDescription>
+              Archived threads older than {pendingAutoDeleteDays} {pendingAutoDeleteDays === 1 ? "day" : "days"} will be
+              permanently deleted, including their entire conversation history. Threads that are already past this age
+              are deleted right away. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPendingAutoDeleteDays(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                updateLifecycle({ autoDeleteDays: pendingAutoDeleteDays });
+                setPendingAutoDeleteDays(null);
+              }}
+            >
+              Enable auto-delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isContentProtectionDialogOpen} onOpenChange={setIsContentProtectionDialogOpen}>
         <DialogContent>

@@ -1,8 +1,12 @@
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState, type MouseEvent } from "react";
 import { Icon } from "@iconify/react";
 import { useAgentStore } from "#/stores/ui/agent";
 import type { UISession } from "#/stores/ui/session";
+import { cn } from "#/lib/utils";
 import { Input } from "#shadcn/components/ui/input";
+import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip";
+import ProjectIcon from "../projects/ProjectIcon";
+import type { ProjectIconValue } from "#/stores/ui/projectIdentity";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -15,69 +19,106 @@ import {
 } from "#shadcn/components/ui/context-menu";
 import AgentAvatar from "../icons/AgentAvatar";
 import {
+  canSnooze,
   formatAge,
-  formatWakeCountdown,
+  formatWakeLabel,
   formatWorkingElapsed,
   highlightSegments,
-  resolveThreadPill,
-  resolveThreadStatus,
+  resolveRowStatus,
+  resolveSnoozePresets,
+  shouldRecede,
+  type ThreadRowStatus,
+  type ThreadSectionId,
 } from "./threadSidebarLogic";
-
-export type ThreadRowVariant = "active" | "snoozed" | "settled";
 
 interface ThreadSidebarRowProps {
   session: UISession;
-  variant: ThreadRowVariant;
+  section: ThreadSectionId;
   /** Currently open session in the chat panel. */
   isSelected: boolean;
   /** Keyboard-navigation highlight while searching. */
   isNavSelected: boolean;
   query: string;
   now: number;
+  /** Right-slot timestamp: return time (active/pinned) or settled time (settled). */
+  timestamp: number;
   workingSince?: number;
+  /** Pending wake time for snoozed rows. */
   snoozedUntil?: number;
-  isWoke?: boolean;
-  /** Settled timestamp (ms) when the row is settled; 0 = unknown (legacy). */
-  settledAt?: number;
+  isWoke: boolean;
   /** Alt/⌘+N shortcut badge label while the modifier is held, else null. */
   shortcutBadge?: string | null;
   onSelect: (session: UISession) => void;
   onSettle: (session: UISession) => void;
   onUnsettle: (session: UISession) => void;
   onTogglePin: (session: UISession) => void;
-  onSnooze: (session: UISession, durationMs: number) => void;
+  onSnooze: (session: UISession, until: number) => void;
   onUnsnooze: (session: UISession) => void;
+  onDismissWoke: (session: UISession) => void;
   onRename: (session: UISession, title: string) => void;
+  /** Hide the thread from the sidebar (docs/features/thread-archive). */
+  onArchive: (session: UISession) => void;
   /** Open the shared delete-confirmation dialog for this session. */
   onRequestDelete: (session: UISession) => void;
+  /** Project line (docs/features/project-settings); null = no project. Primitives keep memo cheap. */
+  projectName: string | null;
+  projectIconKind: ProjectIconValue["kind"] | null;
+  projectIconValue: string | null;
+  branch: string | null;
+  /** `provider/model`, or the agent name for ACP sessions. */
+  modelLabel: string | null;
+  machineLabel: string;
+  /** Open Settings → Projects for this thread's project. */
+  onOpenProjectSettings: (session: UISession) => void;
 }
 
-const SNOOZE_OPTIONS: Array<{ label: string; durationMs: number }> = [
-  { label: "1 hour", durationMs: 60 * 60_000 },
-  { label: "8 hours", durationMs: 8 * 60 * 60_000 },
-  { label: "24 hours", durationMs: 24 * 60 * 60_000 },
-];
+const POPOVER_STATUS: Record<ThreadRowStatus, { label: string; className: string } | null> = {
+  approval: { label: "Pending approval", className: "text-amber-600 dark:text-amber-300" },
+  failed: { label: "Error occurred", className: "text-red-600 dark:text-red-300" },
+  working: { label: "Working", className: "text-sky-600 dark:text-sky-300" },
+  woke: { label: "Woke from snooze", className: "text-amber-600 dark:text-amber-300" },
+  done: { label: "Completed", className: "text-emerald-600 dark:text-emerald-300" },
+  ready: null,
+};
+
+const STATUS_STYLE: Record<Exclude<ThreadRowStatus, "ready">, { label: string; icon: string; className: string }> = {
+  working: { label: "Working", icon: "lucide:loader-circle", className: "text-sky-600 dark:text-sky-300/80" },
+  approval: { label: "Approval", icon: "lucide:shield-alert", className: "text-amber-600 dark:text-amber-300/90" },
+  failed: { label: "Failed", icon: "lucide:circle-x", className: "text-red-600 dark:text-red-300/90" },
+  woke: { label: "Woke", icon: "lucide:alarm-clock", className: "text-amber-600 dark:text-amber-300/90" },
+  done: { label: "Done", icon: "lucide:circle-check", className: "text-emerald-600 dark:text-emerald-300/90" },
+};
 
 /**
- * t3code-style slim thread row: avatar + title (search-highlighted) + status
- * pill + right-aligned time slot, with a hover Settle/Un-settle affordance and
- * a context menu (pin / rename / snooze / settle / delete).
+ * Hover / keyboard-focus action overlaying the right slot (no layout shift).
+ * focus-visible, not focus-within: a mouse-clicked row keeps focus and must
+ * keep showing its time, not the action.
+ */
+const ACTION_CLASS =
+  "pointer-events-none absolute inset-y-0 right-0 flex items-center justify-center rounded-md px-1.5 text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:pointer-events-auto focus-visible:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-visible:pointer-events-auto group-focus-visible:opacity-100 group-has-[:focus-visible]:pointer-events-auto group-has-[:focus-visible]:opacity-100";
+
+/**
+ * t3code-style thread card (docs/features/project-settings):
  *
- * Settled state is data-driven, not variant-driven: a pinned row with a
- * settled entry renders settled (age slot + un-settle actions) while staying
- * in the Pinned section.
+ *   [IA] infera                       3m   ← project line + right slot (hover: ✓ Settle)
+ *   [◎] Greeting            ⚠ Approval     ← title + status
+ *   ⑂ main                                 ← branch (when known)
+ *
+ * Rows without a project put the right slot on the title line; rows without a
+ * branch drop the last line. Hovering ~500 ms shows a details popover
+ * (title, project, machine, branch, model, status).
  */
 function ThreadSidebarRow({
   session,
-  variant,
+  section,
   isSelected,
   isNavSelected,
   query,
   now,
+  timestamp,
   workingSince,
   snoozedUntil,
   isWoke,
-  settledAt,
   shortcutBadge,
   onSelect,
   onSettle,
@@ -85,310 +126,380 @@ function ThreadSidebarRow({
   onTogglePin,
   onSnooze,
   onUnsnooze,
+  onDismissWoke,
   onRename,
+  onArchive,
   onRequestDelete,
+  projectName,
+  projectIconKind,
+  projectIconValue,
+  branch,
+  modelLabel,
+  machineLabel,
+  onOpenProjectSettings,
 }: ThreadSidebarRowProps) {
   const { enabledAgents } = useAgentStore();
   const agent = enabledAgents.find((candidate) => candidate.id === session.agentId) ?? null;
   const [editing, setEditing] = useState(false);
   const [draftTitle, setDraftTitle] = useState(session.title);
   const [syncedTitle, setSyncedTitle] = useState(session.title);
+  const [snoozeMenuNow, setSnoozeMenuNow] = useState(() => new Date());
   const editInputRef = useRef<HTMLInputElement>(null);
 
-  const isSettledRow = variant === "settled" || typeof settledAt === "number";
-
-  // Keep the rename draft in sync with external title changes (e.g. an
-  // auto-title landing after mount) without a set-state-in-effect:
-  // adjusting state during render is the React-sanctioned pattern here.
+  // Keep the rename draft in sync with external title changes without a
+  // set-state-in-effect (adjust-state-during-render).
   if (session.title !== syncedTitle) {
     setSyncedTitle(session.title);
     if (!editing) setDraftTitle(session.title);
   }
 
-  const status = resolveThreadStatus(session);
-  const pill = variant === "active" ? resolveThreadPill(status) : null;
-  const segments = highlightSegments(session.title || "Untitled session", query);
-
   useEffect(() => {
-    if (editing) {
-      editInputRef.current?.focus();
-      editInputRef.current?.select();
-    }
+    if (!editing) return;
+    editInputRef.current?.focus();
+    editInputRef.current?.select();
   }, [editing]);
+
+  const isSettled = section === "settled";
+  const isSnoozed = section === "snoozed";
+  const status = resolveRowStatus(session, isWoke && !isSettled);
+  const recede = shouldRecede(status, isSelected);
+  const statusStyle = status === "ready" ? null : STATUS_STYLE[status];
+  const segments = highlightSegments(session.title || "Untitled session", query);
 
   const commitRename = () => {
     const nextTitle = draftTitle.trim();
     setEditing(false);
-    if (nextTitle && nextTitle !== session.title) {
-      onRename(session, nextTitle);
-    }
+    if (nextTitle && nextTitle !== session.title) onRename(session, nextTitle);
   };
 
-  const rightSlot = (() => {
-    if (editing) return null;
-    if (variant === "snoozed") {
-      if (typeof snoozedUntil === "number" && snoozedUntil > now) {
-        return (
-          <span className="text-[11px] tabular-nums text-muted-foreground/60">
-            {formatWakeCountdown(snoozedUntil, now)}
-          </span>
-        );
-      }
-      return (
-        <button
-          type="button"
-          data-testid="thread-sidebar-woke"
-          onClick={(event) => {
-            event.stopPropagation();
-            onSelect(session);
-          }}
-          className="flex items-center gap-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary transition-colors hover:bg-primary/20"
-        >
-          <Icon icon="lucide:alarm-clock" className="size-3" />
-          Woke
-        </button>
-      );
-    }
-    if (variant === "active" && session.status === "working" && typeof workingSince === "number") {
-      return (
-        <span data-testid="thread-sidebar-working-pill" className="shrink-0 text-[11px] tabular-nums text-primary">
-          {formatWorkingElapsed(workingSince, now)}
-        </span>
-      );
-    }
-    if (isSettledRow) {
-      // Prefer the settled time (t3code parity); legacy entries without one
-      // fall back to the session's updatedAt.
-      const label = isWoke ? "Woke" : formatAge(settledAt && settledAt > 0 ? settledAt : session.updatedAt, now);
-      return <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground/50">{label}</span>;
-    }
-    return (
-      <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground/50">
-        {formatAge(session.updatedAt, now)}
-      </span>
-    );
-  })();
+  const stop = (handler: () => void) => (event: MouseEvent) => {
+    event.stopPropagation();
+    handler();
+  };
 
-  const hoverAction = (() => {
-    if (editing) return null;
-    // Overlays the right slot (no layout shift); focus-within also matches
-    // the focused row itself, so keyboard users can reach the action.
-    const actionClassName =
-      "absolute right-1 top-1/2 z-10 h-5 w-5 -translate-y-1/2 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground hidden group-hover:flex group-focus-within:flex";
-    if (variant === "snoozed") {
-      return (
-        <button
-          type="button"
-          title="Unsnooze thread"
-          aria-label="Unsnooze thread"
-          onClick={(event) => {
-            event.stopPropagation();
-            onUnsnooze(session);
-          }}
-          className={actionClassName}
-        >
-          <Icon icon="lucide:alarm-clock-off" className="size-3.5" />
-        </button>
-      );
-    }
-    if (isSettledRow) {
-      return (
-        <button
-          type="button"
-          title="Un-settle thread"
-          aria-label="Un-settle thread"
-          onClick={(event) => {
-            event.stopPropagation();
-            onUnsettle(session);
-          }}
-          className={actionClassName}
-        >
-          <Icon icon="lucide:archive-restore" className="size-3.5" />
-        </button>
-      );
-    }
-    return (
+  const statusNode = statusStyle ? (
+    status === "woke" ? (
       <button
         type="button"
-        title="Settle thread"
-        aria-label="Settle thread"
-        onClick={(event) => {
-          event.stopPropagation();
-          onSettle(session);
-        }}
-        className={actionClassName}
+        data-testid="thread-sidebar-woke"
+        title="Dismiss Woke notification"
+        aria-label="Dismiss Woke notification"
+        onClick={stop(() => onDismissWoke(session))}
+        className={cn(
+          "relative z-20 flex shrink-0 items-center gap-1 rounded-sm text-[11px] font-medium hover:underline",
+          statusStyle.className,
+        )}
       >
-        <Icon icon="lucide:circle-check" className="size-3.5" />
+        <Icon icon={statusStyle.icon} className="size-3" />
+        {statusStyle.label}
       </button>
+    ) : (
+      <span
+        data-testid={`thread-sidebar-status-${status}`}
+        role="status"
+        className={cn("flex shrink-0 items-center gap-1 text-[11px] font-medium", statusStyle.className)}
+      >
+        <Icon
+          icon={statusStyle.icon}
+          className={cn("size-3", status === "working" && "animate-spin motion-reduce:animate-none")}
+        />
+        {statusStyle.label}
+        {status === "working" && typeof workingSince === "number" && (
+          <span className="tabular-nums">{formatWorkingElapsed(workingSince, now)}</span>
+        )}
+      </span>
+    )
+  ) : null;
+
+  const timeLabel =
+    isSnoozed && typeof snoozedUntil === "number" ? (
+      <span className="flex items-center gap-1 text-sky-600 dark:text-sky-300/80">
+        <Icon icon="lucide:alarm-clock" className="size-3" />
+        {formatWakeLabel(snoozedUntil, now)}
+      </span>
+    ) : status === "working" ? null : (
+      formatAge(timestamp, now)
     );
-  })();
+
+  const action = isSnoozed
+    ? { label: "Wake thread now", icon: "lucide:alarm-clock-off", run: () => onUnsnooze(session) }
+    : isSettled
+      ? { label: "Un-settle thread", icon: "lucide:undo-2", run: () => onUnsettle(session) }
+      : { label: "Settle thread", icon: "lucide:check", run: () => onSettle(session) };
 
   const shortcutBadgeTitle = shortcutBadge ? `Switch with ${shortcutBadge}` : "";
+  const snoozePresets = resolveSnoozePresets(snoozeMenuNow);
+  const projectIcon = projectIconKind && projectIconValue ? { kind: projectIconKind, value: projectIconValue } : null;
+
+  const rightSlot = (
+    <span className="relative ml-auto flex h-5 min-w-7 shrink-0 items-center justify-end">
+      {timeLabel !== null && (
+        <span className="text-[11px] tabular-nums text-muted-foreground/60 transition-opacity group-hover:opacity-0 group-focus-visible:opacity-0 group-has-[:focus-visible]:opacity-0">
+          {timeLabel}
+        </span>
+      )}
+      <button
+        type="button"
+        title={action.label}
+        aria-label={action.label}
+        data-testid={`thread-sidebar-action-${isSnoozed ? "wake" : isSettled ? "unsettle" : "settle"}`}
+        onClick={stop(action.run)}
+        className={ACTION_CLASS}
+      >
+        <Icon icon={action.icon} className="size-3.5" />
+      </button>
+    </span>
+  );
+
+  const titleNode = editing ? (
+    <Input
+      ref={editInputRef}
+      value={draftTitle}
+      onChange={(event) => setDraftTitle(event.target.value)}
+      onClick={(event) => event.stopPropagation()}
+      onKeyDown={(event) => {
+        event.stopPropagation();
+        if (event.key === "Enter") commitRename();
+        if (event.key === "Escape") {
+          setDraftTitle(session.title);
+          setEditing(false);
+        }
+      }}
+      onBlur={commitRename}
+      className="h-6 min-w-0 flex-1 rounded-md border-0 bg-muted/60 px-1.5 text-[13px] shadow-none focus-visible:ring-1"
+      aria-label="Thread title"
+    />
+  ) : (
+    <span className={cn("min-w-0 flex-1 truncate", recede ? "font-normal" : "font-medium")}>
+      {segments.map((segment, index) =>
+        segment.match ? (
+          <mark key={index} className="rounded-sm bg-primary/20 px-0.5 text-foreground">
+            {segment.text}
+          </mark>
+        ) : (
+          <span key={index}>{segment.text}</span>
+        ),
+      )}
+    </span>
+  );
+
+  const popoverStatus =
+    section === "snoozed" && typeof snoozedUntil === "number"
+      ? {
+          label: `Snoozed — wakes in ${formatWakeLabel(snoozedUntil, now)}`,
+          className: "text-sky-600 dark:text-sky-300",
+        }
+      : section === "settled" && status === "ready"
+        ? { label: "Settled", className: "text-muted-foreground" }
+        : POPOVER_STATUS[status];
+
+  const row = (
+    <div
+      role="button"
+      tabIndex={0}
+      aria-current={isSelected ? "page" : undefined}
+      aria-label={[session.title || "Untitled session", statusStyle?.label, projectName].filter(Boolean).join(", ")}
+      data-testid="thread-sidebar-row"
+      data-session-id={session.id}
+      data-section={section}
+      data-status={status}
+      data-selected={String(isSelected)}
+      data-nav-selected={String(isNavSelected)}
+      data-recede={recede ? "true" : undefined}
+      data-editing={editing ? "true" : undefined}
+      onClick={() => onSelect(session)}
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onSelect(session);
+        }
+      }}
+      className={cn(
+        "group relative flex w-full cursor-default flex-col gap-0.5 rounded-lg px-2 py-1.5 text-left text-[13px] outline-none transition-colors duration-150 focus-visible:ring-1 focus-visible:ring-primary/40",
+        editing
+          ? "bg-sidebar-row-active/40"
+          : isSelected
+            ? "bg-sidebar-row-active/60 text-foreground"
+            : isNavSelected
+              ? "bg-sidebar-row-hover text-foreground"
+              : recede
+                ? "text-sidebar-foreground/70 hover:bg-sidebar-row-hover hover:text-sidebar-foreground"
+                : "text-sidebar-foreground hover:bg-sidebar-row-hover",
+      )}
+    >
+      {projectName !== null && (
+        <span data-testid="thread-sidebar-row-project" className="flex h-5 min-w-0 items-center gap-1.5">
+          <span className={cn("flex shrink-0 transition-opacity", !isSelected && "opacity-60 group-hover:opacity-100")}>
+            <ProjectIcon name={projectName} icon={projectIcon} />
+          </span>
+          <span className="min-w-0 truncate text-[11px] font-medium text-muted-foreground">{projectName}</span>
+          {rightSlot}
+        </span>
+      )}
+      <span className="flex h-5 min-w-0 items-center gap-1.5">
+        <span
+          className={cn(
+            "flex shrink-0 items-center transition-opacity",
+            !isSelected && "opacity-50 grayscale group-hover:opacity-100 group-hover:grayscale-0",
+          )}
+        >
+          {agent ? (
+            <AgentAvatar agent={agent} className="size-3.5" />
+          ) : (
+            <Icon icon="lucide:message-square" className="size-3.5 text-muted-foreground/60" />
+          )}
+        </span>
+        {titleNode}
+        {!editing && (
+          <>
+            {session.isPinned && section !== "pinned" && (
+              <Icon icon="lucide:pin" className="size-3 shrink-0 text-muted-foreground/60" aria-label="Pinned" />
+            )}
+            {statusNode}
+            {shortcutBadge && (
+              <span
+                data-testid="sidebar-session-shortcut-badge"
+                className="shortcut-badge shrink-0"
+                title={shortcutBadgeTitle}
+                aria-label={shortcutBadgeTitle}
+              >
+                {shortcutBadge}
+              </span>
+            )}
+            {projectName === null && rightSlot}
+          </>
+        )}
+      </span>
+      {branch && !editing && (
+        <span
+          data-testid="thread-sidebar-row-branch"
+          className="flex h-4 min-w-0 items-center gap-1 pl-5 text-[11px] text-muted-foreground/70"
+        >
+          <Icon icon="lucide:git-branch" className="size-3 shrink-0" />
+          <span className="truncate">{branch}</span>
+        </span>
+      )}
+    </div>
+  );
 
   return (
-    <ContextMenu>
-      {/* The trigger is a div: rows contain real action buttons (select, settle,
-          unsnooze) and HTML forbids interactive elements nested in <button>
-          (docs/features/thread-sidebar-t3-parity). The div is the right-click
-          surface and whole-row click target; the inner select <button> provides
-          keyboard access. */}
-      <ContextMenuTrigger
-        render={
-          <div
-            role="button"
-            tabIndex={0}
-            data-testid="thread-sidebar-row"
-            data-session-id={session.id}
-            data-variant={variant}
-            data-selected={String(isSelected)}
-            data-nav-selected={String(isNavSelected)}
-            data-settled={isSettledRow ? "true" : undefined}
-            data-editing={editing ? "true" : undefined}
-            onClick={() => onSelect(session)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                onSelect(session);
-              }
+    <TooltipPrimitive.Root>
+      <ContextMenu onOpenChange={(open) => open && setSnoozeMenuNow(new Date())}>
+        {/* A div trigger: rows contain real buttons (settle, woke), which HTML
+            forbids inside <button>. The row itself is focusable/activatable; the
+            details tooltip trigger is composed onto the same element. */}
+        <ContextMenuTrigger render={<TooltipPrimitive.Trigger delay={500} closeDelay={0} render={row} />} />
+        <ContextMenuContent>
+          <ContextMenuItem onClick={() => onTogglePin(session)}>
+            <Icon icon={session.isPinned ? "lucide:pin-off" : "lucide:pin"} className="size-3.5" />
+            {session.isPinned ? "Unpin" : "Pin"}
+          </ContextMenuItem>
+          <ContextMenuItem
+            onClick={() => {
+              setDraftTitle(session.title);
+              setEditing(true);
             }}
-            className={`group relative flex w-full cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] transition-colors duration-150 outline-none focus-visible:ring-1 focus-visible:ring-primary/40 active:scale-[0.99] motion-reduce:active:scale-100 ${
-              editing
-                ? "bg-sidebar-row-active/40"
-                : isSelected
-                  ? "bg-sidebar-row-active/60 text-foreground"
-                  : isNavSelected
-                    ? "bg-sidebar-row-hover text-foreground"
-                    : "text-sidebar-foreground/85 hover:bg-sidebar-row-hover"
-            }`}
           >
-            {editing ? (
-              <>
-                {agent ? (
-                  <AgentAvatar agent={agent} className="size-3.5 shrink-0" />
-                ) : (
-                  <Icon icon="lucide:message-square" className="size-3.5 shrink-0 text-muted-foreground/60" />
-                )}
-                <Input
-                  ref={editInputRef}
-                  value={draftTitle}
-                  onChange={(event) => setDraftTitle(event.target.value)}
-                  onClick={(event) => event.stopPropagation()}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") commitRename();
-                    if (event.key === "Escape") {
-                      setDraftTitle(session.title);
-                      setEditing(false);
-                    }
-                  }}
-                  onBlur={commitRename}
-                  className="h-6 min-w-0 flex-1 rounded-md border-0 bg-muted/60 px-1.5 text-[13px] shadow-none focus-visible:ring-1"
-                  aria-label="Thread title"
-                />
-              </>
-            ) : (
-              <>
-                {agent ? (
-                  <AgentAvatar agent={agent} className="size-3.5 shrink-0" />
-                ) : (
-                  <Icon icon="lucide:message-square" className="size-3.5 shrink-0 text-muted-foreground/60" />
-                )}
-                <span className="min-w-0 flex-1 truncate font-medium">
-                  {segments.map((segment, index) =>
-                    segment.match ? (
-                      <mark key={index} className="rounded-sm bg-primary/20 px-0.5 text-foreground">
-                        {segment.text}
-                      </mark>
-                    ) : (
-                      <span key={index}>{segment.text}</span>
-                    ),
-                  )}
+            <Icon icon="lucide:pencil" className="size-3.5" />
+            Rename
+          </ContextMenuItem>
+          {projectName !== null && (
+            <ContextMenuItem onClick={() => onOpenProjectSettings(session)}>
+              <Icon icon="lucide:settings-2" className="size-3.5" />
+              Project settings
+            </ContextMenuItem>
+          )}
+          <ContextMenuSeparator />
+          {isSnoozed ? (
+            <ContextMenuItem onClick={() => onUnsnooze(session)}>
+              <Icon icon="lucide:alarm-clock-off" className="size-3.5" />
+              Wake now
+            </ContextMenuItem>
+          ) : canSnooze(session) ? (
+            <ContextMenuSub>
+              <ContextMenuSubTrigger>
+                <Icon icon="lucide:alarm-clock" className="size-3.5" />
+                Snooze
+              </ContextMenuSubTrigger>
+              <ContextMenuSubContent>
+                {snoozePresets.map((preset) => (
+                  <ContextMenuItem key={preset.id} onClick={() => onSnooze(session, preset.until)}>
+                    <span className="flex-1">{preset.label}</span>
+                    <span className="ml-4 text-[11px] text-muted-foreground">{preset.whenLabel}</span>
+                  </ContextMenuItem>
+                ))}
+              </ContextMenuSubContent>
+            </ContextMenuSub>
+          ) : null}
+          {isSettled ? (
+            <ContextMenuItem onClick={() => onUnsettle(session)}>
+              <Icon icon="lucide:undo-2" className="size-3.5" />
+              Un-settle
+            </ContextMenuItem>
+          ) : (
+            <ContextMenuItem onClick={() => onSettle(session)}>
+              <Icon icon="lucide:check" className="size-3.5" />
+              Settle
+            </ContextMenuItem>
+          )}
+          {session.status !== "working" && (
+            <ContextMenuItem onClick={() => onArchive(session)}>
+              <Icon icon="lucide:archive" className="size-3.5" />
+              Archive
+            </ContextMenuItem>
+          )}
+          <ContextMenuSeparator />
+          <ContextMenuItem
+            onClick={() => onRequestDelete(session)}
+            className="text-red-600 focus:text-red-600 dark:text-red-400 dark:focus:text-red-400"
+          >
+            <Icon icon="lucide:trash-2" className="size-3.5" />
+            Delete
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
+      {!editing && (
+        <TooltipPrimitive.Portal>
+          <TooltipPrimitive.Positioner side="right" align="start" sideOffset={8} className="isolate z-50">
+            <TooltipPrimitive.Popup
+              data-testid="thread-sidebar-row-popover"
+              className="z-50 flex min-w-48 max-w-72 flex-col gap-1.5 rounded-xl border border-border bg-popover px-3 py-2.5 text-xs text-popover-foreground shadow-lg data-closed:animate-out data-closed:fade-out-0 data-open:animate-in data-open:fade-in-0"
+            >
+              <p className="text-[13px] font-semibold leading-snug">{session.title || "Untitled session"}</p>
+              {projectName !== null && (
+                <span className="flex items-center gap-2">
+                  <ProjectIcon name={projectName} icon={projectIcon} />
+                  <span className="truncate">{projectName}</span>
                 </span>
-                {shortcutBadge && (
-                  <span
-                    data-testid="sidebar-session-shortcut-badge"
-                    className="shortcut-badge shrink-0"
-                    title={shortcutBadgeTitle}
-                    aria-label={shortcutBadgeTitle}
-                  >
-                    {shortcutBadge}
-                  </span>
-                )}
-                {pill && (
-                  <span
-                    data-testid={`thread-sidebar-pill-${status}`}
-                    className={`flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${pill.className} ${
-                      pill.pulse ? "animate-pulse motion-reduce:animate-none" : ""
-                    }`}
-                  >
-                    <Icon icon={pill.icon} className="size-3" />
-                    {pill.label}
-                  </span>
-                )}
-                <span className="flex shrink-0 items-center transition-opacity duration-100 group-hover:pointer-events-none group-hover:opacity-0 group-focus-within:pointer-events-none group-focus-within:opacity-0">
-                  {rightSlot}
+              )}
+              <span className="flex items-center gap-2 text-muted-foreground">
+                <Icon icon="lucide:server" className="size-4 shrink-0" />
+                <span className="truncate">{machineLabel}</span>
+              </span>
+              {branch && (
+                <span className="flex items-center gap-2 text-muted-foreground">
+                  <Icon icon="lucide:git-branch" className="size-4 shrink-0" />
+                  <span className="truncate">{branch}</span>
                 </span>
-                {hoverAction}
-              </>
-            )}
-          </div>
-        }
-      />
-      <ContextMenuContent>
-        <ContextMenuItem onClick={() => onTogglePin(session)}>
-          <Icon icon={session.isPinned ? "lucide:pin-off" : "lucide:pin"} className="size-3.5" />
-          {session.isPinned ? "Unpin thread" : "Pin thread"}
-        </ContextMenuItem>
-        <ContextMenuItem
-          onClick={() => {
-            setDraftTitle(session.title);
-            setEditing(true);
-          }}
-        >
-          <Icon icon="lucide:pencil" className="size-3.5" />
-          Rename thread
-        </ContextMenuItem>
-        <ContextMenuSeparator />
-        {variant === "snoozed" ? (
-          <ContextMenuItem onClick={() => onUnsnooze(session)}>
-            <Icon icon="lucide:alarm-clock-off" className="size-3.5" />
-            Unsnooze thread
-          </ContextMenuItem>
-        ) : (
-          <ContextMenuSub>
-            <ContextMenuSubTrigger>
-              <Icon icon="lucide:alarm-clock" className="size-3.5" />
-              Snooze thread
-            </ContextMenuSubTrigger>
-            <ContextMenuSubContent>
-              {SNOOZE_OPTIONS.map((option) => (
-                <ContextMenuItem key={option.label} onClick={() => onSnooze(session, option.durationMs)}>
-                  {option.label}
-                </ContextMenuItem>
-              ))}
-            </ContextMenuSubContent>
-          </ContextMenuSub>
-        )}
-        {isSettledRow ? (
-          <ContextMenuItem onClick={() => onUnsettle(session)}>
-            <Icon icon="lucide:archive-restore" className="size-3.5" />
-            Un-settle thread
-          </ContextMenuItem>
-        ) : (
-          <ContextMenuItem onClick={() => onSettle(session)}>
-            <Icon icon="lucide:circle-check" className="size-3.5" />
-            Settle thread
-          </ContextMenuItem>
-        )}
-        <ContextMenuSeparator />
-        <ContextMenuItem
-          onClick={() => onRequestDelete(session)}
-          className="text-red-600 focus:text-red-600 dark:text-red-400 dark:focus:text-red-400"
-        >
-          <Icon icon="lucide:trash-2" className="size-3.5" />
-          Delete thread
-        </ContextMenuItem>
-      </ContextMenuContent>
-    </ContextMenu>
+              )}
+              {modelLabel && (
+                <span className="flex items-center gap-2 text-muted-foreground">
+                  <Icon icon="lucide:box" className="size-4 shrink-0" />
+                  <span className="truncate">{modelLabel}</span>
+                </span>
+              )}
+              {popoverStatus && (
+                <span className={cn("flex items-center gap-2", popoverStatus.className)}>
+                  <Icon icon="lucide:circle-alert" className="size-4 shrink-0" />
+                  <span>{popoverStatus.label}</span>
+                </span>
+              )}
+            </TooltipPrimitive.Popup>
+          </TooltipPrimitive.Positioner>
+        </TooltipPrimitive.Portal>
+      )}
+    </TooltipPrimitive.Root>
   );
 }
 

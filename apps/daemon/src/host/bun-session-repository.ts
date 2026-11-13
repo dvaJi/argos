@@ -15,6 +15,8 @@ import type {
 } from "@argos/shared/types/agent-interface";
 import type { SearchResult } from "@argos/shared/types/core/search";
 import type { ArgosTapeViewManifest, ArgosTapeViewManifestRecord } from "@argos/shared/types/tape-view-manifest";
+import type { ProjectSettings as ProjectSettingsRecord, ProjectSettingsPatch } from "@argos/shared-contracts/routes";
+import { normalizeProjectKey } from "@argos/shared/projectKey";
 
 type BunDatabase = any;
 
@@ -315,6 +317,21 @@ export class BunSessionRepository implements SessionRepository {
         ON daemon_pending_inputs(session_id, state, mode, queue_order, created_at)
     `);
     this.db.exec(`
+      CREATE TABLE IF NOT EXISTS daemon_project_settings (
+        key TEXT PRIMARY KEY,
+        path TEXT NOT NULL,
+        name TEXT,
+        icon_kind TEXT,
+        icon_value TEXT,
+        pinned_at INTEGER,
+        archived_at INTEGER,
+        default_provider_id TEXT,
+        default_model_id TEXT,
+        default_workspace TEXT,
+        updated_at INTEGER NOT NULL
+      )
+    `);
+    this.db.exec(`
       CREATE TABLE IF NOT EXISTS daemon_message_search_results (
         id TEXT PRIMARY KEY,
         session_id TEXT NOT NULL,
@@ -478,6 +495,10 @@ export class BunSessionRepository implements SessionRepository {
     }
     if (!sessionColumns.has("generation_status")) {
       this.db.exec("ALTER TABLE daemon_sessions ADD COLUMN generation_status TEXT NOT NULL DEFAULT 'idle'");
+    }
+    if (!sessionColumns.has("archived_at")) {
+      // Thread archive (docs/features/thread-archive): NULL = not archived.
+      this.db.exec("ALTER TABLE daemon_sessions ADD COLUMN archived_at INTEGER DEFAULT NULL");
     }
     const messageColumns = new Set(
       (this.db.prepare("PRAGMA table_info(daemon_messages)").all() as Array<{ name: string }>).map((row) => row.name),
@@ -1014,12 +1035,12 @@ export class BunSessionRepository implements SessionRepository {
   }
 
   async get(sessionId: string): Promise<SessionWithState | null> {
-    const row = this.db.prepare("SELECT * FROM daemon_sessions WHERE id = ?").get(sessionId) as any;
+    const row = this.db.prepare(`${this.sessionSelect()} WHERE id = ?`).get(sessionId) as any;
     return row ? this.toSessionWithState(row) : null;
   }
 
   async list(filters?: SessionListFilters): Promise<SessionWithState[]> {
-    let sql = "SELECT * FROM daemon_sessions";
+    let sql = this.sessionSelect();
     const params: any[] = [];
     const conditions: string[] = [];
 
@@ -1038,17 +1059,25 @@ export class BunSessionRepository implements SessionRepository {
     if (!filters?.includeSubagents) {
       conditions.push("parent_session_id IS NULL");
     }
+    const archived = filters?.archived ?? "include";
+    if (archived === "exclude") conditions.push("archived_at IS NULL");
+    if (archived === "only") conditions.push("archived_at IS NOT NULL");
 
     if (conditions.length > 0) {
       sql += " WHERE " + conditions.join(" AND ");
     }
 
-    sql += " ORDER BY updated_at DESC";
+    sql += archived === "only" ? " ORDER BY archived_at DESC, id DESC" : " ORDER BY updated_at DESC";
 
     const rows = this.db.prepare(sql).all(...params) as any[];
     return rows.map((row) => this.toSessionWithState(row));
   }
 
+  /**
+   * Cursor-paged session list. Archived sessions are excluded by default; with
+   * `archived: "only"` the page is ordered by archive time and the cursor's
+   * `updatedAt` field carries the archive time (same key the page sorts by).
+   */
   async listPage(options?: {
     limit?: number;
     cursor?: {
@@ -1058,22 +1087,26 @@ export class BunSessionRepository implements SessionRepository {
     agentId?: string;
     includeSubagents?: boolean;
     parentSessionId?: string;
+    archived?: "exclude" | "only";
   }): Promise<{
     records: SessionWithState[];
     nextCursor: { updatedAt: number; id: string } | null;
     hasMore: boolean;
   }> {
     const limit = Math.min(Math.max(Math.floor(options?.limit ?? 100), 1), 100);
+    const archived = options?.archived ?? "exclude";
     const records = await this.list({
       agentId: options?.agentId,
       includeSubagents: options?.includeSubagents,
       parentSessionId: options?.parentSessionId,
+      archived,
     });
+    const sortKey = (record: SessionWithState) => (archived === "only" ? (record.archivedAt ?? 0) : record.updatedAt);
     const cursor = options?.cursor ?? null;
     const filtered = cursor
       ? records.filter(
           (record) =>
-            record.updatedAt < cursor.updatedAt || (record.updatedAt === cursor.updatedAt && record.id < cursor.id),
+            sortKey(record) < cursor.updatedAt || (sortKey(record) === cursor.updatedAt && record.id < cursor.id),
         )
       : records;
     const pageRecords = filtered.slice(0, limit);
@@ -1081,7 +1114,7 @@ export class BunSessionRepository implements SessionRepository {
     const lastRecord = pageRecords.at(-1);
     return {
       records: pageRecords,
-      nextCursor: hasMore && lastRecord ? { updatedAt: lastRecord.updatedAt, id: lastRecord.id } : null,
+      nextCursor: hasMore && lastRecord ? { updatedAt: sortKey(lastRecord), id: lastRecord.id } : null,
       hasMore,
     };
   }
@@ -1215,7 +1248,7 @@ export class BunSessionRepository implements SessionRepository {
   }
 
   async getActive(webContentsId: number): Promise<SessionWithState | null> {
-    const row = this.db.prepare("SELECT * FROM daemon_sessions WHERE status = 'active' LIMIT 1").get() as any;
+    const row = this.db.prepare(`${this.sessionSelect()} WHERE status = 'active' LIMIT 1`).get() as any;
     return row ? this.toSessionWithState(row) : null;
   }
 
@@ -1270,6 +1303,101 @@ export class BunSessionRepository implements SessionRepository {
     this.db
       .prepare("UPDATE daemon_sessions SET is_pinned = ?, updated_at = ? WHERE id = ?")
       .run(pinned ? 1 : 0, Date.now(), sessionId);
+    this.emitSessionUpdated([sessionId], "updated");
+  }
+
+  // ---- Project settings (docs/features/project-settings) ----
+
+  private toProjectSettings(row: any): ProjectSettingsRecord {
+    const iconKind = row.icon_kind === "icon" || row.icon_kind === "image" ? row.icon_kind : null;
+    const workspace =
+      row.default_workspace === "current" || row.default_workspace === "worktree" ? row.default_workspace : null;
+    return {
+      key: row.key,
+      path: row.path,
+      name: row.name ?? null,
+      icon: iconKind && row.icon_value ? { kind: iconKind, value: row.icon_value } : null,
+      pinnedAt: row.pinned_at ?? null,
+      archivedAt: row.archived_at ?? null,
+      defaultModel:
+        row.default_provider_id && row.default_model_id
+          ? { providerId: row.default_provider_id, modelId: row.default_model_id }
+          : null,
+      defaultWorkspace: workspace,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  async listProjectSettings(): Promise<ProjectSettingsRecord[]> {
+    const rows = this.db.prepare("SELECT * FROM daemon_project_settings ORDER BY updated_at DESC").all() as any[];
+    return rows.map((row) => this.toProjectSettings(row));
+  }
+
+  async getProjectSettings(path: string): Promise<ProjectSettingsRecord | null> {
+    const row = this.db.prepare("SELECT * FROM daemon_project_settings WHERE key = ?").get(normalizeProjectKey(path));
+    return row ? this.toProjectSettings(row) : null;
+  }
+
+  /** Upsert by canonical key; `null` clears a field, `undefined` leaves it. */
+  async updateProjectSettings(path: string, patch: ProjectSettingsPatch): Promise<ProjectSettingsRecord> {
+    const key = normalizeProjectKey(path);
+    const now = Date.now();
+    const current = (this.db.prepare("SELECT * FROM daemon_project_settings WHERE key = ?").get(key) as any) ?? {
+      name: null,
+      icon_kind: null,
+      icon_value: null,
+      pinned_at: null,
+      archived_at: null,
+      default_provider_id: null,
+      default_model_id: null,
+      default_workspace: null,
+    };
+    const next = { ...current };
+    if (patch.name !== undefined) next.name = patch.name?.trim() ? patch.name.trim() : null;
+    if (patch.icon !== undefined) {
+      next.icon_kind = patch.icon?.kind ?? null;
+      next.icon_value = patch.icon?.value ?? null;
+    }
+    if (patch.pinned !== undefined) next.pinned_at = patch.pinned ? (current.pinned_at ?? now) : null;
+    if (patch.archived !== undefined) next.archived_at = patch.archived ? (current.archived_at ?? now) : null;
+    if (patch.defaultModel !== undefined) {
+      next.default_provider_id = patch.defaultModel?.providerId ?? null;
+      next.default_model_id = patch.defaultModel?.modelId ?? null;
+    }
+    if (patch.defaultWorkspace !== undefined) next.default_workspace = patch.defaultWorkspace;
+    this.db
+      .prepare(
+        `INSERT INTO daemon_project_settings
+           (key, path, name, icon_kind, icon_value, pinned_at, archived_at, default_provider_id, default_model_id, default_workspace, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(key) DO UPDATE SET
+           path = excluded.path, name = excluded.name, icon_kind = excluded.icon_kind, icon_value = excluded.icon_value,
+           pinned_at = excluded.pinned_at, archived_at = excluded.archived_at,
+           default_provider_id = excluded.default_provider_id, default_model_id = excluded.default_model_id,
+           default_workspace = excluded.default_workspace, updated_at = excluded.updated_at`,
+      )
+      .run(
+        key,
+        path,
+        next.name,
+        next.icon_kind,
+        next.icon_value,
+        next.pinned_at,
+        next.archived_at,
+        next.default_provider_id,
+        next.default_model_id,
+        next.default_workspace,
+        now,
+      );
+    return (await this.getProjectSettings(path))!;
+  }
+
+  /** Archive (hide from sidebars) or restore a session. Does not touch updated_at. */
+  async setArchived(sessionId: string, archived: boolean): Promise<void> {
+    this.ensureSessionExists(sessionId);
+    this.db
+      .prepare("UPDATE daemon_sessions SET archived_at = ? WHERE id = ?")
+      .run(archived ? Date.now() : null, sessionId);
     this.emitSessionUpdated([sessionId], "updated");
   }
 
@@ -1859,12 +1987,37 @@ export class BunSessionRepository implements SessionRepository {
       .sort((a, b) => (a.manifest.assembledAt ?? a.createdAt) - (b.manifest.assembledAt ?? b.createdAt));
   }
 
+  private hasAcpSessionsTable = false;
+
+  /**
+   * Session SELECT that also exposes the ACP workdir: older ACP sessions keep
+   * their folder only in `acp_sessions.workdir` (empty `project_dir`), and the
+   * sidebar's project line needs it (docs/features/project-settings). The ACP
+   * table is created by another module, so its presence is checked lazily.
+   */
+  private sessionSelect(): string {
+    if (!this.hasAcpSessionsTable) {
+      this.hasAcpSessionsTable = Boolean(
+        this.db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'acp_sessions'").get(),
+      );
+    }
+    return this.hasAcpSessionsTable
+      ? `SELECT daemon_sessions.*, (SELECT a.workdir FROM acp_sessions a WHERE a.conversation_id = daemon_sessions.id ORDER BY a.updated_at DESC LIMIT 1) AS acp_workdir FROM daemon_sessions`
+      : "SELECT * FROM daemon_sessions";
+  }
+
   private toSessionWithState(row: any): SessionWithState {
+    const projectDir =
+      typeof row.project_dir === "string" && row.project_dir.trim()
+        ? row.project_dir
+        : typeof row.acp_workdir === "string" && row.acp_workdir.trim()
+          ? row.acp_workdir
+          : row.project_dir;
     return {
       id: row.id,
       agentId: row.agent_id,
       title: row.title,
-      projectDir: row.project_dir,
+      projectDir,
       isPinned: Boolean(row.is_pinned),
       isDraft: Boolean(row.is_draft),
       sessionKind: row.session_kind || "chat",
@@ -1880,6 +2033,7 @@ export class BunSessionRepository implements SessionRepository {
           : coerceSessionStatus(row.status),
       providerId: row.provider_id || "",
       modelId: row.model_id || "",
+      archivedAt: typeof row.archived_at === "number" ? row.archived_at : null,
     };
   }
 

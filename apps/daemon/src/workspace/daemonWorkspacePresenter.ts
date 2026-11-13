@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { isProjectPathWithin, normalizeProjectKey } from "@argos/shared/projectKey";
 import fsp from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
@@ -876,6 +877,34 @@ export class DaemonWorkspacePresenter {
         isManaged,
       };
     });
+  }
+
+  /**
+   * Repository + branch for a session project dir (docs/features/project-settings).
+   * The caller must only pass directories the daemon already trusts (session
+   * project dirs); this skips the registered-workspace gate on purpose. The
+   * worktree entry that contains the path (longest prefix) decides the branch;
+   * a linked worktree's project is the main worktree.
+   */
+  async describeCheckout(
+    checkoutPath: string,
+  ): Promise<{ repoRoot: string | null; isLinkedWorktree: boolean; branch: string | null }> {
+    const none = { repoRoot: null, isLinkedWorktree: false, branch: null };
+    try {
+      if (!fs.existsSync(checkoutPath) || !fs.statSync(checkoutPath).isDirectory()) return none;
+      const output = await execGit(checkoutPath, ["worktree", "list", "--porcelain"]);
+      if (output == null) return none;
+      const entries = this.parseWorktreeList(output);
+      const main = entries.find((entry) => entry.isMain);
+      if (!main) return none;
+      const containing = entries
+        .filter((entry) => isProjectPathWithin(checkoutPath, entry.path))
+        .sort((a, b) => normalizeProjectKey(b.path).length - normalizeProjectKey(a.path).length)[0];
+      if (!containing) return none;
+      return { repoRoot: main.path, isLinkedWorktree: !containing.isMain, branch: containing.branch };
+    } catch {
+      return none;
+    }
   }
 
   async listGitWorktrees(workspacePath: string): Promise<WorkspaceGitWorktree[]> {

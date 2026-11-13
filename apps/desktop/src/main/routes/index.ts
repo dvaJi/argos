@@ -178,6 +178,7 @@ import {
   sessionsSetSubagentEnabledRoute,
   sessionsSteerPendingInputRoute,
   sessionsTogglePinnedRoute,
+  sessionsSetArchivedRoute,
   sessionsTranslateTextRoute,
   sessionsUpdateDisabledAgentToolsRoute,
   sessionsUpdateGenerationSettingsRoute,
@@ -1849,6 +1850,11 @@ export async function dispatchArgosRoute(
       const input = sessionsExportRoute.input.parse(rawInput);
       const result = await invokeDaemonRoute(sessionsExportRoute.name, input);
       return sessionsExportRoute.output.parse(result);
+    }
+
+    case sessionsSetArchivedRoute.name: {
+      const input = sessionsSetArchivedRoute.input.parse(rawInput);
+      return sessionsSetArchivedRoute.output.parse(await invokeDaemonRoute(sessionsSetArchivedRoute.name, input));
     }
 
     case sessionsDeleteRoute.name: {

@@ -2,104 +2,237 @@ import type { UISession } from "./session";
 
 /**
  * Pure thread-sidebar lifecycle-state helpers (no React, no store, no side
- * effects) — the testable core behind `stores/ui/threadSidebar.ts`:
- * settled-storage parsing (v1→v2), working-since transition diffing, and
- * lifecycle-map pruning. View logic lives in
+ * effects) — the testable core behind `stores/ui/threadSidebar.ts`
+ * (docs/features/thread-sidebar-v3): storage parsing + legacy migration,
+ * session-transition diffing (working-since, returned-at, early snooze wake),
+ * and lifecycle-map pruning. View logic lives in
  * `components/threads/threadSidebarLogic.ts`.
  */
 
 /** Timestamp map keyed by session id (ms). */
 export type TimestampMap = Record<string, number>;
-export type SettledAtMap = TimestampMap;
-export type SnoozedUntilMap = TimestampMap;
-
-export const WORKING_STATUS = "working" as const;
 
 /**
- * Parse the persisted settled record. v2: `{ v: 2, byId: { id: settledAtMs } }`.
- * v1: `{ id: true }` booleans migrate to 0 (unknown settled time, sorted by
- * updatedAt downstream).
+ * Explicit lifecycle override (t3code `settledOverride`): `settled` is a
+ * manual settle; `active` is a manual un-settle, which also exempts the
+ * thread from auto-settle.
  */
-export function parseSettledRecord(raw: unknown): SettledAtMap {
-  const next: SettledAtMap = {};
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return next;
-  const record = raw as Record<string, unknown>;
-  if (record.v === 2 && record.byId && typeof record.byId === "object" && !Array.isArray(record.byId)) {
-    for (const [id, at] of Object.entries(record.byId as Record<string, unknown>)) {
-      if (typeof at === "number" && at >= 0) next[id] = at;
+export interface LifecycleOverride {
+  state: "settled" | "active";
+  /** When the override was set (ms); 0 = unknown (migrated legacy entry). */
+  at: number;
+}
+export type OverrideMap = Record<string, LifecycleOverride>;
+
+export interface SnoozeEntry {
+  /** Scheduled wake time (ms). */
+  until: number;
+  /** When the thread was snoozed (ms); 0 = unknown (legacy entry). */
+  at: number;
+  /** Early wake (approval request / new failure) observed at (ms). */
+  wokeAt?: number;
+}
+export type SnoozeMap = Record<string, SnoozeEntry>;
+
+const WORKING = "working";
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+/**
+ * Parse persisted overrides. v3: `{ v: 3, byId: { id: { state, at } } }`.
+ * Without a v3 record, migrate the legacy settled record (v2
+ * `{ v: 2, byId: { id: ms } }` or v1 `{ id: true }`) into `settled` overrides.
+ */
+export function parseOverrideRecord(raw: unknown, legacySettled: unknown): OverrideMap {
+  const next: OverrideMap = {};
+  if (isRecord(raw) && raw.v === 3 && isRecord(raw.byId)) {
+    for (const [id, entry] of Object.entries(raw.byId)) {
+      if (!isRecord(entry)) continue;
+      const state = entry.state;
+      const at = entry.at;
+      if ((state === "settled" || state === "active") && typeof at === "number" && at >= 0) {
+        next[id] = { state, at };
+      }
     }
     return next;
   }
-  // v1: { id: true }
-  for (const [id, value] of Object.entries(record)) {
-    if (value === true) next[id] = 0;
+  if (!isRecord(legacySettled)) return next;
+  if (legacySettled.v === 2 && isRecord(legacySettled.byId)) {
+    for (const [id, at] of Object.entries(legacySettled.byId)) {
+      if (typeof at === "number" && at >= 0) next[id] = { state: "settled", at };
+    }
+    return next;
+  }
+  for (const [id, value] of Object.entries(legacySettled)) {
+    if (value === true) next[id] = { state: "settled", at: 0 };
   }
   return next;
 }
 
-export interface WorkingTransitionResult {
-  next: TimestampMap;
+/**
+ * Parse persisted snoozes. v2: `{ v: 2, byId: { id: { until, at, wokeAt? } } }`.
+ * Legacy `{ id: untilMs }` migrates to `{ until, at: 0 }`.
+ */
+export function parseSnoozeRecord(raw: unknown): SnoozeMap {
+  const next: SnoozeMap = {};
+  if (!isRecord(raw)) return next;
+  if (raw.v === 2 && isRecord(raw.byId)) {
+    for (const [id, entry] of Object.entries(raw.byId)) {
+      if (!isRecord(entry) || typeof entry.until !== "number" || entry.until <= 0) continue;
+      const parsed: SnoozeEntry = { until: entry.until, at: typeof entry.at === "number" ? entry.at : 0 };
+      if (typeof entry.wokeAt === "number" && entry.wokeAt > 0) parsed.wokeAt = entry.wokeAt;
+      next[id] = parsed;
+    }
+    return next;
+  }
+  for (const [id, until] of Object.entries(raw)) {
+    if (typeof until === "number" && until > 0) next[id] = { until, at: 0 };
+  }
+  return next;
+}
+
+export function parseTimestampRecord(raw: unknown): TimestampMap {
+  const next: TimestampMap = {};
+  if (!isRecord(raw)) return next;
+  for (const [id, at] of Object.entries(raw)) {
+    if (typeof at === "number" && at > 0) next[id] = at;
+  }
+  return next;
+}
+
+/** A snooze that has not woken yet (scheduled or early). */
+export function isSnoozePending(entry: SnoozeEntry | undefined, now: number): boolean {
+  return entry !== undefined && entry.wokeAt === undefined && entry.until > now;
+}
+
+export interface TransitionMaps {
+  overrideById: OverrideMap;
+  workingSinceById: TimestampMap;
+  returnedAtById: TimestampMap;
+  snoozeById: SnoozeMap;
+}
+
+export interface TransitionResult {
+  next: TransitionMaps;
   changed: boolean;
 }
 
+/** Copy-on-write record updates: the first write copies, later writes reuse the copy. */
+function cowRecord<T>(source: Record<string, T>) {
+  let value = source;
+  return {
+    get: () => value,
+    set(id: string, entry: T | null) {
+      if (value === source) value = { ...source };
+      if (entry === null) delete value[id];
+      else value[id] = entry;
+    },
+  };
+}
+
 /**
- * Diff session-status transitions into the persisted working-since map.
+ * Diff session-status transitions into the lifecycle maps.
  *
- * Semantics:
- *  - First observation of a session (id absent from `previous`): a working
- *    session keeps its persisted elapsed time (restart survival) or seeds from
- *    `updatedAt`; a non-working session drops any stale persisted entry. This
- *    is what makes the "Working Ns" pill survive restarts — sessions load
- *    asynchronously after this module initializes, so the first batch must not
- *    stamp `now` over persisted values.
- *  - Known session transitioning into `working`: fresh `now` stamp.
- *  - Known session leaving `working`: entry removed.
+ *  - Turn start (a session observed entering `working`): `workingSince = now`
+ *    (the last send) and any settle/un-settle override is cleared — t3code
+ *    clears `settledOverride` on every turn start, wherever it came from
+ *    (composer, retry, queued follow-up, agent continuation).
+ *  - Turn end (known session leaving `working`): `returnedAt = now`, so the
+ *    thread resurfaces at the top of the Active inbox.
+ *  - First observation (startup / newly paged): a working session keeps its
+ *    persisted working-since (restart survival) or seeds from `updatedAt`; its
+ *    override is cleared only if the turn evidently started after it. A
+ *    non-working session that was persisted as working finished while the app
+ *    was closed → `returnedAt` stamped. A session with no `returnedAt` is
+ *    seeded once from `updatedAt`, so a cold start already has an inbox order
+ *    (seeded only when absent: later view/pin bumps of `updatedAt` never
+ *    reorder anything).
+ *  - Pending snooze + `blocked` (approval request), or a known session newly
+ *    entering `error`: early wake (`wokeAt = now`), t3code's
+ *    threadRaisedHandWhileSnoozed.
  */
-export function diffWorkingTransitions(
+export function diffSessionTransitions(
   current: readonly Pick<UISession, "id" | "status" | "updatedAt">[],
   previous: readonly Pick<UISession, "id" | "status">[],
-  existing: TimestampMap,
+  maps: TransitionMaps,
   now: number,
-): WorkingTransitionResult {
+): TransitionResult {
   const prevStatusById = new Map(previous.map((session) => [session.id, session.status]));
-  const next: TimestampMap = { ...existing };
-  let changed = false;
+  const overrides = cowRecord(maps.overrideById);
+  const working = cowRecord(maps.workingSinceById);
+  const returned = cowRecord(maps.returnedAtById);
+  const snoozes = cowRecord(maps.snoozeById);
+
   for (const session of current) {
     const previousStatus = prevStatusById.get(session.id);
-    if (session.status === WORKING_STATUS && previousStatus !== WORKING_STATUS) {
-      if (previousStatus === undefined) {
-        const persisted = next[session.id];
-        if (typeof persisted !== "number" || persisted <= 0) {
-          next[session.id] = session.updatedAt > 0 ? session.updatedAt : now;
-          changed = true;
-        }
+    const firstObservation = previousStatus === undefined;
+    const isWorking = session.status === WORKING;
+    const persistedSince = working.get()[session.id];
+    const override = overrides.get()[session.id];
+
+    if (isWorking && previousStatus !== WORKING) {
+      if (firstObservation) {
+        const since =
+          typeof persistedSince === "number" && persistedSince > 0
+            ? persistedSince
+            : session.updatedAt > 0
+              ? session.updatedAt
+              : now;
+        if (since !== persistedSince) working.set(session.id, since);
+        if (override && since > override.at) overrides.set(session.id, null);
       } else {
-        next[session.id] = now;
-        changed = true;
+        working.set(session.id, now);
+        if (override) overrides.set(session.id, null);
       }
-    } else if (session.status !== WORKING_STATUS && previousStatus === WORKING_STATUS) {
-      delete next[session.id];
-      changed = true;
-    } else if (previousStatus === undefined && session.status !== WORKING_STATUS && session.id in next) {
-      delete next[session.id];
-      changed = true;
+    } else if (!isWorking && previousStatus === WORKING) {
+      if (persistedSince !== undefined) working.set(session.id, null);
+      returned.set(session.id, now);
+    } else if (!isWorking && firstObservation) {
+      if (persistedSince !== undefined) {
+        working.set(session.id, null);
+        returned.set(session.id, Math.max(session.updatedAt, persistedSince));
+      } else if (returned.get()[session.id] === undefined && session.updatedAt > 0) {
+        returned.set(session.id, session.updatedAt);
+      }
+    }
+
+    const snooze = snoozes.get()[session.id];
+    if (snooze && isSnoozePending(snooze, now)) {
+      const raisedHand =
+        session.status === "blocked" || (session.status === "error" && !firstObservation && previousStatus !== "error");
+      if (raisedHand) snoozes.set(session.id, { ...snooze, wokeAt: now });
     }
   }
+
+  const next: TransitionMaps = {
+    overrideById: overrides.get(),
+    workingSinceById: working.get(),
+    returnedAtById: returned.get(),
+    snoozeById: snoozes.get(),
+  };
+  const changed =
+    next.overrideById !== maps.overrideById ||
+    next.workingSinceById !== maps.workingSinceById ||
+    next.returnedAtById !== maps.returnedAtById ||
+    next.snoozeById !== maps.snoozeById;
   return { next, changed };
 }
 
-export interface ThreadLifecycleMaps {
-  settledAtById: SettledAtMap;
-  snoozedUntilById: SnoozedUntilMap;
-  workingSinceById: TimestampMap;
-}
-
 /** Copy of `map` without `id`; same reference when the id is absent. */
-export function omitKey(map: TimestampMap, id: string): TimestampMap {
+export function omitKey<T>(map: Record<string, T>, id: string): Record<string, T> {
   if (!(id in map)) return map;
   const next = { ...map };
   delete next[id];
   return next;
+}
+
+export interface ThreadLifecycleMaps {
+  overrideById: OverrideMap;
+  snoozeById: SnoozeMap;
+  workingSinceById: TimestampMap;
+  returnedAtById: TimestampMap;
 }
 
 export interface PruneResult {
@@ -113,8 +246,8 @@ export interface PruneResult {
  * proof of deletion once the whole history is loaded.
  */
 export function pruneLifecycleEntries(maps: ThreadLifecycleMaps, knownIds: ReadonlySet<string>): PruneResult {
-  const prune = (map: TimestampMap): TimestampMap => {
-    let pruned: TimestampMap | null = null;
+  const prune = <T>(map: Record<string, T>): Record<string, T> => {
+    let pruned: Record<string, T> | null = null;
     for (const id of Object.keys(map)) {
       if (knownIds.has(id)) continue;
       if (!pruned) pruned = { ...map };
@@ -122,12 +255,16 @@ export function pruneLifecycleEntries(maps: ThreadLifecycleMaps, knownIds: Reado
     }
     return pruned ?? map;
   };
-  const settledAtById = prune(maps.settledAtById);
-  const snoozedUntilById = prune(maps.snoozedUntilById);
-  const workingSinceById = prune(maps.workingSinceById);
+  const next: ThreadLifecycleMaps = {
+    overrideById: prune(maps.overrideById),
+    snoozeById: prune(maps.snoozeById),
+    workingSinceById: prune(maps.workingSinceById),
+    returnedAtById: prune(maps.returnedAtById),
+  };
   const changed =
-    settledAtById !== maps.settledAtById ||
-    snoozedUntilById !== maps.snoozedUntilById ||
-    workingSinceById !== maps.workingSinceById;
-  return { next: { settledAtById, snoozedUntilById, workingSinceById }, changed };
+    next.overrideById !== maps.overrideById ||
+    next.snoozeById !== maps.snoozeById ||
+    next.workingSinceById !== maps.workingSinceById ||
+    next.returnedAtById !== maps.returnedAtById;
+  return { next, changed };
 }

@@ -39,7 +39,7 @@ function abbreviatePath(targetPath: string): string {
 }
 
 /** Loads branch + worktree data for a repo (module-level: safe for the React Compiler). */
-async function fetchGitSummary(workspacePath: string): Promise<{
+export async function fetchGitSummary(workspacePath: string): Promise<{
   isRepo: boolean;
   branches: BranchInfo[];
   worktrees: WorktreeInfo[];
@@ -69,7 +69,7 @@ async function removeWorktreeViaDaemon(input: {
 }
 
 /** Picks the default base branch: origin default, then any origin, then local default. */
-function resolveDefaultBaseBranch(branches: BranchInfo[]): { name: string; fromRemote: boolean } | null {
+export function resolveDefaultBaseBranch(branches: BranchInfo[]): { name: string; fromRemote: boolean } | null {
   if (branches.length === 0) return null;
   const defaultRemote = branches.find((b) => b.kind === "remote" && b.isDefault && b.name.startsWith("origin/"));
   if (defaultRemote)

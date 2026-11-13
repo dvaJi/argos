@@ -221,6 +221,8 @@ export const SessionWithStateSchema = zod.object({
   status: SessionStatusSchema,
   providerId: zod.string(),
   modelId: zod.string(),
+  /** Thread archive (docs/features/thread-archive); null/absent = not archived. */
+  archivedAt: TimestampMsSchema.nullable().optional(),
 });
 
 export const SessionListItemSchema = SessionWithStateSchema.omit({
