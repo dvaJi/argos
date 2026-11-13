@@ -34,8 +34,23 @@ export async function runLifecycleSweep(settings: LifecycleSettings): Promise<vo
         console.warn(`[threadSidebar] Auto-archive failed for ${id}:`, archiveError);
       }
     }
+    // Re-check before destroying history: the archive pass above takes time,
+    // and the user may have restored or opened a planned thread meanwhile. A
+    // thread is only deleted while it is still archived and not open; if the
+    // re-check fails the sweep aborts (fail closed, no deletes on stale data).
+    let stillArchived = new Set<string>();
+    if (plan.delete.length > 0) {
+      const { sessions } = await sessionClient.list({});
+      stillArchived = new Set(
+        sessions
+          .map(mapToUISession)
+          .filter((session) => Boolean(session.archivedAt))
+          .map((session) => session.id),
+      );
+    }
     for (const id of plan.delete) {
       try {
+        if (id === sessionStore.state.activeSessionId || !stillArchived.has(id)) continue;
         await sessionClient.deleteSession(id);
         notifySessionDeleted(id);
       } catch (deleteError) {
