@@ -49,3 +49,27 @@ Port the task-aware agentic memory subsystem from upstream deepchat into the for
 - LLM provider system — `generateText` for extraction/decision, `getEmbeddings` for vector storage
 - SQLite presenter infrastructure — `BaseTable` pattern for new table
 - Agent config system — `memoryEnabled`, `memoryEmbedding`, `memoryExtractionModel` settings
+
+## Decision-Model Judgments (maintenance)
+
+The background judgment points — span triage, the write decision (ADD / UPDATE / SUPERSEDE /
+NOOP / CHALLENGE), and consolidation conflict resolution — can route through OpenRouter
+decision models ("System One" typed answers with probabilities) instead of chat-model
+prompt-and-parse. Implemented on `feature/decision-models` (commits
+`c4a5251b`/`7da36d3f`, Nov 2026).
+
+- Port: optional `MemoryPresenterDeps.askDecisions` (structural type in
+  `packages/memory-runtime/src/types.ts`); implemented by `DaemonMemoryRuntime`, which
+  resolves `ArgosAgentConfig.decisionModel` and calls the OpenRouter Decisions API client in
+  `packages/backend-core/src/decisions/`. Only real `openrouter.ai` provider hosts are
+  accepted; anything else (or no configured model) uses the legacy chat path.
+- Question builders + threshold mappers: `packages/memory-runtime/src/decisionsQuestions.ts`.
+  Thresholds: triage keep `p >= 0.5` (a conclusive low probability is a definitive skip);
+  write action argmax `p >= 0.6` — targeted kinds additionally need a confident neighbor
+  target; conflict supersede `p >= 0.7`. Unavailable, refused, or low-confidence answers
+  escalate to the legacy chat-model prompts (write failures keep the fail-safe ADD).
+- The decisions path never generates text: UPDATE/SUPERSEDE adopt the candidate content and
+  consolidation supersede skips the content merge.
+- Config: per-agent `decisionModel` (`{providerId, modelId}`); picker in agent settings →
+  Long-term memory. Decision models are tagged `ModelType.Decisions` in the catalog and are
+  excluded from every chat picker.

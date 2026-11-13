@@ -18,6 +18,7 @@ import {
   type MemoryExtractionResult,
   type MemoryPersonaDraftResult,
   type MemoryReflectionResult,
+  type MemoryDecisionsResult,
 } from "./types";
 import {
   CATEGORY_IMPORTANCE_FLOOR,
@@ -25,6 +26,14 @@ import {
   type AgentMemoryCategory,
 } from "@argos/shared/types/agent-memory";
 import { ADD_DECISION, buildDecisionPrompt, parseDecision, type MemoryDecision } from "./decision";
+import {
+  buildConflictDecisionsRequest,
+  buildTriageDecisionsRequest,
+  buildWriteDecisionRequest,
+  resolveConflictFromDecisions,
+  resolveTriageFromDecisions,
+  resolveWriteDecisionFromDecisions,
+} from "./decisionsQuestions";
 import {
   appendMemorySection,
   appendMemorySectionWithManifest,
@@ -514,15 +523,12 @@ export class MemoryPresenter {
       return { ok: false };
     }
 
-    try {
-      const triagePrompt = buildTriagePrompt(trimmed);
-      const triageRaw = await this.deps.generateText(fallbackModel.providerId, fallbackModel.modelId, triagePrompt);
-      const shouldKeep = parseTriageDecision(triageRaw);
-      if (!shouldKeep) {
-        return { ok: true, createdIds: [] };
-      }
-    } catch {
+    const triageOutcome = await this.resolveTriage(agentId, trimmed, fallbackModel);
+    if (triageOutcome === "error") {
       return { ok: false };
+    }
+    if (triageOutcome === "skip") {
+      return { ok: true, createdIds: [] };
     }
 
     let candidates: MemoryCandidate[];
@@ -609,17 +615,7 @@ export class MemoryPresenter {
       return { action: "noop", reason: "insert-failed" };
     }
 
-    let decision: MemoryDecision;
-    try {
-      const prompt = buildDecisionPrompt(
-        normalized,
-        neighbors.map((n) => ({ content: n.content })),
-      );
-      const raw = await this.deps.generateText(model.providerId, model.modelId, prompt);
-      decision = parseDecision(raw, neighbors.length);
-    } catch {
-      decision = ADD_DECISION;
-    }
+    let decision: MemoryDecision = await this.resolveWriteDecision(agentId, normalized, neighbors, model);
 
     switch (decision.decision) {
       case "ADD": {
@@ -817,6 +813,111 @@ export class MemoryPresenter {
     return fallback;
   }
 
+  private async resolveDecisionsModel(agentId: string): Promise<{ providerId: string; modelId: string } | null> {
+    const config = await this.deps.resolveAgentConfig(agentId);
+    const providerId = config?.decisionModel?.providerId?.trim();
+    const modelId = config?.decisionModel?.modelId?.trim();
+    if (providerId && modelId) {
+      return { providerId, modelId };
+    }
+    return null;
+  }
+
+  private logDecisionsUsage(task: string, result: MemoryDecisionsResult | null): void {
+    if (result?.usage) {
+      console.debug(`[Memory] decisions ${task}`, {
+        inputTokens: result.usage.inputTokens,
+        outputTokens: result.usage.outputTokens,
+        cost: result.usage.cost,
+      });
+    }
+  }
+
+  /**
+   * Decide whether a span is worth extracting. Uses the decisions-model port
+   * when configured; a conclusive low probability is a definitive skip, while
+   * any unavailable/inconclusive result escalates to the legacy chat-model
+   * triage. `"error"` mirrors the legacy behavior of failing the extraction.
+   */
+  private async resolveTriage(
+    agentId: string,
+    spanText: string,
+    fallbackModel: { providerId: string; modelId: string },
+  ): Promise<"keep" | "skip" | "error"> {
+    const decisionsModel = await this.resolveDecisionsModel(agentId);
+    if (decisionsModel && this.deps.askDecisions) {
+      try {
+        const result = await this.deps.askDecisions(
+          decisionsModel.providerId,
+          decisionsModel.modelId,
+          buildTriageDecisionsRequest(spanText),
+          { agentId },
+        );
+        const triage = result ? resolveTriageFromDecisions(result.answers) : null;
+        if (triage) {
+          this.logDecisionsUsage("triage", result);
+          return triage.kept ? "keep" : "skip";
+        }
+      } catch {
+        // fall through to the legacy chat-model triage
+      }
+    }
+    try {
+      const triageRaw = await this.deps.generateText(
+        fallbackModel.providerId,
+        fallbackModel.modelId,
+        buildTriagePrompt(spanText),
+      );
+      return parseTriageDecision(triageRaw) ? "keep" : "skip";
+    } catch {
+      return "error";
+    }
+  }
+
+  /**
+   * Decide how a candidate relates to its neighbors. Uses the decisions-model
+   * port when configured; unavailable, refused, or low-confidence answers
+   * escalate to the legacy chat-model decision (fail-safe ADD).
+   */
+  private async resolveWriteDecision(
+    agentId: string,
+    normalized: NormalizedMemoryCandidate,
+    neighbors: MemoryRecallItem[],
+    fallbackModel: { providerId: string; modelId: string },
+  ): Promise<MemoryDecision> {
+    const decisionsModel = await this.resolveDecisionsModel(agentId);
+    if (decisionsModel && this.deps.askDecisions) {
+      try {
+        const result = await this.deps.askDecisions(
+          decisionsModel.providerId,
+          decisionsModel.modelId,
+          buildWriteDecisionRequest(
+            normalized,
+            neighbors.map((n) => ({ content: n.content })),
+          ),
+          { agentId },
+        );
+        const decision = result ? resolveWriteDecisionFromDecisions(result.answers, neighbors.length) : null;
+        if (decision) {
+          this.logDecisionsUsage("write-decision", result);
+          return decision;
+        }
+      } catch {
+        // fall through to the legacy chat-model decision
+      }
+    }
+    try {
+      const prompt = buildDecisionPrompt(
+        normalized,
+        neighbors.map((n) => ({ content: n.content })),
+      );
+      const raw = await this.deps.generateText(fallbackModel.providerId, fallbackModel.modelId, prompt);
+      return parseDecision(raw, neighbors.length);
+    } catch {
+      return ADD_DECISION;
+    }
+  }
+
   private scheduleConsolidation(agentId: string): void {
     if (this.consolidationTimers.has(agentId)) {
       return;
@@ -850,6 +951,8 @@ export class MemoryPresenter {
       return;
     }
 
+    const decisionsModel = await this.resolveDecisionsModel(agentId);
+
     const run = (async () => {
       const model = extractionModel;
       let llmCalls = 0;
@@ -869,6 +972,44 @@ export class MemoryPresenter {
       for (const pair of pairs) {
         if (llmCalls >= CONSOLIDATION_MAX_LLM_CALLS) break;
         if (inputTokens >= CONSOLIDATION_MAX_INPUT_TOKENS) break;
+
+        // The pair snapshot is stale once an earlier iteration supersedes a
+        // row: skip pairs whose A or B is no longer active.
+        const aRow = this.deps.repository.getById(pair.a.id);
+        const bRow = this.deps.repository.getById(pair.b.id);
+        if (!aRow || aRow.superseded_by || !bRow || bRow.superseded_by) {
+          continue;
+        }
+
+        if (decisionsModel && this.deps.askDecisions) {
+          const decisionsRequest = buildConflictDecisionsRequest(pair.a.content, pair.b.content);
+          try {
+            llmCalls++;
+            inputTokens += estimateTokens(JSON.stringify(decisionsRequest.state));
+            const result = await this.deps.askDecisions(
+              decisionsModel.providerId,
+              decisionsModel.modelId,
+              decisionsRequest,
+              { agentId },
+            );
+            const conflict = result ? resolveConflictFromDecisions(result.answers) : null;
+            if (conflict) {
+              this.logDecisionsUsage("conflict", result);
+              if (conflict.superseded) {
+                // The decisions path cannot generate merged text, so B is
+                // superseded by A without a content merge.
+                this.deps.repository.markSuperseded(pair.b.id, pair.a.id);
+              }
+              continue;
+            }
+          } catch {
+            // fall through to the legacy chat-model pair decision
+          }
+        }
+
+        // An unresolved decisions call already spent a turn of the budget;
+        // honor the cap before spending another on the chat fallback.
+        if (llmCalls >= CONSOLIDATION_MAX_LLM_CALLS) break;
 
         const prompt = buildDecisionPrompt(
           {

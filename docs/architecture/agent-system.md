@@ -31,6 +31,8 @@ Pi's default built-ins (`read`, `bash`, `edit`, and `write`) stay enabled. Addit
 
 In `default` permission mode, a Pi `tool_call` hook blocks until the React host answers the existing tool-interaction request. `full_access` skips that prompt. An approved MCP call is granted once to the MCP session cache before execution so the user is not prompted twice.
 
+Permission auto-approval (opt-in): with `permissionAutoApproval` enabled on the agent and a decision model configured (`ArgosAgentConfig.decisionModel`, OpenRouter providers only), `PiProviderExecutionPort` evaluates each `permissionRequest` with one Decisions API question — `p >= 0.85` grants, with `provider.data_collection: "deny"` and an 8-second budget. The grant is recorded as a persisted `granted` action block ("Auto-approved …") in the transcript. Every other outcome — toggle off, no decision model, non-OpenRouter provider, API error, refused or below-threshold answer — falls through to the normal human prompt; the gate never auto-denies. Gate question/threshold logic lives in `packages/backend-core/src/decisions/permissionGate.ts`.
+
 ## Agent profiles and packages
 
 Each agent has an isolated profile under:

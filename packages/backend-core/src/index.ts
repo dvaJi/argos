@@ -39,3 +39,5 @@ export * from "./skills";
 export * from "./knowledge";
 export * from "./config";
 export * from "./cua";
+export * from "./decisions";
+export * from "./decisions/permissionGate";

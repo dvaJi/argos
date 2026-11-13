@@ -1517,6 +1517,16 @@ export class AiSdkProvider extends BaseLLMProvider {
               (item): item is string => typeof item === "string",
             )
           : [];
+        // Decision models (System One) answer typed questions with
+        // probabilities — they are not chat-completable and must not appear
+        // in chat pickers (docs/features/decision-models).
+        const outputModalities = Array.isArray((model.architecture as Record<string, unknown>)?.output_modalities)
+          ? ((model.architecture as Record<string, unknown>).output_modalities as unknown[]).filter(
+              (item): item is string => typeof item === "string",
+            )
+          : [];
+        const isDecisionsModel =
+          strategy === "openrouter" && outputModalities.includes("decisions") && !outputModalities.includes("text");
 
         const contextLength =
           strategy === "openrouter"
@@ -1632,15 +1642,16 @@ export class AiSdkProvider extends BaseLLMProvider {
           isCustom: false,
           contextLength,
           maxTokens,
+          type: isDecisionsModel ? ModelType.Decisions : undefined,
           description:
             typeof model.description === "string"
               ? model.description
               : strategy === "groq"
                 ? `Groq model ${modelId}`
                 : undefined,
-          vision: hasVision,
-          functionCall: hasFunctionCalling,
-          reasoning,
+          vision: isDecisionsModel ? undefined : hasVision,
+          functionCall: isDecisionsModel ? undefined : hasFunctionCalling,
+          reasoning: isDecisionsModel ? undefined : reasoning,
         });
       }
 

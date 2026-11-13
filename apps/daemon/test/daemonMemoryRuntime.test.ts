@@ -286,4 +286,114 @@ describe("DaemonMemoryRuntime", () => {
     const recalled = response.toolResult as Array<{ content: string }>;
     expect(recalled).toHaveLength(2);
   });
+
+  describe("askDecisions wiring", () => {
+    const realFetch = globalThis.fetch;
+
+    afterEach(() => {
+      globalThis.fetch = realFetch;
+    });
+
+    function createRuntimeWithProviders(providers: Array<{ id: string; apiKey: string; baseUrl: string }>) {
+      const runtime = createRuntime();
+      (runtime as unknown as { configPresenter: { getProviders: () => unknown } }).configPresenter.getProviders = () =>
+        providers;
+      return runtime;
+    }
+
+    const decisionsRequest = {
+      state: { conversation_span: "User prefers dark mode" },
+      questions: {
+        keep_memory: { type: "noul" as const, instructions: "keep?" },
+      },
+    };
+
+    const decisionsResponse = {
+      id: "gen-dec-1",
+      model: "typesafe/jev-1.14",
+      provider: "TypeSafe",
+      answers: {
+        keep_memory: { type: "noul", noul: 0.91, confidence: 0.95 },
+      },
+      usage: { input_tokens: 42, output_tokens: 0, cost: 0.00002 },
+    };
+
+    it("returns null for providers that are not the openrouter.ai host", async () => {
+      const runtime = createRuntimeWithProviders([
+        { id: "proxy", apiKey: "sk-proxy", baseUrl: "https://proxy.example.com/v1/" },
+      ]);
+
+      const ask = (
+        runtime as unknown as {
+          askDecisions: (providerId: string, modelId: string, request: typeof decisionsRequest) => Promise<unknown>;
+        }
+      ).askDecisions.bind(runtime);
+      await expect(ask("proxy", "typesafe/jev-1.14", decisionsRequest)).resolves.toBeNull();
+    });
+
+    it("posts to the OpenRouter decisions endpoint with the agent as session id", async () => {
+      const calls: Array<{ url: string; init: RequestInit }> = [];
+      globalThis.fetch = (async (url: RequestInfo | URL, init?: RequestInit) => {
+        calls.push({ url: String(url), init: init ?? {} });
+        return new Response(JSON.stringify(decisionsResponse), { status: 200 });
+      }) as unknown as typeof fetch;
+
+      const runtime = createRuntimeWithProviders([
+        { id: "openrouter", apiKey: "sk-or-test", baseUrl: "https://openrouter.ai/api/v1/" },
+      ]);
+      const ask = (
+        runtime as unknown as {
+          askDecisions: (
+            providerId: string,
+            modelId: string,
+            request: typeof decisionsRequest,
+            context?: { agentId?: string },
+          ) => Promise<{
+            answers: Record<string, { type: string; noul?: number }>;
+            usage?: { inputTokens: number; outputTokens: number; cost?: number };
+          }>;
+        }
+      ).askDecisions.bind(runtime);
+
+      const result = await ask("openrouter", "typesafe/jev-1.14", decisionsRequest, { agentId: "agent-1" });
+
+      expect(calls).toHaveLength(1);
+      expect(calls[0].url).toBe("https://openrouter.ai/api/alpha/decisions");
+      expect((calls[0].init.headers as Record<string, string>).Authorization).toBe("Bearer sk-or-test");
+      const body = JSON.parse(String(calls[0].init.body)) as Record<string, unknown>;
+      expect(body.model).toBe("typesafe/jev-1.14");
+      expect(body.session_id).toBe("agent-1");
+      expect(body.questions).toEqual(decisionsRequest.questions);
+      expect(result?.answers.keep_memory).toEqual({ type: "noul", noul: 0.91, confidence: 0.95 });
+      expect(result?.usage).toEqual({ inputTokens: 42, outputTokens: 0, cost: 0.00002 });
+    });
+
+    it("retries retryable upstream errors once", async () => {
+      let attempts = 0;
+      globalThis.fetch = (async () => {
+        attempts += 1;
+        if (attempts === 1) {
+          return new Response("upstream exploded", { status: 502 });
+        }
+        return new Response(JSON.stringify(decisionsResponse), { status: 200 });
+      }) as unknown as typeof fetch;
+
+      const runtime = createRuntimeWithProviders([
+        { id: "openrouter", apiKey: "sk-or-test", baseUrl: "https://openrouter.ai/api/v1/" },
+      ]);
+      const ask = (
+        runtime as unknown as {
+          askDecisions: (
+            providerId: string,
+            modelId: string,
+            request: typeof decisionsRequest,
+          ) => Promise<{ answers: Record<string, unknown> } | null>;
+        }
+      ).askDecisions.bind(runtime);
+
+      const result = await ask("openrouter", "typesafe/jev-1.14", decisionsRequest);
+      expect(attempts).toBe(2);
+      expect(result?.answers.keep_memory).toBeDefined();
+    });
+  });
 });

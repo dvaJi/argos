@@ -609,6 +609,10 @@ export interface ArgosAgentConfig {
   memoryEnabled?: boolean;
   memoryEmbedding?: ArgosAgentMemoryEmbedding | null;
   memoryExtractionModel?: ArgosAgentModelSelection | null;
+  /** Decision-model selection (OpenRouter Decisions API) for background memory judgments. */
+  decisionModel?: ArgosAgentModelSelection | null;
+  /** Opt-in: auto-approve routine tool permission prompts via the decision model. */
+  permissionAutoApproval?: boolean;
   memoryRetrieval?: ArgosAgentMemoryRetrieval | null;
   personaEvolutionEnabled?: boolean;
 }

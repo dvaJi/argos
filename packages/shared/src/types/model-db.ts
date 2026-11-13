@@ -116,7 +116,7 @@ export const ModelSchema = zod.object({
       zod.union([zod.string(), zod.number(), zod.array(zod.unknown()), zod.record(zod.string(), zod.unknown())]),
     )
     .optional(),
-  type: zod.enum(["chat", "embedding", "rerank", "imageGeneration", "videoGeneration", "tts"]).optional(),
+  type: zod.enum(["chat", "embedding", "rerank", "imageGeneration", "videoGeneration", "tts", "decisions"]).optional(),
 });
 
 export type ProviderModel = zod.infer<typeof ModelSchema>;
@@ -411,7 +411,7 @@ function getFlexibleCostRecord(obj: unknown): ProviderModelCost | undefined {
   return Object.keys(out).length ? out : undefined;
 }
 
-type ModelTypeValue = "chat" | "embedding" | "rerank" | "imageGeneration" | "videoGeneration" | "tts";
+type ModelTypeValue = "chat" | "embedding" | "rerank" | "imageGeneration" | "videoGeneration" | "tts" | "decisions";
 
 function getEffortValue(v: unknown): ReasoningEffort | undefined {
   return isReasoningEffort(v) ? v : undefined;
@@ -495,6 +495,7 @@ function getModelTypeValue(v: unknown): ModelTypeValue | undefined {
     case "imageGeneration":
     case "videoGeneration":
     case "tts":
+    case "decisions":
       return v;
   }
 
@@ -516,6 +517,8 @@ function getModelTypeValue(v: unknown): ModelTypeValue | undefined {
       return "videoGeneration";
     case "tts":
       return "tts";
+    case "decisions":
+      return "decisions";
     default:
       return undefined;
   }

@@ -60,6 +60,7 @@ type AgentConfigForm = {
   imageGenerationModelId: string;
   defaultProjectPath: string;
   permissionMode: PermissionMode;
+  permissionAutoApproval: boolean;
   subagentEnabled: boolean;
   subagents: ArgosSubagentSlot[];
   disabledAgentTools: string[];
@@ -74,6 +75,8 @@ type AgentConfigForm = {
   memoryEmbeddingModelId: string;
   memoryExtractionProviderId: string;
   memoryExtractionModelId: string;
+  decisionModelProviderId: string;
+  decisionModelModelId: string;
 };
 type ToolGroup = {
   name: string;
@@ -86,7 +89,8 @@ type ModelFieldKey =
   | "visionModel"
   | "imageGenerationModel"
   | "memoryEmbedding"
-  | "memoryExtraction";
+  | "memoryExtraction"
+  | "decisionModel";
 type UpdateFormFn = <K extends keyof AgentConfigForm>(key: K, value: AgentConfigForm[K]) => void;
 const LUCIDE_ICON_OPTIONS = ["bot", "brain", "sparkles", "search", "shield", "code", "book-open", "wrench"];
 const EMPTY_FORM: AgentConfigForm = {
@@ -109,6 +113,7 @@ const EMPTY_FORM: AgentConfigForm = {
   imageGenerationModelId: "",
   defaultProjectPath: "",
   permissionMode: "full_access",
+  permissionAutoApproval: false,
   subagentEnabled: false,
   subagents: normalizeArgosSubagentSlots(createDefaultArgosSubagentSlots()),
   disabledAgentTools: [],
@@ -123,6 +128,8 @@ const EMPTY_FORM: AgentConfigForm = {
   memoryEmbeddingModelId: "",
   memoryExtractionProviderId: "",
   memoryExtractionModelId: "",
+  decisionModelProviderId: "",
+  decisionModelModelId: "",
 };
 const renderWithTranslationKey = (key: string, label: string) => (
   <>
@@ -222,6 +229,7 @@ const buildFormFromAgent = (agent: Agent | null): AgentConfigForm => {
     imageGenerationModelId: imageGenerationModel.modelId,
     defaultProjectPath: config.defaultProjectPath?.trim() || "",
     permissionMode: config.permissionMode === "default" ? "default" : "full_access",
+    permissionAutoApproval: config.permissionAutoApproval ?? false,
     subagentEnabled: config.subagentEnabled !== false,
     subagents: normalizeArgosSubagentSlots(config.subagents ?? createDefaultArgosSubagentSlots()),
     disabledAgentTools: [...(config.disabledAgentTools ?? [])],
@@ -236,6 +244,8 @@ const buildFormFromAgent = (agent: Agent | null): AgentConfigForm => {
     memoryEmbeddingModelId: config.memoryEmbedding?.modelId ?? "",
     memoryExtractionProviderId: config.memoryExtractionModel?.providerId ?? "",
     memoryExtractionModelId: config.memoryExtractionModel?.modelId ?? "",
+    decisionModelProviderId: config.decisionModel?.providerId ?? "",
+    decisionModelModelId: config.decisionModel?.modelId ?? "",
   };
 };
 const getModelLabelFromStore = (modelStore: ReturnType<typeof useModelStore>, providerId: string, modelId: string) => {
@@ -330,6 +340,13 @@ const applyModelSelection = (
       memoryExtractionModelId: model.id,
     }));
   }
+  if (field === "decisionModel") {
+    setForm((prev) => ({
+      ...prev,
+      decisionModelProviderId: providerId,
+      decisionModelModelId: model.id,
+    }));
+  }
 };
 const clearModelSelection = (setForm: React.Dispatch<React.SetStateAction<AgentConfigForm>>, field: ModelFieldKey) => {
   if (field === "defaultModel") {
@@ -374,11 +391,19 @@ const clearModelSelection = (setForm: React.Dispatch<React.SetStateAction<AgentC
       memoryExtractionModelId: "",
     }));
   }
+  if (field === "decisionModel") {
+    setForm((prev) => ({
+      ...prev,
+      decisionModelProviderId: "",
+      decisionModelModelId: "",
+    }));
+  }
 };
 const buildAgentConfigFromForm = (form: AgentConfigForm): ArgosAgentConfig => ({
   systemPrompt: form.systemPrompt,
   defaultProjectPath: form.defaultProjectPath.trim() || null,
   permissionMode: form.permissionMode,
+  permissionAutoApproval: form.permissionAutoApproval,
   subagentEnabled: form.subagentEnabled,
   subagents: normalizeArgosSubagentSlots(form.subagents),
   disabledAgentTools: [...form.disabledAgentTools],
@@ -435,6 +460,15 @@ const buildAgentConfigFromForm = (form: AgentConfigForm): ArgosAgentConfig => ({
       ? {
           providerId: form.memoryExtractionProviderId,
           modelId: form.memoryExtractionModelId,
+        }
+      : null,
+  // Independent of memoryEnabled: permission auto-approval uses the decision
+  // model too, so it must survive disabling long-term memory.
+  decisionModel:
+    form.decisionModelProviderId && form.decisionModelModelId
+      ? {
+          providerId: form.decisionModelProviderId,
+          modelId: form.decisionModelModelId,
         }
       : null,
   orchestrationEnabled: form.orchestrationEnabled,
@@ -1878,6 +1912,21 @@ const AgentModelsSection = ({
               <SelectItem value="default">Default</SelectItem>
             </SelectContent>
           </Select>
+          <div className="flex h-8 items-center justify-between gap-2 rounded-lg border border-border px-3">
+            <span className="truncate text-xs text-muted-foreground">Auto-approve routine requests</span>
+            <Switch
+              checked={form.permissionAutoApproval}
+              onCheckedChange={(value) => updateForm("permissionAutoApproval", value)}
+              aria-label="Auto-approve routine permission requests"
+            />
+          </div>
+          {form.permissionAutoApproval && (
+            <div className="text-[11px] text-muted-foreground">
+              Experimental: routine, low-risk tool permission requests are auto-approved with a decision model (requires
+              the Long-term memory decision model below and an OpenRouter key). Everything else still asks you; nothing
+              is ever auto-denied.
+            </div>
+          )}
         </div>
 
         <div className="space-y-1.5">
@@ -2048,6 +2097,42 @@ const AgentMemorySection = ({
       type: ModelType.Chat,
     },
   ];
+  const decisionModelField = {
+    key: "decisionModel" as const,
+    label: "Decision model (OpenRouter)",
+    providerId: form.decisionModelProviderId,
+    modelId: form.decisionModelModelId,
+    type: ModelType.Decisions,
+  };
+  // The decision model serves memory judgments AND permission auto-approval,
+  // so it stays configurable when either consumer is enabled.
+  const showDecisionModel = form.memoryEnabled || form.permissionAutoApproval;
+  const renderPicker = (field: {
+    key: ModelFieldKey;
+    label: string;
+    providerId: string;
+    modelId: string;
+    type: ModelType;
+  }) => (
+    <ModelPickerCard
+      key={field.key}
+      label={field.label}
+      dialogTitle={field.label}
+      providerId={field.providerId}
+      modelId={field.modelId}
+      modelType={field.type}
+      open={openModelPicker[field.key] ?? false}
+      onOpenChange={(open) =>
+        setOpenModelPicker((prev) => ({
+          ...prev,
+          [field.key]: open,
+        }))
+      }
+      onSelect={(model, providerId) => selectModel(field.key, model, providerId)}
+      onClear={() => clearModel(field.key)}
+      getModelLabel={getModelLabel}
+    />
+  );
   return (
     <section className="space-y-4 rounded-2xl border border-border p-5">
       <div className="flex items-center justify-between gap-3">
@@ -2074,28 +2159,19 @@ const AgentMemorySection = ({
       </div>
 
       {form.memoryEnabled && (
-        <div className="grid gap-3 md:grid-cols-2">
-          {memoryModelFieldConfigs.map((field) => (
-            <ModelPickerCard
-              key={field.key}
-              label={field.label}
-              dialogTitle={field.label}
-              providerId={field.providerId}
-              modelId={field.modelId}
-              modelType={field.type}
-              open={openModelPicker[field.key] ?? false}
-              onOpenChange={(open) =>
-                setOpenModelPicker((prev) => ({
-                  ...prev,
-                  [field.key]: open,
-                }))
-              }
-              onSelect={(model, providerId) => selectModel(field.key, model, providerId)}
-              onClear={() => clearModel(field.key)}
-              getModelLabel={getModelLabel}
-            />
-          ))}
-        </div>
+        <div className="grid gap-3 md:grid-cols-2">{memoryModelFieldConfigs.map((field) => renderPicker(field))}</div>
+      )}
+
+      {showDecisionModel && (
+        <>
+          <div className="grid gap-3 md:grid-cols-2">{renderPicker(decisionModelField)}</div>
+          <div className="text-xs text-muted-foreground">
+            Decision model (experimental): uses OpenRouter decision models (e.g.{" "}
+            <span className="font-mono">typesafe/jev-1.14</span>) for background memory judgments — triage, write
+            decisions, and conflict resolution — and, when enabled, for permission auto-approval. Requires an OpenRouter
+            provider key; without it, memory falls back to the extraction model and permission requests always ask you.
+          </div>
+        </>
       )}
     </section>
   );

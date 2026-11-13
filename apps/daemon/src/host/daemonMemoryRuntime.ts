@@ -11,9 +11,13 @@ import type {
   AgentMemoryKind,
   MemoryCandidate,
   MemoryRecallItem,
+  MemoryDecisionsAnswerMap,
+  MemoryDecisionsRequest,
+  MemoryDecisionsResult,
 } from "@argos/memory-runtime/types";
 import type { MCPToolCall, MCPToolDefinition, MCPToolResponse } from "@argos/shared/types/core/mcp";
 import { isAgentMemoryCategory } from "@argos/shared/types/agent-memory";
+import { createOpenRouterDecisionsClient, isOpenRouterDecisionsBaseUrl } from "@argos/backend-core";
 
 const MEMORY_TOOL_SERVER_NAME = "agent-memory";
 
@@ -72,6 +76,12 @@ export class DaemonMemoryRuntime {
         this.getEmbeddings(providerId, modelId, texts),
       generateText: (providerId: string, modelId: string, prompt: string) =>
         this.generateText(providerId, modelId, prompt),
+      askDecisions: (
+        providerId: string,
+        modelId: string,
+        request: MemoryDecisionsRequest,
+        context?: { agentId?: string },
+      ) => this.askDecisions(providerId, modelId, request, context),
       createVectorStore: async (
         agentId: string,
         embedding: { providerId: string; modelId: string },
@@ -375,6 +385,49 @@ export class DaemonMemoryRuntime {
     if (!response.ok) throw new Error(`Embeddings API error (${response.status})`);
     const data = (await response.json()) as { data: Array<{ embedding: number[] }> };
     return data.data.map((d) => d.embedding);
+  }
+
+  /**
+   * Decisions-model port for the shared MemoryPresenter (OpenRouter Decisions
+   * API). Returns `null` when the provider is not the real openrouter.ai host
+   * so the presenter falls back to the chat-model path. Throws on API errors
+   * — the presenter treats those the same as `null`.
+   */
+  private async askDecisions(
+    providerId: string,
+    modelId: string,
+    request: MemoryDecisionsRequest,
+    context?: { agentId?: string },
+  ): Promise<MemoryDecisionsResult | null> {
+    const provider = this.resolveProvider(providerId);
+    if (!isOpenRouterDecisionsBaseUrl(provider.baseUrl)) {
+      return null;
+    }
+    const client = createOpenRouterDecisionsClient({
+      apiKey: provider.apiKey,
+      sessionId: context?.agentId,
+    });
+    const response = await client.ask({
+      model: modelId,
+      state: request.state,
+      questions: request.questions,
+    });
+
+    // Narrow the alpha answer surface to what memory-runtime consumes.
+    const answers: MemoryDecisionsAnswerMap = {};
+    for (const [key, answer] of Object.entries(response.answers)) {
+      if (answer.type === "noul" || answer.type === "choice" || answer.type === "refusal") {
+        answers[key] = answer;
+      }
+    }
+    return {
+      answers,
+      usage: {
+        inputTokens: response.usage.inputTokens,
+        outputTokens: response.usage.outputTokens,
+        cost: response.usage.cost,
+      },
+    };
   }
 
   private async generateText(providerId: string, modelId: string, prompt: string): Promise<string> {
