@@ -303,10 +303,24 @@ export function unsnoozeSession(id: string): void {
   if (next !== threadSidebarStore.state.snoozeById) setSnoozes(next);
 }
 
-/** Opening a thread acknowledges a "Woke" notice (and a manual wake clears the snooze). */
+/**
+ * Opening a thread acknowledges a "Woke" notice (and a manual wake clears the
+ * snooze). The wake time is stamped as the thread's latest activity first:
+ * deleting the snooze entry alone would drop the thread back to its old inbox
+ * position, where activity older than the settle horizon would instantly
+ * re-settle it (and make it archive-eligible again).
+ */
 export function markThreadOpened(id: string): void {
   const entry = threadSidebarStore.state.snoozeById[id];
-  if (entry && (entry.wokeAt !== undefined || entry.until <= Date.now())) unsnoozeSession(id);
+  if (!entry || (entry.wokeAt === undefined && entry.until > Date.now())) return;
+  const wokeAt = entry.wokeAt ?? Date.now();
+  const returnedAtById = threadSidebarStore.state.returnedAtById;
+  if ((returnedAtById[id] ?? 0) < wokeAt) {
+    const next = { ...returnedAtById, [id]: wokeAt };
+    threadSidebarStore.setState((prev) => ({ ...prev, returnedAtById: next }));
+    persistReturnedAt(next);
+  }
+  unsnoozeSession(id);
 }
 
 // --- Shelves ---
