@@ -25,43 +25,14 @@ const AgentMcpSelector: FC<AgentMcpSelectorProps> = ({ onUpdateSelections }) => 
   // Liveness flag flipped by the load effect; post-await state writes are skipped
   // once the effect is torn down so unmounted loads never write state.
   const loadLiveRef = useRef(false);
-  const isPluginOwnedServerConfig = (config: AgentMcpServerConfig): boolean =>
-    Boolean(config.ownerPluginId || config.source === "plugin");
+  // Latest callback, read through a ref so a parent passing an inline function
+  // does not retrigger the load effect (which caused a load/report/re-render loop).
+  const onUpdateSelectionsRef = useRef(onUpdateSelections);
+  useEffect(() => {
+    onUpdateSelectionsRef.current = onUpdateSelections;
+  }, [onUpdateSelections]);
   const selectableServers = availableServers.filter((server) => server.config.type !== "inmemory");
   const selectionSet = new Set(selections);
-  const load = async () => {
-    setLoading(true);
-    try {
-      const [servers, currentSelections] = await Promise.all([
-        configClient.getMcpServers(),
-        configClient.getAcpSharedMcpSelections(),
-      ]);
-      if (!loadLiveRef.current) return;
-      const filtered = Object.entries(servers ?? {}).flatMap(([name, config]) =>
-        isPluginOwnedServerConfig(config)
-          ? []
-          : [
-              {
-                name,
-                config,
-              },
-            ],
-      );
-      setAvailableServers(filtered);
-      const visibleServerNames = new Set(filtered.map((server) => server.name));
-      const next = Array.isArray(currentSelections)
-        ? currentSelections.filter((name) => visibleServerNames.has(name))
-        : [];
-      setSelections(next);
-      // Report the *visible* count on mount so the parent badge matches the list.
-      onUpdateSelections?.(next);
-      setLoading(false);
-    } catch (error) {
-      if (!loadLiveRef.current) return;
-      setLoading(false);
-      throw error;
-    }
-  };
   const persist = async (nextSelections: string[], previousSelections: string[] = selections) => {
     setSaving(true);
     try {
@@ -93,13 +64,49 @@ const AgentMcpSelector: FC<AgentMcpSelectorProps> = ({ onUpdateSelections }) => 
       throw error;
     }
   };
+  // Load once on mount.
   useEffect(() => {
+    const load = async () => {
+      const isPluginOwnedServerConfig = (config: AgentMcpServerConfig): boolean =>
+        Boolean(config.ownerPluginId || config.source === "plugin");
+      setLoading(true);
+      try {
+        const [servers, currentSelections] = await Promise.all([
+          configClient.getMcpServers(),
+          configClient.getAcpSharedMcpSelections(),
+        ]);
+        if (!loadLiveRef.current) return;
+        const filtered = Object.entries(servers ?? {}).flatMap(([name, config]) =>
+          isPluginOwnedServerConfig(config)
+            ? []
+            : [
+                {
+                  name,
+                  config,
+                },
+              ],
+        );
+        setAvailableServers(filtered);
+        const visibleServerNames = new Set(filtered.map((server) => server.name));
+        const next = Array.isArray(currentSelections)
+          ? currentSelections.filter((name) => visibleServerNames.has(name))
+          : [];
+        setSelections(next);
+        // Report the *visible* count on mount so the parent badge matches the list.
+        onUpdateSelectionsRef.current?.(next);
+        setLoading(false);
+      } catch (error) {
+        if (!loadLiveRef.current) return;
+        setLoading(false);
+        throw error;
+      }
+    };
     loadLiveRef.current = true;
     void Promise.resolve().then(() => load());
     return () => {
       loadLiveRef.current = false;
     };
-  }, [load]);
+  }, []);
   return (
     <div className="space-y-2">
       <div className="text-xs font-semibold text-muted-foreground">MCP Server Access</div>
