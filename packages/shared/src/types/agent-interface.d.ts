@@ -685,6 +685,8 @@ export interface SessionRecord {
   subagentMeta?: ArgosSubagentMeta | null;
   createdAt: number;
   updatedAt: number;
+  /** When the session was archived (hidden from sidebars); null/absent = not archived. */
+  archivedAt?: number | null;
 }
 
 export interface SessionListItem extends SessionRecord {

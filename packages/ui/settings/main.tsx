@@ -19,6 +19,7 @@ import SettingsApp from "./App";
 import SettingsOverview from "./components/SettingsOverview";
 import CommonSettings from "./components/CommonSettings";
 import DisplaySettings from "./components/DisplaySettings";
+import ProjectsSettings from "./components/ProjectsSettings";
 import EnvironmentsSettings from "./components/EnvironmentsSettings";
 import ModelProviderSettings from "./components/ModelProviderSettings";
 import McpSettings from "./components/McpSettings";
@@ -64,6 +65,7 @@ const componentMap: Record<string, RouteComponent> = {
   "settings-common": CommonSettings,
   "settings-display": DisplaySettings,
   "settings-environments": EnvironmentsSettings,
+  "settings-projects": ProjectsSettings,
   "settings-provider": ModelProviderSettings,
   "settings-mcp": McpSettings,
   "settings-argos-agents": ArgosAgentsSettings,

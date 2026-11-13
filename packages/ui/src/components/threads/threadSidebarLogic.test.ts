@@ -1,25 +1,38 @@
 import { describe, expect, it } from "vitest";
-import type { UISession } from "#/stores/ui/session";
+import { mapToUISession, type UISession } from "#/stores/ui/sessionMapping";
 import {
+  AUTO_SETTLE_AFTER_MS,
+  DEFAULT_LIFECYCLE_SETTINGS,
+  canSnooze,
+  normalizeLifecycleSettings,
+  planLifecycleSweep,
   filterByTitle,
   formatAge,
-  formatWakeCountdown,
+  formatWakeLabel,
   formatWorkingElapsed,
   highlightSegments,
   partitionThreads,
-  resolveThreadPill,
-  resolveThreadStatus,
+  planNextThread,
+  resolveRowStatus,
+  resolveSettled,
+  resolveSnoozePresets,
+  returnAt,
+  shouldRecede,
+  visibleShelfRows,
+  type LifecycleContext,
   type ThreadSections,
 } from "./threadSidebarLogic";
 
-const NOW = 1_000_000_000;
+const NOW = 2_000_000_000_000;
+const HOUR = 3_600_000;
+const DAY = 24 * HOUR;
 
 function makeSession(overrides: Partial<UISession> = {}): UISession {
   return {
     id: "s1",
     title: "Session",
     agentId: "agent",
-    status: "completed",
+    status: "none",
     projectDir: "/tmp/project",
     isPinned: false,
     isDraft: false,
@@ -27,156 +40,332 @@ function makeSession(overrides: Partial<UISession> = {}): UISession {
     parentSessionId: null,
     subagentEnabled: false,
     subagentMeta: null,
-    createdAt: NOW - 60_000,
-    updatedAt: NOW - 30_000,
+    createdAt: NOW - HOUR,
+    updatedAt: NOW - HOUR,
     ...overrides,
   };
 }
 
-const emptyHelpers = {
-  settledAtById: {} as Record<string, number>,
-  snoozedUntilById: {} as Record<string, number>,
-  now: NOW,
-};
-
-function ids(sections: ThreadSections): Record<keyof ThreadSections, string[]> {
+function ctx(overrides: Partial<LifecycleContext> = {}): LifecycleContext {
   return {
-    pinned: sections.pinned.map((s) => s.id),
-    active: sections.active.map((s) => s.id),
-    snoozed: sections.snoozed.map((s) => s.id),
-    settled: sections.settled.map((s) => s.id),
+    overrideById: {},
+    snoozeById: {},
+    workingSinceById: {},
+    returnedAtById: {},
+    now: NOW,
+    ...overrides,
   };
 }
 
-describe("resolveThreadStatus", () => {
-  it("maps attention states ahead of activity", () => {
-    expect(resolveThreadStatus({ status: "blocked" })).toBe("approval");
-    expect(resolveThreadStatus({ status: "error" })).toBe("failed");
-    expect(resolveThreadStatus({ status: "working" })).toBe("working");
-    expect(resolveThreadStatus({ status: "new_results" })).toBe("unseen");
-    expect(resolveThreadStatus({ status: "completed" })).toBe("ready");
-    expect(resolveThreadStatus({ status: "none" })).toBe("ready");
-  });
-
-  it("maps statuses to pills; quiet statuses have no pill", () => {
-    expect(resolveThreadPill("approval")?.label).toBe("Pending approval");
-    expect(resolveThreadPill("failed")?.label).toBe("Failed");
-    expect(resolveThreadPill("working")?.label).toBe("Working");
-    expect(resolveThreadPill("unseen")?.label).toBe("Completed");
-    expect(resolveThreadPill("ready")).toBeNull();
-  });
+const ids = (sections: ThreadSections) => ({
+  pinned: sections.pinned.map((s) => s.id),
+  active: sections.active.map((s) => s.id),
+  working: sections.working.map((s) => s.id),
+  snoozed: sections.snoozed.map((s) => s.id),
+  settled: sections.settled.map((s) => s.id),
 });
 
 describe("partitionThreads", () => {
-  it("hides drafts and non-regular sessions", () => {
-    const sections = partitionThreads(
-      [
-        makeSession({ id: "draft", isDraft: true }),
-        makeSession({ id: "subagent", sessionKind: "subagent" }),
-        makeSession({ id: "regular" }),
-      ],
-      emptyHelpers,
+  it("applies t3code precedence: snoozed > settled > pinned > working/active", () => {
+    const sessions = [
+      makeSession({ id: "snoozed-pinned", isPinned: true }),
+      makeSession({ id: "settled-pinned", isPinned: true }),
+      makeSession({ id: "pinned-working", isPinned: true, status: "working" }),
+      makeSession({ id: "working", status: "working" }),
+      makeSession({ id: "blocked", status: "blocked" }),
+      makeSession({ id: "done", status: "new_results" }),
+      makeSession({ id: "draft", isDraft: true }),
+      makeSession({ id: "sub", sessionKind: "subagent" }),
+    ];
+    const result = ids(
+      partitionThreads(
+        sessions,
+        ctx({
+          snoozeById: { "snoozed-pinned": { until: NOW + HOUR, at: NOW - 1 } },
+          overrideById: { "settled-pinned": { state: "settled", at: NOW - 1 } },
+        }),
+      ),
     );
-    expect(ids(sections)).toEqual({ pinned: [], active: ["regular"], snoozed: [], settled: [] });
+    expect(result).toEqual({
+      pinned: ["pinned-working"],
+      active: ["blocked", "done"],
+      working: ["working"],
+      snoozed: ["snoozed-pinned"],
+      settled: ["settled-pinned"],
+    });
   });
 
-  it("pinned wins over settled; working sessions never render as settled", () => {
-    const sections = partitionThreads(
-      [
-        makeSession({ id: "pinned-settled", isPinned: true }),
-        makeSession({ id: "settled-working", status: "working" }),
-        makeSession({ id: "settled" }),
-      ],
-      {
-        ...emptyHelpers,
-        settledAtById: { "pinned-settled": NOW - 1000, settled: NOW - 2000, "settled-working": NOW - 3000 },
-      },
+  it("sorts Active by return time, not creation time", () => {
+    const sessions = [
+      makeSession({ id: "new-idle", createdAt: NOW - 10 * 60_000 }),
+      makeSession({ id: "old-returned", createdAt: NOW - 5 * DAY }),
+      makeSession({ id: "old-unsettled", createdAt: NOW - 3 * DAY }),
+    ];
+    const result = partitionThreads(
+      sessions,
+      ctx({
+        returnedAtById: { "old-returned": NOW - 60_000 },
+        overrideById: { "old-unsettled": { state: "active", at: NOW - 5 * 60_000 } },
+      }),
     );
-    const sectionIds = ids(sections);
-    expect(sectionIds.pinned).toEqual(["pinned-settled"]);
-    expect(sectionIds.settled).toEqual(["settled"]);
-    expect(sectionIds.active).toEqual(["settled-working"]);
+    expect(result.active.map((s) => s.id)).toEqual(["old-returned", "old-unsettled", "new-idle"]);
   });
 
-  it("keeps the currently open session out of the snoozed shelf", () => {
-    const session = makeSession({ id: "open" });
-    const helpers = { ...emptyHelpers, snoozedUntilById: { open: NOW + 60_000 } };
-    expect(partitionThreads([session], helpers).snoozed.map((s) => s.id)).toEqual(["open"]);
-    expect(partitionThreads([session], { ...helpers, activeSessionId: "open" }).active.map((s) => s.id)).toEqual([
-      "open",
-    ]);
+  it("ignores updatedAt for the inbox order (the daemon bumps it on view)", () => {
+    const viewed = makeSession({ id: "viewed", createdAt: NOW - 2 * HOUR, updatedAt: NOW });
+    const fresh = makeSession({ id: "fresh", createdAt: NOW - HOUR, updatedAt: NOW - HOUR });
+    expect(partitionThreads([viewed, fresh], ctx()).active.map((s) => s.id)).toEqual(["fresh", "viewed"]);
   });
 
-  it("sorts settled newest first; legacy settledAt=0 entries render as settled via the updatedAt fallback", () => {
-    const a = makeSession({ id: "a", createdAt: NOW - 3000, updatedAt: NOW - 3000 });
-    const b = makeSession({ id: "b", createdAt: NOW - 1000, updatedAt: NOW - 1000 });
-    const c = makeSession({ id: "c", createdAt: NOW - 9000, updatedAt: NOW - 9000 });
-    const sections = partitionThreads([a, c, b], {
-      ...emptyHelpers,
-      settledAtById: { a: NOW - 1000, b: NOW - 4000, c: NOW - 2000 },
-    });
-    expect(sections.settled.map((s) => s.id)).toEqual(["a", "c", "b"]);
+  it("sorts Working by last send, Snoozed by wake, Settled by settled time", () => {
+    const result = partitionThreads(
+      [
+        makeSession({ id: "w1", status: "working" }),
+        makeSession({ id: "w2", status: "working" }),
+        makeSession({ id: "z1" }),
+        makeSession({ id: "z2" }),
+        makeSession({ id: "s1" }),
+        makeSession({ id: "s2" }),
+      ],
+      ctx({
+        workingSinceById: { w1: NOW - 5000, w2: NOW - 1000 },
+        snoozeById: { z1: { until: NOW + 2 * HOUR, at: NOW }, z2: { until: NOW + HOUR, at: NOW } },
+        overrideById: { s1: { state: "settled", at: NOW - 2000 }, s2: { state: "settled", at: NOW - 1000 } },
+      }),
+    );
+    expect(ids(result)).toMatchObject({ working: ["w2", "w1"], snoozed: ["z2", "z1"], settled: ["s2", "s1"] });
+  });
 
-    // v1-migrated booleans map to 0 (unknown time): settled by key presence,
-    // ordered by their updatedAt fallback (matches the Row's settled
-    // rendering, which falls back to updatedAt too).
-    const legacy = makeSession({ id: "legacy", createdAt: NOW - 9000, updatedAt: NOW - 500 });
-    const migrated = partitionThreads([legacy, a], {
-      ...emptyHelpers,
-      settledAtById: { legacy: 0, a: NOW - 1000 },
-    });
-    expect(migrated.active).toEqual([]);
-    expect(migrated.settled.map((s) => s.id)).toEqual(["legacy", "a"]);
+  it("returns a woken thread to Active, sorted by its wake time", () => {
+    const result = partitionThreads(
+      [makeSession({ id: "woke", createdAt: NOW - 3 * DAY }), makeSession({ id: "recent", createdAt: NOW - HOUR })],
+      ctx({ snoozeById: { woke: { until: NOW - 60_000, at: NOW - 2 * HOUR } } }),
+    );
+    expect(result.active.map((s) => s.id)).toEqual(["woke", "recent"]);
+  });
 
-    const snoozedFirst = makeSession({ id: "first", createdAt: NOW - 5000 });
-    const snoozedLater = makeSession({ id: "later", createdAt: NOW - 1000 });
-    const snoozed = partitionThreads([snoozedLater, snoozedFirst], {
-      ...emptyHelpers,
-      snoozedUntilById: { first: NOW + 1000, later: NOW + 60_000 },
-    });
-    expect(snoozed.snoozed.map((s) => s.id)).toEqual(["first", "later"]);
+  it("wakes a snooze early once wokeAt is recorded", () => {
+    const result = partitionThreads(
+      [makeSession({ id: "a", status: "blocked" })],
+      ctx({ snoozeById: { a: { until: NOW + HOUR, at: NOW - HOUR, wokeAt: NOW - 1000 } } }),
+    );
+    expect(ids(result).active).toEqual(["a"]);
   });
 });
 
-describe("title filtering and highlighting", () => {
-  it("filterByTitle is case-insensitive and preserves order", () => {
-    const sessions = [makeSession({ id: "1", title: "Fix the bug" }), makeSession({ id: "2", title: "Add feature" })];
-    expect(filterByTitle(sessions, "  BUG ").map((s) => s.id)).toEqual(["1"]);
-    expect(filterByTitle(sessions, "")).toHaveLength(2);
+describe("resolveSettled (auto-settle)", () => {
+  const stale = makeSession({ id: "stale", createdAt: NOW - 10 * DAY, updatedAt: NOW - 9 * DAY });
+
+  it("auto-settles threads inactive for longer than 7 days", () => {
+    expect(resolveSettled(stale, ctx())).toEqual({ settled: true, settledAt: NOW - 9 * DAY, auto: true });
   });
 
-  it("highlightSegments marks matches case-insensitively and keeps gaps", () => {
-    expect(highlightSegments("Fix the Bug", "bug")).toEqual([
-      { text: "Fix the ", match: false },
-      { text: "Bug", match: true },
-    ]);
-    expect(highlightSegments("abab", "ab")).toEqual([
-      { text: "ab", match: true },
-      { text: "ab", match: true },
-    ]);
-    expect(highlightSegments("plain", "")).toEqual([{ text: "plain", match: false }]);
+  it("keeps threads active within the window", () => {
+    const recent = makeSession({ createdAt: NOW - 10 * DAY, updatedAt: NOW - 10 * DAY });
+    expect(resolveSettled(recent, ctx({ returnedAtById: { s1: NOW - DAY } })).settled).toBe(false);
+  });
+
+  it("never auto-settles pinned, working, blocked or snoozed threads", () => {
+    for (const overrides of [{ isPinned: true }, { status: "working" as const }, { status: "blocked" as const }]) {
+      expect(resolveSettled({ ...stale, ...overrides }, ctx()).settled).toBe(false);
+    }
+    expect(resolveSettled(stale, ctx({ snoozeById: { stale: { until: NOW + HOUR, at: NOW } } })).settled).toBe(false);
+  });
+
+  it("is exempted by a manual un-settle override", () => {
+    expect(resolveSettled(stale, ctx({ overrideById: { stale: { state: "active", at: 1 } } })).settled).toBe(false);
+  });
+
+  it("honours a manual settle with its timestamp (legacy 0 falls back to updatedAt)", () => {
+    const fresh = makeSession({ id: "f", updatedAt: NOW - 5 });
+    expect(resolveSettled(fresh, ctx({ overrideById: { f: { state: "settled", at: NOW - 10 } } })).settledAt).toBe(
+      NOW - 10,
+    );
+    expect(resolveSettled(fresh, ctx({ overrideById: { f: { state: "settled", at: 0 } } })).settledAt).toBe(NOW - 5);
+  });
+
+  it("can be disabled", () => {
+    expect(resolveSettled(stale, ctx({ autoSettleAfterMs: null })).settled).toBe(false);
+    expect(AUTO_SETTLE_AFTER_MS).toBe(7 * DAY);
   });
 });
 
-describe("time formatting", () => {
-  it("formatAge buckets elapsed time", () => {
-    expect(formatAge(NOW - 500, NOW)).toBe("now");
+describe("returnAt", () => {
+  it("is the newest of created, send, returned, woke and un-settle", () => {
+    const session = makeSession({ createdAt: NOW - DAY });
+    expect(returnAt(session, ctx({ workingSinceById: { s1: NOW - 100 } }))).toBe(NOW - 100);
+    expect(returnAt(session, ctx({ overrideById: { s1: { state: "active", at: NOW - 50 } } }))).toBe(NOW - 50);
+    expect(returnAt(session, ctx())).toBe(NOW - DAY);
+  });
+});
+
+describe("visibleShelfRows", () => {
+  const rows = [makeSession({ id: "a" }), makeSession({ id: "b" })];
+  it("renders everything when expanded", () => {
+    expect(visibleShelfRows(rows, true, null).map((s) => s.id)).toEqual(["a", "b"]);
+  });
+  it("keeps only the open thread when collapsed", () => {
+    expect(visibleShelfRows(rows, false, "b").map((s) => s.id)).toEqual(["b"]);
+    expect(visibleShelfRows(rows, false, null)).toEqual([]);
+  });
+});
+
+describe("planNextThread", () => {
+  it("moves to the next un-parked row, wrapping around", () => {
+    const parked = new Set(["c"]);
+    expect(planNextThread(["a", "b", "c", "d"], "b", (id) => parked.has(id))).toBe("d");
+    expect(planNextThread(["a", "b", "c"], "b", (id) => parked.has(id))).toBe("a");
+  });
+  it("returns null when nothing is left", () => {
+    expect(planNextThread(["a"], "a", () => false)).toBeNull();
+    expect(planNextThread(["a", "b"], "missing", () => false)).toBeNull();
+  });
+});
+
+describe("row status", () => {
+  it("follows approval > failed > working > woke > done priority", () => {
+    expect(resolveRowStatus({ status: "blocked" }, true)).toBe("approval");
+    expect(resolveRowStatus({ status: "error" }, true)).toBe("failed");
+    expect(resolveRowStatus({ status: "working" }, true)).toBe("working");
+    expect(resolveRowStatus({ status: "new_results" }, true)).toBe("woke");
+    expect(resolveRowStatus({ status: "new_results" }, false)).toBe("done");
+    expect(resolveRowStatus({ status: "none" }, false)).toBe("ready");
+  });
+  it("recedes working and seen ready rows unless selected", () => {
+    expect(shouldRecede("working", false)).toBe(true);
+    expect(shouldRecede("ready", false)).toBe(true);
+    expect(shouldRecede("done", false)).toBe(false);
+    expect(shouldRecede("ready", true)).toBe(false);
+  });
+  it("does not offer snooze while awaiting approval", () => {
+    expect(canSnooze({ status: "blocked" })).toBe(false);
+    expect(canSnooze({ status: "none" })).toBe(true);
+  });
+});
+
+describe("resolveSnoozePresets", () => {
+  it("lists t3code presets soonest first", () => {
+    // Wednesday 10:00 local.
+    const now = new Date(2026, 10, 11, 10, 0, 0);
+    const presets = resolveSnoozePresets(now);
+    expect(presets.map((p) => p.label)).toEqual(["In 1 hour", "In 3 hours", "This evening", "Tomorrow", "Next week"]);
+    expect(new Date(presets[4]!.until).getDay()).toBe(1);
+  });
+  it("drops past today options and dedupes same-minute wakes", () => {
+    // Sunday 20:00: "today 18:00" is past; Monday 09:00 == tomorrow 09:00.
+    const presets = resolveSnoozePresets(new Date(2026, 10, 15, 20, 0, 0));
+    expect(presets.map((p) => p.label)).toEqual(["In 1 hour", "In 3 hours", "Tomorrow"]);
+  });
+});
+
+describe("labels", () => {
+  it("formats wake labels with ceiling units", () => {
+    expect(formatWakeLabel(NOW + 30_000, NOW)).toBe("1m");
+    expect(formatWakeLabel(NOW + 61 * 60_000, NOW)).toBe("2h");
+    expect(formatWakeLabel(NOW + 25 * HOUR, NOW)).toBe("2d");
+    expect(formatWakeLabel(NOW - 1, NOW)).toBe("now");
+  });
+  it("formats ages and working durations", () => {
+    expect(formatAge(NOW - 30_000, NOW)).toBe("now");
     expect(formatAge(NOW - 5 * 60_000, NOW)).toBe("5m");
-    expect(formatAge(NOW - 3 * 3_600_000, NOW)).toBe("3h");
-    expect(formatAge(NOW - 2 * 86_400_000, NOW)).toBe("2d");
-    expect(formatAge(NOW - 14 * 86_400_000, NOW)).toBe("2w");
-    expect(formatAge(NOW - 90 * 86_400_000, NOW)).toBe("3mo");
+    expect(formatAge(NOW - 3 * DAY, NOW)).toBe("3d");
+    expect(formatWorkingElapsed(NOW - 12_000, NOW)).toBe("12s");
+    expect(formatWorkingElapsed(NOW - 125 * 60_000, NOW)).toBe("2h 5m");
+  });
+  it("highlights and filters by title", () => {
+    expect(highlightSegments("Fix Login bug", "login")).toEqual([
+      { text: "Fix ", match: false },
+      { text: "Login", match: true },
+      { text: " bug", match: false },
+    ]);
+    const rows = [makeSession({ id: "a", title: "Alpha" }), makeSession({ id: "b", title: "Beta" })];
+    expect(filterByTitle(rows, "ALP").map((s) => s.id)).toEqual(["a"]);
+  });
+});
+
+describe("lifecycle settings", () => {
+  it("fills defaults and turns invalid values off", () => {
+    expect(normalizeLifecycleSettings(undefined)).toEqual(DEFAULT_LIFECYCLE_SETTINGS);
+    expect(normalizeLifecycleSettings({ autoSettleDays: null, autoArchiveDays: -3, autoDeleteDays: 14 })).toEqual({
+      autoSettleDays: null,
+      autoArchiveDays: null,
+      autoDeleteDays: 14,
+    });
   });
 
-  it("formatWorkingElapsed renders t3code-style durations", () => {
-    expect(formatWorkingElapsed(NOW - 45_000, NOW)).toBe("45s");
-    expect(formatWorkingElapsed(NOW - 5 * 60_000, NOW)).toBe("5m");
-    expect(formatWorkingElapsed(NOW - 2 * 3_600_000 - 7 * 60_000, NOW)).toBe("2h 7m");
+  it("configured auto-settle days drive resolveSettled; null disables it", () => {
+    const idle = makeSession({ createdAt: NOW - 4 * DAY, updatedAt: NOW - 4 * DAY });
+    expect(resolveSettled(idle, ctx({ autoSettleAfterMs: 3 * DAY })).settled).toBe(true);
+    expect(resolveSettled(idle, ctx({ autoSettleAfterMs: null })).settled).toBe(false);
+  });
+});
+
+describe("planLifecycleSweep", () => {
+  const settings = { autoSettleDays: 7, autoArchiveDays: 30, autoDeleteDays: 14 };
+  const old = { createdAt: NOW - 60 * DAY, updatedAt: NOW - 60 * DAY };
+
+  it("archives threads settled longer than the archive window", () => {
+    const sessions = [
+      makeSession({ id: "long-settled", ...old }),
+      makeSession({ id: "recently-settled", ...old }),
+      makeSession({ id: "pinned", isPinned: true, ...old }),
+      makeSession({ id: "active", createdAt: NOW - DAY, updatedAt: NOW - DAY }),
+    ];
+    const plan = planLifecycleSweep(
+      sessions,
+      ctx({ overrideById: { "recently-settled": { state: "settled", at: NOW - 2 * DAY } } }),
+      settings,
+      null,
+    );
+    expect(plan).toEqual({ archive: ["long-settled"], delete: [] });
   });
 
-  it("formatWakeCountdown counts down to the wake time", () => {
-    expect(formatWakeCountdown(NOW + 30_000, NOW)).toBe("in <1m");
-    expect(formatWakeCountdown(NOW + 59 * 60_000, NOW)).toBe("in 59m");
-    expect(formatWakeCountdown(NOW + 2 * 3_600_000 + 5 * 60_000, NOW)).toBe("in 2h 05m");
+  it("starts the archive clock when a thread auto-settled, not at its last activity", () => {
+    const idle = (days: number) =>
+      makeSession({ id: "idle", createdAt: NOW - days * DAY, updatedAt: NOW - days * DAY });
+    const short = { autoSettleDays: 7, autoArchiveDays: 3, autoDeleteDays: null };
+    const context = ctx({ autoSettleAfterMs: 7 * DAY });
+    expect(planLifecycleSweep([idle(8)], context, short, null).archive).toEqual([]);
+    expect(planLifecycleSweep([idle(11)], context, short, null).archive).toEqual(["idle"]);
+    // Defaults: 7 to settle + 30 to archive.
+    expect(planLifecycleSweep([idle(36)], ctx(), DEFAULT_LIFECYCLE_SETTINGS, null).archive).toEqual([]);
+    expect(planLifecycleSweep([idle(38)], ctx(), DEFAULT_LIFECYCLE_SETTINGS, null).archive).toEqual(["idle"]);
+  });
+
+  it("deletes archived threads past the delete window and respects Off", () => {
+    const sessions = [
+      makeSession({ id: "old-archive", archivedAt: NOW - 20 * DAY, ...old }),
+      makeSession({ id: "new-archive", archivedAt: NOW - DAY, ...old }),
+    ];
+    expect(planLifecycleSweep(sessions, ctx(), settings, null).delete).toEqual(["old-archive"]);
+    expect(planLifecycleSweep(sessions, ctx(), { ...settings, autoDeleteDays: null }, null).delete).toEqual([]);
+    expect(planLifecycleSweep(sessions, ctx(), { ...settings, autoArchiveDays: null }, null).archive).toEqual([]);
+  });
+
+  it("never touches the open session", () => {
+    const sessions = [
+      makeSession({ id: "open", ...old }),
+      makeSession({ id: "open-archived", archivedAt: NOW - 20 * DAY, ...old }),
+    ];
+    expect(planLifecycleSweep(sessions, ctx(), settings, "open")).toEqual({ archive: [], delete: ["open-archived"] });
+    expect(planLifecycleSweep(sessions, ctx(), settings, "open-archived").delete).toEqual([]);
+  });
+
+  it("never archives a running thread from a raw daemon record", () => {
+    const raw = mapToUISession({
+      id: "running",
+      agentId: "agent",
+      title: "Running",
+      projectDir: null,
+      isPinned: false,
+      sessionKind: "regular",
+      subagentEnabled: false,
+      status: "generating",
+      providerId: "acp",
+      modelId: "m",
+      ...old,
+    });
+    expect(raw.status).toBe("working");
+    expect(planLifecycleSweep([raw], ctx(), settings, null).archive).toEqual([]);
   });
 });

@@ -4,6 +4,7 @@ export interface SettingsNavigationItem {
     | "settings-common"
     | "settings-display"
     | "settings-environments"
+    | "settings-projects"
     | "settings-provider"
     | "settings-dashboard"
     | "settings-mcp"
@@ -116,6 +117,15 @@ export const SETTINGS_NAVIGATION_ITEMS: SettingsNavigationItem[] = [
     position: 3.25,
     groupKey: "models",
     keywords: ["environment", "workspace", "folder", "project"],
+  },
+  {
+    routeName: "settings-projects",
+    path: "/projects",
+    titleKey: "routes.settings-projects",
+    icon: "lucide:folder-kanban",
+    position: 3.2,
+    groupKey: "models",
+    keywords: ["project", "projects", "icon", "pin", "archive", "worktree", "default model"],
   },
   {
     routeName: "settings-provider",
@@ -348,6 +358,7 @@ const TITLE_MAP: Record<string, string> = {
   "routes.settings-common": "Common Settings",
   "routes.settings-display": "Display",
   "routes.settings-environments": "Environments",
+  "routes.settings-projects": "Projects",
   "routes.settings-provider": "Providers",
   "routes.settings-mcp": "MCP Settings",
   "routes.settings-argos-agents": "Argos Agents",

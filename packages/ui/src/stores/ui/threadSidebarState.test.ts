@@ -1,101 +1,135 @@
 import { describe, expect, it } from "vitest";
-import { diffWorkingTransitions, omitKey, parseSettledRecord, pruneLifecycleEntries } from "./threadSidebarState";
+import {
+  diffSessionTransitions,
+  parseOverrideRecord,
+  parseSnoozeRecord,
+  pruneLifecycleEntries,
+  type TransitionMaps,
+} from "./threadSidebarState";
 
-const NOW = 1_000_000_000;
+const NOW = 1_000_000;
+const empty = (): TransitionMaps => ({ overrideById: {}, workingSinceById: {}, returnedAtById: {}, snoozeById: {} });
 
-function session(id: string, status: "working" | "completed", updatedAt = NOW - 1000) {
-  return { id, status, updatedAt } as const;
-}
-
-describe("parseSettledRecord", () => {
-  it("parses v2 records and rejects invalid entries", () => {
-    expect(parseSettledRecord({ v: 2, byId: { a: 123, b: -5, c: "x" } })).toEqual({ a: 123 });
+describe("parseOverrideRecord", () => {
+  it("reads v3 overrides", () => {
+    expect(
+      parseOverrideRecord({ v: 3, byId: { a: { state: "active", at: 5 }, bad: { state: "x", at: 1 } } }, null),
+    ).toEqual({ a: { state: "active", at: 5 } });
   });
-
-  it("migrates v1 boolean records to timestamp 0", () => {
-    expect(parseSettledRecord({ a: true, b: false })).toEqual({ a: 0 });
+  it("migrates legacy v2 and v1 settled records", () => {
+    expect(parseOverrideRecord(null, { v: 2, byId: { a: 10 } })).toEqual({ a: { state: "settled", at: 10 } });
+    expect(parseOverrideRecord(null, { a: true, b: false })).toEqual({ a: { state: "settled", at: 0 } });
   });
-
-  it("tolerates garbage input", () => {
-    expect(parseSettledRecord(null)).toEqual({});
-    expect(parseSettledRecord("nope")).toEqual({});
-    expect(parseSettledRecord([1, 2])).toEqual({});
-    expect(parseSettledRecord({ v: 2, byId: [1] })).toEqual({});
+  it("prefers v3 over legacy", () => {
+    expect(parseOverrideRecord({ v: 3, byId: {} }, { a: true })).toEqual({});
   });
 });
 
-describe("diffWorkingTransitions", () => {
-  it("keeps persisted elapsed time on first observation of a working session (restart survival)", () => {
-    const result = diffWorkingTransitions([session("a", "working")], [], { a: NOW - 60_000 }, NOW);
+describe("parseSnoozeRecord", () => {
+  it("reads v2 entries and migrates legacy numbers", () => {
+    expect(parseSnoozeRecord({ v: 2, byId: { a: { until: 9, at: 3, wokeAt: 4 } } })).toEqual({
+      a: { until: 9, at: 3, wokeAt: 4 },
+    });
+    expect(parseSnoozeRecord({ a: 9, b: "x" })).toEqual({ a: { until: 9, at: 0 } });
+  });
+});
+
+describe("diffSessionTransitions", () => {
+  it("keeps persisted working-since on first observation (restart survival)", () => {
+    const maps = { ...empty(), workingSinceById: { a: 500 } };
+    const result = diffSessionTransitions([{ id: "a", status: "working", updatedAt: 900 }], [], maps, NOW);
     expect(result.changed).toBe(false);
-    expect(result.next).toEqual({ a: NOW - 60_000 });
+    expect(result.next.workingSinceById).toEqual({ a: 500 });
   });
 
-  it("seeds from updatedAt on first observation without a persisted value", () => {
-    const result = diffWorkingTransitions([session("a", "working", NOW - 30_000)], [], {}, NOW);
-    expect(result.changed).toBe(true);
-    expect(result.next).toEqual({ a: NOW - 30_000 });
+  it("stamps a send and a return for observed transitions", () => {
+    const sent = diffSessionTransitions(
+      [{ id: "a", status: "working", updatedAt: 1 }],
+      [{ id: "a", status: "none" }],
+      empty(),
+      NOW,
+    );
+    expect(sent.next.workingSinceById).toEqual({ a: NOW });
+    const returned = diffSessionTransitions(
+      [{ id: "a", status: "new_results", updatedAt: 1 }],
+      [{ id: "a", status: "working" }],
+      sent.next,
+      NOW + 10,
+    );
+    expect(returned.next.workingSinceById).toEqual({});
+    expect(returned.next.returnedAtById).toEqual({ a: NOW + 10 });
   });
 
-  it("stamps now for a known session transitioning into working", () => {
-    const result = diffWorkingTransitions([session("a", "working")], [session("a", "completed")], {}, NOW);
-    expect(result.changed).toBe(true);
-    expect(result.next).toEqual({ a: NOW });
+  it("seeds a missing return time from updatedAt once on first observation", () => {
+    const seeded = diffSessionTransitions([{ id: "a", status: "none", updatedAt: 700 }], [], empty(), NOW);
+    expect(seeded.next.returnedAtById).toEqual({ a: 700 });
+    const later = diffSessionTransitions(
+      [{ id: "a", status: "none", updatedAt: 900 }],
+      [],
+      { ...empty(), returnedAtById: { a: 700 } },
+      NOW,
+    );
+    expect(later.changed).toBe(false);
   });
 
-  it("clears entries when a session leaves working", () => {
-    const result = diffWorkingTransitions([session("a", "completed")], [session("a", "working")], { a: NOW - 5 }, NOW);
-    expect(result.changed).toBe(true);
-    expect(result.next).toEqual({});
+  it("stamps a return for a run that finished while the app was closed", () => {
+    const result = diffSessionTransitions(
+      [{ id: "a", status: "new_results", updatedAt: 800 }],
+      [],
+      { ...empty(), workingSinceById: { a: 500 }, returnedAtById: { a: 100 } },
+      NOW,
+    );
+    expect(result.next.workingSinceById).toEqual({});
+    expect(result.next.returnedAtById).toEqual({ a: 800 });
   });
 
-  it("only manages ids present in the current batch (unknown ids are the sweep's job)", () => {
-    const result = diffWorkingTransitions([session("a", "completed")], [], { a: NOW - 5, ghost: NOW - 9 }, NOW);
-    expect(result.changed).toBe(true);
-    expect(result.next).toEqual({ ghost: NOW - 9 });
+  it("clears the settle override when a turn starts", () => {
+    const maps = { ...empty(), overrideById: { a: { state: "settled" as const, at: 10 } } };
+    const started = diffSessionTransitions(
+      [{ id: "a", status: "working", updatedAt: 1 }],
+      [{ id: "a", status: "none" }],
+      maps,
+      NOW,
+    );
+    expect(started.next.overrideById).toEqual({});
   });
 
-  it("leaves working-to-working sessions untouched", () => {
-    const result = diffWorkingTransitions([session("a", "working")], [session("a", "working")], { a: 42 }, NOW);
-    expect(result.changed).toBe(false);
-    expect(result.next).toEqual({ a: 42 });
+  it("on first observation clears the override only if the turn started after it", () => {
+    const maps = { ...empty(), overrideById: { a: { state: "settled" as const, at: 600 } } };
+    const before = diffSessionTransitions([{ id: "a", status: "working", updatedAt: 500 }], [], maps, NOW);
+    expect(before.next.overrideById).toEqual(maps.overrideById);
+    const after = diffSessionTransitions([{ id: "a", status: "working", updatedAt: 700 }], [], maps, NOW);
+    expect(after.next.overrideById).toEqual({});
+  });
+
+  it("wakes a pending snooze early on approval or a new failure", () => {
+    const snoozed = { ...empty(), snoozeById: { a: { until: NOW + 1000, at: NOW - 1000 } } };
+    const blocked = diffSessionTransitions([{ id: "a", status: "blocked", updatedAt: 1 }], [], snoozed, NOW);
+    expect(blocked.next.snoozeById.a?.wokeAt).toBe(NOW);
+    const failed = diffSessionTransitions(
+      [{ id: "a", status: "error", updatedAt: 1 }],
+      [{ id: "a", status: "working" }],
+      snoozed,
+      NOW,
+    );
+    expect(failed.next.snoozeById.a?.wokeAt).toBe(NOW);
+    const staleError = diffSessionTransitions([{ id: "a", status: "error", updatedAt: 1 }], [], snoozed, NOW);
+    expect(staleError.next.snoozeById.a?.wokeAt).toBeUndefined();
   });
 });
 
 describe("pruneLifecycleEntries", () => {
-  it("removes entries for unknown ids across all maps and reports change", () => {
-    const result = pruneLifecycleEntries(
-      {
-        settledAtById: { kept: 1, gone: 2 },
-        snoozedUntilById: { gone: 3 },
-        workingSinceById: { kept: 4 },
-      },
-      new Set(["kept"]),
-    );
-    expect(result.changed).toBe(true);
-    expect(result.next).toEqual({
-      settledAtById: { kept: 1 },
-      snoozedUntilById: {},
-      workingSinceById: { kept: 4 },
-    });
-  });
-
-  it("returns the same references when nothing is prunable", () => {
+  it("drops unknown ids and keeps references when unchanged", () => {
     const maps = {
-      settledAtById: { kept: 1 },
-      snoozedUntilById: {},
+      overrideById: { kept: { state: "settled" as const, at: 1 }, gone: { state: "active" as const, at: 2 } },
+      snoozeById: { gone: { until: 3, at: 0 } },
       workingSinceById: {},
+      returnedAtById: { kept: 4 },
     };
     const result = pruneLifecycleEntries(maps, new Set(["kept"]));
-    expect(result.changed).toBe(false);
-    expect(result.next.settledAtById).toBe(maps.settledAtById);
-  });
-});
-
-describe("omitKey", () => {
-  it("omits the key or returns the original reference when absent", () => {
-    const map = { a: 1, b: 2 };
-    expect(omitKey(map, "a")).toEqual({ b: 2 });
-    expect(omitKey(map, "missing")).toBe(map);
+    expect(result.changed).toBe(true);
+    expect(result.next.overrideById).toEqual({ kept: { state: "settled", at: 1 } });
+    expect(result.next.snoozeById).toEqual({});
+    expect(result.next.returnedAtById).toBe(maps.returnedAtById);
   });
 });

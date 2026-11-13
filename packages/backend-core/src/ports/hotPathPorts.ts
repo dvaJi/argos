@@ -17,6 +17,8 @@ export type SessionListFilters = {
   projectDir?: string;
   includeSubagents?: boolean;
   parentSessionId?: string;
+  /** Archived-session visibility (docs/features/thread-archive). `list` defaults to `include`. */
+  archived?: "include" | "exclude" | "only";
 };
 
 export interface SessionRepository {

@@ -65,6 +65,12 @@ export function readConfigEntries(
   if (shouldRead("thread_sidebar_enabled")) {
     assignValue("thread_sidebar_enabled", configPresenter.getSetting<boolean>("thread_sidebar_enabled") ?? false);
   }
+  if (shouldRead("thread_sidebar_lifecycle")) {
+    assignValue(
+      "thread_sidebar_lifecycle",
+      configPresenter.getSetting<ConfigEntryValues["thread_sidebar_lifecycle"]>("thread_sidebar_lifecycle"),
+    );
+  }
   if (shouldRead("pi_enable_powershell_tool")) {
     assignValue("pi_enable_powershell_tool", configPresenter.getSetting<boolean>("pi_enable_powershell_tool") ?? false);
   }

@@ -16,6 +16,10 @@ import ChatStatusBar from "#/components/chat/ChatStatusBar";
 import RecentSessionsStrip from "#/components/chat/RecentSessionsStrip";
 import WorktreeSelector from "#/components/WorktreeSelector";
 import { emptyWorktreeDraft, type WorktreeDraftConfig } from "#/components/worktreeConfig";
+import { fetchGitSummary, resolveDefaultBaseBranch } from "#/components/WorktreeSelector";
+import ProjectIcon from "#/components/projects/ProjectIcon";
+import { getProjectSettingsForDir, projectSettingsStore, whenProjectSettingsLoaded } from "#/stores/ui/projectSettings";
+import { presentPickerProjects, presentProject, type ProjectIdentity } from "#/stores/ui/projectIdentity";
 import { BrandWordmark } from "#/components/brand/BrandWordmark";
 import { FolderPickerDialog } from "#/components/FolderPicker";
 import AgentSwitcher from "#/components/threads/AgentSwitcher";
@@ -30,7 +34,7 @@ import { sessionStore, createSession, selectSession, sendMessage, fetchSessions 
 import { agentStore, selectedAgent as getSelectedAgent, inferAgentType } from "#/stores/ui/agent";
 import { modelStore, initialize, getChatSelectableModelGroups } from "#/stores/modelStore";
 import { draftStore, toGenerationSettings as getToGenerationSettings } from "#/stores/ui/draft";
-import { unsettleSession } from "#/stores/ui/threadSidebar";
+import { resumeThreadOnSend } from "#/stores/ui/threadSidebar";
 import { createConfigClient } from "#api/ConfigClient";
 import { createFileClient } from "#api/FileClient";
 import { createSessionClient } from "#api/SessionClient";
@@ -166,7 +170,7 @@ function deriveNewThreadContext(input: {
   const selectedProjectPath = normalizeProjectPath(projectState.selectedProjectPath);
   const selectedProjectName = (() => {
     const selProj = projectState.projects.find((p) => p.path === projectState.selectedProjectPath);
-    if (selProj?.name) return selProj.name;
+    if (selProj) return presentProject(selProj.path, projectSettingsStore.state.byKey).name;
     return hasExplicitNoProjectSelection ? "No Project" : "Select Project";
   })();
   const canClearProjectSelection = Boolean(projectState.selectedProjectPath?.trim());
@@ -390,7 +394,7 @@ function useThreadSubmission(input: ThreadSubmissionInput) {
           text,
           files,
         });
-        unsettleSession(acpDraftSessionId);
+        resumeThreadOnSend(acpDraftSessionId);
         void fetchSessions();
         return;
       }
@@ -453,7 +457,7 @@ function useThreadSubmission(input: ThreadSubmissionInput) {
       // Mark the freshly-created thread as Active so it surfaces in the
       // sidebar's active row instead of dropping straight into Settled.
       const newId = sessionStore.state.activeSessionId;
-      if (newId) unsettleSession(newId);
+      if (newId) resumeThreadOnSend(newId);
     } catch (error) {
       await abandonCreatedWorktree();
       if (preparedHeroFlight) cancelChatInputHeroFlight();
@@ -677,11 +681,14 @@ function useAgentDraftDefaults(input: { agentId: string; agentType: string }) {
       } else if (!currentProject && globalDefault) {
         selectProject(globalDefault, "default");
       }
+      // Project new-thread default (docs/features/project-settings) beats the agent preset.
+      await whenProjectSettingsLoaded();
+      const projectModel = getProjectSettingsForDir(resolvedPath)?.defaultModel ?? null;
       draftStore.setState((s) => ({
         ...s,
         projectDir: resolvedPath ?? undefined,
-        providerId: config.defaultModelPreset?.providerId,
-        modelId: config.defaultModelPreset?.modelId,
+        providerId: projectModel?.providerId ?? config.defaultModelPreset?.providerId,
+        modelId: projectModel?.modelId ?? config.defaultModelPreset?.modelId,
         permissionMode: config.permissionMode === "default" ? "default" : "full_access",
         disabledAgentTools: [...(config.disabledAgentTools ?? [])],
         subagentEnabled: config.subagentEnabled === true,
@@ -926,7 +933,25 @@ function NoAgentsEmptyState({ onManageAgents }: { onManageAgents: () => void }) 
   );
 }
 
-type NewThreadProjectOption = (typeof projectStore.state.projects)[number];
+type NewThreadProjectOption = (typeof projectStore.state.projects)[number] & { identity?: ProjectIdentity };
+
+/** Worktree draft for a project's workspace default (module-level for the React Compiler). */
+async function resolveProjectWorktreeDraft(projectPath: string | null): Promise<WorktreeDraftConfig> {
+  if (!projectPath) return emptyWorktreeDraft;
+  await whenProjectSettingsLoaded();
+  if (getProjectSettingsForDir(projectPath)?.defaultWorkspace !== "worktree") {
+    return emptyWorktreeDraft;
+  }
+  try {
+    const summary = await fetchGitSummary(projectPath);
+    const base = summary.isRepo ? resolveDefaultBaseBranch(summary.branches) : null;
+    return base
+      ? { ...emptyWorktreeDraft, enabled: true, baseBranch: base.name, fromRemote: base.fromRemote }
+      : emptyWorktreeDraft;
+  } catch {
+    return emptyWorktreeDraft;
+  }
+}
 
 /** The one composer + context row shared by the welcome and centered states. */
 function NewThreadComposerBlock(input: {
@@ -1062,6 +1087,7 @@ function NewThreadComposerBlock(input: {
                   className="gap-2 text-xs py-1.5 px-2"
                   onClick={() => selectProject(project.path)}
                 >
+                  <ProjectIcon name={project.name} icon={project.identity?.icon ?? null} />
                   <div className="flex flex-col min-w-0 flex-1">
                     <span className="truncate">{project.name}</span>
                     <span className="text-[10px] text-muted-foreground truncate">{project.path}</span>
@@ -1237,7 +1263,37 @@ function NewThreadPage() {
       ...s,
       projectDir: projectState.selectedProjectPath ?? undefined,
     }));
+    // A project change applies that project's default model (non-ACP agents)
+    // once settings have loaded; the agent-defaults hook applies the same rule
+    // on agent changes.
+    if (isAcpSelectedAgent) return;
+    let cancelled = false;
+    const projectPath = projectState.selectedProjectPath;
+    void whenProjectSettingsLoaded().then(() => {
+      const projectModel = getProjectSettingsForDir(projectPath)?.defaultModel ?? null;
+      if (cancelled || !projectModel) return;
+      draftStore.setState((s) => ({ ...s, providerId: projectModel.providerId, modelId: projectModel.modelId }));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectState.selectedProjectPath, isAcpSelectedAgent]);
+  // Project workspace default: "New worktree" pre-enables the worktree draft
+  // on the repository's default base branch (only when one resolves).
+  useEffect(() => {
+    let cancelled = false;
+    void resolveProjectWorktreeDraft(projectState.selectedProjectPath).then((draft) => {
+      if (!cancelled) setWorktreeDraft(draft);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [projectState.selectedProjectPath]);
+  const projectSettingsByKey = useSelector(projectSettingsStore, (state) => state.byKey);
+  const pickerProjects = presentPickerProjects(projectState.projects, projectSettingsByKey, [
+    projectState.selectedProjectPath,
+    projectState.defaultProjectPath,
+  ]);
   const {
     guideRootEl,
     setGuideRootEl,
@@ -1283,7 +1339,7 @@ function NewThreadPage() {
       selectedProjectUnavailableTooltip={selectedProjectUnavailableTooltip}
       canClearProjectSelection={canClearProjectSelection}
       onClearProject={clearSelectedProject}
-      projects={projectState.projects}
+      projects={pickerProjects}
       isSelectedInvalidProjectPath={isSelectedInvalidProjectPath}
       onOpenFolder={() => setFolderPickerOpen(true)}
       worktreeDraft={worktreeDraft}

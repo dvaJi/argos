@@ -13,6 +13,7 @@ import ThreadSidebarList from "./threads/ThreadSidebarList";
 import DeleteConversationDialog from "./DeleteConversationDialog";
 import SidebarFirstPageSkeleton from "./SidebarFirstPageSkeleton";
 import { isSidebarVisibleSession } from "./threads/threadSidebarLogic";
+import { useLifecycleSweep } from "./threads/useLifecycleSweep";
 import { useSidebarStore } from "#/stores/ui/sidebar";
 import { notifySessionDeleted, useThreadSidebarStore } from "#/stores/ui/threadSidebar";
 import { useThemeStore } from "#/stores/theme";
@@ -152,6 +153,9 @@ export default function WindowSideBar() {
   const spotlightStore = useSpotlightStore();
   const themeStore = useThemeStore();
   const threadSidebar = useThreadSidebarStore();
+  // Settle → archive → delete timers run here (not in the list) so they keep
+  // running while the sidebar is collapsed.
+  useLifecycleSweep(threadSidebar.enabled);
   const collapsed = sidebarStore.collapsed;
   const [sessionSearchQuery, setSessionSearchQuery] = useState("");
   const [isPinnedSectionCollapsed, setIsPinnedSectionCollapsed] = useState(false);

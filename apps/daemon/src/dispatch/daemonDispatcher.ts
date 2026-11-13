@@ -1,4 +1,5 @@
 import { arch, cpus, homedir, platform, release, totalmem, tmpdir } from "node:os";
+import { normalizeProjectKey } from "@argos/shared/projectKey";
 import { readdirSync, statSync, mkdirSync, existsSync } from "node:fs";
 import { sep, dirname, resolve, isAbsolute, join, basename, extname, relative } from "node:path";
 import { randomUUID } from "node:crypto";
@@ -141,6 +142,9 @@ import {
   fileWriteImageBase64Route,
   projectListRecentRoute,
   projectListEnvironmentsRoute,
+  projectListSettingsRoute,
+  projectUpdateSettingsRoute,
+  projectDescribeCheckoutsRoute,
   sessionsCreateRoute,
   sessionsListRoute,
   sessionsListLightweightRoute,
@@ -183,6 +187,7 @@ import {
   sessionsDeleteRoute,
   sessionsRenameRoute,
   sessionsTogglePinnedRoute,
+  sessionsSetArchivedRoute,
   sessionsClearMessagesRoute,
   sessionsSetProjectDirRoute,
   sessionsSetSubagentEnabledRoute,
@@ -445,6 +450,24 @@ type DaemonProviderConfigPort = {
   }>;
 };
 
+/** Map with a bounded number of in-flight tasks (git subprocesses on Windows are expensive). */
+async function mapWithConcurrency<T, R>(
+  items: readonly T[],
+  limit: number,
+  task: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = Array.from({ length: items.length });
+  let cursor = 0;
+  const worker = async () => {
+    while (cursor < items.length) {
+      const index = cursor++;
+      results[index] = await task(items[index]!);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
+}
+
 type DaemonScheduledTaskConfigPort = {
   getSetting<T>(key: string): T | undefined;
   setSetting<T>(key: string, value: T): void;
@@ -460,6 +483,7 @@ type DaemonSessionRepositoryPort = BaseSessionRepository & {
     agentId?: string;
     includeSubagents?: boolean;
     parentSessionId?: string;
+    archived?: "exclude" | "only";
   }): Promise<{
     records: SessionWithState[];
     nextCursor: {
@@ -471,6 +495,8 @@ type DaemonSessionRepositoryPort = BaseSessionRepository & {
   getMany(ids: string[]): Promise<SessionWithState[]>;
   listRecentProjectDirs(limit?: number): Promise<Array<{ path: string; lastAccessedAt: number }>>;
   listEnvironmentDirs(): Promise<Array<{ path: string; sessionCount: number; lastUsedAt: number }>>;
+  listProjectSettings(): Promise<unknown[]>;
+  updateProjectSettings(path: string, patch: unknown): Promise<unknown>;
   listMessagesPage(
     sessionId: string,
     options?: {
@@ -931,6 +957,9 @@ export function createDaemonDispatcher(
     renameOrMovePath(fromPath: string, toPath: string): Promise<string>;
     resolveMarkdownLinkedFile(input: unknown): Promise<unknown>;
     getGitStatus(workspacePath: string): Promise<unknown>;
+    describeCheckout?(
+      checkoutPath: string,
+    ): Promise<{ repoRoot: string | null; isLinkedWorktree: boolean; branch: string | null }>;
     getGitDiff(workspacePath: string, filePath?: string): Promise<unknown>;
     listGitBranches(workspacePath: string): Promise<unknown>;
     listGitWorktrees(workspacePath: string): Promise<unknown[]>;
@@ -1941,6 +1970,33 @@ export function createDaemonDispatcher(
       });
     }
 
+    if (route === projectListSettingsRoute.name) {
+      projectListSettingsRoute.input.parse(rawInput);
+      return projectListSettingsRoute.output.parse({ projects: await sessionRepository.listProjectSettings() });
+    }
+
+    if (route === projectUpdateSettingsRoute.name) {
+      const input = projectUpdateSettingsRoute.input.parse(rawInput);
+      const project = await sessionRepository.updateProjectSettings(input.path, input.patch);
+      return projectUpdateSettingsRoute.output.parse({ project });
+    }
+
+    if (route === projectDescribeCheckoutsRoute.name) {
+      const input = projectDescribeCheckoutsRoute.input.parse(rawInput);
+      // Only session project dirs the daemon already knows are inspected (no
+      // arbitrary-path git probing from the client).
+      const known = new Set(
+        (await sessionRepository.listEnvironmentDirs()).map((row) => normalizeProjectKey(row.path)),
+      );
+      const unique = Array.from(new Set(input.paths));
+      const checkouts = await mapWithConcurrency(unique, 4, async (checkoutPath) => {
+        const none = { path: checkoutPath, repoRoot: null, isLinkedWorktree: false, branch: null };
+        if (!known.has(normalizeProjectKey(checkoutPath)) || !workspacePresenter?.describeCheckout) return none;
+        return { path: checkoutPath, ...(await workspacePresenter.describeCheckout(checkoutPath)) };
+      });
+      return projectDescribeCheckoutsRoute.output.parse({ checkouts });
+    }
+
     if (route === projectListEnvironmentsRoute.name) {
       projectListEnvironmentsRoute.input.parse(rawInput);
       const rows = await sessionRepository.listEnvironmentDirs();
@@ -2709,6 +2765,7 @@ export function createDaemonDispatcher(
         cursor: input.cursor ?? null,
         includeSubagents: input.includeSubagents,
         agentId: input.agentId,
+        archived: input.archived,
       });
       // Keep providerId/modelId on the lightweight items: the renderer
       // resolves the active session's model from the list and would otherwise
@@ -3260,6 +3317,12 @@ export function createDaemonDispatcher(
       const input = sessionsTogglePinnedRoute.input.parse(rawInput);
       await (runtime as any).sessionRepository.setPinned(input.sessionId, input.pinned);
       return sessionsTogglePinnedRoute.output.parse({ updated: true });
+    }
+
+    if (route === sessionsSetArchivedRoute.name) {
+      const input = sessionsSetArchivedRoute.input.parse(rawInput);
+      await (runtime as any).sessionRepository.setArchived(input.sessionId, input.archived);
+      return sessionsSetArchivedRoute.output.parse({ updated: true });
     }
 
     if (route === sessionsClearMessagesRoute.name) {

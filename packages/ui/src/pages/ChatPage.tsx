@@ -24,7 +24,7 @@ import { useToast } from "#/components/use-toast";
 import { createChatClient } from "../../api/ChatClient";
 import { useUiSettingsStore } from "#/stores/uiSettingsStore";
 import { sessionStore, fetchSessions, selectSession, applyRestoredSession } from "#/stores/ui/session";
-import { unsettleSession } from "#/stores/ui/threadSidebar";
+import { resumeThreadOnSend } from "#/stores/ui/threadSidebar";
 import { useMessageStore, addOptimisticUserMessage } from "#/stores/ui/message";
 import { agentPlanStore } from "#/stores/ui/agentPlan";
 import { agentStore } from "#/stores/ui/agent";
@@ -1216,7 +1216,7 @@ function useChatActions(input: {
         files,
       });
     }
-    unsettleSession(sessionId);
+    resumeThreadOnSend(sessionId);
     setMessage("");
     setAttachedFiles([]);
     chatInputRef.current?.clearInput();
@@ -1242,7 +1242,7 @@ function useChatActions(input: {
         files,
       });
     }
-    unsettleSession(sessionId);
+    resumeThreadOnSend(sessionId);
     setAttachedFiles([]);
     chatInputRef.current?.clearInput();
     setMessage("");

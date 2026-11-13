@@ -73,6 +73,12 @@ function ToolchainCard({
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold">{meta.title}</span>
           <SourceBadge source={status.source} />
+          {status.path && status.source !== "unconfigured" ? (
+            <span className="flex items-center gap-1 text-xs text-green-700 dark:text-green-400">
+              <Icon icon="lucide:circle-check" className="size-3.5" />
+              Ready
+            </span>
+          ) : null}
           {status.version ? <span className="font-mono text-xs text-muted-foreground">{status.version}</span> : null}
           {status.pin ? <span className="text-xs text-muted-foreground">pin {status.pin}</span> : null}
         </div>
@@ -90,12 +96,22 @@ function ToolchainCard({
             ) : (
               <Button
                 size="sm"
-                variant="outline"
+                // A tool already resolved from the system / bundled seed / a custom
+                // path works as-is; installing then only adds an optional pinned,
+                // verified managed copy that takes precedence — not a fix.
+                variant={status.source !== "managed" && status.path ? "ghost" : "outline"}
                 disabled={busy}
+                title={
+                  status.source === "managed"
+                    ? "Re-download and verify the managed install"
+                    : status.path
+                      ? `Already available (${status.source}). Installs a pinned, SHA-256 verified copy managed by Argos that will be used instead.`
+                      : "Download a pinned, SHA-256 verified copy managed by Argos"
+                }
                 onClick={() => onInstall(status.tool as "node" | "uv")}
               >
                 <Icon icon="lucide:download" className="mr-1 size-3.5" />
-                {status.source === "managed" ? "Repair" : "Install"}
+                {status.source === "managed" ? "Repair" : status.path ? "Install managed copy" : "Install"}
               </Button>
             )
           ) : null}

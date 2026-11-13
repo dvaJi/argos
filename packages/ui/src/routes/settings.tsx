@@ -47,6 +47,7 @@ const BROWSER_SUPPORTED_SETTINGS = new Set<SettingsNavigationItem["routeName"]>(
   "settings-common",
   "settings-display",
   "settings-environments",
+  "settings-projects",
   "settings-provider",
   "settings-argos-agents",
   "settings-acp",

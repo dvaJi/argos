@@ -5,7 +5,11 @@ import {
   projectOpenDirectoryRoute,
   projectPathExistsRoute,
   projectSelectDirectoryRoute,
+  projectListSettingsRoute,
+  projectUpdateSettingsRoute,
+  projectDescribeCheckoutsRoute,
 } from "@argos/shared-contracts/routes";
+import type { ProjectSettingsPatch } from "@argos/shared-contracts/routes";
 import { getArgosBridge } from "./core";
 
 export function createProjectClient(bridge: ArgosBridge = getArgosBridge()) {
@@ -33,7 +37,25 @@ export function createProjectClient(bridge: ArgosBridge = getArgosBridge()) {
     return result.exists;
   }
 
+  async function listSettings() {
+    const result = await bridge.invoke(projectListSettingsRoute.name, {});
+    return result.projects;
+  }
+
+  async function updateSettings(path: string, patch: ProjectSettingsPatch) {
+    const result = await bridge.invoke(projectUpdateSettingsRoute.name, { path, patch });
+    return result.project;
+  }
+
+  async function describeCheckouts(paths: string[]) {
+    const result = await bridge.invoke(projectDescribeCheckoutsRoute.name, { paths });
+    return result.checkouts;
+  }
+
   return {
+    listSettings,
+    updateSettings,
+    describeCheckouts,
     listRecent,
     listEnvironments,
     openDirectory,

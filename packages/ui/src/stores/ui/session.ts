@@ -21,31 +21,9 @@ import { agentStore, enabledAgents, setSelectedAgent } from "./agent";
 import { pageRouterStore, goToChat, goToNewThread } from "./pageRouter";
 import { messageStore, setCurrentSessionId, clearStreamingState, loadMessages } from "./message";
 import { bindSessionStoreIpc } from "./sessionIpc";
+import { mapSessionStatus, mapToUISession, type UISession } from "./sessionMapping";
 
-type UISessionStatus = "completed" | "working" | "error" | "none" | "new_results" | "blocked";
-
-export interface UISession {
-  id: string;
-  title: string;
-  agentId: string;
-  status: UISessionStatus;
-  projectDir: string;
-  isPinned: boolean;
-  isDraft: boolean;
-  sessionKind: SessionKind;
-  parentSessionId: string | null;
-  subagentEnabled: boolean;
-  subagentMeta: ArgosSubagentMeta | null;
-  createdAt: number;
-  updatedAt: number;
-  /**
-   * Model binding of the session when the source payload carries it
-   * (`sessions.list` does). Optional because some internal callers construct
-   * UISession from partial data.
-   */
-  providerId?: string;
-  modelId?: string;
-}
+export { mapSessionStatus, mapToUISession, type UISession, type UISessionStatus } from "./sessionMapping";
 
 export interface UIActiveSessionSummary extends UISession {
   providerId: string;
@@ -75,45 +53,6 @@ const SESSION_TITLE_COLLATOR = new Intl.Collator(undefined, {
   numeric: true,
   sensitivity: "base",
 });
-
-function mapSessionStatus(status: string): UISessionStatus {
-  switch (status) {
-    case "generating":
-      return "working";
-    case "blocked":
-      return "blocked";
-    case "done":
-      return "new_results";
-    case "error":
-      return "error";
-    case "idle":
-      return "none";
-    default:
-      return "none";
-  }
-}
-
-function mapToUISession(session: SessionListItem | SessionWithState): UISession {
-  return {
-    id: session.id,
-    title: session.title,
-    agentId: session.agentId,
-    status: mapSessionStatus(session.status),
-    projectDir: session.projectDir ?? "",
-    isPinned: Boolean(session.isPinned),
-    isDraft: Boolean(session.isDraft),
-    sessionKind: session.sessionKind,
-    parentSessionId: session.parentSessionId ?? null,
-    subagentEnabled: session.subagentEnabled,
-    subagentMeta: session.subagentMeta ?? null,
-    createdAt: session.createdAt,
-    updatedAt: session.updatedAt,
-    // Keep the model binding on list items so the composer can resolve the
-    // active session's model before (or without) fetching the full summary.
-    providerId: session.providerId ?? undefined,
-    modelId: session.modelId ?? undefined,
-  };
-}
 
 function mapToUIActiveSessionSummary(session: SessionWithState): UIActiveSessionSummary {
   return {
@@ -245,6 +184,12 @@ function mergeSessions(current: UISession[], updates: UISession[]): UISession[] 
   const next = new Map(current.map((session) => [session.id, session]));
 
   for (const update of updates) {
+    // Archived sessions never live in the list: an update that carries an
+    // archive time removes the entry (also when another window archived it).
+    if (update.archivedAt) {
+      next.delete(update.id);
+      continue;
+    }
     const existing = next.get(update.id);
     next.set(update.id, existing ? { ...existing, ...update } : update);
   }
@@ -670,9 +615,49 @@ export async function createSession(input: CreateSessionInput): Promise<void> {
   }
 }
 
+// --- Archive (docs/features/thread-archive) ---
+
+const unarchivedListeners = new Set<(sessionId: string) => void>();
+
+/** Notified after a session is restored from the archive (the thread sidebar un-settles it). */
+export function onSessionUnarchived(listener: (sessionId: string) => void): () => void {
+  unarchivedListeners.add(listener);
+  return () => unarchivedListeners.delete(listener);
+}
+
+export async function archiveSession(sessionId: string): Promise<void> {
+  await sessionClient.setSessionArchived(sessionId, true);
+  sessionStore.setState((prev) => ({
+    ...prev,
+    sessions: prev.sessions.filter((session) => session.id !== sessionId),
+  }));
+}
+
+export async function unarchiveSession(sessionId: string): Promise<void> {
+  await sessionClient.setSessionArchived(sessionId, false);
+  for (const listener of unarchivedListeners) listener(sessionId);
+  await refreshSessionsByIds([sessionId]);
+}
+
+/**
+ * Opening a session that is not in the (archive-free) list may mean it is
+ * archived — e.g. opened from spotlight or history search. Restore it first so
+ * the open thread is visible and never swept while being read.
+ */
+async function restoreIfArchived(sessionId: string): Promise<void> {
+  if (sessionStore.state.sessions.some((session) => session.id === sessionId)) return;
+  try {
+    const [item] = await sessionClient.getLightweightByIds([sessionId]);
+    if (item?.archivedAt) await unarchiveSession(sessionId);
+  } catch (restoreError) {
+    console.warn("[session] Failed to restore archived session:", restoreError);
+  }
+}
+
 export async function selectSession(sessionId: string): Promise<void> {
   sessionStore.setState((prev) => ({ ...prev, error: null }));
   try {
+    await restoreIfArchived(sessionId);
     if (sessionStore.state.activeSessionId && sessionStore.state.activeSessionId !== sessionId) {
       clearStreamingState();
     }
@@ -803,7 +788,7 @@ async function setSessionModel(sessionId: string, providerId: string, modelId: s
   }
 }
 
-async function deleteSession(sessionId: string): Promise<void> {
+export async function deleteSession(sessionId: string): Promise<void> {
   sessionStore.setState((prev) => ({ ...prev, error: null }));
   try {
     await sessionClient.deleteSession(sessionId);
@@ -1072,6 +1057,8 @@ export function useSessionStore() {
     moveSessionToAgent,
     renameSession,
     toggleSessionPinned,
+    archiveSession,
+    unarchiveSession,
     clearSessionMessages,
     exportSession,
     toggleGroupMode,
