@@ -131,6 +131,13 @@ export default function ProjectsSettings() {
     );
   }, [environmentPaths, checkoutByKey, byKey]);
 
+  // Latch the initial selection once projects exist: a save can reorder the
+  // list (name change, archive) and the form must keep editing the same
+  // project instead of silently following projects[0].
+  if (selectedKey === null && projects.length > 0) {
+    setSelectedKey(projects[0].key);
+  }
+
   const selected = projects.find((project) => project.key === selectedKey) ?? projects[0] ?? null;
   const settings = selected ? byKey[selected.key] : undefined;
 
