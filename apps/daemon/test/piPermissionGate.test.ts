@@ -20,7 +20,7 @@ function createPort(options: {
 }) {
   const published: Array<{ event: string; payload: unknown }> = [];
   const sessionRepository = {
-    get: async () => ({ agentId: "agent-1" }),
+    get: async () => ({ agentId: "agent-1", projectDir: "C:\\proj\\demo" }),
     updateAssistantContent: async () => undefined,
   };
   const configPresenter = {
@@ -50,6 +50,7 @@ function createWorker() {
       resolve: () => undefined,
       reject: () => undefined,
       startedAt: Date.now(),
+      prompt: "Fix the login bug",
     },
     sent,
   };
@@ -108,7 +109,12 @@ describe("Pi permission auto-approval gate", () => {
       (
         usable.port as unknown as { resolvePermissionGateConfig: (id: string) => Promise<unknown> }
       ).resolvePermissionGateConfig("s1"),
-    ).resolves.toEqual({ apiKey: "sk-or", modelId: "typesafe/jev-1.14", agentId: "agent-1" });
+    ).resolves.toEqual({
+      apiKey: "sk-or",
+      modelId: "typesafe/jev-1.14",
+      agentId: "agent-1",
+      workspace: "C:\\proj\\demo",
+    });
   });
 
   it("grants conclusively safe requests with a data-collection deny preference and an audit block", async () => {
@@ -138,6 +144,13 @@ describe("Pi permission auto-approval gate", () => {
     expect(calls[0].body.provider).toEqual({ data_collection: "deny" });
     expect(calls[0].body.model).toBe("typesafe/jev-1.14");
     expect(calls[0].body.session_id).toBe("agent-1");
+    // The gate must judge paths against the workspace and the user's task.
+    expect(calls[0].body.state).toEqual({
+      tool_name: "bash",
+      tool_input: { command: "git status" },
+      workspace: "C:\\proj\\demo",
+      task: "Fix the login bug",
+    });
 
     const response = worker.sent[0] as { type: string; granted: boolean; id: string };
     expect(response).toEqual({ type: "permissionResponse", id: "worker-req-1", granted: true });
@@ -192,5 +205,40 @@ describe("Pi permission auto-approval gate", () => {
     await expect(gate("session-1", worker, permissionEvent)).resolves.toBe(false);
     expect(worker.sent).toHaveLength(0);
     expect(worker.turn.blocks).toHaveLength(0);
+  });
+
+  it("discards the grant when the turn changed while the gate ran", async () => {
+    globalThis.fetch = (async () => {
+      // The turn settles/cancels while the gate request is in flight.
+      replacementTurn = {
+        ...worker.turn,
+        commandId: "cmd-2",
+        requestId: "req-2",
+        blocks: [],
+      };
+      worker.turn = replacementTurn as never;
+      return new Response(JSON.stringify(decisionsResponse(0.95)), { status: 200 });
+    }) as unknown as typeof fetch;
+
+    const { port } = createPort({
+      agentConfig: {
+        permissionAutoApproval: true,
+        decisionModel: { providerId: "openrouter", modelId: "typesafe/jev-1.14" },
+      },
+      providers: [{ id: "openrouter", apiKey: "sk-or", baseUrl: "https://openrouter.ai/api/v1/" }],
+    });
+    const worker = createWorker();
+    let replacementTurn: Record<string, unknown>;
+    const gate = (
+      port as unknown as {
+        tryAutoApprovePermission: (sessionId: string, worker: unknown, event: unknown) => Promise<boolean>;
+      }
+    ).tryAutoApprovePermission.bind(port);
+    // Handled: the stale worker request is denied so its hook never hangs, and
+    // no grant or audit block leaks into the replacement turn.
+    await expect(gate("session-1", worker, permissionEvent)).resolves.toBe(true);
+    const response = worker.sent[0] as { type: string; granted: boolean };
+    expect(response).toEqual({ type: "permissionResponse", id: "worker-req-1", granted: false });
+    expect(replacementTurn.blocks).toHaveLength(0);
   });
 });

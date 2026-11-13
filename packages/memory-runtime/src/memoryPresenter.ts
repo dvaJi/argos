@@ -973,6 +973,14 @@ export class MemoryPresenter {
         if (llmCalls >= CONSOLIDATION_MAX_LLM_CALLS) break;
         if (inputTokens >= CONSOLIDATION_MAX_INPUT_TOKENS) break;
 
+        // The pair snapshot is stale once an earlier iteration supersedes a
+        // row: skip pairs whose A or B is no longer active.
+        const aRow = this.deps.repository.getById(pair.a.id);
+        const bRow = this.deps.repository.getById(pair.b.id);
+        if (!aRow || aRow.superseded_by || !bRow || bRow.superseded_by) {
+          continue;
+        }
+
         if (decisionsModel && this.deps.askDecisions) {
           const decisionsRequest = buildConflictDecisionsRequest(pair.a.content, pair.b.content);
           try {
@@ -998,6 +1006,10 @@ export class MemoryPresenter {
             // fall through to the legacy chat-model pair decision
           }
         }
+
+        // An unresolved decisions call already spent a turn of the budget;
+        // honor the cap before spending another on the chat fallback.
+        if (llmCalls >= CONSOLIDATION_MAX_LLM_CALLS) break;
 
         const prompt = buildDecisionPrompt(
           {

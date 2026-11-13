@@ -112,9 +112,13 @@ export const createOpenRouterDecisionsClient = (
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const doFetch = options.fetchImpl ?? fetch;
 
-  const askOnce = async (body: Record<string, unknown>): Promise<DecisionsResponse> => {
+  const askOnce = async (body: Record<string, unknown>, deadlineAt: number): Promise<DecisionsResponse> => {
+    const remaining = deadlineAt - Date.now();
+    if (remaining <= 0) {
+      throw new DecisionsApiError("Decisions request timed out", 0);
+    }
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const timer = setTimeout(() => controller.abort(), remaining);
     let response: Response;
     try {
       response = await doFetch(endpointUrl, {
@@ -127,18 +131,37 @@ export const createOpenRouterDecisionsClient = (
         signal: controller.signal,
       });
     } catch (error) {
+      clearTimeout(timer);
       const message = error instanceof Error ? error.message : String(error);
       throw new DecisionsApiError(`Decisions request failed: ${message}`, 0);
+    }
+
+    // The deadline spans the response **body** read too: headers alone do not
+    // end the budget, and some runtimes do not tie fetch aborts to body
+    // reads — so the body read races the same shared deadline explicitly.
+    let bodyTimer: ReturnType<typeof setTimeout> | undefined;
+    const readBody = async (): Promise<DecisionsResponse> => {
+      if (!response.ok) {
+        const detail = (await response.text().catch(() => "")).slice(0, 500);
+        throw new DecisionsApiError(`Decisions API error (${response.status}): ${detail}`, response.status);
+      }
+      return parseDecisionsResponse(await response.json().catch(() => null));
+    };
+    try {
+      const result = await Promise.race([
+        readBody(),
+        new Promise<never>((_, reject) => {
+          const ms = Math.max(deadlineAt - Date.now(), 0);
+          bodyTimer = setTimeout(() => reject(new DecisionsApiError("Decisions request timed out", 0)), ms);
+        }),
+      ]);
+      return result;
     } finally {
       clearTimeout(timer);
+      if (bodyTimer) clearTimeout(bodyTimer);
+      // Abandoned bodies (timeout path) must not hold the stream open.
+      void response.body?.cancel().catch(() => {});
     }
-
-    if (!response.ok) {
-      const detail = (await response.text().catch(() => "")).slice(0, 500);
-      throw new DecisionsApiError(`Decisions API error (${response.status}): ${detail}`, response.status);
-    }
-
-    return parseDecisionsResponse(await response.json().catch(() => null));
   };
 
   return {
@@ -156,15 +179,22 @@ export const createOpenRouterDecisionsClient = (
         body.provider = { data_collection: input.providerPreferences.dataCollection };
       }
 
+      const deadlineAt = Date.now() + timeoutMs;
       try {
-        return await askOnce(body);
+        return await askOnce(body, deadlineAt);
       } catch (error) {
         const retryable = error instanceof DecisionsApiError && RETRYABLE_STATUSES.has(error.status);
         if (!retryable) {
           throw error;
         }
-        await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
-        return askOnce(body);
+        const remaining = deadlineAt - Date.now();
+        if (remaining <= 0) {
+          throw error;
+        }
+        // Keep the retry inside the shared deadline: with tiny budgets the
+        // backoff shrinks instead of eating the whole budget.
+        await new Promise((resolve) => setTimeout(resolve, Math.min(RETRY_DELAY_MS, Math.floor(remaining / 4))));
+        return askOnce(body, deadlineAt);
       }
     },
   };
@@ -213,7 +243,7 @@ const parseDecisionsAnswer = (raw: unknown): DecisionsAnswer | undefined => {
     case "refusal":
       return { type: "refusal" };
     case "noul":
-      return typeof obj.noul === "number"
+      return isUnitInterval(obj.noul)
         ? { type: "noul", noul: obj.noul, confidence: toConfidence(obj.confidence) }
         : undefined;
     case "choice":
@@ -240,14 +270,17 @@ const parseDecisionsAnswer = (raw: unknown): DecisionsAnswer | undefined => {
   }
 };
 
-const toConfidence = (value: unknown): number | undefined =>
-  typeof value === "number" && Number.isFinite(value) ? value : undefined;
+/** Probabilities and confidences outside [0, 1] are malformed — drop them. */
+const isUnitInterval = (value: unknown): value is number =>
+  typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1;
+
+const toConfidence = (value: unknown): number | undefined => (isUnitInterval(value) ? value : undefined);
 
 const toNumberMap = (value: unknown): Record<string, number> | undefined => {
   if (!value || typeof value !== "object") return undefined;
   const out: Record<string, number> = {};
   for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
-    if (typeof entry === "number" && Number.isFinite(entry)) {
+    if (isUnitInterval(entry)) {
       out[key] = entry;
     }
   }

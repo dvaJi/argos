@@ -40,6 +40,7 @@ const TYPE_ORDER: ModelType[] = [
   ModelType.ImageGeneration,
   ModelType.VideoGeneration,
   ModelType.TTS,
+  ModelType.Decisions,
 ];
 const CAPABILITY_ICONS: Record<ModelCapabilityKey, string> = {
   vision: "lucide:eye",

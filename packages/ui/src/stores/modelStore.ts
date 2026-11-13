@@ -220,7 +220,12 @@ const applyUserDefinedModelConfig = async (
         functionCall: resolveModelFunctionCall(config.functionCall ?? normalized.functionCall),
         explicitFunctionCall: resolveExplicitFunctionCall(config.functionCall, normalized.explicitFunctionCall),
         reasoning: model.isCustom ? (config.reasoning ?? normalized.reasoning ?? false) : normalized.reasoning,
-        type: config.type ?? normalized.type ?? ModelType.Chat,
+        // A discovered Decisions model stays Decisions: user configs default to
+        // chat, and silently retyping it would resurface it in chat pickers.
+        type:
+          normalized.type === ModelType.Decisions && config.type !== ModelType.Decisions
+            ? normalized.type
+            : (config.type ?? normalized.type ?? ModelType.Chat),
         endpointType: config.endpointType ?? normalized.endpointType,
         ownedBy: config.ownedBy ?? normalized.ownedBy,
       };

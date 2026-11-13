@@ -122,13 +122,43 @@ describe("createOpenRouterDecisionsClient", () => {
   });
 
   it("aborts when the endpoint exceeds the timeout", async () => {
+    let aborted = false;
     stubFetch(
       () =>
         new Promise<Response>((_resolve, reject) => {
-          setTimeout(() => reject(new Error("aborted")), 250);
+          // Reject only when the client's abort signal fires — the test then
+          // genuinely depends on the configured timeout.
+          const signal = fetchCalls[0]?.init.signal as AbortSignal | undefined;
+          signal?.addEventListener("abort", () => {
+            aborted = true;
+            reject(signal.reason instanceof Error ? signal.reason : new Error("aborted"));
+          });
         }),
     );
     const client = createOpenRouterDecisionsClient({ apiKey: "k", timeoutMs: 20 });
+
+    await expect(client.ask({ model: "m", state: "s", questions: { q: { type: "noul" } } })).rejects.toBeInstanceOf(
+      DecisionsApiError,
+    );
+    expect(aborted).toBe(true);
+  });
+
+  it("keeps the deadline active while reading the response body", async () => {
+    // Headers arrive immediately; the body never completes. The timer must
+    // stay armed through response.json() (regression: the timer was cleared
+    // when headers arrived, leaving stalled bodies pending forever).
+    stubFetch(
+      () =>
+        new Response(
+          new ReadableStream<Uint8Array>({
+            start(controller) {
+              controller.enqueue(new TextEncoder().encode("{"));
+            },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+    );
+    const client = createOpenRouterDecisionsClient({ apiKey: "k", timeoutMs: 60 });
 
     await expect(client.ask({ model: "m", state: "s", questions: { q: { type: "noul" } } })).rejects.toBeInstanceOf(
       DecisionsApiError,

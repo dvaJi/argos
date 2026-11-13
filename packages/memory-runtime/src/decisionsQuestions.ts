@@ -185,6 +185,11 @@ function resolveTargetIndexFromDecisions(
   if (targetAnswer.choice === "none") {
     return null;
   }
+  // Only canonical non-negative decimal option ids ("0", "1", …) may select a
+  // neighbor; a numeric prefix ("0abc") must not.
+  if (!/^\d+$/.test(targetAnswer.choice)) {
+    return "invalid";
+  }
   const index = Number.parseInt(targetAnswer.choice, 10);
   if (!Number.isInteger(index) || index < 0 || index >= neighborCount) {
     return "invalid";

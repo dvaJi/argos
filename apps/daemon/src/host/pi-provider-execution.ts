@@ -46,6 +46,8 @@ interface ActiveTurn {
   thinkingStart?: number;
   /** Timestamp (ms) when the turn's prompt was dispatched (turn duration logging). */
   startedAt: number;
+  /** The user request driving this turn — permission-gate context. */
+  prompt: string;
 }
 
 interface PiWorkerHandle {
@@ -189,7 +191,16 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
 
     let activeTurn!: ActiveTurn;
     const completed = new Promise<void>((resolve, reject) => {
-      activeTurn = { commandId: requestId, requestId, messageId, blocks: [], resolve, reject, startedAt: Date.now() };
+      activeTurn = {
+        commandId: requestId,
+        requestId,
+        messageId,
+        blocks: [],
+        resolve,
+        reject,
+        startedAt: Date.now(),
+        prompt: text,
+      };
       worker.turn = activeTurn;
     });
     await this.markGenerating(sessionId);
@@ -722,9 +733,22 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
         ...buildPermissionGateRequest({
           toolName: event.toolName,
           input: event.input,
+          workspace: gate.workspace,
+          task: turn.prompt || undefined,
         }),
         providerPreferences: { dataCollection: "deny" },
       });
+
+      // The turn may have settled or been cancelled while the gate ran.
+      // Unblock the worker's pending hook (a deny is moot on a dead turn but
+      // must never attach an audit block to a different turn) without
+      // surfacing a stale human prompt.
+      if (worker.turn !== turn) {
+        this.send(worker.process, { type: "permissionResponse", id: event.id, granted: false });
+        console.log(`[pi:${sessionId.slice(0, 8)}] permission gate for ${event.toolName} discarded (turn changed)`);
+        return true;
+      }
+
       const decision = resolvePermissionAutoApproval(response.answers);
       if (decision.outcome !== "approve") {
         console.log(
@@ -769,7 +793,7 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
 
   private async resolvePermissionGateConfig(
     sessionId: string,
-  ): Promise<{ apiKey: string; modelId: string; agentId: string } | null> {
+  ): Promise<{ apiKey: string; modelId: string; agentId: string; workspace?: string } | null> {
     try {
       const session = await this.sessionRepository.get(sessionId);
       if (!session) return null;
@@ -779,8 +803,15 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
       const modelId = agent?.decisionModel?.modelId?.trim();
       if (!providerId || !modelId) return null;
       const provider = (this.configPresenter.getProviders() as LLM_PROVIDER[]).find((item) => item.id === providerId);
-      if (!provider?.apiKey || !isOpenRouterDecisionsBaseUrl(provider.baseUrl)) return null;
-      return { apiKey: provider.apiKey, modelId, agentId: session.agentId };
+      if (!provider?.apiKey || provider.enable === false || !isOpenRouterDecisionsBaseUrl(provider.baseUrl)) {
+        return null;
+      }
+      return {
+        apiKey: provider.apiKey,
+        modelId,
+        agentId: session.agentId,
+        workspace: session.projectDir?.trim() || undefined,
+      };
     } catch {
       return null;
     }
