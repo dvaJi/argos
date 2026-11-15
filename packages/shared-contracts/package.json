@@ -8,6 +8,9 @@
     ".": "./src/index.ts",
     "./*": "./src/*"
   },
+  "scripts": {
+    "typecheck": "bun check"
+  },
   "dependencies": {
     "@argos/shared": "workspace:*",
     "zod": "catalog:"

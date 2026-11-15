@@ -8,6 +8,9 @@
     ".": "./src/index.ts",
     "./*": "./src/*"
   },
+  "scripts": {
+    "typecheck": "bun check"
+  },
   "dependencies": {
     "@argos/shared": "workspace:*",
     "@argos/shared-contracts": "workspace:*",
@@ -15,6 +18,7 @@
     "nanoid": "catalog:"
   },
   "devDependencies": {
+    "@types/node": "catalog:",
     "typescript": "catalog:"
   }
 }
