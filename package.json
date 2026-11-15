@@ -89,7 +89,7 @@
     "architecture:baseline": "bun scripts/generate-architecture-baseline.mjs",
     "typecheck:node": "turbo run typecheck:node --filter=@argos/desktop",
     "typecheck:web": "turbo run typecheck:web --filter=@argos/desktop --filter=@argos/ui",
-    "typecheck": "turbo run typecheck --filter=@argos/desktop --filter=@argos/ui",
+    "typecheck": "turbo run typecheck",
     "start": "bun run --filter @argos/desktop start",
     "dev": "bun scripts/dev.mjs",
     "dev:trace": "bun run --filter @argos/desktop dev",
