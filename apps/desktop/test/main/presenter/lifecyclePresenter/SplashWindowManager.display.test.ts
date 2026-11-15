@@ -220,6 +220,69 @@ describe("SplashWindowManager display gating", () => {
     expect(manager.isVisible()).toBe(true);
   });
 
+  it("keeps the splash up after startup finishes until the main window is ready", async () => {
+    const { SplashWindowManager } =
+      await import("../../../../src/main/presenter/lifecyclePresenter/SplashWindowManager");
+
+    manager = new SplashWindowManager();
+    await manager.create();
+
+    const splashWindow = createdWindows[0];
+    splashWindow.emit("ready-to-show");
+
+    // Startup hooks finish before the 200ms show delay.
+    await manager.close({ waitForMainWindow: true });
+    expect(splashWindow.close).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(200);
+    expect(splashWindow.show).toHaveBeenCalledTimes(1);
+    expect(splashWindow.close).not.toHaveBeenCalled();
+
+    eventBus.sendToMain(WINDOW_EVENTS.WINDOW_CREATED, { windowId: 1, isMainWindow: true });
+    await flushPromises();
+
+    // Closed right away, without the 500ms transition over the main window.
+    expect(splashWindow.close).toHaveBeenCalledTimes(1);
+  });
+
+  it("closes the splash after the handoff timeout when the main window never becomes ready", async () => {
+    const { SplashWindowManager } =
+      await import("../../../../src/main/presenter/lifecyclePresenter/SplashWindowManager");
+
+    manager = new SplashWindowManager();
+    await manager.create();
+
+    const splashWindow = createdWindows[0];
+    splashWindow.emit("ready-to-show");
+    await manager.close({ waitForMainWindow: true });
+
+    await vi.advanceTimersByTimeAsync(14_999);
+    expect(splashWindow.close).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(1);
+    await vi.advanceTimersByTimeAsync(500);
+    expect(splashWindow.close).toHaveBeenCalledTimes(1);
+  });
+
+  it("closes immediately on handoff when the main window was already ready", async () => {
+    const { SplashWindowManager } =
+      await import("../../../../src/main/presenter/lifecyclePresenter/SplashWindowManager");
+
+    manager = new SplashWindowManager();
+    await manager.create();
+
+    const splashWindow = createdWindows[0];
+    splashWindow.emit("ready-to-show");
+    await vi.advanceTimersByTimeAsync(200);
+    expect(splashWindow.show).toHaveBeenCalledTimes(1);
+
+    eventBus.sendToMain(WINDOW_EVENTS.WINDOW_CREATED, { windowId: 1, isMainWindow: true });
+    expect(splashWindow.close).not.toHaveBeenCalled();
+
+    await manager.close({ waitForMainWindow: true });
+    expect(splashWindow.close).toHaveBeenCalledTimes(1);
+  });
+
   it("closes a hidden splash immediately without waiting for the 500ms transition delay", async () => {
     const { SplashWindowManager } =
       await import("../../../../src/main/presenter/lifecyclePresenter/SplashWindowManager");

@@ -1,132 +1,113 @@
 import { useEffect, useState } from "react";
 import logoSrc from "../src/assets/logo.png";
 import logoDarkSrc from "../src/assets/logo-dark.png";
-import { TextShimmer } from "../components/agent-elements/text-shimmer";
 import { onIpcChannel } from "#api/runtime";
 import "./loading.css";
+
 type SplashActivityStatus = "running" | "completed" | "failed";
+type SplashStage = "starting" | "opening" | "failed";
+
 interface SplashActivityItem {
   key: string;
   name: string;
   status: SplashActivityStatus;
 }
+
 interface SplashUpdatePayload {
   activities?: SplashActivityItem[];
+  progress?: number;
+  stage?: SplashStage;
 }
+
+interface SplashState {
+  activities: SplashActivityItem[];
+  progress: number;
+  stage: SplashStage;
+}
+
 const ACTIVITY_LABELS: Record<string, string> = {
   "config-initialization": "Loading configuration",
-  "database-initialization": "Opening local database",
+  "daemon-sidecar": "Starting background service",
+  "electron-adapter-init": "Preparing desktop integration",
   "protocol-registration": "Registering app protocol",
-  "presenter-initialization": "Initializing presenters",
-  "event-listener-setup": "Attaching event listeners",
-  "acp-registry-migration": "Migrating registry data",
-  "window-creation": "Creating main window",
-  "tray-setup": "Starting tray integration",
-  "legacy-import": "Queueing legacy import",
-  "usage-stats-backfill": "Queueing usage stats backfill",
-  "startup-error": "Startup error",
-};
-const getActivityLabel = (name: string) => {
-  if (ACTIVITY_LABELS[name]) {
-    return ACTIVITY_LABELS[name];
-  }
-  return name
-    .split("-")
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
+  "presenter-initialization": "Loading services",
+  "event-listener-setup": "Connecting events",
+  "window-creation": "Preparing window",
+  "tray-setup": "Starting tray",
+  "scheduled-tasks-start": "Resuming scheduled tasks",
 };
 
-/**
- * Emblem — the calm, logo-led centerpiece.
- * The real Argos logo (logo.png / logo-dark.png) materializes with a soft
- * blur-in. A single cyan "memory pulse" arc travels once around the mark
- * (like context being loaded) and a center glow breathes gently behind it.
- * No particles, sparkles, spinners or fake progress.
- */
-function Emblem() {
-  return (
-    <div className="splash-emblem" data-testid="splash-brand-mark">
-      <span className="splash-glow" aria-hidden="true" />
-      <svg className="splash-pulse-ring" viewBox="0 0 160 160" fill="none" aria-hidden="true">
-        <circle className="splash-pulse-ring__track" cx="80" cy="80" r="54" />
-        <circle className="splash-pulse-ring__arc" cx="80" cy="80" r="54" pathLength={100} />
-      </svg>
-      <div className="splash-logo" aria-hidden="true">
-        <img className="splash-logo__img splash-logo__img--dark" src={logoDarkSrc} alt="" draggable={false} />
-        <img className="splash-logo__img splash-logo__img--light" src={logoSrc} alt="" draggable={false} />
-      </div>
-    </div>
-  );
+const getActivityLabel = (name: string) =>
+  ACTIVITY_LABELS[name] ??
+  name
+    .split("-")
+    .filter(Boolean)
+    .map((part, index) => (index === 0 ? part.charAt(0).toUpperCase() + part.slice(1) : part))
+    .join(" ");
+
+/** One honest line describing what startup is doing right now. */
+function getStatusLabel({ activities, stage }: SplashState): string {
+  if (stage === "failed") {
+    return "Something went wrong while starting";
+  }
+  if (stage === "opening") {
+    return "Opening workspace";
+  }
+  const running = activities.find((activity) => activity.status === "running");
+  return running ? getActivityLabel(running.name) : "Starting Argos";
 }
-function StatusList({ activities }: { activities: SplashActivityItem[] }) {
-  return (
-    <div className="splash-status" data-testid="splash-status">
-      {activities.length === 0 ? (
-        <div className="splash-status__row splash-status__row--pending">
-          <span className="splash-status__glyph" aria-hidden="true" />
-          <span className="splash-status__label">
-            <TextShimmer as="span" duration={1.8}>
-              Starting Argos…
-            </TextShimmer>
-          </span>
-        </div>
-      ) : (
-        activities.map((activity, index) => {
-          const rowClass = [
-            "splash-status__row",
-            activity.status === "running" ? "splash-status__row--active" : "",
-            activity.status === "completed" ? "splash-status__row--done" : "",
-            activity.status === "failed" ? "splash-status__row--failed" : "",
-          ]
-            .filter(Boolean)
-            .join(" ");
-          const label = getActivityLabel(activity.name);
-          return (
-            <div
-              key={activity.key}
-              className={rowClass}
-              style={
-                {
-                  "--splash-row-i": index,
-                } as React.CSSProperties
-              }
-            >
-              <span className="splash-status__glyph" aria-hidden="true" />
-              <span className="splash-status__label">
-                {activity.status === "running" ? (
-                  <TextShimmer as="span" duration={1.8}>
-                    {label}
-                  </TextShimmer>
-                ) : (
-                  label
-                )}
-              </span>
-            </div>
-          );
-        })
-      )}
-    </div>
-  );
-}
+
+const INITIAL_STATE: SplashState = { activities: [], progress: 0, stage: "starting" };
+
 export default function Loading() {
-  const [activities, setActivities] = useState<SplashActivityItem[]>([]);
-  const handleSplashUpdate = (_event: unknown, payload: SplashUpdatePayload) => {
-    setActivities(payload.activities?.slice(0, 3) ?? []);
-  };
+  const [state, setState] = useState<SplashState>(INITIAL_STATE);
+
   useEffect(() => {
-    const unsubscribe = onIpcChannel("splash-update", handleSplashUpdate);
-    return () => {
-      unsubscribe();
-    };
-  }, [handleSplashUpdate]);
+    return onIpcChannel("splash-update", (_event: unknown, payload: SplashUpdatePayload) => {
+      setState((previous) => ({
+        activities: payload.activities ?? [],
+        // Never move backwards: a late, lower value would make the bar jump.
+        progress: Math.max(previous.progress, Math.min(100, Math.max(0, payload.progress ?? 0))),
+        stage: payload.stage ?? previous.stage,
+      }));
+    });
+  }, []);
+
+  const label = getStatusLabel(state);
+  const failed = state.stage === "failed";
+  // Keep a sliver visible so the track never reads as empty/broken.
+  const fill = Math.max(state.progress, 4);
+
   return (
-    <div className="splash-shell">
-      <div className="splash-stage" data-testid="splash-stage">
-        <Emblem />
-        <h1 className="splash-wordmark">Argos</h1>
-        <StatusList activities={activities} />
+    <main className="splash" data-stage={state.stage} data-testid="splash-stage">
+      <div className="splash__brand" data-testid="splash-brand-mark">
+        <span className="splash__halo" aria-hidden="true" />
+        <img className="splash__logo splash__logo--dark" src={logoDarkSrc} alt="" draggable={false} />
+        <img className="splash__logo splash__logo--light" src={logoSrc} alt="" draggable={false} />
       </div>
-    </div>
+
+      <h1 className="splash__wordmark">Argos</h1>
+
+      <div className="splash__progress-block">
+        <div
+          className="splash__progress"
+          role="progressbar"
+          aria-label="Startup progress"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(state.progress)}
+          data-testid="splash-progress"
+        >
+          <span className="splash__progress-fill" style={{ transform: `scaleX(${fill / 100})` }} />
+          {!failed && <span className="splash__progress-sheen" aria-hidden="true" />}
+        </div>
+
+        <p className="splash__status" role="status" aria-live="polite" data-testid="splash-status">
+          <span key={label} className="splash__status-text">
+            {label}
+          </span>
+        </p>
+      </div>
+    </main>
   );
 }

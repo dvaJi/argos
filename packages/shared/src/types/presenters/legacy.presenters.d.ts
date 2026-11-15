@@ -2580,7 +2580,7 @@ export interface ILifecycleManager {
 export interface ISplashWindowManager {
   create(): Promise<void>;
   updateProgress(phase: LifecyclePhase, progress: number): void;
-  close(): Promise<void>;
+  close(options?: { waitForMainWindow?: boolean }): Promise<void>;
   isVisible(): boolean;
 }
 
