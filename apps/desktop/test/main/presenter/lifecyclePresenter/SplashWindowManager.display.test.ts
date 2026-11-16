@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { eventBus } from "../../../../src/main/eventbus";
-import { WINDOW_EVENTS } from "../../../../src/main/events";
+import { LIFECYCLE_EVENTS, WINDOW_EVENTS } from "../../../../src/main/events";
+import { LifecyclePhase } from "@argos/shared/lifecycle";
 
 const createdWindows = vi.hoisted(() => [] as MockBrowserWindow[]);
 const mockIpcMain = vi.hoisted(() => ({
@@ -281,6 +282,35 @@ describe("SplashWindowManager display gating", () => {
 
     await manager.close({ waitForMainWindow: true });
     expect(splashWindow.close).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports the failed stage only when a critical startup hook fails", async () => {
+    const { SplashWindowManager } =
+      await import("../../../../src/main/presenter/lifecyclePresenter/SplashWindowManager");
+
+    manager = new SplashWindowManager();
+    await manager.create();
+
+    const splashWindow = createdWindows[0];
+    const lastStage = () => splashWindow.webContents.send.mock.calls.at(-1)?.[1]?.stage;
+
+    eventBus.sendToMain(LIFECYCLE_EVENTS.HOOK_FAILED, {
+      phase: LifecyclePhase.AFTER_START,
+      name: "tray-setup",
+      critical: false,
+      priority: 10,
+      error: "boom",
+    });
+    expect(lastStage()).toBe("starting");
+
+    eventBus.sendToMain(LIFECYCLE_EVENTS.HOOK_FAILED, {
+      phase: LifecyclePhase.READY,
+      name: "presenter-initialization",
+      critical: true,
+      priority: 1,
+      error: "boom",
+    });
+    expect(lastStage()).toBe("failed");
   });
 
   it("closes a hidden splash immediately without waiting for the 500ms transition delay", async () => {

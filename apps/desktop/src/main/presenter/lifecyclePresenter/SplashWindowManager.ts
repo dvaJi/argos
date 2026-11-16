@@ -87,6 +87,11 @@ export class SplashWindowManager implements ISplashWindowManager {
       return;
     }
 
+    // A critical hook failure aborts startup. Non-critical failures are logged
+    // and startup continues, so they must not turn the splash into an error.
+    if (data.critical) {
+      this.stage = "failed";
+    }
     this.upsertActivity(data.phase, data.name, "failed");
   };
   private readonly onErrorOccurred = (data: ErrorOccurredEventData) => {
