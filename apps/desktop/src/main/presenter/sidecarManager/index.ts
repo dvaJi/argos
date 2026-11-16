@@ -108,6 +108,18 @@ function findDaemonExecutable(): string {
   return join(process.cwd(), "apps", "daemon", "src", "index.ts");
 }
 
+/**
+ * In dev the daemon is started through its bundle launcher when available:
+ * it runs a cached single-file bundle instead of ~1,250 source files, which
+ * avoids a ~10s antivirus scan on Windows when the files have not been opened
+ * recently. The launcher falls back to the source entry by itself.
+ */
+function resolveDevEntrypoint(sourceEntry: string): string {
+  if (process.env.ARGOS_DAEMON_DEV_BUNDLE === "0") return sourceEntry;
+  const launcher = join(dirname(sourceEntry), "dev-bundle.ts");
+  return existsSync(launcher) ? launcher : sourceEntry;
+}
+
 function findBunExecutable(): string {
   const platform = process.platform;
   const bunFileName = platform === "win32" ? "bun.exe" : "bun";
@@ -428,7 +440,10 @@ export async function startSidecar(options: SidecarOptions): Promise<SidecarHand
     const webRoot = resolveSidecarWebRoot(isDev);
     const cmd = isDev ? findBunExecutable() : executable;
     const args = isDev
-      ? ["run", ...getExecutableArgs(executable, { ...options, port: reservedPort || port }, webRoot)]
+      ? [
+          "run",
+          ...getExecutableArgs(resolveDevEntrypoint(executable), { ...options, port: reservedPort || port }, webRoot),
+        ]
       : getExecutableArgs(executable, { ...options, port: reservedPort || port }, webRoot);
 
     const desktopBootstrapSecret = generateDesktopBootstrapSecret();
@@ -456,8 +471,15 @@ export async function startSidecar(options: SidecarOptions): Promise<SidecarHand
     const watchGeneration = healthWatchGeneration;
     const watchStartedAt = Date.now();
 
+    // stdout arrives in arbitrary chunks: only parse complete lines so an
+    // announcement split across two chunks is still recognized.
+    let pendingStdout = "";
     child.stdout?.on("data", (data: Buffer) => {
-      const text = data.toString();
+      pendingStdout += data.toString();
+      const lastNewline = pendingStdout.lastIndexOf("\n");
+      if (lastNewline < 0) return;
+      const text = pendingStdout.slice(0, lastNewline);
+      pendingStdout = pendingStdout.slice(lastNewline + 1);
       const urlMatch = text.match(/Listening on (https?:\/\/\S+)/);
       if (urlMatch) {
         const portMatch = urlMatch[1].match(/:(\d+)(?:\/|$)/);

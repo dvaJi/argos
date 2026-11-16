@@ -380,4 +380,92 @@ describe("startSidecar", () => {
     second.emit("exit", 0);
     await stopPromise;
   });
+
+  it("starts the daemon through its dev bundle launcher when one exists", async () => {
+    const child = new EventEmitter() as MockChildProcess;
+    child.stdout = new EventEmitter();
+    child.stderr = new EventEmitter();
+    child.killed = false;
+    child.kill = vi.fn(() => {
+      child.killed = true;
+      return true;
+    });
+
+    spawnMock.mockReturnValue(child);
+    createServerMock.mockReturnValue({
+      unref: vi.fn(),
+      once: vi.fn(),
+      listen: (_options: unknown, callback: () => void) => callback(),
+      address: () => ({ port: 4321 }),
+      close: (callback: (error?: Error) => void) => callback(),
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ ok: true, json: async () => ({ status: "ok" }) })),
+    );
+    vi.spyOn(process, "cwd").mockReturnValue("/repo/apps/desktop");
+    existsSyncMock.mockImplementation((candidate: string) => {
+      const normalized = candidate.replaceAll(String.fromCharCode(92), "/");
+      return (
+        normalized.endsWith("/repo/apps/daemon/src/index.ts") ||
+        normalized.endsWith("/repo/apps/daemon/src/dev-bundle.ts")
+      );
+    });
+
+    const { startSidecar } = await import("../../../src/main/presenter/sidecarManager/index");
+    const sidecar = await startSidecar({ dataDir: "/tmp/argos-data", healthCheckIntervalMs: 5 });
+
+    const entry = String(spawnMock.mock.calls[0]?.[1]?.[1]).replaceAll(String.fromCharCode(92), "/");
+    expect(entry.endsWith("/repo/apps/daemon/src/dev-bundle.ts")).toBe(true);
+
+    const stopPromise = sidecar.stop();
+    child.emit("exit", 0);
+    await stopPromise;
+  });
+
+  it("recognizes a listening announcement split across stdout chunks", async () => {
+    const child = new EventEmitter() as MockChildProcess;
+    child.stdout = new EventEmitter();
+    child.stderr = new EventEmitter();
+    child.killed = false;
+    child.kill = vi.fn(() => {
+      child.killed = true;
+      return true;
+    });
+
+    spawnMock.mockReturnValue(child);
+    createServerMock.mockReturnValue({
+      unref: vi.fn(),
+      once: vi.fn(),
+      listen: (_options: unknown, callback: () => void) => callback(),
+      address: () => ({ port: 4321 }),
+      close: (callback: (error?: Error) => void) => callback(),
+    });
+    // Never healthy: the port must come from the log line alone.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ ok: false, json: async () => ({ status: "starting" }) })),
+    );
+
+    const onPortAssigned = vi.fn();
+    const { startSidecar } = await import("../../../src/main/presenter/sidecarManager/index");
+    const sidecar = await startSidecar({
+      dataDir: "/tmp/argos-data",
+      healthCheckIntervalMs: 5,
+      healthCheckTimeoutMs: 10000,
+      onPortAssigned,
+    });
+
+    child.stdout.emit("data", Buffer.from("[INFO] [daemon] Listening on http://127.0"));
+    await new Promise((resolve) => setTimeout(resolve, 15));
+    expect(onPortAssigned).not.toHaveBeenCalled();
+
+    child.stdout.emit("data", Buffer.from(".0.1:4321\n[INFO] next line without newline"));
+    await expect(sidecar.whenListening(1000)).resolves.toBe(4321);
+    expect(onPortAssigned).toHaveBeenCalledWith(4321);
+
+    const stopPromise = sidecar.stop();
+    child.emit("exit", 0);
+    await stopPromise;
+  });
 });

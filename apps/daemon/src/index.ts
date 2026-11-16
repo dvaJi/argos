@@ -272,7 +272,7 @@ export type StartDaemonOptions = {
   noUpdateCheck?: boolean;
 };
 
-type DaemonRequestHandlers = {
+export type DaemonRequestHandlers = {
   fetch: (request: Request, server: any) => Response | Promise<Response>;
   websocket: {
     open: (ws: any) => void;
@@ -281,7 +281,7 @@ type DaemonRequestHandlers = {
   };
 };
 
-type EarlyServer = {
+export type EarlyServer = {
   server: ReturnType<typeof serve>;
   webRoot: string | null;
   /** Hand the socket over to the fully initialized request handlers. */
@@ -296,7 +296,7 @@ type EarlyServer = {
  * away, `/health` reports `starting`, and API / WebSocket requests are held
  * until `activate()` instead of failing and forcing client-side retries.
  */
-function startEarlyServer(options: { host: string; port: number; webRoot: string | null }): EarlyServer {
+export function startEarlyServer(options: { host: string; port: number; webRoot: string | null }): EarlyServer {
   const { host, port, webRoot } = options;
   let handlers: DaemonRequestHandlers | null = null;
   let resolveActivation!: (handlers: DaemonRequestHandlers) => void;
