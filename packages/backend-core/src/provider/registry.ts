@@ -352,6 +352,22 @@ const PROVIDER_ID_REGISTRY = new Map<string, AiSdkProviderDefinition>([
     }),
   ],
   [
+    "kimi-for-coding",
+    createDefinition({
+      runtimeKind: "anthropic",
+      behaviorPreset: "anthropic",
+      modelSource: "provider-db",
+      providerDbSourceId: "kimi-for-coding",
+      providerDbGroup: "default",
+      checkStrategy: "generate-text",
+      credentialStrategy: "api-key",
+      checkModelId: "kimi-for-coding",
+      checkPrompt: "Hello",
+      checkTemperature: 0.2,
+      checkMaxTokens: 16,
+    }),
+  ],
+  [
     "new-api",
     createDefinition({
       ...OPENAI_BASE,
