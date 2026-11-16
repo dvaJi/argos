@@ -289,16 +289,24 @@ function SpendView({
 // Process-wide singleton; module scope keeps the effect dependency stable.
 const usageClient = createUsageClient();
 
-type LoadResult = { stats: UsageStatsOutput; limits: UsageLimitProvider[] } | { error: string };
+type LoadResult =
+  | { stats: UsageStatsOutput; limits: UsageLimitProvider[] | null; limitsError: string | null }
+  | { error: string };
 
 async function loadUsage(window: UsageWindow): Promise<LoadResult> {
   try {
     const [stats, limitResult] = await Promise.all([
       usageClient.getStats(window),
-      // Limits are best-effort; a failure must not hide cost/token data.
-      usageClient.getLimits().catch(() => ({ providers: [] })),
+      // Limits fail independently; a failure must not hide cost/token data.
+      usageClient.getLimits().then(
+        (result) => ({ providers: result.providers, error: null }),
+        (err: unknown) => ({
+          providers: null,
+          error: err instanceof Error ? err.message : "Failed to load limits",
+        }),
+      ),
     ]);
-    return { stats, limits: limitResult.providers };
+    return { stats, limits: limitResult.providers, limitsError: limitResult.error };
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Failed to load usage" };
   }
@@ -310,6 +318,7 @@ export default function UsageView() {
   const [provider, setProvider] = useState<string>(ALL);
   const [data, setData] = useState<UsageStatsOutput | null>(null);
   const [limits, setLimits] = useState<UsageLimitProvider[] | null>(null);
+  const [limitsError, setLimitsError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   // Bumped on each load: re-keys the reveal animation. The limits clock only
@@ -323,6 +332,7 @@ export default function UsageView() {
     } else {
       setData(result.stats);
       setLimits(result.limits);
+      setLimitsError(result.limitsError);
       setNow(Date.now());
       setReloadKey((key) => key + 1);
       setError("");
@@ -342,6 +352,7 @@ export default function UsageView() {
       } else {
         setData(result.stats);
         setLimits(result.limits);
+        setLimitsError(result.limitsError);
         setNow(Date.now());
         setReloadKey((key) => key + 1);
         setError("");
@@ -415,7 +426,16 @@ export default function UsageView() {
           <div className="h-80 animate-pulse rounded-xl bg-muted/40" aria-label="Loading usage data" />
         )}
 
-        {metric === "limits" && limits && <UsageLimits providers={visibleLimits} now={now} />}
+        {metric === "limits" && limitsError && (
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm">
+            <span className="text-destructive">Could not load limits: {limitsError}</span>
+            <Button variant="outline" size="sm" onClick={() => void reload()} disabled={isLoading}>
+              Try again
+            </Button>
+          </div>
+        )}
+
+        {metric === "limits" && !limitsError && limits && <UsageLimits providers={visibleLimits} now={now} />}
 
         {metric !== "limits" && view && view.services.length === 0 && !isLoading && (
           <Empty>

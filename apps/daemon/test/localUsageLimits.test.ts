@@ -32,7 +32,7 @@ afterEach(() => {
 });
 
 describe("scanLocalUsageLimits", () => {
-  it("reads the newest Codex rate_limits snapshot", () => {
+  it("reads the newest Codex rate_limits snapshot", async () => {
     const home = fs.mkdtempSync(path.join(os.tmpdir(), "argos-limits-"));
     tempDirs.push(home);
     const now = Date.parse("2026-11-15T12:00:00Z");
@@ -42,7 +42,7 @@ describe("scanLocalUsageLimits", () => {
       tokenCount("2026-11-15T11:00:00Z", 40, nowSec + 3600, nowSec + 86400),
     ]);
 
-    const [codex] = scanLocalUsageLimits({ home, now });
+    const [codex] = await scanLocalUsageLimits({ home, now });
     expect(codex).toMatchObject({ id: "codex", plan: "ChatGPT Plus" });
     expect(codex!.windows).toEqual([
       { id: "primary", label: "Session", usedPercent: 40, windowMinutes: 300, resetsAt: (nowSec + 3600) * 1000 },
@@ -50,21 +50,35 @@ describe("scanLocalUsageLimits", () => {
     ]);
   });
 
-  it("treats windows whose reset already passed as fully available", () => {
+  it("treats windows whose reset already passed as fully available", async () => {
     const home = fs.mkdtempSync(path.join(os.tmpdir(), "argos-limits-"));
     tempDirs.push(home);
     const now = Date.parse("2026-11-15T12:00:00Z");
     const nowSec = now / 1000;
     writeRollout(home, [tokenCount("2026-11-15T01:00:00Z", 80, nowSec - 60, nowSec + 86400)]);
 
-    const [codex] = scanLocalUsageLimits({ home, now });
+    const [codex] = await scanLocalUsageLimits({ home, now });
     expect(codex!.windows[0]).toMatchObject({ usedPercent: 0, resetsAt: null });
   });
 
-  it("returns nothing without Codex logs", () => {
+  it("finds a snapshot far before the tail, across chunk boundaries", async () => {
+    const { readCodexRateLimits } = await import("../src/host/localUsageLimits");
     const home = fs.mkdtempSync(path.join(os.tmpdir(), "argos-limits-"));
     tempDirs.push(home);
-    expect(scanLocalUsageLimits({ home })).toEqual([]);
+    const filler = { timestamp: "2026-11-15T11:30:00Z", type: "response_item", payload: { text: "x".repeat(4000) } };
+    writeRollout(home, [
+      tokenCount("2026-11-15T11:00:00Z", 55, 2e9, 2e9),
+      ...Array.from({ length: 200 }, () => filler),
+    ]);
+    const file = path.join(home, ".codex", "sessions", "2026", "11", "15", "rollout-test.jsonl");
+    const snapshot = await readCodexRateLimits(file);
+    expect((snapshot?.rateLimits["primary"] as { used_percent: number }).used_percent).toBe(55);
+  });
+
+  it("returns nothing without Codex logs", async () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "argos-limits-"));
+    tempDirs.push(home);
+    expect(await scanLocalUsageLimits({ home })).toEqual([]);
   });
 });
 

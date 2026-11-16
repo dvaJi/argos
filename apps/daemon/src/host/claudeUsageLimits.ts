@@ -1,5 +1,4 @@
 import { execFile } from "node:child_process";
-import fs from "node:fs";
 import path from "node:path";
 import type { UsageLimitProvider, UsageLimitWindow } from "@argos/shared-contracts/routes";
 
@@ -62,7 +61,7 @@ function readMacKeychain(): Promise<string | null> {
 async function readCredentials(home: string): Promise<ClaudeCredentials | null> {
   const configDir = process.env.CLAUDE_CONFIG_DIR || path.join(home, ".claude");
   try {
-    const fromFile = parseCredentials(fs.readFileSync(path.join(configDir, ".credentials.json"), "utf8"));
+    const fromFile = parseCredentials(await Bun.file(path.join(configDir, ".credentials.json")).text());
     if (fromFile) return fromFile;
   } catch {
     // no credentials file; macOS keeps them in the keychain
