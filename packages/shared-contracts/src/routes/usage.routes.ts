@@ -89,3 +89,37 @@ export type UsageDailySeriesPoint = zod.infer<typeof UsageDailySeriesPointSchema
 export type UsageServiceShare = zod.infer<typeof UsageServiceShareSchema>;
 export type UsageServiceDailySeries = zod.infer<typeof UsageServiceDailySeriesSchema>;
 export type UsageModelBreakdownItem = zod.infer<typeof UsageModelBreakdownItemSchema>;
+
+/** One subscription quota window (e.g. Codex 5h session, 7d weekly). */
+export const UsageLimitWindowSchema = zod.object({
+  id: zod.string(),
+  label: zod.string(),
+  /** 0..100, already rolled over to 0 when the window has reset. */
+  usedPercent: zod.number(),
+  windowMinutes: zod.number().nullable(),
+  /** Epoch ms of the next reset, when known. */
+  resetsAt: zod.number().nullable(),
+});
+
+export const UsageLimitProviderSchema = zod.object({
+  id: zod.string(),
+  label: zod.string(),
+  plan: zod.string().nullable(),
+  /** Epoch ms of the log entry the snapshot came from. */
+  observedAt: zod.number().nullable(),
+  windows: zod.array(UsageLimitWindowSchema),
+});
+
+export const UsageLimitsOutputSchema = zod.object({
+  providers: zod.array(UsageLimitProviderSchema),
+});
+
+export const usageGetLimitsRoute = defineRouteContract({
+  name: "usage.getLimits",
+  input: zod.object({}).default({}),
+  output: UsageLimitsOutputSchema,
+});
+
+export type UsageLimitWindow = zod.infer<typeof UsageLimitWindowSchema>;
+export type UsageLimitProvider = zod.infer<typeof UsageLimitProviderSchema>;
+export type UsageLimitsOutput = zod.infer<typeof UsageLimitsOutputSchema>;

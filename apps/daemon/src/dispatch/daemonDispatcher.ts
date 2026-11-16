@@ -39,6 +39,7 @@ import { resolveModelCost } from "../host/modelCost";
 import type { UsageStatRecord, UsageWindow } from "../host/bun-session-repository";
 import { usageWindowCutoffMs } from "../host/bun-session-repository";
 import { scanLocalUsage } from "../host/localUsageScanner";
+import { scanLocalUsageLimits } from "../host/localUsageLimits";
 import type {
   IEventPublisher,
   ProviderExecutionPort,
@@ -324,6 +325,7 @@ import {
   chatRespondToolInteractionRoute,
   imageProcessRoute,
   usageGetStatsRoute,
+  usageGetLimitsRoute,
   pluginsListRoute,
   pluginsGetRoute,
   pluginsEnableRoute,
@@ -2874,6 +2876,11 @@ export function createDaemonDispatcher(
           );
         }),
       });
+    }
+
+    if (route === usageGetLimitsRoute.name) {
+      usageGetLimitsRoute.input.parse(rawInput ?? {});
+      return usageGetLimitsRoute.output.parse({ providers: scanLocalUsageLimits() });
     }
 
     if (route === sessionsListPendingInputsRoute.name) {
