@@ -164,6 +164,7 @@
   },
   "overrides": {
     "node-abi": "^4.40.0",
-    "rolldown": "1.2.18"
+    "rolldown": "1.2.18",
+    "prosemirror-model": "1.25.13"
   }
 }
