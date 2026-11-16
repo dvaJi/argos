@@ -191,6 +191,7 @@ import {
   settingsReadyRoute,
   startupGetBootstrapRoute,
   usageGetStatsRoute,
+  usageGetLimitsRoute,
   skillsGetActiveRoute,
   skillsGetDirectoryRoute,
   skillsGetExtensionRoute,
@@ -2631,6 +2632,11 @@ export async function dispatchArgosRoute(
     case usageGetStatsRoute.name: {
       const input = usageGetStatsRoute.input.parse(rawInput);
       return usageGetStatsRoute.output.parse(await invokeDaemonRoute(usageGetStatsRoute.name, input));
+    }
+
+    case usageGetLimitsRoute.name: {
+      const input = usageGetLimitsRoute.input.parse(rawInput ?? {});
+      return usageGetLimitsRoute.output.parse(await invokeDaemonRoute(usageGetLimitsRoute.name, input));
     }
 
     case settingsActivityRecordRoute.name: {

@@ -446,7 +446,7 @@ import {
   upgradeRestartToUpdateRoute,
   upgradeStartDownloadRoute,
 } from "./routes/upgrade.routes";
-import { usageGetStatsRoute } from "./routes/usage.routes";
+import { usageGetLimitsRoute, usageGetStatsRoute } from "./routes/usage.routes";
 import {
   windowCloseCurrentRoute,
   windowCloseFloatingCurrentRoute,
@@ -867,6 +867,7 @@ export const ARGOS_ROUTE_CATALOG = {
   [upgradeClearMockRoute.name]: upgradeClearMockRoute,
   [upgradeRestartToUpdateRoute.name]: upgradeRestartToUpdateRoute,
   [usageGetStatsRoute.name]: usageGetStatsRoute,
+  [usageGetLimitsRoute.name]: usageGetLimitsRoute,
   [dialogRespondRoute.name]: dialogRespondRoute,
   [dialogErrorRoute.name]: dialogErrorRoute,
   [toolsListDefinitionsRoute.name]: toolsListDefinitionsRoute,

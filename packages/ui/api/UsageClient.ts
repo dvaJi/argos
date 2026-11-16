@@ -1,4 +1,10 @@
-import { usageGetStatsRoute, type UsageStatsOutput, type UsageWindow } from "@argos/shared-contracts/routes";
+import {
+  usageGetLimitsRoute,
+  usageGetStatsRoute,
+  type UsageLimitsOutput,
+  type UsageStatsOutput,
+  type UsageWindow,
+} from "@argos/shared-contracts/routes";
 import { getArgosBridge } from "./core";
 
 export function createUsageClient(bridge = getArgosBridge()) {
@@ -7,8 +13,13 @@ export function createUsageClient(bridge = getArgosBridge()) {
     return result;
   }
 
+  async function getLimits(): Promise<UsageLimitsOutput> {
+    return bridge.invoke(usageGetLimitsRoute.name, {});
+  }
+
   return {
     getStats,
+    getLimits,
   };
 }
 
