@@ -5,5 +5,5 @@
 - [x] T3: Verify electron-builder native-deps install passes locally (`--dir` run, Windows x64 — `classic-level` prepared, packaging completed)
 - [x] T4: Write SDD docs (`spec.md`, `plan.md`, `tasks.md`)
 - [x] T5: `bun run format` + `bun run lint` pass; commit, push `master`
-- [ ] T6: Move `v0.7.0` tag to fixed commit (user-confirmed), push, retrigger Release workflow
-- [ ] T7: Confirm workflow succeeds and GitHub release is published
+- [x] T6: Move `v0.7.0` tag to fixed commit `2ed10091`, push, Release workflow rerun triggered
+- [x] T7: Workflow `43876004243` all green (win x64/arm64, linux x64, mac arm64 + release job); draft published as Latest

@@ -44,8 +44,8 @@ so this follows the established pattern.
 - [x] electron-builder's native dependency install (`classic-level` preparation) succeeds
       locally on Windows via `bun x electron-builder --config apps/desktop/electron-builder.yml --dir`.
 - [x] `bun run format`, `bun run lint`, `bun run typecheck` pass.
-- [ ] Release workflow for `v0.7.0` succeeds end-to-end and publishes the GitHub release
-      (verified after re-tagging).
+- [x] Release workflow for `v0.7.0` succeeds end-to-end and publishes the GitHub release
+      (run `43876004243` all green; draft published as Latest).
 
 ## Non-goals
 
