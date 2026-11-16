@@ -736,7 +736,7 @@ export default function AcpSettings() {
                 }
               />
               {loading ? (
-                <Skeleton className="h-16 w-full rounded-xl" />
+                <ListSkeleton />
               ) : data.manualAgents.length === 0 ? (
                 <p className="rounded-xl border border-dashed px-4 py-5 text-center text-xs text-muted-foreground">
                   No custom agents yet.
@@ -923,6 +923,8 @@ const ListSkeleton = () => (
   </div>
 );
 
+const UPDATES_BANNER_MAX_LINES = 4;
+
 const UpdatesBanner = ({
   agents,
   updatingAll,
@@ -931,23 +933,37 @@ const UpdatesBanner = ({
   agents: AcpRegistryAgent[];
   updatingAll: boolean;
   onUpdateAll: () => void;
-}) => (
-  <Alert className="border-amber-500/40 bg-amber-500/5">
-    <Icon icon="lucide:arrow-up-circle" className="text-amber-600" />
-    <AlertTitle>
-      {agents.length === 1 ? "1 agent update available" : `${agents.length} agent updates available`}
-    </AlertTitle>
-    <AlertDescription className="pr-28">
-      {agents.map((agent) => `${agent.name} ${versionLine(agent)} → v${agent.version}`).join(" · ")}
-    </AlertDescription>
-    <AlertAction>
-      <Button size="sm" disabled={updatingAll} onClick={onUpdateAll}>
+}) => {
+  const shown = agents.slice(0, UPDATES_BANNER_MAX_LINES);
+  const hidden = agents.length - shown.length;
+  return (
+    <section
+      aria-label="Agent updates available"
+      className="flex items-center gap-3 rounded-2xl border border-amber-500/40 bg-amber-500/5 px-4 py-3"
+    >
+      <Icon icon="lucide:arrow-up-circle" className="size-4 shrink-0 translate-y-0.5 text-amber-600" />
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium">
+          {agents.length === 1 ? "1 agent update available" : `${agents.length} agent updates available`}
+        </p>
+        {/* One line per agent scans better than a dot-joined run-on; the rows
+            below carry the actions for anything past the cap. */}
+        <div className="mt-0.5 flex flex-col text-xs text-muted-foreground">
+          {shown.map((agent) => (
+            <span key={agent.id} className="truncate">
+              {agent.name} {versionLine(agent)} → v{agent.version}
+            </span>
+          ))}
+          {hidden > 0 && <span>{hidden} more — see the list below.</span>}
+        </div>
+      </div>
+      <Button size="sm" className="shrink-0" disabled={updatingAll} onClick={onUpdateAll}>
         {updatingAll ? <Spinner /> : <Icon icon="lucide:download" />}
         {agents.length === 1 ? "Update" : "Update all"}
       </Button>
-    </AlertAction>
-  </Alert>
-);
+    </section>
+  );
+};
 
 const UpdateButton = ({
   agent,
@@ -1031,14 +1047,14 @@ const InstalledAgentRow = ({
               {status === "installing" && <Badge variant="outline">Installing</Badge>}
               {status === "installed" && !agent.enabled && <Badge variant="outline">Off</Badge>}
             </div>
-            <p className="mt-0.5 truncate text-xs text-muted-foreground">
-              {versionLine(agent)}
+            <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+              <span className="shrink-0">{versionLine(agent)}</span>
               {updateAvailable && (
-                <span className="text-amber-700 dark:text-amber-400"> · v{agent.version} available</span>
+                <span className="shrink-0 font-medium text-amber-700 dark:text-amber-400">
+                  → v{agent.version} available
+                </span>
               )}
-              {" · "}
-              {distributionLabel(agent)}
-              {agent.description ? ` · ${agent.description}` : ""}
+              {agent.description && <span className="truncate">{agent.description}</span>}
             </p>
           </div>
 
@@ -1077,7 +1093,7 @@ const InstalledAgentRow = ({
                   />
                 }
               >
-                <Icon icon={expanded ? "lucide:chevron-up" : "lucide:settings-2"} />
+                <Icon icon={expanded ? "lucide:chevron-up" : "lucide:chevron-down"} />
               </TooltipTrigger>
               <TooltipContent>{expanded ? "Hide settings" : "Settings"}</TooltipContent>
             </Tooltip>
@@ -1488,13 +1504,12 @@ const RegistryDialog = ({
               />
             </div>
 
-            <div className="flex flex-wrap gap-2" role="tablist">
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Filter registry agents">
               {filters.map((item) => (
                 <Button
                   key={item.id}
                   size="sm"
-                  role="tab"
-                  aria-selected={filter === item.id}
+                  aria-pressed={filter === item.id}
                   variant={filter === item.id ? "default" : "outline"}
                   onClick={() => setFilter(item.id)}
                 >

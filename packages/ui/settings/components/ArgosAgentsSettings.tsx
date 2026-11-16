@@ -849,63 +849,71 @@ const EditorHeader = ({
   avatarEdited: boolean;
   onEnabledChange: (value: boolean) => void;
   onDelete: () => void;
-}) => (
-  <header
-    data-testid="argos-agents-sticky-header"
-    className="flex shrink-0 items-center justify-between gap-4 border-b px-6 py-4"
-  >
-    <div className="flex min-w-0 items-center gap-3">
-      <div className="flex size-11 shrink-0 items-center justify-center rounded-xl border bg-muted/40">
-        <AgentAvatar
-          agent={{
-            id: agent.id,
-            name: form.name || agent.name,
-            type: "argos",
-            icon: agent.icon,
-            avatar: avatarEdited ? buildAvatarFromForm(form) : agent.avatar,
-          }}
-          className="size-6"
-          fallbackClassName="rounded-lg"
-        />
-      </div>
-      <div className="min-w-0">
-        <div className="flex items-center gap-2">
-          <h2 className="truncate text-base font-semibold">{form.name.trim() || "Unnamed agent"}</h2>
-          {agent.protected && <Badge variant="secondary">Built-in</Badge>}
+}) => {
+  // Description first; the raw ID is dev detail and only a fallback.
+  const subtitle = form.description.trim() || agent.description?.trim() || "";
+  return (
+    <header
+      data-testid="argos-agents-sticky-header"
+      className="flex shrink-0 items-center justify-between gap-4 border-b px-6 py-4"
+    >
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="flex size-11 shrink-0 items-center justify-center rounded-xl border bg-muted/40">
+          <AgentAvatar
+            agent={{
+              id: agent.id,
+              name: form.name || agent.name,
+              type: "argos",
+              icon: agent.icon,
+              avatar: avatarEdited ? buildAvatarFromForm(form) : agent.avatar,
+            }}
+            className="size-6"
+            fallbackClassName="rounded-lg"
+          />
         </div>
-        <p className="truncate font-mono text-xs text-muted-foreground">{agent.id}</p>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <h2 className="truncate text-base font-semibold">{form.name.trim() || "Unnamed agent"}</h2>
+            {agent.protected && <Badge variant="secondary">Built-in</Badge>}
+          </div>
+          <p className={`truncate text-xs text-muted-foreground ${subtitle ? "" : "font-mono"}`}>
+            {subtitle || agent.id}
+          </p>
+        </div>
       </div>
-    </div>
-    <div className="flex shrink-0 items-center gap-3">
-      <label className="flex items-center gap-2 text-sm text-muted-foreground">
-        {form.enabled ? "Enabled" : "Disabled"}
-        <Switch checked={form.enabled} onCheckedChange={onEnabledChange} aria-label="Enable agent" />
-      </label>
-      {!agent.protected && (
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                size="icon-sm"
-                variant="ghost"
-                className="text-destructive hover:text-destructive"
-                aria-label={`Delete ${agent.name}`}
-                onClick={onDelete}
-              />
-            }
-          >
-            <Icon icon="lucide:trash-2" />
-          </TooltipTrigger>
-          <TooltipContent>Delete agent</TooltipContent>
-        </Tooltip>
-      )}
-    </div>
-  </header>
-);
+      <div className="flex shrink-0 items-center gap-3">
+        <label className="flex items-center gap-2 text-sm text-muted-foreground">
+          {form.enabled ? "Enabled" : "Disabled"}
+          <Switch checked={form.enabled} onCheckedChange={onEnabledChange} aria-label="Enable agent" />
+        </label>
+        {!agent.protected && (
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  className="text-destructive hover:text-destructive"
+                  aria-label={`Delete ${agent.name}`}
+                  onClick={onDelete}
+                />
+              }
+            >
+              <Icon icon="lucide:trash-2" />
+            </TooltipTrigger>
+            <TooltipContent>Delete agent</TooltipContent>
+          </Tooltip>
+        )}
+      </div>
+    </header>
+  );
+};
 
 const SaveBar = ({ editor, dirtyTabs }: { editor: Editor; dirtyTabs: string[] }) => {
   if (!editor.dirty && !editor.saving) return null;
   const nameMissing = !editor.form.name.trim();
+  // Same detection as ShortcutSettings; the hint is display-only.
+  const isMac = navigator.platform.toLowerCase().includes("mac");
   return (
     <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center px-6">
       <div
@@ -929,7 +937,7 @@ const SaveBar = ({ editor, dirtyTabs }: { editor: Editor; dirtyTabs: string[] })
           <Button size="sm" disabled={editor.saving || nameMissing} onClick={() => void editor.save()}>
             {editor.saving && <Spinner />}
             {editor.saving ? "Saving" : "Save"}
-            {!editor.saving && <Kbd className="ml-1 hidden sm:inline-flex">Ctrl S</Kbd>}
+            {!editor.saving && <Kbd className="ml-1 hidden sm:inline-flex">{isMac ? "⌘ S" : "Ctrl S"}</Kbd>}
           </Button>
         </div>
       </div>
