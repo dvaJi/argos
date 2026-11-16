@@ -1,5 +1,35 @@
 # Changelog
 
+## v0.7.0 (2026-11-15)
+
+### Thread sidebar, archive, and projects
+- Experimental thread sidebar rewritten with t3-style shelves: Pinned / Active / Working / Snoozed / Settled. Active is an inbox sorted by return time, Working by last send; collapsed shelves keep the open thread, and settling/snoozing/archiving the open thread advances to the next one
+- Configurable auto-settle, snooze presets, early wake on approval or a new failure, coloured status text, and receding quiet rows
+- Thread archive: new /archive page with search, restore, delete and delete-all; settle → archive → delete timers are configurable in Settings, with auto-delete gated by a history-loss warning
+- Project settings: sidebar rows show the project icon, name and branch (worktree threads fold into their repository); Settings → Projects adds name, icon, pin, archive, and a default model/workspace for new threads
+
+### Agent settings
+- ACP agents: the update toast now offers Update / Update all directly, and a new updates banner lists installed vs latest versions with a registry filter and Repair actions for failed installs; npx/uvx agents get a working Update button
+- Argos agents: the editor is split into tabs with an unsaved-changes bar (Ctrl+S), per-tab dirty dots, a discard guard, and a create dialog; built-in agents show their logo read-only, with a restore action when a stored custom avatar hides it
+- Fixed refetch loops that clobbered env edits and made shared panels flicker, Clear not clearing, install/repair reporting success on error, and silently swallowed load failures
+
+### Usage dashboard and limits
+- Redesigned usage dashboard: header window/provider dropdowns with a Cost | Tokens | Limits switch, provider shares beside the daily chart, a totals row and a by-model table
+- New Limits view: per-provider Codex session/weekly bars with an even-pace marker, reset chip, and hover details; Claude Code session/weekly/per-model limits read via the sign-in Claude Code already stored (the token is never refreshed and errors are shown in the view)
+
+### Decision models
+- Background memory judgments and routine tool-permission prompts are routed through OpenRouter decision models, so the main model no longer burns tokens deciding housekeeping questions
+
+### Startup and splash
+- The daemon binds its port immediately and serves the UI while the backend initializes, and the shell connects on the first attempt — no more reconnect backoff after launch
+- The splash stays on screen until the main window is ready (capped at 15s) and was redesigned: app icon with halo, thin progress bar driven by real progress, stage-aware status line, dark/light themes, and reduced-motion support; critical startup failures now show a failed state
+- Dev: the daemon runs from a cached single-file bundle rebuilt on change, cutting ~10s of antivirus rescans off cold starts on Windows
+
+### Dependencies and toolchain
+- Electron 44 → 45, pi-coding-agent 0.85 → 1.5.2, ACP SDK 2.5, refreshed provider catalog and ACP agent registry
+- Type checking now covers every workspace package via `bun check` (13 packages were previously unchecked); formatting switched to `bun fmt`
+- The landing page reports errors to ErrorDX
+
 ## v0.6.0 (2026-09-19)
 
 ### Managed toolchains
