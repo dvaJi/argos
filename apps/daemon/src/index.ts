@@ -260,7 +260,7 @@ export type DaemonHandle = {
   eventPublisher: BunEventPublisher;
 };
 
-export async function startDaemon(options?: {
+export type StartDaemonOptions = {
   dispatcher?: RouteDispatcher;
   dataDir?: string;
   host?: string;
@@ -270,12 +270,125 @@ export async function startDaemon(options?: {
   webRoot?: string;
   pair?: boolean;
   noUpdateCheck?: boolean;
-}): Promise<DaemonHandle> {
+};
+
+export type DaemonRequestHandlers = {
+  fetch: (request: Request, server: any) => Response | Promise<Response>;
+  websocket: {
+    open: (ws: any) => void;
+    close: (ws: any) => void;
+    message: (ws: any, message: string | Buffer) => void | Promise<void>;
+  };
+};
+
+export type EarlyServer = {
+  server: ReturnType<typeof serve>;
+  webRoot: string | null;
+  /** Hand the socket over to the fully initialized request handlers. */
+  activate: (handlers: DaemonRequestHandlers) => void;
+  /** Initialization failed: release waiting requests and free the port. */
+  fail: (error: unknown) => void;
+};
+
+/**
+ * Bind the listening socket before the (slower) backend initialization so
+ * clients never see ECONNREFUSED during startup: the web UI is served right
+ * away, `/health` reports `starting`, and API / WebSocket requests are held
+ * until `activate()` instead of failing and forcing client-side retries.
+ */
+export function startEarlyServer(options: { host: string; port: number; webRoot: string | null }): EarlyServer {
+  const { host, port, webRoot } = options;
+  let handlers: DaemonRequestHandlers | null = null;
+  let resolveActivation!: (handlers: DaemonRequestHandlers) => void;
+  let rejectActivation!: (error: unknown) => void;
+  const activation = new Promise<DaemonRequestHandlers>((resolve, reject) => {
+    resolveActivation = resolve;
+    rejectActivation = reject;
+  });
+  activation.catch(() => undefined);
+
+  const server = serve({
+    hostname: host,
+    port,
+    async fetch(request, server) {
+      if (handlers) return handlers.fetch(request, server);
+
+      const url = new URL(request.url);
+      if (url.pathname === "/health") {
+        return Response.json(
+          { status: "starting", version: resolveDaemonVersion(), uptime: Date.now() - startTime },
+          { status: 503 },
+        );
+      }
+      if (url.pathname.startsWith("/api/") && request.method === "OPTIONS") {
+        return withCors(new Response(null, { status: 204 }));
+      }
+      if (webRoot && !url.pathname.startsWith("/api/")) {
+        return serveStaticWeb(webRoot, url.pathname);
+      }
+
+      try {
+        return await (await activation).fetch(request, server);
+      } catch {
+        return withCors(
+          Response.json(
+            { ok: false, error: { code: "daemon_start_failed", message: "Daemon failed to start" } },
+            { status: 503 },
+          ),
+        );
+      }
+    },
+    // Upgrades only happen through the activated fetch handler, so `handlers`
+    // is always set by the time a socket callback fires.
+    websocket: {
+      open: (ws: any) => handlers?.websocket.open(ws),
+      close: (ws: any) => handlers?.websocket.close(ws),
+      message: (ws: any, message: string | Buffer) => handlers?.websocket.message(ws, message),
+    } as any,
+  });
+
+  // The desktop sidecar manager parses this line to learn the bound port.
+  logger.info(`[daemon] Listening on http://${host}:${(server as any).port ?? port}`);
+
+  return {
+    server,
+    webRoot,
+    activate(next) {
+      handlers = next;
+      resolveActivation(next);
+    },
+    fail(error) {
+      rejectActivation(error);
+      try {
+        (server as any).stop(true);
+      } catch {
+        // already stopped
+      }
+    },
+  };
+}
+
+export async function startDaemon(options?: StartDaemonOptions): Promise<DaemonHandle> {
   const webRootResolution = options?.web ? resolveWebRoot({ explicitWebRoot: options.webRoot }) : null;
   if (webRootResolution && !webRootResolution.ok) {
     throw new Error(webRootResolution.message);
   }
-  const webRoot = webRootResolution?.ok ? webRootResolution.root : null;
+
+  const early = startEarlyServer({
+    host: options?.host || "127.0.0.1",
+    port: options?.port ?? 9527,
+    webRoot: webRootResolution?.ok ? webRootResolution.root : null,
+  });
+  try {
+    return await initializeDaemon(options, early);
+  } catch (error) {
+    early.fail(error);
+    throw error;
+  }
+}
+
+async function initializeDaemon(options: StartDaemonOptions | undefined, early: EarlyServer): Promise<DaemonHandle> {
+  const webRoot = early.webRoot;
 
   const paths = new BunPathResolver(options?.dataDir);
   ensureDirectories(paths);
@@ -861,9 +974,8 @@ export async function startDaemon(options?: {
     verifySession: (secret) => Promise.resolve(sessionAuthRepo.verifySession(secret)),
   };
 
-  const server = serve({
-    hostname: host,
-    port,
+  const server = early.server;
+  early.activate({
     async fetch(request, server) {
       const url = new URL(request.url);
 
@@ -1044,7 +1156,7 @@ export async function startDaemon(options?: {
           }
         }
       },
-    } as any,
+    },
   });
 
   const serverPort = (server as any).port ?? port;
@@ -1053,7 +1165,7 @@ export async function startDaemon(options?: {
     const originHost = host === "::1" ? "[::1]" : host;
     pluginPresenter.setSettingsBaseUrl(`http://${originHost}:${serverPort}`);
   }
-  logger.info(`[daemon] Listening on http://${host}:${serverPort}`);
+  logger.info(`[daemon] Ready in ${Date.now() - startTime}ms`);
   logger.info(`[daemon] Health: http://${host}:${serverPort}/health`);
   logger.info(`[daemon] Routes: POST http://${host}:${serverPort}/api/v1/route`);
   logger.info(`[daemon] Events: ws://${host}:${serverPort}/api/v1/events`);

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("#/presenter/lifecyclePresenter/hooks/init/daemonSidecarHook", () => ({
   getSidecarHandle: vi.fn(() => null),
+  waitForSidecarListening: vi.fn(async () => null),
 }));
 
 const originalUiDevServerUrl = process.env.ARGOS_UI_DEV_SERVER_URL;

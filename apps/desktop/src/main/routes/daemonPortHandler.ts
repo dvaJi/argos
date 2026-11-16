@@ -2,7 +2,7 @@ import { app, ipcMain, safeStorage } from "electron";
 import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
-import { getSidecarHandle } from "#/presenter/lifecyclePresenter/hooks/init/daemonSidecarHook";
+import { waitForSidecarListening } from "#/presenter/lifecyclePresenter/hooks/init/daemonSidecarHook";
 import {
   classifyRemoteMachineTransportError,
   isRemoteMachinePairingErrorCode,
@@ -16,6 +16,7 @@ const PAIR_REMOTE_MACHINE_PROGRESS_CHANNEL = "pair-remote-machine-progress";
 const GET_REMOTE_MACHINE_CREDENTIAL_CHANNEL = "get-remote-machine-credential";
 const DELETE_REMOTE_MACHINE_CREDENTIAL_CHANNEL = "delete-remote-machine-credential";
 const REMOTE_FETCH_TIMEOUT_MS = 15_000;
+const DAEMON_PORT_WAIT_MS = 30_000;
 
 type StoredCredential = { encrypted: string; remoteUrl: string; sessionId?: string };
 type StoredCredentials = Record<string, StoredCredential>;
@@ -98,12 +99,11 @@ async function revokeIssuedSession(remoteUrl: string, sessionId: string | undefi
 
 export function registerDaemonPortHandler(): void {
   ipcMain.removeHandler(DAEMON_PORT_CHANNEL);
-  ipcMain.handle(DAEMON_PORT_CHANNEL, () => {
-    const handle = getSidecarHandle();
-    if (handle && handle.port > 0) {
-      return { port: handle.port, host: "127.0.0.1" };
-    }
-    return null;
+  // Answers only once the daemon is really listening, so the renderer's first
+  // WebSocket attempt succeeds instead of racing the daemon into reconnect backoff.
+  ipcMain.handle(DAEMON_PORT_CHANNEL, async () => {
+    const port = await waitForSidecarListening(DAEMON_PORT_WAIT_MS);
+    return port ? { port, host: "127.0.0.1" } : null;
   });
 
   ipcMain.removeHandler(PAIR_REMOTE_MACHINE_CHANNEL);

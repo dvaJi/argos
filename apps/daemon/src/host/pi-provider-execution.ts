@@ -82,6 +82,11 @@ function resolveWorkerCommand(): { command: string; args: string[] } {
   if (embeddedWorker) {
     return { command: embeddedWorker, args: [] };
   }
+  // Set by the dev launcher (src/dev-bundle.ts) when the daemon runs from a bundle.
+  const workerScript = process.env.ARGOS_PI_WORKER_SCRIPT;
+  if (workerScript && fs.existsSync(workerScript)) {
+    return { command: process.execPath, args: [workerScript] };
+  }
   const sourceWorker = path.join(import.meta.dir, "piWorker.ts");
   if (fs.existsSync(sourceWorker) && !process.execPath.toLowerCase().includes("argos-daemon")) {
     return { command: process.execPath, args: [sourceWorker] };
