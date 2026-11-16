@@ -1,7 +1,7 @@
 # Command Code as ACP Agent — Tasks
 
 - [x] 1. Curated overlay data (`packages/acp-runtime/src/config/acpCuratedAgents.ts`)
-  - [x] 1.1 Command Code record: id `command-code`, `npx command-code@1.89.1` + `acp` args,
+  - [x] 1.1 Command Code record: id `command-code`, unpinned `npx command-code` + `acp` args,
         docs/website/repository metadata
 - [x] 2. Registry service merge (`acpRegistryService.ts`)
   - [x] 2.1 `applyManifest` + `mergeCuratedAgents`; route all manifest assignments through the

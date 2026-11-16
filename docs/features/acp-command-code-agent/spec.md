@@ -21,9 +21,9 @@ lands in the official registry, the official entry replaces the curated copy aut
 ## Acceptance Criteria
 
 1. `command-code` appears in `AcpRegistryService.listAgents()` when the built-in seed / cache /
-   upstream manifest lacks it, with `distribution.npx = { package: "command-code@<version>",
-   args: ["acp"] }` (cross-platform: npx resolves the `command-code` bin, avoiding the Windows
-   `cmd`/`cmdc` alias problem).
+   upstream manifest lacks it, with `distribution.npx = { package: "command-code",
+   args: ["acp"] }` — **unpinned**, so `npx` tracks the latest published release (cross-platform:
+   npx resolves the `command-code` bin, avoiding the Windows `cmd`/`cmdc` alias problem).
 2. Curated agents survive a successful upstream refresh whose manifest does not include them.
 3. An upstream agent with the same id wins over the curated entry (no duplicates).
 4. Curated records pass the service's normalizer (`normalizeAgent`) — invalid curated data is
@@ -36,8 +36,12 @@ lands in the official registry, the official entry replaces the curated copy aut
 - Follow the SDD workflow (this folder).
 - Registry schema per `AcpRegistryAgent` (`@argos/shared/presenter`) and the bundled seed at
   `apps/desktop/resources/acp-registry/registry.json`.
-- Version pinned to the npm package version at authoring time (`command-code@1.89.1`); bumped
-  manually until upstream adopts the entry.
+- **Unpinned npx package** (`command-code`, not `command-code@x.y.z`): curated entries would go
+  stale between registry updates since upstream doesn't publish Command Code yet; unpinned means
+  `npx` always runs the latest release. The required record `version` field stays as the
+  "authored against" marker — for `npx` distributions it is display/log metadata only (verified:
+  no semver comparisons or install-state coupling on the npx path; binary distributions are the
+  ones that couple version to install dirs).
 
 ## Non-Goals
 

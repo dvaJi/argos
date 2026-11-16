@@ -245,7 +245,8 @@ describe("AcpRegistryService", () => {
         source: "registry",
         enabled: false,
       });
-      expect(commandCode?.distribution.npx?.package).toMatch(/^command-code@\d/);
+      // Unpinned: npx tracks the latest published release.
+      expect(commandCode?.distribution.npx?.package).toBe("command-code");
       expect(commandCode?.distribution.npx?.args).toEqual(["acp"]);
     });
 

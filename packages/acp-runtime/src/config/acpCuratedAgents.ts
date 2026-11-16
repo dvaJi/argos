@@ -14,6 +14,8 @@ export const ACP_CURATED_AGENT_RECORDS: Array<Record<string, unknown>> = [
   {
     id: "command-code",
     name: "Command Code",
+    // Required by the registry schema; informational only for npx agents
+    // (the unpinned package below tracks the latest published release).
     version: "1.89.1",
     description:
       "Command Code's coding agent with native ACP support (`cmd acp`). Requires the Command Code CLI installed and signed in (`cmd login`, or COMMAND_CODE_API_KEY for headless auth).",
@@ -23,7 +25,9 @@ export const ACP_CURATED_AGENT_RECORDS: Array<Record<string, unknown>> = [
     license: "proprietary",
     distribution: {
       npx: {
-        package: "command-code@1.89.1",
+        // Unpinned: npx always runs the latest published release, so curated
+        // entries never go stale between registry updates.
+        package: "command-code",
         args: ["acp"],
       },
     },

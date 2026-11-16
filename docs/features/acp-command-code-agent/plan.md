@@ -18,7 +18,7 @@ manifest source (seed | cache | upstream) → mergeCuratedAgents() → this.mani
 
 | Thing | Kind | Change |
 | --- | --- | --- |
-| `packages/acp-runtime/src/config/acpCuratedAgents.ts` | new | `ACP_CURATED_AGENT_RECORDS` (Command Code, `npx command-code@1.89.1 acp`) |
+| `packages/acp-runtime/src/config/acpCuratedAgents.ts` | new | `ACP_CURATED_AGENT_RECORDS` (Command Code, unpinned `npx command-code acp`) |
 | `packages/acp-runtime/src/config/acpRegistryService.ts` | change | `applyManifest()` / `mergeCuratedAgents()`; all manifest assignments routed through the merge |
 | `apps/desktop/test/main/presenter/configPresenter/acpRegistryService.test.ts` | change | curated merge + upstream-wins tests |
 | `docs/features/acp-command-code-agent/*` | new | this SDD |
