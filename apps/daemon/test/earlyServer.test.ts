@@ -4,6 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { startEarlyServer, type DaemonRequestHandlers, type EarlyServer } from "../src/index";
 
+// Requests use Bun.fetch, not the global fetch: other test files replace
+// globalThis.fetch with mocks and the suite shares one process.
 const cleanups: Array<() => void> = [];
 
 afterEach(() => {
@@ -57,19 +59,19 @@ describe("startEarlyServer", () => {
     writeFileSync(join(webRoot, "index.html"), "<html>early</html>");
     const { early, base } = start(webRoot);
 
-    const health = await fetch(`${base}/health`);
+    const health = await Bun.fetch(`${base}/health`);
     expect(health.status).toBe(503);
     expect(((await health.json()) as { status: string }).status).toBe("starting");
 
-    const index = await fetch(`${base}/`);
+    const index = await Bun.fetch(`${base}/`);
     expect(index.status).toBe(200);
     expect(await index.text()).toBe("<html>early</html>");
 
-    const preflight = await fetch(`${base}/api/v1/route`, { method: "OPTIONS" });
+    const preflight = await Bun.fetch(`${base}/api/v1/route`, { method: "OPTIONS" });
     expect(preflight.status).toBe(204);
 
     early.activate(readyHandlers());
-    const ready = await fetch(`${base}/health`);
+    const ready = await Bun.fetch(`${base}/health`);
     expect(ready.status).toBe(200);
     expect(((await ready.json()) as { status: string }).status).toBe("ok");
   });
@@ -77,7 +79,7 @@ describe("startEarlyServer", () => {
   it("holds API requests until activation instead of answering early", async () => {
     const { early, base } = start();
 
-    const pending = fetch(`${base}/api/v1/route`, { method: "POST", body: "{}" });
+    const pending = Bun.fetch(`${base}/api/v1/route`, { method: "POST", body: "{}" });
     expect(await settledWithin(pending, 150)).toBe("pending");
 
     early.activate(readyHandlers());
@@ -122,7 +124,7 @@ describe("startEarlyServer", () => {
   it("releases held requests and frees the port when startup fails", async () => {
     const { early, base } = start();
 
-    const pending = fetch(`${base}/api/v1/route`, { method: "POST", body: "{}" });
+    const pending = Bun.fetch(`${base}/api/v1/route`, { method: "POST", body: "{}" });
     expect(await settledWithin(pending, 100)).toBe("pending");
 
     early.fail(new Error("database is corrupt"));
@@ -138,6 +140,6 @@ describe("startEarlyServer", () => {
     expect(outcome === 503 || outcome === "closed").toBe(true);
 
     // Nothing is listening anymore.
-    await expect(fetch(`${base}/health`)).rejects.toThrow();
+    await expect(Bun.fetch(`${base}/health`)).rejects.toThrow();
   });
 });
