@@ -108,6 +108,8 @@ export const UsageLimitProviderSchema = zod.object({
   /** Epoch ms of the log entry the snapshot came from. */
   observedAt: zod.number().nullable(),
   windows: zod.array(UsageLimitWindowSchema),
+  /** Set when the provider is signed in but its limits could not be read. */
+  error: zod.string().optional(),
 });
 
 export const UsageLimitsOutputSchema = zod.object({

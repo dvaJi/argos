@@ -173,7 +173,7 @@ export function UsageLimits({ providers, now }: { providers: UsageLimitProvider[
       <div className="flex h-48 flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-border text-center">
         <p className="text-sm font-medium">No limits reported</p>
         <p className="text-xs text-muted-foreground">
-          Only Codex records its quota windows locally. Run a Codex turn to see them here.
+          Sign in to Claude Code, or run a Codex turn, to see your plan's quota windows here.
         </p>
       </div>
     );
@@ -186,13 +186,21 @@ export function UsageLimits({ providers, now }: { providers: UsageLimitProvider[
             <ModelIcon modelId={provider.id} customClass="h-4 w-4 shrink-0" isDark={themeStore.state.isDark} />
             {provider.label}
           </h2>
-          {provider.windows.map((window) => (
-            <LimitRow key={window.id} provider={provider} window={window} now={now} />
-          ))}
+          {provider.error ? (
+            <p className="rounded-xl border border-dashed border-border px-5 py-4 text-sm text-muted-foreground">
+              {provider.error}
+            </p>
+          ) : provider.windows.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-border px-5 py-4 text-sm text-muted-foreground">
+              No quota windows reported for this plan.
+            </p>
+          ) : (
+            provider.windows.map((window) => <LimitRow key={window.id} provider={provider} window={window} now={now} />)
+          )}
         </section>
       ))}
       <p className="text-xs text-muted-foreground">
-        Quota snapshots come from local agent logs. Claude Code does not record its limits locally yet.
+        Codex limits come from its latest local session log; Claude Code limits are fetched from your Claude account.
       </p>
     </div>
   );

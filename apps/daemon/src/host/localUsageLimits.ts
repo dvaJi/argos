@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import type { UsageLimitProvider, UsageLimitWindow } from "@argos/shared-contracts/routes";
 import { listJsonlFiles } from "./localUsageScanner";
+import { readClaudeLimits } from "./claudeUsageLimits";
 
 /**
  * Reads subscription quota snapshots from local agent logs.
@@ -10,7 +11,8 @@ import { listJsonlFiles } from "./localUsageScanner";
  * Codex writes `rate_limits` on every `event_msg.token_count` entry:
  * `primary` is the 5h session window, `secondary` the 7d weekly window,
  * `resets_at` is epoch seconds. The newest entry across recent session files
- * is the current snapshot. Claude Code does not persist quota data locally.
+ * is the current snapshot. Claude Code limits come from its OAuth usage
+ * endpoint (see claudeUsageLimits.ts).
  */
 
 const SESSION_MINUTES = 5 * 60;
@@ -157,4 +159,12 @@ export function scanLocalUsageLimits(options: { home?: string; now?: number } = 
   );
   limitsCache = { key: home, expiresAt: now + LIMITS_CACHE_TTL_MS, providers };
   return providers;
+}
+
+/** All providers with quota windows: Codex from local logs, Claude Code from its usage endpoint. */
+export async function readUsageLimits(options: { home?: string; now?: number } = {}): Promise<UsageLimitProvider[]> {
+  const home = options.home ?? process.env.ARGOS_USAGE_HOME ?? os.homedir();
+  const now = options.now ?? Date.now();
+  const claude = await readClaudeLimits({ home, now }).catch(() => null);
+  return [...scanLocalUsageLimits({ home, now: options.now }), ...(claude ? [claude] : [])];
 }

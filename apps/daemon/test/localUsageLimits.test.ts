@@ -67,3 +67,78 @@ describe("scanLocalUsageLimits", () => {
     expect(scanLocalUsageLimits({ home })).toEqual([]);
   });
 });
+
+describe("claude usage limits", () => {
+  it("maps the OAuth usage body to quota windows", async () => {
+    const { claudeUsageToWindows } = await import("../src/host/claudeUsageLimits");
+    const now = Date.parse("2026-11-15T12:00:00Z");
+    const windows = claudeUsageToWindows(
+      {
+        five_hour: { utilization: 40, resets_at: "2026-11-15T14:00:00Z" },
+        seven_day: { utilization: 34, resets_at: "2026-11-18T00:00:00Z" },
+        seven_day_opus: null,
+        limits: [
+          {
+            kind: "weekly_scoped",
+            percent: 10,
+            resets_at: "2026-11-18T00:00:00Z",
+            scope: { model: { display_name: "Fable" } },
+          },
+          { kind: "session", percent: 40 },
+        ],
+      },
+      now,
+    );
+    expect(windows.map((window) => [window.label, window.usedPercent])).toEqual([
+      ["Session", 40],
+      ["Weekly", 34],
+      ["Weekly · Fable", 10],
+    ]);
+    expect(windows[0]!.resetsAt).toBe(Date.parse("2026-11-15T14:00:00Z"));
+  });
+
+  it("reads the stored token, never refreshes, and reports HTTP errors", async () => {
+    const { readClaudeLimits, resetClaudeLimitsCache } = await import("../src/host/claudeUsageLimits");
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "argos-claude-"));
+    tempDirs.push(home);
+    const now = Date.parse("2026-11-15T12:00:00Z");
+    fs.mkdirSync(path.join(home, ".claude"));
+    fs.writeFileSync(
+      path.join(home, ".claude", ".credentials.json"),
+      JSON.stringify({ claudeAiOauth: { accessToken: "tok", expiresAt: now + 3_600_000, subscriptionType: "max" } }),
+    );
+    const previous = process.env.CLAUDE_CONFIG_DIR;
+    delete process.env.CLAUDE_CONFIG_DIR;
+    try {
+      const calls: Array<[string, RequestInit | undefined]> = [];
+      resetClaudeLimitsCache();
+      const ok = await readClaudeLimits({
+        home,
+        now,
+        fetchImpl: (async (url: string, init?: RequestInit) => {
+          calls.push([url, init]);
+          return new Response(JSON.stringify({ five_hour: { utilization: 12, resets_at: null } }));
+        }) as typeof fetch,
+      });
+      expect(calls).toHaveLength(1);
+      expect(calls[0]![0]).toBe("https://api.anthropic.com/api/oauth/usage");
+      expect(ok).toMatchObject({
+        id: "claude-code",
+        plan: "Claude Max",
+        windows: [{ label: "Session", usedPercent: 12 }],
+      });
+
+      resetClaudeLimitsCache();
+      const failed = await readClaudeLimits({
+        home,
+        now,
+        fetchImpl: (async () => new Response("", { status: 429 })) as unknown as typeof fetch,
+      });
+      expect(failed?.error).toContain("429");
+      expect(failed?.windows).toEqual([]);
+    } finally {
+      if (previous !== undefined) process.env.CLAUDE_CONFIG_DIR = previous;
+      resetClaudeLimitsCache();
+    }
+  });
+});
