@@ -77,7 +77,47 @@ import o3fanColorIcon from "#/assets/llm-icons/o3-fan.png";
 import voiceAiColorIcon from "#/assets/llm-icons/voiceai.svg";
 import novitaAiIcon from "#/assets/llm-icons/novitaai.svg";
 import astraflowIcon from "#/assets/llm-icons/astraflow.png";
+import kimiColorIcon from "#/assets/llm-icons/kimi-color.svg";
+import nvidiaColorIcon from "#/assets/llm-icons/nvidia-color.svg";
+import astrlinkColorIcon from "#/assets/llm-icons/astrlink.svg";
+import magpieColorIcon from "#/assets/llm-icons/magpie.png";
+import litellmColorIcon from "#/assets/llm-icons/litellm.svg";
+import openllmColorIcon from "#/assets/llm-icons/openllm.svg";
+import amdColorIcon from "#/assets/llm-icons/amd.svg";
+import cheaperInferenceColorIcon from "#/assets/llm-icons/cheaper-inference.svg";
+import futureinfraColorIcon from "#/assets/llm-icons/futureinfra.svg";
+import atmorouterColorIcon from "#/assets/llm-icons/atmorouter.svg";
+import yapiColorIcon from "#/assets/llm-icons/yapi.svg";
+import xxapiColorIcon from "#/assets/llm-icons/xxapi.svg";
+import llmbuzzColorIcon from "#/assets/llm-icons/llmbuzz.svg";
+import apimodelsColorIcon from "#/assets/llm-icons/apimodels.png";
+import apiRouteColorIcon from "#/assets/llm-icons/api-route.svg";
+import runinfraColorIcon from "#/assets/llm-icons/runinfra.svg";
+import greenptColorIcon from "#/assets/llm-icons/greenpt.svg";
+import tokenlabColorIcon from "#/assets/llm-icons/tokenlab.webp";
+import daoxeColorIcon from "#/assets/llm-icons/daoxe.png";
+import anonrouterColorIcon from "#/assets/llm-icons/anonrouter.svg";
+import atlascloudColorIcon from "#/assets/llm-icons/atlascloud.svg";
+import requestyColorIcon from "#/assets/llm-icons/requesty.png";
+import opperColorIcon from "#/assets/llm-icons/opper.svg";
+import trustedrouterColorIcon from "#/assets/llm-icons/trustedrouter.svg";
+import standardcomputeColorIcon from "#/assets/llm-icons/standardcompute.svg";
+import runcrateColorIcon from "#/assets/llm-icons/runcrate.svg";
+import cloudgpuColorIcon from "#/assets/llm-icons/cloudgpu.svg";
+import wallyColorIcon from "#/assets/llm-icons/wally-color.svg";
+import uberllmColorIcon from "#/assets/llm-icons/uberllm-color.svg";
+import wiroColorIcon from "#/assets/llm-icons/wiro.svg";
+import cheapaimodelColorIcon from "#/assets/llm-icons/cheapaimodel.svg";
+import obscurifyColorIcon from "#/assets/llm-icons/obscurify.svg";
+import aistupidlevelColorIcon from "#/assets/llm-icons/aistupidlevel.svg";
+import demonrouteColorIcon from "#/assets/llm-icons/demonroute.svg";
+import orcarouterColorIcon from "#/assets/llm-icons/orcarouter.svg";
+import synthoraiColorIcon from "#/assets/llm-icons/synthorai.svg";
+import routerraColorIcon from "#/assets/llm-icons/routerra.svg";
+import modelsellColorIcon from "#/assets/llm-icons/modelsell.png";
+import straicoColorIcon from "#/assets/llm-icons/straico.svg";
 const icons: Record<string, string> = {
+  "kimi-for-coding": kimiColorIcon,
   kimi: moonshotColorIcon,
   "kimi-cli": moonshotColorIcon,
   codex: openaiColorIcon,
@@ -170,6 +210,44 @@ const icons: Record<string, string> = {
   "novita.ai": novitaAiIcon,
   astraflow: astraflowIcon,
   "astraflow-cn": astraflowIcon,
+  nvidia: nvidiaColorIcon,
+  astrlink: astrlinkColorIcon,
+  magpie: magpieColorIcon,
+  litellm: litellmColorIcon,
+  openllm: openllmColorIcon,
+  amd: amdColorIcon,
+  "cheaper-inference": cheaperInferenceColorIcon,
+  futureinfra: futureinfraColorIcon,
+  atmorouter: atmorouterColorIcon,
+  yapi: yapiColorIcon,
+  xxapi: xxapiColorIcon,
+  llmbuzz: llmbuzzColorIcon,
+  apimodels: apimodelsColorIcon,
+  "api-route": apiRouteColorIcon,
+  runinfra: runinfraColorIcon,
+  greenpt: greenptColorIcon,
+  tokenlab: tokenlabColorIcon,
+  daoxe: daoxeColorIcon,
+  anonrouter: anonrouterColorIcon,
+  atlascloud: atlascloudColorIcon,
+  requesty: requestyColorIcon,
+  opper: opperColorIcon,
+  trustedrouter: trustedrouterColorIcon,
+  standardcompute: standardcomputeColorIcon,
+  runcrate: runcrateColorIcon,
+  cloudgpu: cloudgpuColorIcon,
+  wally: wallyColorIcon,
+  uberllm: uberllmColorIcon,
+  wiro: wiroColorIcon,
+  cheapaimodel: cheapaimodelColorIcon,
+  obscurify: obscurifyColorIcon,
+  aistupidlevel: aistupidlevelColorIcon,
+  demonroute: demonrouteColorIcon,
+  orcarouter: orcarouterColorIcon,
+  synthorai: synthoraiColorIcon,
+  routerra: routerraColorIcon,
+  modelsell: modelsellColorIcon,
+  straico: straicoColorIcon,
   default: defaultIcon,
 };
 const iconKeys = Object.keys(icons);
@@ -197,6 +275,25 @@ const monoIconUrls = new Set([
   voiceAiColorIcon,
   novitaAiIcon,
   opencodeIcon,
+  amdColorIcon,
+  anonrouterColorIcon,
+  atlascloudColorIcon,
+  atmorouterColorIcon,
+  cheaperInferenceColorIcon,
+  cloudgpuColorIcon,
+  demonrouteColorIcon,
+  llmbuzzColorIcon,
+  obscurifyColorIcon,
+  openllmColorIcon,
+  opperColorIcon,
+  runcrateColorIcon,
+  runinfraColorIcon,
+  standardcomputeColorIcon,
+  synthoraiColorIcon,
+  trustedrouterColorIcon,
+  wiroColorIcon,
+  xxapiColorIcon,
+  aistupidlevelColorIcon,
 ]);
 interface ModelIconProps {
   modelId: string;
