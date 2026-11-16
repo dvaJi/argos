@@ -248,6 +248,9 @@ describe("AcpRegistryService", () => {
       // Unpinned: npx tracks the latest published release.
       expect(commandCode?.distribution.npx?.package).toBe("command-code");
       expect(commandCode?.distribution.npx?.args).toEqual(["acp"]);
+      // Canonical CDN URL; markup comes from the bundled brand icon until
+      // upstream registers the agent.
+      expect(commandCode?.icon).toBe("https://cdn.agentclientprotocol.com/registry/v1/latest/command-code.svg");
     });
 
     it("keeps curated agents after an upstream refresh that lacks them", async () => {

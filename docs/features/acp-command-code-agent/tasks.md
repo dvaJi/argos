@@ -10,6 +10,13 @@
   - [x] 3.1 Curated agent appears with built-in seed lacking it
   - [x] 3.2 Curated agent survives upstream refresh lacking it
   - [x] 3.3 Upstream entry with the same id wins
-- [x] 4. Gates
-  - [x] 4.1 acp-runtime + desktop typecheck, desktop targeted Vitest (9/9), `bun run lint`,
-        `bun run format`
+- [x] 4. Brand icon + UI exception
+  - [x] 4.1 Bundled official logomark: `apps/desktop/resources/acp-registry/icons/command-code.svg`
+        (symbol.svg from commandcode.ai/brand, 16px box, official fixed colors)
+  - [x] 4.2 Curated record `icon` = canonical ACP-CDN URL (passes the icon-URL allowlist;
+        bundled file serves markup until upstream registers the agent)
+  - [x] 4.3 `AcpAgentIcon` full-bleed exception (`isFullBleedRegistryIcon`): container drops
+        `rounded-md`/`overflow-hidden` for tile-style marks; component tests added
+- [x] 5. Gates
+  - [x] 5.1 acp-runtime + desktop + ui typecheck, desktop targeted Vitest (9/9), ui component
+        tests, `bun run lint`, `bun run format`

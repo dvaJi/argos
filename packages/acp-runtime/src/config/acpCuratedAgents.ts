@@ -23,6 +23,12 @@ export const ACP_CURATED_AGENT_RECORDS: Array<Record<string, unknown>> = [
     website: "https://commandcode.ai/docs/acp",
     authors: ["Command Code"],
     license: "proprietary",
+    // Canonical ACP-CDN URL (passes the registry icon-URL allowlist). Upstream
+    // doesn't host this icon yet, so the bundled mark at
+    // apps/desktop/resources/acp-registry/icons/command-code.svg (official
+    // logomark from commandcode.ai/brand) serves the markup; once upstream
+    // registers the agent, its CDN icon takes over automatically.
+    icon: "https://cdn.agentclientprotocol.com/registry/v1/latest/command-code.svg",
     distribution: {
       npx: {
         // Unpinned: npx always runs the latest published release, so curated
