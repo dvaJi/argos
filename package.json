@@ -163,6 +163,7 @@
     "pdf-parse-new@2.1.0": "patches/pdf-parse-new@2.1.0.patch"
   },
   "overrides": {
+    "node-abi": "^4.40.0",
     "rolldown": "1.2.18"
   }
 }

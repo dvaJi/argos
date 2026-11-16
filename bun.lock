@@ -28,7 +28,7 @@
     },
     "apps/daemon": {
       "name": "@argos/daemon",
-      "version": "0.6.0",
+      "version": "0.7.0",
       "bin": {
         "argos-daemon": "./src/index.ts",
       },
@@ -64,7 +64,7 @@
     },
     "apps/desktop": {
       "name": "@argos/desktop",
-      "version": "0.6.0",
+      "version": "0.7.0",
       "dependencies": {
         "@ai-sdk/amazon-bedrock": "catalog:",
         "@ai-sdk/anthropic": "catalog:",
@@ -443,6 +443,7 @@
     "pdf-parse-new@2.1.0": "patches/pdf-parse-new@2.1.0.patch",
   },
   "overrides": {
+    "node-abi": "^4.40.0",
     "rolldown": "1.2.18",
   },
   "catalog": {
@@ -2602,7 +2603,7 @@
 
     "negotiator": ["negotiator@1.0.0", "", {}, "sha512-8Ofs/AUQh8MaEcrlq5xOX0CQ9ypTF5dl78mjlMNfOK08fzpgTHQRQPBxcPlEtIw0yRpws+Zo/3r+5WRby7u3Gg=="],
 
-    "node-abi": ["node-abi@4.33.0", "", { "dependencies": { "semver": "^7.6.3" } }, "sha512-vLBWCKb+7LWsX+TbfzWOkw0W81m377tyx3hOweBTjO43CXZnRGS1/JPWs20fr0PgZyDXk6ROYrylsEycK8raDA=="],
+    "node-abi": ["node-abi@4.40.0", "", { "dependencies": { "semver": "^7.6.3" } }, "sha512-GuvqvtrOk+AC27RidBxBsMzVNkwNl7PjHgc4NXbmdvSVLgIUjpaqcG1FjNRYnt2Yn9Ytq+Ln37XsBaglUcte/w=="],
 
     "node-api-version": ["node-api-version@0.2.1", "", { "dependencies": { "semver": "^7.3.5" } }, "sha512-2xP/IGGMmmSQpI1+O/k72jF/ykvZ89JeuKX3TLJAYPDVLUalrshrLHkeVcCCZqG/eEa635cr8IBYzgnDvM2O8Q=="],
 
