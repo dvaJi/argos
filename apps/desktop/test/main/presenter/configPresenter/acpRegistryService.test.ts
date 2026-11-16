@@ -138,7 +138,8 @@ describe("AcpRegistryService", () => {
     await service.initialize();
 
     expect(globalFetch).not.toHaveBeenCalled();
-    expect(service.listAgents()).toHaveLength(1);
+    // upstream agent + curated overlay (command-code)
+    expect(service.listAgents()).toHaveLength(2);
   });
 
   it("writes refreshed icon cache and prunes stale cached icons", async () => {
@@ -175,7 +176,8 @@ describe("AcpRegistryService", () => {
 
     // manifest + icon both routed through the single global fetch stub
     expect(fetchFn).toHaveBeenCalled();
-    expect(service.listAgents()).toHaveLength(1);
+    // upstream agent + curated overlay (command-code)
+    expect(service.listAgents()).toHaveLength(2);
   });
 
   it("preserves existing cached icon when refreshing a new icon fails", async () => {
@@ -222,5 +224,64 @@ describe("AcpRegistryService", () => {
     });
 
     await expect(service.refresh(true)).rejects.toThrow("[ACP Registry] No registry snapshot is available.");
+  });
+
+  describe("curated agents overlay", () => {
+    const findCommandCode = (agents: Array<{ id: string; version?: string; name?: string }>) =>
+      agents.find((agent) => agent.id === "command-code");
+
+    it("merges curated agents into the built-in seed", async () => {
+      writeBuiltInManifest(createManifest());
+      const service = await createService({ isPrivacyModeEnabled: () => true });
+
+      await service.initialize();
+
+      const agents = service.listAgents();
+      expect(agents).toHaveLength(2);
+      const commandCode = findCommandCode(agents);
+      expect(commandCode).toMatchObject({
+        id: "command-code",
+        name: "Command Code",
+        source: "registry",
+        enabled: false,
+      });
+      expect(commandCode?.distribution.npx?.package).toMatch(/^command-code@\d/);
+      expect(commandCode?.distribution.npx?.args).toEqual(["acp"]);
+    });
+
+    it("keeps curated agents after an upstream refresh that lacks them", async () => {
+      const upstream = createManifest();
+      stubFetch(JSON.stringify(upstream), { ok: true, text: SVG_ICON });
+
+      const service = await createService();
+      await service.refresh(true);
+
+      const agents = service.listAgents();
+      expect(agents.map((agent: { id: string }) => agent.id)).toEqual(["claude-acp", "command-code"]);
+    });
+
+    it("lets an upstream agent with the same id win over the curated entry", async () => {
+      const upstreamManifest = {
+        version: "2",
+        agents: [
+          createManifest("claude-acp").agents[0],
+          {
+            id: "command-code",
+            name: "Command Code",
+            version: "9.9.9",
+            distribution: { npx: { package: "command-code@9.9.9" } },
+          },
+        ],
+      };
+      stubFetch(JSON.stringify(upstreamManifest), { ok: true, text: SVG_ICON });
+
+      const service = await createService();
+      await service.refresh(true);
+
+      const agents = service.listAgents();
+      const commandCodeEntries = agents.filter((agent: { id: string }) => agent.id === "command-code");
+      expect(commandCodeEntries).toHaveLength(1);
+      expect(commandCodeEntries[0]).toMatchObject({ version: "9.9.9", name: "Command Code" });
+    });
   });
 });

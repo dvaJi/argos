@@ -17,6 +17,7 @@ import {
   getAcpRegistryIconFileName,
   isAcpRegistryIconUrl,
 } from "@argos/backend-core";
+import { ACP_CURATED_AGENT_RECORDS } from "./acpCuratedAgents";
 
 type RegistryCacheMeta = {
   version?: string;
@@ -230,10 +231,10 @@ export class AcpRegistryService {
   }
 
   async initialize(): Promise<void> {
-    this.manifest = this.loadFromBuiltIn() ?? this.loadFromCache();
+    this.applyManifest(this.loadFromBuiltIn() ?? this.loadFromCache());
     const cached = this.loadFromCache();
     if (cached) {
-      this.manifest = cached;
+      this.applyManifest(cached);
     }
     if (this.manifest) {
       logger.info(
@@ -294,11 +295,31 @@ export class AcpRegistryService {
       return this.manifest;
     }
 
-    this.manifest = this.loadFromCache() ?? this.loadFromBuiltIn();
+    this.applyManifest(this.loadFromCache() ?? this.loadFromBuiltIn());
     if (!this.manifest) {
       throw new Error("[ACP Registry] No registry snapshot is available.");
     }
     return this.manifest;
+  }
+
+  /**
+   * Assign the active manifest with the Argos-curated agent overlay applied,
+   * so curated entries survive bundled-seed loads, cache loads, and upstream
+   * refreshes alike. Upstream entries with the same id win.
+   */
+  private applyManifest(manifest: RegistryManifest | null): void {
+    this.manifest = manifest ? this.mergeCuratedAgents(manifest) : null;
+  }
+
+  private mergeCuratedAgents(manifest: RegistryManifest): RegistryManifest {
+    const existingIds = new Set(manifest.agents.map((agent) => agent.id));
+    const additions = ACP_CURATED_AGENT_RECORDS.map(normalizeAgent).filter(
+      (agent): agent is AcpRegistryAgent => agent !== null && !existingIds.has(agent.id),
+    );
+    if (additions.length === 0) {
+      return manifest;
+    }
+    return { version: manifest.version, agents: [...manifest.agents, ...additions] };
   }
 
   private readMeta(): RegistryCacheMeta | null {
@@ -444,7 +465,7 @@ export class AcpRegistryService {
           : `v${normalized.version} (unchanged)`;
       logger.info(`[ACP Registry] Refreshed manifest ${versionTransition}, ${normalized.agents.length} agents`);
 
-      this.manifest = normalized;
+      this.applyManifest(normalized);
     } catch (error) {
       if (previousMeta) {
         this.writeMeta({ ...previousMeta, lastAttemptedAt: now });
