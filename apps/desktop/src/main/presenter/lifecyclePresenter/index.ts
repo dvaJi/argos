@@ -95,13 +95,11 @@ export class LifecycleManager implements ILifecycleManager {
       await this.executePhase(LifecyclePhase.READY);
       await this.executePhase(LifecyclePhase.AFTER_START);
 
-      // Close splash window after startup is complete
-      await this.splashManager.close();
+      // Startup is complete; keep the splash until the main window is ready to show
+      await this.splashManager.close({ waitForMainWindow: true });
     } catch (error) {
-      // Close splash window on error
-      if (this.splashManager.isVisible()) {
-        await this.splashManager.close();
-      }
+      // Close splash window on error (visible or still hidden)
+      await this.splashManager.close();
 
       this.notifyMessage(LIFECYCLE_EVENTS.ERROR_OCCURRED, {
         phase: this.state.currentPhase,

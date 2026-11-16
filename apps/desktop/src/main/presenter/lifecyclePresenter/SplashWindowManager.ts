@@ -25,8 +25,18 @@ interface SplashActivityItem {
   updatedAt: number;
 }
 
+/**
+ * - `starting`: lifecycle hooks are running.
+ * - `opening`: startup finished; waiting for the main window to be ready.
+ * - `failed`: a startup phase reported an error.
+ */
+type SplashStage = "starting" | "opening" | "failed";
+
 interface SplashUpdatePayload {
   activities: Array<Pick<SplashActivityItem, "key" | "name" | "status">>;
+  /** Overall startup progress, 0-100. */
+  progress: number;
+  stage: SplashStage;
 }
 
 type WindowCreatedPayload =
@@ -39,10 +49,15 @@ type WindowCreatedPayload =
 
 const MAX_SPLASH_ACTIVITIES = 3;
 const SPLASH_SHOW_DELAY_MS = 200;
+// Upper bound for keeping the splash up while waiting for the main window to
+// become ready to show (e.g. it was destroyed early or never created).
+const MAIN_WINDOW_HANDOFF_TIMEOUT_MS = 15000;
 
 export class SplashWindowManager implements ISplashWindowManager {
   private splashWindow: BrowserWindow | null = null;
   private activities = new Map<string, SplashActivityItem>();
+  private progress = 0;
+  private stage: SplashStage = "starting";
   private splashReadyToShow = false;
   private splashDidFinishLoad = false;
   private splashShowDelayElapsed = false;
@@ -50,6 +65,9 @@ export class SplashWindowManager implements ISplashWindowManager {
   private forceShowWhenLoaded = false;
   private splashLoadCanceled = false;
   private splashShowDelayTimer: ReturnType<typeof setTimeout> | null = null;
+  private mainWindowShown = false;
+  private handoffPending = false;
+  private handoffTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly onHookExecuted = (data: HookExecutedEventData) => {
     if (!this.isStartupPhase(data.phase)) {
       return;
@@ -69,6 +87,11 @@ export class SplashWindowManager implements ISplashWindowManager {
       return;
     }
 
+    // A critical hook failure aborts startup. Non-critical failures are logged
+    // and startup continues, so they must not turn the splash into an error.
+    if (data.critical) {
+      this.stage = "failed";
+    }
     this.upsertActivity(data.phase, data.name, "failed");
   };
   private readonly onErrorOccurred = (data: ErrorOccurredEventData) => {
@@ -82,11 +105,25 @@ export class SplashWindowManager implements ISplashWindowManager {
       status: "failed",
       updatedAt: Date.now(),
     });
+    this.stage = "failed";
     this.pruneActivities();
     this.emitState();
   };
   private readonly onMainWindowCreated = (payload?: WindowCreatedPayload) => {
-    if (!this.shouldSuppressForWindowCreated(payload) || this.isVisible()) {
+    if (!this.shouldSuppressForWindowCreated(payload)) {
+      return;
+    }
+
+    this.mainWindowShown = true;
+
+    if (this.handoffPending) {
+      // Startup already finished; the main window is on screen now, so the
+      // splash can go away.
+      void this.close();
+      return;
+    }
+
+    if (this.isVisible()) {
       return;
     }
 
@@ -114,7 +151,12 @@ export class SplashWindowManager implements ISplashWindowManager {
     this.suppressSplashShow = false;
     this.forceShowWhenLoaded = false;
     this.splashLoadCanceled = false;
+    this.mainWindowShown = false;
+    this.handoffPending = false;
+    this.progress = 0;
+    this.stage = "starting";
     this.clearSplashShowDelayTimer();
+    this.clearHandoffTimer();
     eventBus.on(WINDOW_EVENTS.WINDOW_CREATED, this.onMainWindowCreated);
 
     this.splashShowDelayTimer = setTimeout(() => {
@@ -206,6 +248,8 @@ export class SplashWindowManager implements ISplashWindowManager {
 
     const message = phaseMessages[phase] || "Loading...";
     const clamped = Math.max(0, Math.min(100, progress));
+    this.progress = Math.max(this.progress, clamped);
+    this.emitState();
 
     // Emit progress event to both main and renderer processes
     eventBus.sendToMain(LIFECYCLE_EVENTS.PROGRESS_UPDATED, {
@@ -216,9 +260,33 @@ export class SplashWindowManager implements ISplashWindowManager {
   }
 
   /**
-   * Close the splash window
+   * Close the splash window.
+   *
+   * With `waitForMainWindow`, the splash stays up until the main window is
+   * ready to show (capped by MAIN_WINDOW_HANDOFF_TIMEOUT_MS). Startup hooks can
+   * finish long before the main window has loaded its UI; closing right away
+   * would leave nothing on screen in between. This returns immediately and does
+   * not block the caller.
    */
-  async close(): Promise<void> {
+  async close(options: { waitForMainWindow?: boolean } = {}): Promise<void> {
+    if (options.waitForMainWindow && !this.mainWindowShown && this.splashWindow && !this.splashWindow.isDestroyed()) {
+      if (!this.handoffPending) {
+        this.handoffPending = true;
+        this.progress = 100;
+        if (this.stage !== "failed") {
+          this.stage = "opening";
+        }
+        this.emitState();
+        this.handoffTimer = setTimeout(() => {
+          this.handoffTimer = null;
+          void this.close();
+        }, MAIN_WINDOW_HANDOFF_TIMEOUT_MS);
+      }
+      return;
+    }
+
+    this.handoffPending = false;
+    this.clearHandoffTimer();
     eventBus.off(LIFECYCLE_EVENTS.HOOK_EXECUTED, this.onHookExecuted);
     eventBus.off(LIFECYCLE_EVENTS.HOOK_COMPLETED, this.onHookCompleted);
     eventBus.off(LIFECYCLE_EVENTS.HOOK_FAILED, this.onHookFailed);
@@ -236,8 +304,9 @@ export class SplashWindowManager implements ISplashWindowManager {
     }
 
     try {
-      if (this.splashWindow.isVisible()) {
+      if (this.splashWindow.isVisible() && !this.mainWindowShown) {
         // Add a small delay for smooth transition when the splash is actually visible.
+        // Skipped once the main window is up: the always-on-top splash would cover it.
         await new Promise((resolve) => setTimeout(resolve, 500));
       }
 
@@ -293,6 +362,8 @@ export class SplashWindowManager implements ISplashWindowManager {
     }
 
     const payload: SplashUpdatePayload = {
+      progress: this.progress,
+      stage: this.stage,
       activities: Array.from(this.activities.values())
         .sort((a, b) => b.updatedAt - a.updatedAt)
         .map(({ key, name, status }) => ({
@@ -492,6 +563,13 @@ export class SplashWindowManager implements ISplashWindowManager {
     if (this.splashShowDelayTimer) {
       clearTimeout(this.splashShowDelayTimer);
       this.splashShowDelayTimer = null;
+    }
+  }
+
+  private clearHandoffTimer(): void {
+    if (this.handoffTimer) {
+      clearTimeout(this.handoffTimer);
+      this.handoffTimer = null;
     }
   }
 

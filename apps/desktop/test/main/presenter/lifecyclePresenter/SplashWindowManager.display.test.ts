@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { eventBus } from "../../../../src/main/eventbus";
-import { WINDOW_EVENTS } from "../../../../src/main/events";
+import { LIFECYCLE_EVENTS, WINDOW_EVENTS } from "../../../../src/main/events";
+import { LifecyclePhase } from "@argos/shared/lifecycle";
 
 const createdWindows = vi.hoisted(() => [] as MockBrowserWindow[]);
 const mockIpcMain = vi.hoisted(() => ({
@@ -218,6 +219,98 @@ describe("SplashWindowManager display gating", () => {
     expect(splashWindow.close).not.toHaveBeenCalled();
     expect(splashWindow.show).toHaveBeenCalledTimes(1);
     expect(manager.isVisible()).toBe(true);
+  });
+
+  it("keeps the splash up after startup finishes until the main window is ready", async () => {
+    const { SplashWindowManager } =
+      await import("../../../../src/main/presenter/lifecyclePresenter/SplashWindowManager");
+
+    manager = new SplashWindowManager();
+    await manager.create();
+
+    const splashWindow = createdWindows[0];
+    splashWindow.emit("ready-to-show");
+
+    // Startup hooks finish before the 200ms show delay.
+    await manager.close({ waitForMainWindow: true });
+    expect(splashWindow.close).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(200);
+    expect(splashWindow.show).toHaveBeenCalledTimes(1);
+    expect(splashWindow.close).not.toHaveBeenCalled();
+
+    eventBus.sendToMain(WINDOW_EVENTS.WINDOW_CREATED, { windowId: 1, isMainWindow: true });
+    await flushPromises();
+
+    // Closed right away, without the 500ms transition over the main window.
+    expect(splashWindow.close).toHaveBeenCalledTimes(1);
+  });
+
+  it("closes the splash after the handoff timeout when the main window never becomes ready", async () => {
+    const { SplashWindowManager } =
+      await import("../../../../src/main/presenter/lifecyclePresenter/SplashWindowManager");
+
+    manager = new SplashWindowManager();
+    await manager.create();
+
+    const splashWindow = createdWindows[0];
+    splashWindow.emit("ready-to-show");
+    await manager.close({ waitForMainWindow: true });
+
+    await vi.advanceTimersByTimeAsync(14_999);
+    expect(splashWindow.close).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(1);
+    await vi.advanceTimersByTimeAsync(500);
+    expect(splashWindow.close).toHaveBeenCalledTimes(1);
+  });
+
+  it("closes immediately on handoff when the main window was already ready", async () => {
+    const { SplashWindowManager } =
+      await import("../../../../src/main/presenter/lifecyclePresenter/SplashWindowManager");
+
+    manager = new SplashWindowManager();
+    await manager.create();
+
+    const splashWindow = createdWindows[0];
+    splashWindow.emit("ready-to-show");
+    await vi.advanceTimersByTimeAsync(200);
+    expect(splashWindow.show).toHaveBeenCalledTimes(1);
+
+    eventBus.sendToMain(WINDOW_EVENTS.WINDOW_CREATED, { windowId: 1, isMainWindow: true });
+    expect(splashWindow.close).not.toHaveBeenCalled();
+
+    await manager.close({ waitForMainWindow: true });
+    expect(splashWindow.close).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports the failed stage only when a critical startup hook fails", async () => {
+    const { SplashWindowManager } =
+      await import("../../../../src/main/presenter/lifecyclePresenter/SplashWindowManager");
+
+    manager = new SplashWindowManager();
+    await manager.create();
+
+    const splashWindow = createdWindows[0];
+    const lastStage = () => splashWindow.webContents.send.mock.calls.at(-1)?.[1]?.stage;
+
+    eventBus.sendToMain(LIFECYCLE_EVENTS.HOOK_FAILED, {
+      phase: LifecyclePhase.AFTER_START,
+      name: "tray-setup",
+      critical: false,
+      priority: 10,
+      error: "boom",
+    });
+    expect(lastStage()).toBe("starting");
+
+    eventBus.sendToMain(LIFECYCLE_EVENTS.HOOK_FAILED, {
+      phase: LifecyclePhase.READY,
+      name: "presenter-initialization",
+      critical: true,
+      priority: 1,
+      error: "boom",
+    });
+    expect(lastStage()).toBe("failed");
   });
 
   it("closes a hidden splash immediately without waiting for the 500ms transition delay", async () => {
