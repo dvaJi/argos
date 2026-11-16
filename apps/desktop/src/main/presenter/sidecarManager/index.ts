@@ -13,6 +13,10 @@ export type SidecarOptions = {
   healthCheckIntervalMs?: number;
   healthCheckTimeoutMs?: number;
   onStatusChange?: (status: SidecarStatus) => void;
+  /**
+   * Fired once the daemon has actually bound its port (not when the port is
+   * merely reserved), so it is safe to connect as soon as this is called.
+   */
   onPortAssigned?: (port: number) => void;
 };
 
@@ -33,6 +37,19 @@ export type SidecarHandle = {
    * the sidecar stops, errors permanently, or the timeout elapses.
    */
   whenHealthy: (timeoutMs?: number) => Promise<void>;
+  /**
+   * Resolves with the port once the daemon has bound its listening socket.
+   * This happens before `healthy`: the daemon serves the web UI right away
+   * and holds API / WebSocket requests until its backend is initialized, so
+   * clients can connect at this point without ever seeing ECONNREFUSED.
+   */
+  whenListening: (timeoutMs?: number) => Promise<number>;
+};
+
+type ListeningWaiter = {
+  resolve: (port: number) => void;
+  reject: (error: Error) => void;
+  timer: ReturnType<typeof setTimeout> | null;
 };
 
 type HealthyWaiter = {
@@ -215,7 +232,7 @@ export async function startSidecar(options: SidecarOptions): Promise<SidecarHand
     host = "127.0.0.1",
     port = 0,
     maxRetries = 3,
-    healthCheckIntervalMs = 500,
+    healthCheckIntervalMs = 100,
     healthCheckTimeoutMs = 10000,
     onStatusChange,
     onPortAssigned,
@@ -225,9 +242,34 @@ export async function startSidecar(options: SidecarOptions): Promise<SidecarHand
   let currentPort = 0;
   let status: SidecarStatus = "starting";
   let healthCheckTimer: ReturnType<typeof setInterval> | null = null;
+  let healthProbeInFlight = false;
+  let healthWatchGeneration = 0;
   let retryCount = 0;
   let stopped = false;
+  let listening = false;
   const healthyWaiters = new Set<HealthyWaiter>();
+  const listeningWaiters = new Set<ListeningWaiter>();
+
+  function rejectListeningWaiters(error: Error): void {
+    for (const waiter of listeningWaiters) {
+      if (waiter.timer) clearTimeout(waiter.timer);
+      waiter.reject(error);
+    }
+    listeningWaiters.clear();
+  }
+
+  /** The daemon bound `boundPort`: publish it exactly once per process start. */
+  function markListening(boundPort: number): void {
+    currentPort = boundPort;
+    if (listening) return;
+    listening = true;
+    for (const waiter of listeningWaiters) {
+      if (waiter.timer) clearTimeout(waiter.timer);
+      waiter.resolve(boundPort);
+    }
+    listeningWaiters.clear();
+    onPortAssigned?.(boundPort);
+  }
 
   function resolveHealthyWaiters(): void {
     for (const waiter of healthyWaiters) {
@@ -255,11 +297,7 @@ export async function startSidecar(options: SidecarOptions): Promise<SidecarHand
     async stop() {
       stopped = true;
       updateStatus("stopped");
-
-      if (healthCheckTimer) {
-        clearInterval(healthCheckTimer);
-        healthCheckTimer = null;
-      }
+      stopHealthWatch();
 
       if (child && !child.killed) {
         child.kill("SIGTERM");
@@ -298,12 +336,30 @@ export async function startSidecar(options: SidecarOptions): Promise<SidecarHand
         healthyWaiters.add(waiter);
       });
     },
+    whenListening(timeoutMs = 30000): Promise<number> {
+      if (listening) {
+        return Promise.resolve(currentPort);
+      }
+      if (status === "stopped" || status === "error") {
+        return Promise.reject(new Error(`Daemon ${status}`));
+      }
+
+      return new Promise<number>((resolve, reject) => {
+        const waiter: ListeningWaiter = { resolve, reject, timer: null };
+        waiter.timer = setTimeout(() => {
+          listeningWaiters.delete(waiter);
+          reject(new Error(`Daemon did not start listening within ${timeoutMs}ms`));
+        }, timeoutMs);
+        listeningWaiters.add(waiter);
+      });
+    },
   };
 
+  // Reserved up front so the daemon can be told which port to bind. It is only
+  // published (onPortAssigned / whenListening) once the daemon really listens.
   const reservedPort = port > 0 ? port : await reserveFreePort(host).catch(() => 0);
   if (reservedPort > 0) {
     currentPort = reservedPort;
-    onPortAssigned?.(currentPort);
   }
 
   function updateStatus(newStatus: SidecarStatus) {
@@ -312,8 +368,58 @@ export async function startSidecar(options: SidecarOptions): Promise<SidecarHand
       resolveHealthyWaiters();
     } else if (newStatus === "stopped" || newStatus === "error") {
       rejectHealthyWaiters(new Error(`Daemon ${newStatus}`));
+      rejectListeningWaiters(new Error(`Daemon ${newStatus}`));
     }
     onStatusChange?.(newStatus);
+  }
+
+  function stopHealthWatch(): void {
+    healthWatchGeneration++;
+    if (healthCheckTimer) {
+      clearInterval(healthCheckTimer);
+      healthCheckTimer = null;
+    }
+  }
+
+  async function probeHealth(generation: number, startedAt: number): Promise<void> {
+    if (generation !== healthWatchGeneration || healthProbeInFlight) return;
+
+    if (currentPort > 0) {
+      healthProbeInFlight = true;
+      let healthy = false;
+      try {
+        healthy = await checkHealth(host, currentPort, 2000);
+      } finally {
+        healthProbeInFlight = false;
+      }
+      if (generation !== healthWatchGeneration) return;
+      if (healthy) {
+        stopHealthWatch();
+        // Covers daemons whose "Listening on" line was missed or never printed.
+        markListening(currentPort);
+        retryCount = 0;
+        updateStatus("healthy");
+        return;
+      }
+    }
+
+    if (Date.now() - startedAt > healthCheckTimeoutMs) {
+      stopHealthWatch();
+      updateStatus("unhealthy");
+      if (!stopped) {
+        console.error("[sidecar] Health check failed:", new Error("Daemon health check timeout"));
+      }
+    }
+  }
+
+  /** Poll `/health` for the current process until it reports ready (or times out). */
+  function startHealthWatch(): void {
+    stopHealthWatch();
+    const generation = healthWatchGeneration;
+    const startedAt = Date.now();
+    healthCheckTimer = setInterval(() => {
+      void probeHealth(generation, startedAt);
+    }, healthCheckIntervalMs);
   }
 
   async function startProcess(): Promise<void> {
@@ -345,15 +451,24 @@ export async function startSidecar(options: SidecarOptions): Promise<SidecarHand
       },
     });
 
+    listening = false;
+    startHealthWatch();
+    const watchGeneration = healthWatchGeneration;
+    const watchStartedAt = Date.now();
+
     child.stdout?.on("data", (data: Buffer) => {
-      const line = data.toString().trim();
-      const urlMatch = line.match(/Listening on (https?:\/\/[^ ]+)/);
+      const text = data.toString();
+      const urlMatch = text.match(/Listening on (https?:\/\/\S+)/);
       if (urlMatch) {
         const portMatch = urlMatch[1].match(/:(\d+)(?:\/|$)/);
         if (portMatch) {
-          currentPort = parseInt(portMatch[1], 10);
-          onPortAssigned?.(currentPort);
+          markListening(parseInt(portMatch[1], 10));
         }
+      }
+      // The daemon logs right as it changes state (bound / ready), so probe
+      // immediately instead of waiting for the next poll tick.
+      if (status !== "healthy") {
+        void probeHealth(watchGeneration, watchStartedAt);
       }
     });
 
@@ -365,6 +480,8 @@ export async function startSidecar(options: SidecarOptions): Promise<SidecarHand
       if (stopped) return;
 
       console.warn(`[sidecar] Process exited with code ${code}`);
+      listening = false;
+      stopHealthWatch();
       updateStatus("unhealthy");
 
       if (retryCount < maxRetries) {
@@ -383,44 +500,12 @@ export async function startSidecar(options: SidecarOptions): Promise<SidecarHand
 
     child.on("error", (error) => {
       console.error("[sidecar] Spawn error:", error);
+      stopHealthWatch();
       updateStatus("error");
     });
   }
 
   await startProcess();
-
-  void (async () => {
-    try {
-      await new Promise<void>((resolve, reject) => {
-        const startTime = Date.now();
-
-        healthCheckTimer = setInterval(async () => {
-          if (currentPort > 0) {
-            const healthy = await checkHealth(host, currentPort, 2000);
-            if (healthy) {
-              clearInterval(healthCheckTimer!);
-              healthCheckTimer = null;
-              updateStatus("healthy");
-              retryCount = 0;
-              resolve();
-              return;
-            }
-          }
-
-          if (Date.now() - startTime > healthCheckTimeoutMs) {
-            clearInterval(healthCheckTimer!);
-            healthCheckTimer = null;
-            updateStatus("unhealthy");
-            reject(new Error("Daemon health check timeout"));
-          }
-        }, healthCheckIntervalMs);
-      });
-    } catch (error) {
-      if (!stopped) {
-        console.error("[sidecar] Health check failed:", error);
-      }
-    }
-  })();
 
   return handle;
 }

@@ -44,6 +44,7 @@ vi.mock("node:fs", () => ({
 
 vi.mock("#/presenter/lifecyclePresenter/hooks/init/daemonSidecarHook", () => ({
   getSidecarHandle: vi.fn(() => null),
+  waitForSidecarListening: vi.fn(async () => null),
 }));
 
 describe("daemon remote machine credentials", () => {

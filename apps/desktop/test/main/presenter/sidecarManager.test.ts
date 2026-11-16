@@ -262,4 +262,122 @@ describe("startSidecar", () => {
     child.emit("exit", 0);
     await stopPromise;
   });
+
+  it("publishes the port only once the daemon is listening, before it is healthy", async () => {
+    const child = new EventEmitter() as MockChildProcess;
+    child.stdout = new EventEmitter();
+    child.stderr = new EventEmitter();
+    child.killed = false;
+    child.kill = vi.fn(() => {
+      child.killed = true;
+      return true;
+    });
+
+    spawnMock.mockReturnValue(child);
+    createServerMock.mockReturnValue({
+      unref: vi.fn(),
+      once: vi.fn(),
+      listen: (_options: unknown, callback: () => void) => callback(),
+      address: () => ({ port: 4321 }),
+      close: (callback: (error?: Error) => void) => callback(),
+    });
+    let ready = false;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        ready
+          ? { ok: true, json: async () => ({ status: "ok" }) }
+          : { ok: false, json: async () => ({ status: "starting" }) },
+      ),
+    );
+
+    const onPortAssigned = vi.fn();
+    const onStatusChange = vi.fn();
+    const { startSidecar } = await import("../../../src/main/presenter/sidecarManager/index");
+    const sidecar = await startSidecar({
+      dataDir: "/tmp/argos-data",
+      healthCheckIntervalMs: 5,
+      healthCheckTimeoutMs: 10000,
+      onPortAssigned,
+      onStatusChange,
+    });
+
+    // The port is reserved, but nothing is listening yet: do not announce it.
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    expect(onPortAssigned).not.toHaveBeenCalled();
+    let listeningPort: number | null = null;
+    const listeningPromise = sidecar.whenListening(1000).then((port) => {
+      listeningPort = port;
+    });
+    await Promise.resolve();
+    expect(listeningPort).toBeNull();
+
+    child.stdout.emit("data", Buffer.from("[INFO] [daemon] Listening on http://127.0.0.1:4321\n"));
+    await listeningPromise;
+    expect(listeningPort).toBe(4321);
+    expect(onPortAssigned).toHaveBeenCalledTimes(1);
+    expect(onPortAssigned).toHaveBeenCalledWith(4321);
+    expect(onStatusChange).not.toHaveBeenCalledWith("healthy");
+
+    ready = true;
+    await expect(sidecar.whenHealthy(1000)).resolves.toBeUndefined();
+    expect(onPortAssigned).toHaveBeenCalledTimes(1);
+
+    const stopPromise = sidecar.stop();
+    child.emit("exit", 0);
+    await stopPromise;
+  });
+
+  it("re-checks health after the daemon process restarts", async () => {
+    const makeChild = () => {
+      const next = new EventEmitter() as MockChildProcess;
+      next.stdout = new EventEmitter();
+      next.stderr = new EventEmitter();
+      next.killed = false;
+      next.kill = vi.fn(() => {
+        next.killed = true;
+        return true;
+      });
+      return next;
+    };
+    const first = makeChild();
+    const second = makeChild();
+    spawnMock.mockReturnValueOnce(first).mockReturnValueOnce(second);
+    createServerMock.mockReturnValue({
+      unref: vi.fn(),
+      once: vi.fn(),
+      listen: (_options: unknown, callback: () => void) => callback(),
+      address: () => ({ port: 4321 }),
+      close: (callback: (error?: Error) => void) => callback(),
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ ok: true, json: async () => ({ status: "ok" }) })),
+    );
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "log").mockImplementation(() => {});
+
+    const onPortAssigned = vi.fn();
+    const { startSidecar } = await import("../../../src/main/presenter/sidecarManager/index");
+    const sidecar = await startSidecar({
+      dataDir: "/tmp/argos-data",
+      healthCheckIntervalMs: 5,
+      healthCheckTimeoutMs: 10000,
+      onPortAssigned,
+    });
+    await sidecar.whenHealthy(1000);
+    expect(onPortAssigned).toHaveBeenCalledTimes(1);
+
+    first.emit("exit", 1);
+    expect(sidecar.status).toBe("unhealthy");
+
+    // Restart is scheduled 1s after the first crash.
+    await vi.waitFor(() => expect(spawnMock).toHaveBeenCalledTimes(2), { timeout: 3000 });
+    await expect(sidecar.whenHealthy(1000)).resolves.toBeUndefined();
+    expect(onPortAssigned).toHaveBeenCalledTimes(2);
+
+    const stopPromise = sidecar.stop();
+    second.emit("exit", 0);
+    await stopPromise;
+  });
 });

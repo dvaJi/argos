@@ -1,4 +1,4 @@
-import { getSidecarHandle } from "#/presenter/lifecyclePresenter/hooks/init/daemonSidecarHook";
+import { getSidecarHandle, waitForSidecarListening } from "#/presenter/lifecyclePresenter/hooks/init/daemonSidecarHook";
 
 const DEFAULT_DAEMON_PORT = 9527;
 const UI_DEV_SERVER_URL_ENV = "ARGOS_UI_DEV_SERVER_URL";
@@ -40,14 +40,9 @@ export function resolveUiUrl(route: string): string {
 }
 
 /**
- * Wait for the daemon sidecar to assign a port. Returns null on timeout.
+ * Wait until the daemon sidecar is actually listening (it serves the UI as
+ * soon as it binds its port). Returns the port, or null on timeout/failure.
  */
-export async function waitForDaemonPort(timeoutMs = 30000): Promise<number | null> {
-  const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
-    const port = getSidecarHandle()?.port;
-    if (port) return port;
-    await new Promise((resolve) => setTimeout(resolve, 200));
-  }
-  return null;
+export function waitForDaemonPort(timeoutMs = 30000): Promise<number | null> {
+  return waitForSidecarListening(timeoutMs);
 }
