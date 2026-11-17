@@ -2,6 +2,19 @@ import { useEffect, useRef, useState } from "react";
 import { createConfigClient } from "#api/ConfigClient";
 const ACP_REGISTRY_ICON_PREFIX = "https://cdn.agentclientprotocol.com/registry/";
 const iconMarkupCache = new Map<string, string | Promise<string>>();
+
+/**
+ * Registry icons that are full-bleed brand tiles: opaque background with a
+ * corner radius baked into the artwork. The container must not add its own
+ * rounding/clip on top — the two radii compound and cut into the glyph
+ * (e.g. Command Code's squircle logomark, commandcode.ai/brand).
+ */
+const FULL_BLEED_REGISTRY_ICON_IDS = new Set(["command-code"]);
+
+/** Whether an ACP agent's icon artwork carries its own background/rounding. */
+export function isFullBleedRegistryIcon(agentId: string): boolean {
+  return FULL_BLEED_REGISTRY_ICON_IDS.has(agentId.trim());
+}
 interface AcpAgentIconProps {
   agentId?: string;
   icon?: string;
@@ -49,6 +62,7 @@ export default function AcpAgentIcon({
     return value ? value.slice(0, 1).toUpperCase() : "?";
   })();
   const toneClass = tone === "muted" ? "text-muted-foreground" : "text-foreground";
+  const isFullBleedIcon = isFullBleedRegistryIcon(trimmedAgentId);
 
   // Reset the loaded markup whenever the icon identity changes (prev-compare
   // during render — no effect-triggered cascade).
@@ -109,7 +123,9 @@ export default function AcpAgentIcon({
   }, [trimmedAgentId, trimmedIcon, isThemeableRegistryIcon]);
   return (
     <span
-      className={`inline-flex shrink-0 items-center justify-center overflow-hidden rounded-md ${customClass} ${toneClass}`}
+      className={`inline-flex shrink-0 items-center justify-center ${
+        isFullBleedIcon ? "" : "overflow-hidden rounded-md"
+      } ${customClass} ${toneClass}`}
     >
       {shouldRenderInlineSvg && (
         <span
