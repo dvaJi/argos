@@ -3,7 +3,12 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it, vi } from "bun:test";
 import { createDaemonDispatcher } from "../src/dispatch/daemonDispatcher";
-import { DaemonConfigPresenter, resolveDaemonProviderDbBuiltIn } from "../src/host/daemonConfigPresenter";
+import {
+  DaemonConfigPresenter,
+  resolveDaemonProviderDbBuiltIn,
+  MODEL_LIST_MAX_AGE_MS,
+  MODEL_LIST_SCHEMA_VERSION,
+} from "../src/host/daemonConfigPresenter";
 import { ProviderDbLoader } from "@argos/backend-core/provider";
 import {
   providersListModelsRoute,
@@ -84,6 +89,96 @@ describe("daemon provider model refresh", () => {
           expect.objectContaining({ id: "gpt-4o-mini" }),
         ]),
       });
+    } finally {
+      restoreFetch();
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("auto-refresh joins an in-flight refresh so concurrent readers get fresh models", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "argos-daemon-model-join-"));
+    let restoreFetch: () => void = () => {};
+    try {
+      const configPresenter = new DaemonConfigPresenter(path.join(root, "config"), path.join(root, "data"));
+      const staleFetchedAt = Date.now() - MODEL_LIST_MAX_AGE_MS - 1_000;
+      configPresenter.setProviders([
+        {
+          id: "openai",
+          name: "OpenAI",
+          apiType: "openai",
+          apiKey: "test-key",
+          baseUrl: "https://api.openai.com/v1",
+          enable: true,
+          models: [
+            {
+              id: "stale-model",
+              name: "Stale Model",
+              group: "openai",
+              providerId: "openai",
+              contextLength: 1000,
+              maxTokens: 500,
+            },
+          ],
+          modelsFetchedAt: staleFetchedAt,
+          modelsSchemaVersion: MODEL_LIST_SCHEMA_VERSION,
+          customModels: [],
+        } as any,
+      ]);
+
+      // Deferred fetch: the /models request hangs until we resolve it,
+      // simulating a slow upstream while a second reader arrives.
+      let resolveModelsFetch!: (value: unknown) => void;
+      const fetchMock = vi.fn(
+        () =>
+          new Promise((resolve) => {
+            resolveModelsFetch = resolve;
+          }),
+      );
+      restoreFetch = stubFetch(fetchMock as (...args: unknown[]) => Promise<unknown>);
+
+      const dispatcher = createDaemonDispatcher(configPresenter as any);
+      const firstRead = dispatcher(providersListModelsRoute.name, { providerId: "openai" }) as Promise<unknown>;
+
+      // Wait until the first read has started the upstream fetch (and thus
+      // registered the in-flight refresh).
+      for (let i = 0; i < 200 && fetchMock.mock.calls.length === 0; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 5));
+      }
+      expect(fetchMock.mock.calls.length).toBeGreaterThan(0);
+
+      // Second reader while the refresh is still in flight (e.g. a second
+      // settings window). It must join the pending refresh instead of
+      // returning the stale stored list or starting a duplicate fetch.
+      const secondRead = dispatcher(providersListModelsRoute.name, { providerId: "openai" }) as Promise<unknown>;
+
+      resolveModelsFetch({
+        ok: true,
+        json: async () => ({
+          data: [
+            {
+              id: "fresh-model",
+              display_name: "Fresh Model",
+              owned_by: "openai",
+              context_length: 128000,
+              max_tokens: 16384,
+            },
+          ],
+        }),
+        text: async () => "",
+      });
+
+      const freshModel = expect.objectContaining({ id: "fresh-model" });
+      await expect(firstRead).resolves.toMatchObject({ providerModels: expect.arrayContaining([freshModel]) });
+      await expect(secondRead).resolves.toMatchObject({ providerModels: expect.arrayContaining([freshModel]) });
+
+      // One upstream request total: the second reader joined the pending one.
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+
+      // Once saved, later reads serve the fresh list without re-fetching.
+      await expect(dispatcher(providersListModelsRoute.name, { providerId: "openai" })).resolves.toMatchObject({
+        providerModels: expect.arrayContaining([freshModel]),
+      });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
     } finally {
       restoreFetch();
       await rm(root, { recursive: true, force: true });

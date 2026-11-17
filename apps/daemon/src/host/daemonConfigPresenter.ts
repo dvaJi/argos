@@ -776,16 +776,27 @@ export class DaemonConfigPresenter {
     const stale = periodicRefresh ? isStoredModelListStale(provider, now) : stored.length === 0;
     if (!stale) return stored;
 
-    const lastAttempt = this.lastAutoModelRefreshAttempt.get(providerId);
-    if (lastAttempt !== undefined && now - lastAttempt < MODEL_LIST_RETRY_COOLDOWN_MS) return stored;
-    this.lastAutoModelRefreshAttempt.set(providerId, now);
-
     try {
+      // Join a refresh already in flight (e.g. started by another window's
+      // read) before consulting the failure cooldown, so concurrent readers
+      // get the fresh list instead of bouncing back the stale stored one.
+      const inFlight = this.inFlightModelRefreshes.get(this.modelRefreshKey(provider));
+      if (inFlight) return await inFlight;
+
+      const lastAttempt = this.lastAutoModelRefreshAttempt.get(providerId);
+      if (lastAttempt !== undefined && now - lastAttempt < MODEL_LIST_RETRY_COOLDOWN_MS) return stored;
+      this.lastAutoModelRefreshAttempt.set(providerId, now);
+
       return await this.refreshProviderModels(providerId);
     } catch (error) {
       console.warn(`[daemon] automatic model refresh failed for ${providerId}:`, error);
       return stored;
     }
+  }
+
+  /** Coalescing key for concurrent model refreshes of the same provider settings. */
+  private modelRefreshKey(provider: LLM_PROVIDER): string {
+    return `${provider.id}:${provider.apiType}:${provider.baseUrl}:${provider.apiKey}`;
   }
 
   async refreshProviderModels(providerId: string): Promise<MODEL_META[]> {
@@ -804,7 +815,7 @@ export class DaemonConfigPresenter {
     // request. The key includes the settings fingerprint so a mid-flight
     // settings change starts a fresh discovery instead of handing back
     // results fetched with stale credentials.
-    const key = `${providerId}:${provider.apiType}:${provider.baseUrl}:${provider.apiKey}`;
+    const key = this.modelRefreshKey(provider);
     const inFlight = this.inFlightModelRefreshes.get(key);
     if (inFlight) {
       return inFlight;
