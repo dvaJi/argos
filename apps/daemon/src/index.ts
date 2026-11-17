@@ -29,6 +29,11 @@ import { DaemonKnowledgeRuntime } from "./host/daemonKnowledgeRuntime";
 import { DaemonSkillRuntime } from "./host/daemonSkillRuntime";
 import { DaemonSyncRuntime } from "./host/daemonSyncRuntime";
 import { DaemonMemoryRuntime } from "./host/daemonMemoryRuntime";
+import {
+  DaemonImageGenerationRuntime,
+  IMGCACHE_ROUTE_PREFIX,
+  resolveImgcacheFile,
+} from "./host/daemonImageGenerationRuntime";
 import { DaemonRemoteControlRuntime } from "./host/daemonRemoteControlRuntime";
 import { DaemonPluginPresenter } from "./host/daemonPluginPresenter";
 import { DaemonScheduledTasks } from "./host/daemonScheduledTasks";
@@ -442,6 +447,8 @@ async function initializeDaemon(options: StartDaemonOptions | undefined, early: 
     }
   }
 
+  const imagesDir = pathJoin(paths.getDataDir(), "images");
+  const imageGenerationRuntime = new DaemonImageGenerationRuntime({ config: configPresenter, imagesDir });
   const piProfiles = new PiAgentProfileManager(paths.getDataDir(), resolveDaemonVersion());
   const agentWorkspaceDir = pathJoin(paths.getDataDir(), "agent-workspace");
 
@@ -471,9 +478,10 @@ async function initializeDaemon(options: StartDaemonOptions | undefined, early: 
         const orchestration = agentConfig?.orchestrationEnabled
           ? [...scoped, ...orchestrationRuntime.definitions()]
           : scoped;
-        return agentConfig?.memoryEnabled === true
-          ? [...orchestration, ...memoryRuntime.toolDefinitions()]
-          : orchestration;
+        const withMemory =
+          agentConfig?.memoryEnabled === true ? [...orchestration, ...memoryRuntime.toolDefinitions()] : orchestration;
+        // Built-in like memory: not subject to the MCP server allowlist.
+        return [...withMemory, ...(await imageGenerationRuntime.toolDefinitionsForAgent(session.agentId))];
       },
       callTool: async (request) => {
         if (orchestrationRuntime.handles((request as any).function?.name)) {
@@ -490,6 +498,14 @@ async function initializeDaemon(options: StartDaemonOptions | undefined, early: 
             throw new Error("Memory tools are disabled for this agent.");
           }
           return memoryRuntime.callMemoryTool(request as any, session.agentId);
+        }
+        if (imageGenerationRuntime.handlesTool((request as any).function?.name)) {
+          const sessionId = (request as any).conversationId as string | undefined;
+          const session = sessionId ? await sessionRepository.get(sessionId) : null;
+          if (!session?.agentId) {
+            throw new Error("Image generation requires an active session with an agent.");
+          }
+          return imageGenerationRuntime.callTool(request as any, session.agentId);
         }
         return mcpRuntime.callApprovedTool(request);
       },
@@ -1007,6 +1023,21 @@ async function initializeDaemon(options: StartDaemonOptions | undefined, early: 
             { ok: false, error: { code: authResult.code, message: authResult.message } },
             { status: authResult.status },
           ),
+        );
+      }
+
+      // Cached/generated images (`imgcache://<path>`) for browser clients; the
+      // desktop shell serves the same directory through its own protocol.
+      if (url.pathname.startsWith(IMGCACHE_ROUTE_PREFIX) && request.method === "GET") {
+        const resolved = resolveImgcacheFile(imagesDir, url.pathname.slice(IMGCACHE_ROUTE_PREFIX.length));
+        const file = resolved ? Bun.file(resolved.filePath) : null;
+        if (!resolved || !file || !(await file.exists())) {
+          return withCors(new Response("Not found", { status: 404 }));
+        }
+        return withCors(
+          new Response(file, {
+            headers: { "Content-Type": resolved.contentType, "Cache-Control": "private, max-age=31536000, immutable" },
+          }),
         );
       }
 
