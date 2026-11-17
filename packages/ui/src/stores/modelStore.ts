@@ -10,6 +10,7 @@ import {
   resolveModelVision,
 } from "@argos/shared/modelConfigDefaults";
 import { resolveVideoGenerationCompatType } from "@argos/shared/videoGenerationSettings";
+import { resolveImageGenerationCompatType } from "@argos/shared/imageGenerationSettings";
 import { refreshAgentModels } from "#/stores/agentModelStore";
 import { getModelConfig } from "#/stores/modelConfigStore";
 import { providerStore, getSortedProviders, ensureInitialized } from "#/stores/providerStore";
@@ -25,12 +26,14 @@ type ChatSelectableModelGroup = {
 const resolveRendererModelType = (
   model: Pick<MODEL_META, "id" | "type" | "supportedEndpointTypes" | "endpointType">,
 ): ModelType => {
-  return (resolveVideoGenerationCompatType({
+  const target = {
     modelId: model.id,
     type: model.type,
     endpointType: model.endpointType,
     supportedEndpointTypes: model.supportedEndpointTypes,
-  }) ??
+  };
+  return (resolveVideoGenerationCompatType(target) ??
+    resolveImageGenerationCompatType(target) ??
     model.type ??
     ModelType.Chat) as ModelType;
 };

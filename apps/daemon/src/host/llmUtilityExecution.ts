@@ -3,7 +3,7 @@ import { generateText, transcribe } from "ai";
 import { createAiSdkProviderContext, type AiSdkProviderKind } from "@argos/backend-core/provider/aiSdk";
 import type { DaemonConfigPresenter } from "./daemonConfigPresenter";
 
-function resolveProviderKind(provider: LLM_PROVIDER): AiSdkProviderKind {
+export function resolveProviderKind(provider: LLM_PROVIDER): AiSdkProviderKind {
   const apiType = provider.apiType || "";
   if (apiType === "anthropic") return "anthropic";
   if (apiType === "gemini") return "gemini";
@@ -14,7 +14,7 @@ function resolveProviderKind(provider: LLM_PROVIDER): AiSdkProviderKind {
   return "openai-compatible";
 }
 
-function resolveProxyUrl(): string | undefined {
+export function resolveProxyUrl(): string | undefined {
   return process.env.https_proxy || process.env.HTTPS_PROXY || process.env.http_proxy || process.env.HTTP_PROXY;
 }
 

@@ -55,6 +55,16 @@ export async function openRuntimeExternal(url: string): Promise<void> {
  * `process` bridge), or undefined in browser mode. Centralizes native
  * platform access behind the sanctioned runtime wrapper.
  */
+/**
+ * Whether the host registers the `imgcache:` protocol. Only the desktop shell
+ * does; browser clients load the same files from the daemon's
+ * `/api/v1/imgcache/` route (docs/features/daemon-image-generation).
+ */
+export function hasRuntimeImgcacheProtocol(): boolean {
+  if (typeof window === "undefined") return false;
+  return Boolean((window as unknown as { electron?: unknown }).electron);
+}
+
 export function getRuntimePlatform(): string | undefined {
   if (typeof window === "undefined") return undefined;
   return (window as unknown as { electron?: { process?: { platform?: string } } }).electron?.process?.platform;

@@ -224,3 +224,41 @@ export const normalizeImageGenerationOptions = (
 
   return Object.keys(normalized).length > 0 ? normalized : undefined;
 };
+
+/** OpenAI image-API model id prefixes (also served by OpenAI-compatible gateways). */
+export const IMAGE_GENERATION_MODEL_ID_PREFIXES = ["dall-e-", "gpt-image-"] as const;
+const IMAGE_GENERATION_ENDPOINT_TYPE = "image-generation";
+
+export interface ImageGenerationDetectionTarget {
+  modelId?: unknown;
+  type?: unknown;
+  apiEndpoint?: unknown;
+  endpointType?: unknown;
+  supportedEndpointTypes?: readonly unknown[];
+}
+
+/** True for ids like `gpt-image-2` or `openai/dall-e-3`. */
+export const isImageGenerationModelId = (modelId: unknown): boolean => {
+  const id = normalizeText(modelId).split("/").pop() ?? "";
+  return IMAGE_GENERATION_MODEL_ID_PREFIXES.some((prefix) => id.startsWith(prefix));
+};
+
+/**
+ * Infers `ImageGeneration` for models whose listing carries no type (e.g. OpenAI's
+ * `/models`), from endpoint hints or well-known ids. An explicit non-image type wins
+ * over the id heuristic. Shared by the UI pickers and the daemon `image_generate` tool.
+ */
+export const resolveImageGenerationCompatType = (target: ImageGenerationDetectionTarget): ModelType | undefined => {
+  const supportedEndpointTypes = Array.isArray(target.supportedEndpointTypes)
+    ? target.supportedEndpointTypes.map((value) => normalizeText(value))
+    : [];
+  if (
+    target.type === ModelType.ImageGeneration ||
+    target.apiEndpoint === ApiEndpointType.Image ||
+    normalizeText(target.endpointType) === IMAGE_GENERATION_ENDPOINT_TYPE ||
+    supportedEndpointTypes.includes(IMAGE_GENERATION_ENDPOINT_TYPE)
+  ) {
+    return ModelType.ImageGeneration;
+  }
+  return target.type === undefined && isImageGenerationModelId(target.modelId) ? ModelType.ImageGeneration : undefined;
+};

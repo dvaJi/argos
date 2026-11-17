@@ -6,11 +6,17 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "#shadcn/components/ui/t
 import type { ToolCallImagePreview } from "@argos/shared/types/core/mcp";
 import { ImageActionContextMenu } from "./ImageActionContextMenu";
 import { useImageActions } from "#/composables/useImageActions";
+import { hasRuntimeImgcacheProtocol } from "#api/runtime";
 interface MessageBlockToolCallImagePreviewProps {
   previews: ToolCallImagePreview[];
 }
+const IMGCACHE_PREFIX = "imgcache://";
 const resolveImageSrc = (preview: ToolCallImagePreview): string => {
   const data = preview.data?.trim() ?? "";
+  if (data.startsWith(IMGCACHE_PREFIX) && !hasRuntimeImgcacheProtocol()) {
+    const relativePath = data.slice(IMGCACHE_PREFIX.length).split("/").map(encodeURIComponent).join("/");
+    return `/api/v1/imgcache/${relativePath}`;
+  }
   const hasSafeScheme =
     data.startsWith("data:image/") ||
     data.startsWith("imgcache://") ||

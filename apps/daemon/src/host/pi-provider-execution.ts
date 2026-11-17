@@ -135,6 +135,24 @@ function workerProvider(
   };
 }
 
+/**
+ * Copies host-tool image previews (e.g. `image_generate`) onto the in-flight
+ * tool-call block so the UI renders them. Pi does not forward tool `details`
+ * reliably, so this happens where the daemon receives the full response; the
+ * block exists from `toolStart` and `toolEnd` preserves the field.
+ */
+export function attachToolImagePreviews(
+  blocks: AssistantMessageBlock[] | undefined,
+  toolCallId: string,
+  response: Pick<MCPToolResponse, "imagePreviews"> | undefined,
+): void {
+  const previews = response?.imagePreviews;
+  if (!blocks || !previews || previews.length === 0) return;
+  const block = blocks.find((item) => item.type === "tool_call" && item.id === toolCallId);
+  if (!block?.tool_call) return;
+  block.tool_call = { ...block.tool_call, imagePreviews: previews };
+}
+
 function stringifyResult(value: unknown): string {
   if (typeof value === "string") return value;
   if (!value) return "";
@@ -555,6 +573,7 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
           function: { name: event.toolName, arguments: JSON.stringify(event.input) },
           conversationId: sessionId,
         });
+        attachToolImagePreviews(worker.turn?.blocks, event.toolCallId, response);
         this.send(worker.process, { type: "mcpResponse", id: event.id, response });
       } catch (error) {
         this.send(worker.process, {
