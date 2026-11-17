@@ -6,17 +6,14 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "#shadcn/components/ui/t
 import type { ToolCallImagePreview } from "@argos/shared/types/core/mcp";
 import { ImageActionContextMenu } from "./ImageActionContextMenu";
 import { useImageActions } from "#/composables/useImageActions";
+import { hasRuntimeImgcacheProtocol } from "#api/runtime";
 interface MessageBlockToolCallImagePreviewProps {
   previews: ToolCallImagePreview[];
 }
 const IMGCACHE_PREFIX = "imgcache://";
-// Only the desktop shell registers the `imgcache:` protocol; browser clients
-// load the same files from the daemon (docs/features/daemon-image-generation).
-const hasImgcacheProtocol = () =>
-  typeof window !== "undefined" && Boolean((window as unknown as { electron?: unknown }).electron);
 const resolveImageSrc = (preview: ToolCallImagePreview): string => {
   const data = preview.data?.trim() ?? "";
-  if (data.startsWith(IMGCACHE_PREFIX) && !hasImgcacheProtocol()) {
+  if (data.startsWith(IMGCACHE_PREFIX) && !hasRuntimeImgcacheProtocol()) {
     const relativePath = data.slice(IMGCACHE_PREFIX.length).split("/").map(encodeURIComponent).join("/");
     return `/api/v1/imgcache/${relativePath}`;
   }
