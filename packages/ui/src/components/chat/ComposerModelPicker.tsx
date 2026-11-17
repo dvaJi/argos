@@ -15,6 +15,36 @@ import AgentAvatar from "#/components/icons/AgentAvatar";
 import { useThemeStore } from "#/stores/theme";
 import { toggleFavorite, useModelFavorites, favoriteKey } from "#/stores/ui/modelFavorites";
 import { filterFavoriteModels, filterModelGroups, selectFavoriteModels } from "./composerModelPickerData";
+import ComposerTuningDock from "./ComposerTuningDock";
+
+/** Pill scope: every provider, favorites only, or a single provider id. */
+type RailFilter = "all" | "favorites" | (string & {});
+
+const ProviderPill = ({
+  active,
+  label,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  label: string;
+  onClick: () => void;
+  children?: React.ReactNode;
+}) => (
+  <button
+    type="button"
+    aria-pressed={active}
+    className={`flex h-6 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-xs transition-colors ${
+      active
+        ? "border-primary/40 bg-primary/10 text-foreground"
+        : "border-border/60 text-muted-foreground hover:border-border hover:text-foreground"
+    }`}
+    onClick={onClick}
+  >
+    {children}
+    <span className="max-w-[120px] truncate">{label}</span>
+  </button>
+);
 
 type ModelRowProps = {
   providerId: string;
@@ -45,7 +75,7 @@ const ModelRow = ({ providerId, model, selected, isDark, favorited, onSelect, on
     }}
   >
     <ModelIcon modelId={providerId} customClass="h-4 w-4 shrink-0" isDark={isDark} />
-    <span className="flex-1 truncate">{model.name || model.id}</span>
+    <span className="min-w-0 flex-1 truncate">{model.name || model.id}</span>
     <button
       type="button"
       tabIndex={-1}
@@ -68,7 +98,6 @@ const ComposerModelPicker = () => {
   const modelStore = useModelStore();
   const agentState = useAgentStore();
   const sessionStoreState = useSessionStore();
-  void sessionStoreState;
   const draftState = useDraftStore();
   void draftState;
   const themeStore = useThemeStore();
@@ -76,6 +105,7 @@ const ComposerModelPicker = () => {
   const preSessionAgentType = usePreSessionAgentType();
   const [open, setOpen] = useState(false);
   const [keyword, setKeyword] = useState("");
+  const [railFilter, setRailFilter] = useState<RailFilter>("all");
   const favoriteKeys = useModelFavorites();
   const hasActiveSession = getHasActiveSession();
   const activeSession = getActiveSession();
@@ -118,17 +148,38 @@ const ComposerModelPicker = () => {
   })();
   const filteredGroups = filterModelGroups(modelGroups, keyword);
   const favoriteModels = filterFavoriteModels(selectFavoriteModels(modelGroups, favoriteKeys), keyword);
+  // A provider picked in the rail can disappear (disabled meanwhile) — fall back to all.
+  const activeRail: RailFilter =
+    railFilter === "all" || railFilter === "favorites" || modelGroups.some((g) => g.providerId === railFilter)
+      ? railFilter
+      : "all";
+  // Searching always spans every provider; otherwise the rail scopes the list.
+  const isSearching = keyword.trim().length > 0;
+  const visibleGroups = isSearching
+    ? filteredGroups
+    : activeRail === "favorites"
+      ? []
+      : activeRail === "all"
+        ? filteredGroups
+        : filteredGroups.filter((g) => g.providerId === activeRail);
+  const visibleFavorites = isSearching || activeRail === "all" || activeRail === "favorites" ? favoriteModels : [];
+  const groupModelLimit = !isSearching && activeRail === "all" ? 12 : Number.POSITIVE_INFINITY;
+  const showPills = !isAcpAgent && modelGroups.length > 1;
   const filteredAcpAgents = (() => {
     const kw = keyword.trim().toLowerCase();
     if (!kw) return acpAgents;
     return acpAgents.filter((a) => `${a.name} ${a.id}`.toLowerCase().includes(kw));
   })();
   const isLocked = isAcpAgent && Boolean(hasActiveSession && activeSession?.modelId);
+  // Keeps the popover open so reasoning/permissions can be tuned for the new
+  // model in the side pane (ACP agent picks still close — no pane there).
   const handleSelectProviderModel = async (providerId: string, modelId: string) => {
-    setOpen(false);
     if (hasActiveSession && activeSession?.id) {
       try {
-        await sessionClient.setSessionModel(activeSession.id, providerId, modelId);
+        // Via the store (not the raw client) so the active session — and with
+        // it the checkmark and the side pane — reflects the new model while
+        // the popover stays open.
+        await sessionStoreState.setSessionModel(activeSession.id, providerId, modelId);
       } catch {}
     } else {
       draftStore.setState((prev) => ({
@@ -202,8 +253,8 @@ const ComposerModelPicker = () => {
           </>
         )}
       </PopoverTrigger>
-      <PopoverContent className="w-[360px] p-0" align="start" sideOffset={8}>
-        <div className="flex flex-col max-h-[420px]">
+      <PopoverContent className="w-[440px] max-w-[calc(100vw-1rem)] p-0" align="start" sideOffset={8}>
+        <div className={`flex flex-col ${isAcpAgent ? "max-h-[420px]" : "h-[460px]"}`}>
           <div className="p-2">
             <div className="relative">
               <Icon
@@ -219,6 +270,30 @@ const ComposerModelPicker = () => {
               />
             </div>
           </div>
+          {showPills && (
+            <div className="scrollbar-hide flex shrink-0 gap-1.5 overflow-x-auto px-2 pb-2">
+              <ProviderPill active={activeRail === "all"} label="All" onClick={() => setRailFilter("all")} />
+              {favoriteModels.length > 0 && (
+                <ProviderPill
+                  active={activeRail === "favorites"}
+                  label="Favorites"
+                  onClick={() => setRailFilter("favorites")}
+                >
+                  <Icon icon="lucide:star" className="h-3 w-3" />
+                </ProviderPill>
+              )}
+              {modelGroups.map((group) => (
+                <ProviderPill
+                  key={group.providerId}
+                  active={activeRail === group.providerId}
+                  label={group.providerName}
+                  onClick={() => setRailFilter(group.providerId)}
+                >
+                  <ModelIcon modelId={group.providerId} customClass="h-3 w-3" isDark={themeStore.isDark} />
+                </ProviderPill>
+              ))}
+            </div>
+          )}
           <div className="flex-1 overflow-y-auto px-2 pb-2">
             {isAcpAgent ? (
               filteredAcpAgents.length > 0 ? (
@@ -248,14 +323,14 @@ const ComposerModelPicker = () => {
               ) : (
                 <div className="py-8 text-center text-sm text-muted-foreground">No agents found</div>
               )
-            ) : filteredGroups.length > 0 || favoriteModels.length > 0 ? (
+            ) : visibleGroups.length > 0 || visibleFavorites.length > 0 ? (
               <>
-                {favoriteModels.length > 0 && (
+                {visibleFavorites.length > 0 && (
                   <div className="mb-3">
                     <div className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                       Favorites
                     </div>
-                    {favoriteModels.map((favorite) => (
+                    {visibleFavorites.map((favorite) => (
                       <ModelRow
                         key={`fav:${favorite.providerId}:${favorite.id}`}
                         providerId={favorite.providerId}
@@ -269,12 +344,12 @@ const ComposerModelPicker = () => {
                     ))}
                   </div>
                 )}
-                {filteredGroups.map((group) => (
+                {visibleGroups.map((group) => (
                   <div key={group.providerId} className="mb-3">
                     <div className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                       {group.providerName}
                     </div>
-                    {group.models.slice(0, 12).map((model) => (
+                    {group.models.slice(0, groupModelLimit).map((model) => (
                       <ModelRow
                         key={`${group.providerId}:${model.id}`}
                         providerId={group.providerId}
@@ -286,8 +361,14 @@ const ComposerModelPicker = () => {
                         onToggleFavorite={() => toggleFavorite(group.providerId, model.id)}
                       />
                     ))}
-                    {group.models.length > 12 && (
-                      <div className="px-2 py-1 text-xs text-muted-foreground">{group.models.length - 12} more…</div>
+                    {group.models.length > groupModelLimit && (
+                      <button
+                        type="button"
+                        className="px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+                        onClick={() => setRailFilter(group.providerId)}
+                      >
+                        {group.models.length - groupModelLimit} more…
+                      </button>
                     )}
                   </div>
                 ))}
@@ -296,6 +377,7 @@ const ComposerModelPicker = () => {
               <div className="py-8 text-center text-sm text-muted-foreground">No models found</div>
             )}
           </div>
+          {!isAcpAgent && <ComposerTuningDock />}
         </div>
       </PopoverContent>
     </Popover>

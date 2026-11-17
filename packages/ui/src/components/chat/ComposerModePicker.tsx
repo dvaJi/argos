@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import {
@@ -7,95 +6,22 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "#shadcn/components/ui/dropdown-menu";
-import { createSessionClient } from "#api/SessionClient";
 import { useSessionStore, getActiveSession, getHasActiveSession } from "#/stores/ui/session";
-import { draftStore, useDraftStore } from "#/stores/ui/draft";
 import { usePreSessionAgentType } from "#/composables/chat/usePreSessionAgentType";
-import type { PermissionMode } from "@argos/shared/types/agent-interface";
-type ModeOption = {
-  value: PermissionMode;
-  label: string;
-  description: string;
-  icon: string;
-  /** v1 only supports `default`/`full_access`; interim labels are disabled until the enum expands. */
-  disabled?: boolean;
-};
-const MODE_OPTIONS: ModeOption[] = [
-  {
-    value: "default",
-    label: "Supervised",
-    description: "Ask before commands and file changes.",
-    icon: "lucide:shield",
-  },
-  {
-    value: "full_access",
-    label: "Auto-accept edits",
-    description: "Auto-approve edits, ask before other actions.",
-    icon: "lucide:pencil",
-    disabled: true,
-  },
-  {
-    value: "full_access",
-    label: "Auto",
-    description: "Smart providers approve routine actions; others still ask.",
-    icon: "lucide:sparkles",
-    disabled: true,
-  },
-  {
-    value: "full_access",
-    label: "Full access",
-    description: "Allow commands and edits without prompts.",
-    icon: "lucide:unlock",
-  },
-];
-const uniqueModeOptions = MODE_OPTIONS.filter((opt, idx, arr) => arr.findIndex((o) => o.label === opt.label) === idx);
-// Process-wide singleton; module scope keeps effect dependencies stable.
-const sessionClient = createSessionClient();
+import {
+  PERMISSION_MODE_OPTIONS,
+  isPermissionOptionActive,
+  useComposerPermissionMode,
+} from "#/composables/chat/useComposerGenerationControls";
+
 const ComposerModePicker = () => {
   const sessionState = useSessionStore();
   void sessionState;
-  const draftState = useDraftStore();
-  void draftState;
   const preSessionAgentType = usePreSessionAgentType();
   const hasActiveSession = getHasActiveSession();
   const activeSession = getActiveSession();
   const isAcpAgent = hasActiveSession ? activeSession?.providerId === "acp" : preSessionAgentType === "acp";
-  const [permissionMode, setPermissionMode] = useState<PermissionMode>("full_access");
-  useEffect(() => {
-    let cancelled = false;
-    if (hasActiveSession && activeSession?.id) {
-      void sessionClient
-        .getPermissionMode(activeSession.id)
-        .then((mode) => {
-          if (!cancelled && mode) setPermissionMode(mode as PermissionMode);
-        })
-        .catch(() => {});
-    } else {
-      // Mirror the draft store through a microtask so both branches update state
-      // from asynchronous continuations (keeps the effect free of sync setStates).
-      void Promise.resolve((draftState.permissionMode as PermissionMode) ?? "full_access").then((mode) => {
-        if (!cancelled) setPermissionMode(mode);
-      });
-    }
-    return () => {
-      cancelled = true;
-    };
-  }, [hasActiveSession, activeSession?.id, draftState.permissionMode]);
-  const currentLabel = permissionMode === "default" ? "Supervised" : "Full access";
-  const currentIcon = permissionMode === "default" ? "lucide:shield" : "lucide:unlock";
-  const handleSelect = async (mode: PermissionMode) => {
-    setPermissionMode(mode);
-    if (hasActiveSession && activeSession?.id) {
-      try {
-        await sessionClient.setPermissionMode(activeSession.id, mode);
-      } catch {}
-    } else {
-      draftStore.setState((prev) => ({
-        ...prev,
-        permissionMode: mode,
-      }));
-    }
-  };
+  const { mode, label, icon, setMode } = useComposerPermissionMode();
   if (isAcpAgent) {
     return null;
   }
@@ -111,21 +37,19 @@ const ComposerModePicker = () => {
           />
         }
       >
-        <Icon icon={currentIcon} className="h-3.5 w-3.5" />
-        <span className="font-medium">{currentLabel}</span>
+        <Icon icon={icon} className="h-3.5 w-3.5" />
+        <span className="font-medium">{label}</span>
         <Icon icon="lucide:chevron-down" className="h-3 w-3 opacity-60" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-[320px] p-2">
-        {uniqueModeOptions.map((opt) => {
-          const isActive =
-            (permissionMode === "default" && opt.label === "Supervised") ||
-            (permissionMode === "full_access" && opt.label === "Full access");
+        {PERMISSION_MODE_OPTIONS.map((opt) => {
+          const isActive = isPermissionOptionActive(mode, opt);
           return (
             <DropdownMenuItem
               key={opt.label}
               disabled={opt.disabled}
               className={`flex flex-col items-start gap-1 rounded-md px-3 py-2 ${isActive ? "bg-accent" : ""}`}
-              onClick={() => void handleSelect(opt.value)}
+              onClick={() => void setMode(opt.value)}
             >
               <span className="flex w-full items-center gap-2 font-medium">
                 <Icon icon={opt.icon} className="h-3.5 w-3.5 shrink-0" />
