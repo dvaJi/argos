@@ -63,6 +63,8 @@ function createTestDispatcher(
     listOllamaRunningModels: () => [],
     pullOllamaModel: () => false,
     refreshProviderModels: vi.fn(async () => []),
+    getProviderModelsWithAutoRefresh: async (id: string) =>
+      id === "openai" ? [{ id: "gpt-4", name: "GPT-4", group: "OpenAI", enabled: true }] : [],
     getModelConfig: (modelId: string, providerId?: string) =>
       modelConfigs.get(`${providerId ?? ""}::${modelId}`) ?? {
         maxTokens: 0,

@@ -295,8 +295,8 @@ export class ProviderDbLoader {
       }
 
       const text = await res.text();
-      // Size guard (≈ 5MB)
-      if (text.length > 5 * 1024 * 1024) {
+      // Size guard (≈ 32MB; upstream all.json is ~9.4MB as of 2026-11)
+      if (text.length > 32 * 1024 * 1024) {
         const meta = this.createAttemptMeta(prevMeta, url, now);
         if (meta) this.writeMeta(meta);
         return this.createResult("error", meta, "Provider DB payload exceeds size limit");

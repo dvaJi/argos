@@ -426,6 +426,7 @@ type DaemonProviderConfigPort = {
   removeProviderAtomic(providerId: string): void;
   reorderProvidersAtomic(providers: unknown[]): void;
   refreshProviderModels(providerId: string): Promise<unknown[]>;
+  getProviderModelsWithAutoRefresh(providerId: string): Promise<unknown[]>;
   listOllamaModels(providerId: string): Promise<unknown[]>;
   listOllamaRunningModels(providerId: string): Promise<unknown[]>;
   pullOllamaModel(providerId: string, modelName: string): Promise<boolean>;
@@ -2496,22 +2497,9 @@ export function createDaemonDispatcher(
 
     if (route === providersListModelsRoute.name) {
       const input = providersListModelsRoute.input.parse(rawInput);
-      // Lazy-fetch only when the provider has credentials; otherwise skip silently
-      // (a fetch would just fail and spam the log).
-      let providerModels = configPresenter.getProviderModels(input.providerId) ?? [];
-      if (providerModels.length === 0) {
-        const provider = configPresenter.getProviderById(input.providerId) as
-          | { apiKey?: string; baseUrl?: string }
-          | undefined;
-        if (provider?.apiKey && provider?.baseUrl) {
-          try {
-            const fetched = await daemonConfig.refreshProviderModels(input.providerId);
-            providerModels = (fetched as any[]) ?? [];
-          } catch (error) {
-            console.warn(`[daemon] lazy model fetch failed for ${input.providerId}:`, error);
-          }
-        }
-      }
+      // Re-fetches first when the stored list is empty, stale, or from an older
+      // list schema (and credentials exist); otherwise returns the stored list.
+      const providerModels = (await daemonConfig.getProviderModelsWithAutoRefresh(input.providerId)) as any[];
       const customModels = configPresenter.getCustomModels(input.providerId) ?? [];
       return providersListModelsRoute.output.parse({
         providerModels: providerModels.map((m: any) => ({ ...m, providerId: input.providerId })),
@@ -2588,24 +2576,9 @@ export function createDaemonDispatcher(
 
     if (route === modelsGetProviderCatalogRoute.name) {
       const input = modelsGetProviderCatalogRoute.input.parse(rawInput);
-      // Lazy-fetch: if the provider has credentials but no stored model catalog
-      // yet (e.g. added in web mode, which doesn't auto-fetch on add), pull the
-      // OpenAI-compatible /models list once and persist it so the model picker is
-      // populated. Skip silently when the provider has no apiKey/baseUrl (a fetch
-      // would just fail) — only attempt when credentials are present.
-      let providerModels = configPresenter.getProviderModels(input.providerId) ?? [];
-      if (providerModels.length === 0) {
-        const provider = configPresenter.getProviderById(input.providerId) as
-          | { apiKey?: string; baseUrl?: string }
-          | undefined;
-        if (provider?.apiKey && provider?.baseUrl) {
-          try {
-            providerModels = ((await daemonConfig.refreshProviderModels(input.providerId)) as any[]) ?? [];
-          } catch (error) {
-            console.warn(`[daemon] lazy model fetch failed for ${input.providerId}:`, error);
-          }
-        }
-      }
+      // Re-fetches first when the stored list is empty, stale, or from an older
+      // list schema (and credentials exist); otherwise returns the stored list.
+      const providerModels = (await daemonConfig.getProviderModelsWithAutoRefresh(input.providerId)) as any[];
       const customModels = configPresenter.getCustomModels(input.providerId) ?? [];
       return modelsGetProviderCatalogRoute.output.parse({
         catalog: {

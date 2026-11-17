@@ -29,6 +29,9 @@ export type RENDERER_MODEL_META = {
   supportedEndpointTypes?: NewApiEndpointType[];
   endpointType?: NewApiEndpointType;
   ownedBy?: string;
+  isFree?: boolean;
+  /** Model creation/release time (epoch ms) when the source reports one. */
+  createdAt?: number;
 };
 
 export type MODEL_META = {
@@ -49,6 +52,9 @@ export type MODEL_META = {
   supportedEndpointTypes?: NewApiEndpointType[];
   endpointType?: NewApiEndpointType;
   ownedBy?: string;
+  isFree?: boolean;
+  /** Model creation/release time (epoch ms) when the source reports one. */
+  createdAt?: number;
   // Arbitrary sampling parameters passed through to OpenAI-compatible request bodies (Pi runtime).
   samplingParams?: Record<string, unknown>;
 };
@@ -62,6 +68,10 @@ export type LLM_PROVIDER = {
   copilotClientId?: string;
   baseUrl: string;
   models?: MODEL_META[];
+  /** When `models` was last fetched from the provider (epoch ms). */
+  modelsFetchedAt?: number;
+  /** MODEL_LIST_SCHEMA_VERSION of the fetch that produced `models`. */
+  modelsSchemaVersion?: number;
   customModels?: MODEL_META[];
   enable: boolean;
   enabledModels?: string[];
@@ -89,6 +99,10 @@ export type LLM_PROVIDER = {
 
 export type LLM_PROVIDER_BASE = Omit<LLM_PROVIDER, "models" | "customModels" | "enabledModels" | "disabledModels"> & {
   models?: MODEL_META[];
+  /** When `models` was last fetched from the provider (epoch ms). */
+  modelsFetchedAt?: number;
+  /** MODEL_LIST_SCHEMA_VERSION of the fetch that produced `models`. */
+  modelsSchemaVersion?: number;
   customModels?: MODEL_META[];
   enabledModels?: string[];
   disabledModels?: string[];

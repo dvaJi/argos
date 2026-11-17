@@ -10,10 +10,11 @@ import { useModelStore } from "#/stores/modelStore";
 import { useThemeStore } from "#/stores/theme";
 import { useLanguageStore } from "#/stores/language";
 import ModelIcon from "#/components/icons/ModelIcon";
-import { ModelType } from "@argos/shared/model";
+import { matchesModelTypes, ModelType } from "@argos/shared/model";
 import type { RENDERER_MODEL_META } from "@argos/shared/presenter";
 import { useChatMode } from "#/components/chat-input/composables/useChatMode";
 interface ModelChooserProps {
+  /** Model types to offer. Defaults to chat models only. */
   type?: ModelType[];
   requiresVision?: boolean;
   selectedProviderId?: string;
@@ -37,7 +38,7 @@ export default function ModelChooser({
   const providers = (() => {
     const enabledModels = modelStore.enabledModels;
     const currentMode = chatMode.currentMode;
-    const typeSet = type && type.length > 0 ? new Set<ModelType>(type) : undefined;
+    const allowedTypes = type && type.length > 0 ? type : [ModelType.Chat];
     return sortedProviders
       .map((provider) => {
         if (!provider.enable) return null;
@@ -45,9 +46,7 @@ export default function ModelChooser({
         if (currentMode !== "acp agent" && provider.id === "acp") return null;
         const enabledProvider = enabledModels.find((entry) => entry.providerId === provider.id);
         if (!enabledProvider || enabledProvider.models.length === 0) return null;
-        const models = !typeSet
-          ? enabledProvider.models
-          : enabledProvider.models.filter((model) => model.type !== undefined && typeSet.has(model.type as ModelType));
+        const models = enabledProvider.models.filter((model) => matchesModelTypes(model.type, allowedTypes));
         const eligibleModels = requiresVision ? models.filter((model) => model.vision) : models;
         if (!eligibleModels || eligibleModels.length === 0) return null;
         return {

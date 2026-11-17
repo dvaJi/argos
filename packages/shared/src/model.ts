@@ -228,9 +228,17 @@ export const resolveProviderCapabilityProviderId = (
   return resolveNewApiCapabilityProviderId(resolveNewApiEndpointTypeFromRoute(route, modelId));
 };
 
+/** Untyped models are chat models (the default for discovered/legacy entries). */
+export const resolveModelType = (type: ModelType | undefined): ModelType => type ?? ModelType.Chat;
+
+/**
+ * Whether a model can drive a chat conversation. Media (image/video/TTS),
+ * embedding, rerank and decision models have their own pickers and runtimes;
+ * chat-capable models that also emit images stay typed as chat.
+ */
 export const isChatSelectableModelType = (type: ModelType | undefined): boolean =>
-  type === undefined ||
-  type === ModelType.Chat ||
-  type === ModelType.ImageGeneration ||
-  type === ModelType.VideoGeneration ||
-  type === ModelType.TTS;
+  resolveModelType(type) === ModelType.Chat;
+
+/** True when the model's type is one of `types`; untyped models count as chat. */
+export const matchesModelTypes = (type: ModelType | undefined, types: readonly ModelType[]): boolean =>
+  types.includes(resolveModelType(type));

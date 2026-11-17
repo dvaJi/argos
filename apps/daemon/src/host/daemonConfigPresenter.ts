@@ -42,6 +42,98 @@ export function resolveDaemonProviderDbBuiltIn(): string | undefined {
   return undefined;
 }
 
+/**
+ * Derives capability flags from optional /models metadata (OpenRouter exposes
+ * input modalities, supported parameters and pricing). Each flag stays
+ * undefined when the payload lacks the field, so UI defaults still apply.
+ */
+export function deriveListedModelCapabilities(model: {
+  id?: unknown;
+  architecture?: { input_modalities?: unknown };
+  supported_parameters?: unknown;
+  pricing?: Record<string, unknown>;
+  reasoning?: unknown;
+}): { vision?: boolean; functionCall?: boolean; reasoning?: boolean; isFree?: boolean } {
+  const inputModalities = Array.isArray(model.architecture?.input_modalities)
+    ? (model.architecture.input_modalities as unknown[])
+    : null;
+  const params = Array.isArray(model.supported_parameters) ? (model.supported_parameters as unknown[]) : null;
+
+  const vision = inputModalities ? inputModalities.includes("image") : undefined;
+  const functionCall = params ? params.includes("tools") : undefined;
+  const reasoning =
+    params || model.reasoning !== undefined
+      ? Boolean(params?.includes("reasoning")) || (typeof model.reasoning === "object" && model.reasoning !== null)
+      : undefined;
+
+  let isFree: boolean | undefined;
+  if (typeof model.id === "string" && model.id.endsWith(":free")) {
+    isFree = true;
+  } else if (model.pricing && typeof model.pricing === "object") {
+    // Free only when every listed price is zero: image/rerank models report
+    // prompt/completion as "0" but bill through fields like `image_output`.
+    // Negative prices mark variable-cost routers (e.g. openrouter/auto).
+    const prices = Object.values(model.pricing)
+      .map((value) => Number(value))
+      .filter((value) => Number.isFinite(value));
+    isFree = prices.length > 0 && prices.every((value) => value === 0);
+  }
+
+  return { vision, functionCall, reasoning, isFree };
+}
+
+/**
+ * Maps /models metadata to a ModelType. Models that output text stay chat even
+ * when they can also emit images/audio/video. Returns null for models Argos has
+ * no type for (e.g. speech-to-text), so callers can drop them.
+ */
+export function deriveListedModelType(model: {
+  id?: unknown;
+  type?: unknown;
+  architecture?: { output_modalities?: unknown };
+}): ModelType | undefined | null {
+  const outputs = Array.isArray(model.architecture?.output_modalities)
+    ? (model.architecture.output_modalities as unknown[]).filter((item): item is string => typeof item === "string")
+    : [];
+  if (outputs.length > 0 && !outputs.includes("text")) {
+    // Decision models (System One) answer typed questions with probabilities —
+    // not chat-completable (docs/features/decision-models).
+    if (outputs.includes("decisions")) return ModelType.Decisions;
+    if (outputs.includes("embeddings")) return ModelType.Embedding;
+    if (outputs.includes("rerank")) return ModelType.Rerank;
+    if (outputs.includes("image")) return ModelType.ImageGeneration;
+    if (outputs.includes("video")) return ModelType.VideoGeneration;
+    if (outputs.includes("speech")) return ModelType.TTS;
+    return null;
+  }
+  if (typeof model.type === "string" && model.type.toLowerCase().includes("embedding")) {
+    return ModelType.Embedding;
+  }
+  return undefined;
+}
+
+/**
+ * Bump when remotely fetched model lists gain fields (capabilities, types,
+ * dates, ...) so stored lists from older builds re-fetch automatically.
+ */
+export const MODEL_LIST_SCHEMA_VERSION = 2;
+/** Stored remote model lists older than this re-fetch on next read. */
+export const MODEL_LIST_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+/** After a failed automatic re-fetch, wait this long before trying again. */
+const MODEL_LIST_RETRY_COOLDOWN_MS = 5 * 60 * 1000;
+const MODEL_LIST_FETCH_TIMEOUT_MS = 15_000;
+
+/** True when a stored remote model list should be re-fetched. */
+export function isStoredModelListStale(
+  provider: Pick<LLM_PROVIDER, "models" | "modelsFetchedAt" | "modelsSchemaVersion">,
+  now: number,
+): boolean {
+  if (!provider.models || provider.models.length === 0) return true;
+  if (provider.modelsSchemaVersion !== MODEL_LIST_SCHEMA_VERSION) return true;
+  if (typeof provider.modelsFetchedAt !== "number") return true;
+  return now - provider.modelsFetchedAt > MODEL_LIST_MAX_AGE_MS;
+}
+
 function createDaemonProviderDbLoader(dataDir: string): ProviderDbLoader {
   const cacheDir = join(dataDir, "cache", "provider-db");
   return new ProviderDbLoader({ cacheDir, builtInDbPath: resolveDaemonProviderDbBuiltIn() });
@@ -103,6 +195,7 @@ export class DaemonConfigPresenter {
   private store: Store;
   /** In-flight model-discovery requests, coalesced per provider (DeepChat #2248 pattern). */
   private inFlightModelRefreshes = new Map<string, Promise<MODEL_META[]>>();
+  private lastAutoModelRefreshAttempt = new Map<string, number>();
   private inFlightOllamaFetches = new Map<string, Promise<OllamaModel[]>>();
   private filePath: string;
   private readonly acpConfig: DaemonAcpConfig;
@@ -406,7 +499,21 @@ export class DaemonConfigPresenter {
 
   getProviderModels(providerId: string): MODEL_META[] {
     const provider = this.getProviderById(providerId);
-    return provider?.models ?? [];
+    if (!provider) return [];
+    // Catalog-backed providers read live from the provider DB so catalog
+    // refreshes surface new models without re-saving the provider. The
+    // persisted list remains the fallback when the catalog lacks the entry.
+    const catalogModels = this.readCatalogModels(provider);
+    if (catalogModels && catalogModels.length > 0) return catalogModels;
+    return provider.models ?? [];
+  }
+
+  private readCatalogModels(provider: LLM_PROVIDER): MODEL_META[] | null {
+    const definition = resolveAiSdkProviderDefinition(provider);
+    if (definition?.modelSource !== "provider-db") return null;
+    const entry = this.providerDbLoader.getProvider(definition.providerDbSourceId ?? provider.id);
+    if (!entry) return null;
+    return entry.models.map((model) => this.mapProviderDbModelToMeta(provider.id, model));
   }
 
   /**
@@ -648,6 +755,50 @@ export class DaemonConfigPresenter {
     this.save();
   }
 
+  /**
+   * Returns the provider's models, re-fetching first when the stored remote
+   * list is empty, older than MODEL_LIST_MAX_AGE_MS, or from an older list
+   * schema. Catalog-backed providers are always live and never re-fetch here.
+   * Failures fall back to the stored list and back off for a few minutes.
+   */
+  async getProviderModelsWithAutoRefresh(providerId: string): Promise<MODEL_META[]> {
+    const provider = this.getProviderById(providerId);
+    if (!provider) return [];
+    if (this.readCatalogModels(provider) !== null) return this.getProviderModels(providerId);
+
+    const stored = provider.models ?? [];
+    const now = Date.now();
+    if (!provider.apiKey || !provider.baseUrl) return stored;
+    // Sources the generic /models fetcher may not fully describe (Anthropic's
+    // config DB, Bedrock, Ollama) only fetch when nothing is stored yet.
+    const modelSource = resolveAiSdkProviderDefinition(provider)?.modelSource ?? "openai";
+    const periodicRefresh = modelSource !== "config-db" && modelSource !== "bedrock" && provider.apiType !== "ollama";
+    const stale = periodicRefresh ? isStoredModelListStale(provider, now) : stored.length === 0;
+    if (!stale) return stored;
+
+    try {
+      // Join a refresh already in flight (e.g. started by another window's
+      // read) before consulting the failure cooldown, so concurrent readers
+      // get the fresh list instead of bouncing back the stale stored one.
+      const inFlight = this.inFlightModelRefreshes.get(this.modelRefreshKey(provider));
+      if (inFlight) return await inFlight;
+
+      const lastAttempt = this.lastAutoModelRefreshAttempt.get(providerId);
+      if (lastAttempt !== undefined && now - lastAttempt < MODEL_LIST_RETRY_COOLDOWN_MS) return stored;
+      this.lastAutoModelRefreshAttempt.set(providerId, now);
+
+      return await this.refreshProviderModels(providerId);
+    } catch (error) {
+      console.warn(`[daemon] automatic model refresh failed for ${providerId}:`, error);
+      return stored;
+    }
+  }
+
+  /** Coalescing key for concurrent model refreshes of the same provider settings. */
+  private modelRefreshKey(provider: LLM_PROVIDER): string {
+    return `${provider.id}:${provider.apiType}:${provider.baseUrl}:${provider.apiKey}`;
+  }
+
   async refreshProviderModels(providerId: string): Promise<MODEL_META[]> {
     const provider = this.getProviderById(providerId);
     if (!provider) {
@@ -664,7 +815,7 @@ export class DaemonConfigPresenter {
     // request. The key includes the settings fingerprint so a mid-flight
     // settings change starts a fresh discovery instead of handing back
     // results fetched with stale credentials.
-    const key = `${providerId}:${provider.apiType}:${provider.baseUrl}:${provider.apiKey}`;
+    const key = this.modelRefreshKey(provider);
     const inFlight = this.inFlightModelRefreshes.get(key);
     if (inFlight) {
       return inFlight;
@@ -677,7 +828,14 @@ export class DaemonConfigPresenter {
         modelSource === "provider-db"
           ? await this.fetchProviderModelsFromCatalog(provider)
           : await this.fetchProviderModels(provider);
-      this.setProviderModels(providerId, models);
+      const current = this.getProviderById(providerId);
+      if (!current) throw new Error(`Provider not found: ${providerId}`);
+      this.setProviderById(providerId, {
+        ...current,
+        models,
+        modelsFetchedAt: Date.now(),
+        modelsSchemaVersion: MODEL_LIST_SCHEMA_VERSION,
+      });
       return models;
     })().finally(() => {
       this.inFlightModelRefreshes.delete(key);
@@ -689,13 +847,7 @@ export class DaemonConfigPresenter {
   private async fetchProviderModelsFromCatalog(provider: LLM_PROVIDER): Promise<MODEL_META[]> {
     // Ensure the catalog is fresh (cached + remote refresh) before reading.
     await this.providerDbLoader.refreshIfNeeded();
-
-    const definition = resolveAiSdkProviderDefinition(provider);
-    const sourceId = definition?.providerDbSourceId ?? provider.id;
-    const entry = this.providerDbLoader.getProvider(sourceId);
-    if (!entry) return [];
-
-    return entry.models.map((model) => this.mapProviderDbModelToMeta(provider.id, model));
+    return this.readCatalogModels(provider) ?? [];
   }
 
   private mapProviderDbModelToMeta(providerId: string, model: ProviderModel): MODEL_META {
@@ -707,6 +859,7 @@ export class DaemonConfigPresenter {
     const type = model.type ? (model.type as ModelType) : undefined;
     const contextLength = model.limit?.context;
     const maxTokens = model.limit?.output;
+    const releasedAt = model.release_date ? Date.parse(model.release_date) : Number.NaN;
 
     return {
       id,
@@ -719,6 +872,7 @@ export class DaemonConfigPresenter {
       type,
       contextLength,
       maxTokens,
+      createdAt: Number.isFinite(releasedAt) ? releasedAt : undefined,
     };
   }
 
@@ -925,7 +1079,12 @@ export class DaemonConfigPresenter {
     apiKey: string;
     baseUrl: string;
   }): Promise<MODEL_META[]> {
-    const url = this.resolveModelsEndpoint(provider.baseUrl);
+    let url = this.resolveModelsEndpoint(provider.baseUrl);
+    // OpenRouter's /models only lists text-output models by default; ask for
+    // every modality so decision, embedding, image, etc. models are discoverable.
+    if (resolveAiSdkProviderDefinition(provider as LLM_PROVIDER)?.modelSource === "openrouter") {
+      url += "?output_modalities=all";
+    }
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
@@ -936,7 +1095,11 @@ export class DaemonConfigPresenter {
       headers.Authorization = `Bearer ${provider.apiKey}`;
     }
 
-    const response = await fetch(url, { method: "GET", headers });
+    const response = await fetch(url, {
+      method: "GET",
+      headers,
+      signal: AbortSignal.timeout(MODEL_LIST_FETCH_TIMEOUT_MS),
+    });
     if (!response.ok) {
       const errorBody = await response.text().catch(() => "Unknown error");
       throw new Error(`Failed to refresh models for ${provider.id} (${response.status}): ${errorBody.slice(0, 500)}`);
@@ -957,6 +1120,11 @@ export class DaemonConfigPresenter {
         input_token_limit?: unknown;
         output_token_limit?: unknown;
         architecture?: { input_modalities?: unknown; output_modalities?: unknown };
+        // OpenRouter-style metadata (absent on plain OpenAI-compatible /models).
+        supported_parameters?: unknown;
+        pricing?: Record<string, unknown>;
+        reasoning?: unknown;
+        created?: unknown;
       }>;
     };
     const data = Array.isArray(payload.data) ? payload.data : [];
@@ -965,15 +1133,12 @@ export class DaemonConfigPresenter {
       .filter((model): model is NonNullable<(typeof data)[number]> & { id: string } => {
         return typeof model.id === "string" && model.id.trim().length > 0;
       })
-      .map((model) => {
-        // Decision models (System One) answer typed questions with
-        // probabilities — not chat-completable (docs/features/decision-models).
-        const outputModalities = Array.isArray(model.architecture?.output_modalities)
-          ? (model.architecture.output_modalities as unknown[]).filter(
-              (item): item is string => typeof item === "string",
-            )
-          : [];
-        const isDecisionsModel = outputModalities.includes("decisions") && !outputModalities.includes("text");
+      .flatMap((model) => {
+        const type = deriveListedModelType(model);
+        if (type === null) return [];
+        const capabilities = deriveListedModelCapabilities(model);
+        // Tool calling and reasoning only apply to chat models.
+        const isChat = type === undefined;
         return {
           id: model.id,
           name:
@@ -984,14 +1149,15 @@ export class DaemonConfigPresenter {
                 : model.id,
           group: typeof model.owned_by === "string" && model.owned_by.trim() ? model.owned_by : "default",
           providerId: provider.id,
-          vision: undefined,
-          functionCall: undefined,
-          reasoning: undefined,
-          type: isDecisionsModel
-            ? ModelType.Decisions
-            : typeof model.type === "string" && model.type.toLowerCase().includes("embedding")
-              ? ModelType.Embedding
+          vision: capabilities.vision,
+          functionCall: isChat ? capabilities.functionCall : false,
+          reasoning: isChat ? capabilities.reasoning : false,
+          isFree: capabilities.isFree,
+          createdAt:
+            typeof model.created === "number" && Number.isFinite(model.created) && model.created > 0
+              ? model.created * 1000
               : undefined,
+          type,
           contextLength:
             typeof model.context_length === "number"
               ? model.context_length
