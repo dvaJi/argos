@@ -142,7 +142,7 @@ const ThreadComposer = forwardRef<ThreadComposerHandle, ThreadComposerProps>(
                 <p>Attach file</p>
               </TooltipContent>
             </Tooltip>
-            <ComposerFooterBar />
+            <ComposerFooterBar acpDraftSessionId={sessionId} />
           </>
         }
         toolbar={

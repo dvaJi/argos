@@ -1,7 +1,10 @@
 import { useEffect, useRef } from "react";
+import { useSelector } from "@tanstack/react-store";
+import { agentStore } from "#/stores/ui/agent";
+import { projectStore, selectedProject as getSelectedProject } from "#/stores/ui/project";
+import { resolveEffectiveAgent } from "#/lib/effectiveAgent";
+import { scheduleStartupDeferredTask } from "#/lib/startupDeferred";
 import { Icon } from "@iconify/react";
-import { Button } from "#shadcn/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "#shadcn/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "#shadcn/components/ui/tooltip";
 import { createProviderClient } from "#api/ProviderClient";
 import { createSessionClient } from "#api/SessionClient";
@@ -9,62 +12,9 @@ import { useSessionStore, getActiveSession, getHasActiveSession } from "#/stores
 import { useModelStore, getChatSelectableModelGroups } from "#/stores/modelStore";
 import { useChatStatusBarAcpConfig } from "./composables/useChatStatusBarAcpConfig";
 import AcpAdvancedSettings from "./AcpAdvancedSettings";
+import AcpOptionPicker from "./AcpOptionPicker";
+import { getAcpOptionKind } from "./acpOptionKind";
 import type { AcpConfigOption } from "@argos/shared/presenter";
-type AcpOptionValueLike = {
-  value: string;
-  label: string;
-  groupId?: string | null;
-  groupLabel?: string | null;
-};
-const resolveAcpOptionGroup = (
-  entry: AcpOptionValueLike,
-): {
-  key: string;
-  label: string;
-} => {
-  if (entry.groupId && entry.groupId.trim()) {
-    return {
-      key: entry.groupId,
-      label: entry.groupLabel?.trim() ? entry.groupLabel : entry.groupId,
-    };
-  }
-  const valueSlash = entry.value.indexOf("/");
-  const labelSlash = entry.label.indexOf("/");
-  const labSource = valueSlash > 0 ? entry.value : labelSlash > 0 ? entry.label : "";
-  if (labSource) {
-    const lab = labSource.slice(0, labSource.indexOf("/"));
-    if (lab.trim()) {
-      return {
-        key: `__lab__${lab.toLowerCase()}`,
-        label: lab,
-      };
-    }
-  }
-  return {
-    key: "__default__",
-    label: "",
-  };
-};
-const resolveAcpOptionDisplayLabel = (entry: { label: string }): string => {
-  const idx = entry.label.indexOf("/");
-  if (idx > 0 && entry.label.slice(idx + 1).trim()) {
-    return entry.label.slice(idx + 1);
-  }
-  return entry.label;
-};
-const OPTION_ICON_BY_ID: Record<string, string> = {
-  mode: "lucide:cpu",
-  model: "lucide:box",
-  temperature: "lucide:thermometer",
-  "max-tokens": "lucide:hash",
-  max_tokens: "lucide:hash",
-  "system-prompt": "lucide:terminal",
-  system_prompt: "lucide:terminal",
-  "permission-mode": "lucide:shield",
-  permission: "lucide:shield",
-  context: "lucide:scan",
-  reasoning: "lucide:brain",
-};
 // Process-wide singletons; module scope keeps effect dependencies stable.
 const sessionClient = createSessionClient();
 const providerClient = createProviderClient();
@@ -75,17 +25,41 @@ const providerClient = createProviderClient();
  * used to live in the ChatStatusBar so the footer bar is the single control
  * surface; the status bar keeps only non-duplicated utilities.
  */
-const AcpComposerControls = () => {
-  // Subscribe so chips re-render when the active session changes.
+const AcpComposerControls = ({ acpDraftSessionId = null }: { acpDraftSessionId?: string | null }) => {
+  // Subscribe so chips re-render when the active session / agent / project changes.
   const sessionStoreState = useSessionStore();
-  void sessionStoreState;
+  const agentState = useSelector(agentStore);
+  const projectState = useSelector(projectStore);
+  void projectState;
   const modelStore = useModelStore();
   const hasActiveSession = getHasActiveSession();
   const activeSession = getActiveSession();
   const isAcpActiveSession = hasActiveSession && activeSession?.providerId === "acp";
-  const activeAcpAgentId = isAcpActiveSession ? activeSession?.modelId || null : null;
-  const activeAcpSessionId = isAcpActiveSession ? (activeSession?.id ?? null) : null;
-  const acpWorkspacePath = isAcpActiveSession ? activeSession?.projectDir?.trim() || null : null;
+  // Pre-session: follow the effective agent (same resolution as AgentSwitcher)
+  // and the bound draft session, so the agent's model/mode chips are editable
+  // before the first message.
+  const preSessionAcpAgentId = (() => {
+    if (hasActiveSession) return null;
+    const effective = resolveEffectiveAgent({
+      agents: agentState.agents,
+      selectedAgentId: agentState.selectedAgentId,
+      activeSessionAgentId: null,
+    });
+    return effective?.type === "acp" ? effective.agent.id : null;
+  })();
+  void sessionStoreState;
+  const isAcpContext = Boolean(isAcpActiveSession || preSessionAcpAgentId);
+  const activeAcpAgentId = isAcpActiveSession ? activeSession?.modelId || null : preSessionAcpAgentId;
+  const activeAcpSessionId = isAcpActiveSession
+    ? (activeSession?.id ?? null)
+    : preSessionAcpAgentId
+      ? acpDraftSessionId?.trim() || null
+      : null;
+  const acpWorkspacePath = isAcpActiveSession
+    ? activeSession?.projectDir?.trim() || null
+    : preSessionAcpAgentId
+      ? getSelectedProject()?.path?.trim() || null
+      : null;
   const resolveModelIconId = (providerId?: string | null, modelId?: string | null): string => {
     if (providerId === "acp" && modelId) return modelId;
     return providerId || "anthropic";
@@ -103,7 +77,7 @@ const AcpComposerControls = () => {
     return modelId;
   };
   const acp = useChatStatusBarAcpConfig({
-    isAcpAgent: Boolean(isAcpActiveSession),
+    isAcpAgent: isAcpContext,
     activeAcpAgentId,
     activeAcpSessionId,
     acpWorkspacePath,
@@ -119,13 +93,23 @@ const AcpComposerControls = () => {
     syncAcpConfigOptionsRef.current = acp.syncAcpConfigOptions;
   }, [acp.syncAcpConfigOptions]);
   useEffect(() => {
-    if (!isAcpActiveSession || !activeAcpSessionId) return;
+    // Re-sync on agent switch; a project switch rebinds the draft session id.
+    if (!isAcpContext || !activeAcpAgentId) return;
+    if (activeAcpSessionId) {
+      void syncAcpConfigOptionsRef.current();
+      return;
+    }
+    // No session yet (no draft bound): warm the agent process once startup
+    // settles so the chips can show the agent's current model/mode read-only.
     let cancelled = false;
-    void syncAcpConfigOptionsRef.current();
+    const cancel = scheduleStartupDeferredTask(async () => {
+      if (!cancelled) await syncAcpConfigOptionsRef.current();
+    });
     return () => {
       cancelled = true;
+      cancel();
     };
-  }, [isAcpActiveSession, activeAcpSessionId]);
+  }, [isAcpContext, activeAcpAgentId, activeAcpSessionId]);
   const handleAcpConfigOptionsReadyRef = useRef(acp.handleAcpConfigOptionsReady);
   useEffect(() => {
     handleAcpConfigOptionsReadyRef.current = acp.handleAcpConfigOptionsReady;
@@ -138,7 +122,7 @@ const AcpComposerControls = () => {
       unsubscribe?.();
     };
   }, []);
-  if (!isAcpActiveSession) {
+  if (!isAcpContext) {
     return null;
   }
   return (
@@ -159,138 +143,24 @@ const AcpComposerControls = () => {
           <TooltipContent className="max-w-xs">Failed to load agent configuration: {acp.acpConfigError}</TooltipContent>
         </Tooltip>
       )}
-      {acp.acpInlineOptions.map((option) => {
-        const optionEntries = option.options ?? [];
-        const grouped = optionEntries.reduce<
-          Map<
-            string,
-            {
-              label: string;
-              entries: typeof optionEntries;
-            }
-          >
-        >((acc, entry) => {
-          const g = resolveAcpOptionGroup(entry);
-          if (!acc.has(g.key)) {
-            acc.set(g.key, {
-              label: g.label,
-              entries: [],
-            });
-          }
-          acc.get(g.key)!.entries.push(entry);
-          return acc;
-        }, new Map());
-        const groupKeys = [...grouped.keys()];
-        return (
-          <Popover
-            key={option.id}
-            open={acp.acpInlineOpenOptionId === option.id}
-            onOpenChange={(open) => acp.onAcpInlineOptionOpenChange(option.id, open)}
-          >
-            <PopoverTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  data-option-id={option.id}
-                  className="acp-inline-option h-7 max-w-[12rem] min-w-0 gap-1 rounded-full px-2.5 text-xs text-muted-foreground hover:text-foreground"
-                  disabled={acp.acpConfigReadOnly || acp.isAcpOptionSaving(option.id)}
-                />
-              }
-            >
-              <Icon
-                icon={OPTION_ICON_BY_ID[option.id.toLowerCase().replace(/\s+/g, "-")] ?? "lucide:sliders-horizontal"}
-                className="h-3 w-3 shrink-0 text-muted-foreground/60"
-              />
-              <span className="truncate font-medium text-foreground/80">
-                {acp.isAcpOptionSaving(option.id) ? "Saving…" : acp.getAcpOptionDisplayValue(option)}
-              </span>
-              <Icon icon="lucide:chevron-down" className="h-3 w-3 shrink-0 opacity-50" />
-            </PopoverTrigger>
-            <PopoverContent align="start" className="min-w-[200px] max-w-[320px] overflow-hidden p-0">
-              <div className="border-b px-3 py-2.5">
-                <div data-option-id={option.id} className="acp-inline-option-title text-sm font-semibold">
-                  {option.label}
-                </div>
-                {option.description && <p className="mt-0.5 text-xs text-muted-foreground">{option.description}</p>}
-              </div>
-              {optionEntries.length > 0 ? (
-                <div className="max-h-72 overflow-y-auto p-1.5">
-                  {groupKeys.length > 1 || (groupKeys.length === 1 && groupKeys[0] !== "__default__")
-                    ? groupKeys.map((groupKey) => {
-                        const group = grouped.get(groupKey)!;
-                        return (
-                          <div key={groupKey} className="mb-1 last:mb-0">
-                            {group.label && (
-                              <div className="px-2 pb-1 pt-1.5 text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground/60">
-                                {group.label}
-                              </div>
-                            )}
-                            {group.entries.map((entry) => {
-                              const isSelected = String(option.currentValue) === entry.value;
-                              return (
-                                <button
-                                  key={`${option.id}-${entry.value}`}
-                                  type="button"
-                                  data-option-id={option.id}
-                                  data-value={entry.value}
-                                  disabled={acp.acpConfigReadOnly || acp.isAcpOptionSaving(option.id) || isSelected}
-                                  className={`acp-inline-option-item flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left transition-colors disabled:pointer-events-none ${isSelected ? "bg-primary/10 text-foreground" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"}`}
-                                  onClick={() => acp.onAcpSelectOption(option.id, entry.value)}
-                                >
-                                  <Icon
-                                    icon={isSelected ? "lucide:check" : "lucide:circle"}
-                                    className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${isSelected ? "text-primary" : "text-transparent"}`}
-                                  />
-                                  <div className="min-w-0 flex-1">
-                                    <div className="text-xs font-medium">{resolveAcpOptionDisplayLabel(entry)}</div>
-                                    {entry.description && (
-                                      <div className="mt-0.5 text-[0.65rem] leading-relaxed text-muted-foreground/70">
-                                        {entry.description}
-                                      </div>
-                                    )}
-                                  </div>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        );
-                      })
-                    : optionEntries.map((entry) => {
-                        const isSelected = String(option.currentValue) === entry.value;
-                        return (
-                          <button
-                            key={`${option.id}-${entry.value}`}
-                            type="button"
-                            data-option-id={option.id}
-                            data-value={entry.value}
-                            disabled={acp.acpConfigReadOnly || acp.isAcpOptionSaving(option.id) || isSelected}
-                            className={`acp-inline-option-item flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left transition-colors disabled:pointer-events-none ${isSelected ? "bg-primary/10 text-foreground" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"}`}
-                            onClick={() => acp.onAcpSelectOption(option.id, entry.value)}
-                          >
-                            <Icon
-                              icon={isSelected ? "lucide:check" : "lucide:circle"}
-                              className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${isSelected ? "text-primary" : "text-transparent"}`}
-                            />
-                            <div className="min-w-0 flex-1">
-                              <div className="text-xs font-medium">{resolveAcpOptionDisplayLabel(entry)}</div>
-                              {entry.description && (
-                                <div className="mt-0.5 text-[0.65rem] leading-relaxed text-muted-foreground/70">
-                                  {entry.description}
-                                </div>
-                              )}
-                            </div>
-                          </button>
-                        );
-                      })}
-                </div>
-              ) : (
-                <div className="px-3 py-4 text-xs text-muted-foreground">No options available</div>
-              )}
-            </PopoverContent>
-          </Popover>
-        );
-      })}
+      {!acp.isAcpConfigLoading && !acp.acpConfigError && !acp.hasAcpConfigOptions && !acpWorkspacePath && (
+        <div className="flex h-7 items-center px-1 text-xs text-muted-foreground/60">Select a project to configure</div>
+      )}
+      {acp.acpInlineOptions.map((option) => (
+        <AcpOptionPicker
+          key={option.id}
+          option={option}
+          open={acp.acpInlineOpenOptionId === option.id}
+          readOnly={acp.acpConfigReadOnly}
+          isSaving={acp.isAcpOptionSaving(option.id)}
+          displayValue={acp.getAcpOptionDisplayValue(option)}
+          // Model lists get the Argos-picker treatment (All / Favorites / labs
+          // + stars), with favorites kept per agent.
+          favoritesScope={activeAcpAgentId && getAcpOptionKind(option) === "model" ? `acp:${activeAcpAgentId}` : null}
+          onSelect={acp.onAcpSelectOption}
+          onOpenChange={(open) => acp.onAcpInlineOptionOpenChange(option.id, open)}
+        />
+      ))}
       {acp.acpOverflowOptions.length > 0 && (
         <AcpAdvancedSettings
           options={acp.acpOverflowOptions as AcpConfigOption[]}

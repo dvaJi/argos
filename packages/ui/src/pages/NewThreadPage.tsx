@@ -674,7 +674,10 @@ function useAgentDraftDefaults(input: { agentId: string; agentType: string }) {
           disabledAgentTools: [],
         });
       }
-      const agentDefault = normalizeProjectPath(config.defaultProjectPath);
+      // A project the user picked survives agent switches; the agent's own
+      // default only applies over an empty or default-sourced selection.
+      const userPicked = Boolean(currentProject) && projectStateRef.current.selectionSource === "manual";
+      const agentDefault = userPicked ? null : normalizeProjectPath(config.defaultProjectPath);
       const resolvedPath = agentDefault ?? currentProject ?? globalDefault;
       if (agentDefault) {
         selectProject(agentDefault, agentDefault === globalDefault ? "default" : "manual");

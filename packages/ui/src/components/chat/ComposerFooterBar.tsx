@@ -7,7 +7,12 @@ import { Separator } from "#shadcn/components/ui/separator";
 import { useSessionStore, getActiveSession, getHasActiveSession } from "#/stores/ui/session";
 import { usePreSessionAgentType } from "#/composables/chat/usePreSessionAgentType";
 
-const ComposerFooterBar = () => {
+interface ComposerFooterBarProps {
+  /** Bound ACP draft session while composing a new thread (enables config chips pre-session). */
+  acpDraftSessionId?: string | null;
+}
+
+const ComposerFooterBar = ({ acpDraftSessionId = null }: ComposerFooterBarProps) => {
   // Subscribe so the bar re-renders when the active session / agent changes.
   const sessionStoreState = useSessionStore();
   void sessionStoreState;
@@ -19,13 +24,14 @@ const ComposerFooterBar = () => {
 
   return (
     <div className="flex items-center gap-1" data-testid="composer-footer-bar">
-      <ComposerModelPicker />
       {isAcp ? (
-        // ACP sessions own their agent/model/mode chips here; effort and
-        // permission pickers are argos-session concepts and stay hidden.
-        <AcpComposerControls />
+        // ACP: the agent is picked in AgentSwitcher; the footer shows only the
+        // agent's own config chips (model / mode / …). Effort and permission
+        // pickers are argos-session concepts and stay hidden.
+        <AcpComposerControls acpDraftSessionId={acpDraftSessionId} />
       ) : (
         <>
+          <ComposerModelPicker />
           <Separator orientation="vertical" className="mx-1 h-4 bg-border/60" />
           <ComposerEffortPicker />
           <Separator orientation="vertical" className="mx-1 h-4 bg-border/60" />
