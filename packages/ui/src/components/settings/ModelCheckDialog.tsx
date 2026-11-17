@@ -12,6 +12,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "#shadcn/components/ui/dialog";
+import { isChatSelectableModelType } from "@argos/shared/model";
 import { useModelStore } from "#/stores/modelStore";
 import { useProviderStore } from "#/stores/providerStore";
 interface ModelCheckDialogProps {
@@ -30,8 +31,11 @@ export default function ModelCheckDialog({ open, providerId, onOpenChange }: Mod
     errorMsg: string | null;
   } | null>(null);
   const availableModels = (() => {
-    const providerModels = modelStore.allProviderModels.find((p) => p.providerId === providerId);
-    return providerModels?.models || [];
+    const models = modelStore.allProviderModels.find((p) => p.providerId === providerId)?.models || [];
+    // The check sends a chat request, so prefer chat models; providers that
+    // only serve other types (e.g. embeddings) still list everything.
+    const chatModels = models.filter((model) => isChatSelectableModelType(model.type));
+    return chatModels.length > 0 ? chatModels : models;
   })();
   const hasModels = availableModels.length > 0;
   const resetDialog = () => {

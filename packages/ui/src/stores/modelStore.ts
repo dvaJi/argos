@@ -170,6 +170,8 @@ const normalizeRendererModel = (model: MODEL_META, providerId: string): RENDERER
   supportedEndpointTypes: model.supportedEndpointTypes,
   endpointType: model.endpointType,
   ownedBy: model.ownedBy,
+  isFree: model.isFree,
+  createdAt: model.createdAt,
 });
 
 const normalizeDerivedRendererModel = (model: MODEL_META, providerId: string): RENDERER_MODEL_META => ({
@@ -193,6 +195,8 @@ const normalizeDerivedRendererModel = (model: MODEL_META, providerId: string): R
   supportedEndpointTypes: model.supportedEndpointTypes,
   endpointType: model.endpointType,
   ownedBy: model.ownedBy,
+  isFree: model.isFree,
+  createdAt: model.createdAt,
 });
 
 const applyUserDefinedModelConfig = async (
@@ -505,6 +509,8 @@ const refreshStandardModels = async (providerId: string): Promise<boolean> => {
           supportedEndpointTypes: model.supportedEndpointTypes ?? fallback?.supportedEndpointTypes,
           endpointType: model.endpointType ?? fallback?.endpointType,
           ownedBy: model.ownedBy ?? fallback?.ownedBy,
+          isFree: model.isFree ?? fallback?.isFree,
+          createdAt: model.createdAt ?? fallback?.createdAt,
         };
       };
 

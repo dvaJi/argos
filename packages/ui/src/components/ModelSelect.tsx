@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Input } from "#shadcn/components/ui/input";
 import type { RENDERER_MODEL_META } from "@argos/shared/presenter";
-import { ModelType } from "@argos/shared/model";
+import { matchesModelTypes, ModelType } from "@argos/shared/model";
 import ModelIcon from "./icons/ModelIcon";
 import { useProviderStore, getSortedProviders } from "#/stores/providerStore";
 import { useModelStore } from "#/stores/modelStore";
@@ -9,6 +9,7 @@ import { useThemeStore } from "#/stores/theme";
 import { useLanguageStore } from "#/stores/language";
 import { useChatMode } from "#/components/chat-input/composables/useChatMode";
 interface ModelSelectProps {
+  /** Model types to offer. Defaults to chat models only. */
   type?: ModelType[];
   respectChatMode?: boolean;
   excludeProviders?: string[];
@@ -37,7 +38,7 @@ export default function ModelSelect({
     const enabledModels = modelStore.enabledModels;
     const currentMode = chatMode.currentMode;
     const excludeSet = new Set(excludeProviders);
-    const typeSet = type && type.length > 0 ? new Set<ModelType>(type) : undefined;
+    const allowedTypes = type && type.length > 0 ? type : [ModelType.Chat];
     return sortedProviders
       .map((provider) => {
         if (!provider.enable || excludeSet.has(provider.id)) return null;
@@ -47,18 +48,12 @@ export default function ModelSelect({
         }
         const enabledProvider = enabledModels.find((item) => item.providerId === provider.id);
         if (!enabledProvider || enabledProvider.models.length === 0) return null;
-        const filteredModels = enabledProvider.models.filter((model) => {
-          // Decision models only appear when a picker explicitly asks for
-          // them; unfiltered pickers (chat settings, assistants) must never
-          // offer them (docs/features/decision-models).
-          if (model.type === ModelType.Decisions && !typeSet?.has(ModelType.Decisions)) {
-            return false;
-          }
-          const matchType =
-            !typeSet || typeSet.size === 0 || (model.type !== undefined && typeSet.has(model.type as ModelType));
-          const matchVision = !visionOnly || Boolean(model.vision);
-          return matchType && matchVision;
-        });
+        // Pickers only offer the model types they can use; decision, media,
+        // embedding and rerank models appear only when explicitly requested
+        // (docs/features/decision-models).
+        const filteredModels = enabledProvider.models.filter(
+          (model) => matchesModelTypes(model.type, allowedTypes) && (!visionOnly || Boolean(model.vision)),
+        );
         if (filteredModels.length === 0) return null;
         return {
           id: provider.id,

@@ -1493,6 +1493,7 @@ const ModelsTab = ({
         label="Image generation"
         description="Creates images when asked."
         emptyLabel="App default"
+        modelType={ModelType.ImageGeneration}
         getModelLabel={getModelLabel}
       />
     </div>

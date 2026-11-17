@@ -203,6 +203,8 @@ export const ProviderModelSummarySchema = zod.object({
   supportedEndpointTypes: zod.array(zod.enum(NEW_API_ENDPOINT_TYPES)).optional(),
   endpointType: zod.enum(NEW_API_ENDPOINT_TYPES).optional(),
   ownedBy: zod.string().optional(),
+  isFree: zod.boolean().optional(),
+  createdAt: zod.number().optional(),
 });
 
 export const SessionWithStateSchema = zod.object({

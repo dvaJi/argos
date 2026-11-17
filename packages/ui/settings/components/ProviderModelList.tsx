@@ -11,8 +11,8 @@ import { useModelStore } from "#/stores/modelStore";
 import { useUiSettingsStore } from "#/stores/uiSettingsStore";
 import AddCustomModelButton from "./AddCustomModelButton";
 import { ScrollArea } from "#shadcn/components/ui/scroll-area";
-type ModelSortKey = "status" | "name";
-type ModelCapabilityKey = "vision" | "functionCall" | "reasoning" | "search";
+type ModelSortKey = "newest" | "status" | "name";
+type ModelCapabilityKey = "vision" | "functionCall" | "reasoning" | "search" | "free";
 type FilterToken = {
   kind: "capability" | "type";
   value: string;
@@ -25,14 +25,11 @@ type FacetOption<Value extends string> = {
   icon: string;
   count: number;
 };
-const LABEL_ITEM_HEIGHT = 36;
-const MODEL_ITEM_HEIGHT = 48;
-const PROVIDER_ACTIONS_ITEM_HEIGHT = 56;
 const modelNameCollator = new Intl.Collator(undefined, {
   numeric: true,
   sensitivity: "base",
 });
-const CAPABILITY_ORDER: ModelCapabilityKey[] = ["vision", "functionCall", "reasoning", "search"];
+const CAPABILITY_ORDER: ModelCapabilityKey[] = ["free", "vision", "functionCall", "reasoning", "search"];
 const TYPE_ORDER: ModelType[] = [
   ModelType.Chat,
   ModelType.Embedding,
@@ -47,6 +44,7 @@ const CAPABILITY_ICONS: Record<ModelCapabilityKey, string> = {
   functionCall: "lucide:function-square",
   reasoning: "lucide:brain",
   search: "lucide:globe",
+  free: "lucide:badge-dollar-sign",
 };
 const TYPE_ICONS: Record<ModelType, string> = {
   [ModelType.Chat]: "lucide:messages-square",
@@ -58,6 +56,10 @@ const TYPE_ICONS: Record<ModelType, string> = {
   [ModelType.Decisions]: "lucide:git-branch",
 };
 const SORT_OPTIONS: { value: ModelSortKey; label: string }[] = [
+  {
+    value: "newest",
+    label: "Newest",
+  },
   {
     value: "status",
     label: "Status",
@@ -78,6 +80,8 @@ const hasModelCapability = (model: RENDERER_MODEL_META, capability: ModelCapabil
       return !!model.reasoning;
     case "search":
       return !!model.enableSearch;
+    case "free":
+      return !!model.isFree;
   }
 };
 const getCapabilityLabel = (capability: ModelCapabilityKey) => {
@@ -86,6 +90,7 @@ const getCapabilityLabel = (capability: ModelCapabilityKey) => {
     functionCall: "Function Call",
     reasoning: "Reasoning",
     search: "Search",
+    free: "Free",
   };
   return labels[capability];
 };
@@ -153,6 +158,12 @@ const sortModels = (models: RENDERER_MODEL_META[], filterSort: ModelSortKey, sta
     if (filterSort === "name") {
       return modelNameCollator.compare(left.name, right.name);
     }
+    if (filterSort === "newest") {
+      // Undated models sink below dated ones; ties fall back to name.
+      const dateDifference = (right.createdAt ?? 0) - (left.createdAt ?? 0);
+      if (dateDifference !== 0) return dateDifference;
+      return modelNameCollator.compare(left.name, right.name);
+    }
     const leftRank = statusSortOrder[getModelKey(left)];
     const rightRank = statusSortOrder[getModelKey(right)];
     if (leftRank !== undefined || rightRank !== undefined) {
@@ -185,6 +196,7 @@ const buildFacetCounts = (allModels: RENDERER_MODEL_META[]): ModelFacetCounts =>
       functionCall: 0,
       reasoning: 0,
       search: 0,
+      free: 0,
     } as Record<ModelCapabilityKey, number>,
     types: {} as Partial<Record<ModelType, number>>,
   };
@@ -194,6 +206,7 @@ const buildFacetCounts = (allModels: RENDERER_MODEL_META[]): ModelFacetCounts =>
     if (model.functionCall) counts.capabilities.functionCall += 1;
     if (model.reasoning) counts.capabilities.reasoning += 1;
     if (model.enableSearch) counts.capabilities.search += 1;
+    if (model.isFree) counts.capabilities.free += 1;
     const type = getModelTypeValue(model);
     counts.types[type] = (counts.types[type] ?? 0) + 1;
   }
@@ -462,6 +475,7 @@ function CustomModelsSection({ models, onEnabledChange, onDeleteModel, onConfigC
             explicitFunctionCall={model.explicitFunctionCall}
             reasoning={model.reasoning}
             enableSearch={model.enableSearch}
+            isFree={model.isFree}
             type={model.type ?? ModelType.Chat}
             supportedEndpointTypes={model.supportedEndpointTypes}
             endpointType={model.endpointType}
@@ -496,15 +510,15 @@ function ProviderModelGroup({
 }: ProviderModelGroupProps) {
   return (
     <div key={providerGroup.providerId}>
-      <div className="flex h-9 items-center px-3 text-xs text-muted-foreground">Official</div>
+      <div className="flex h-7 items-center px-3 text-xs text-muted-foreground">Official</div>
       {showBatchActions && (
-        <div className="flex h-14 items-center justify-between gap-3 overflow-hidden px-3 py-2 bg-muted/30">
+        <div className="flex h-10 items-center justify-between gap-3 overflow-hidden px-3 py-1.5 bg-muted/30">
           <div className="min-w-0 flex-1 truncate text-sm font-medium">{providerName}</div>
           <div className="flex shrink-0 gap-2">
             <Button
               variant="outline"
               size="sm"
-              className="h-8 min-w-8 max-w-[9rem] whitespace-nowrap rounded-lg px-2 text-xs text-normal"
+              className="h-7 min-w-7 max-w-[9rem] whitespace-nowrap rounded-lg px-2 text-xs text-normal"
               disabled={pendingAction !== undefined}
               title="Enable all"
               onClick={onEnableAll}
@@ -518,7 +532,7 @@ function ProviderModelGroup({
             <Button
               variant="outline"
               size="sm"
-              className="h-8 min-w-8 max-w-[9rem] whitespace-nowrap rounded-lg px-2 text-xs text-normal"
+              className="h-7 min-w-7 max-w-[9rem] whitespace-nowrap rounded-lg px-2 text-xs text-normal"
               disabled={pendingAction !== undefined}
               title="Disable all"
               onClick={onDisableAll}
@@ -533,7 +547,7 @@ function ProviderModelGroup({
         </div>
       )}
       {providerGroup.models.map((model) => (
-        <div key={model.id} className="h-12 overflow-hidden bg-card">
+        <div key={model.id} className="h-8 overflow-hidden bg-card">
           <ModelConfigItem
             modelName={model.name}
             modelId={model.id}
@@ -545,6 +559,7 @@ function ProviderModelGroup({
             explicitFunctionCall={model.explicitFunctionCall}
             reasoning={model.reasoning}
             enableSearch={model.enableSearch}
+            isFree={model.isFree}
             type={model.type ?? ModelType.Chat}
             supportedEndpointTypes={model.supportedEndpointTypes}
             endpointType={model.endpointType}
@@ -572,7 +587,7 @@ export default function ProviderModelList({
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [filterPopoverOpen, setFilterPopoverOpen] = useState(false);
   const [sortPopoverOpen, setSortPopoverOpen] = useState(false);
-  const [filterSort, setFilterSort] = useState<ModelSortKey>("name");
+  const [filterSort, setFilterSort] = useState<ModelSortKey>("newest");
   const [selectedCapabilities, setSelectedCapabilities] = useState<ModelCapabilityKey[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<ModelType[]>([]);
   const [providerBatchPending, setProviderBatchPending] = useState<Record<string, BatchAction | undefined>>({});
@@ -591,7 +606,7 @@ export default function ProviderModelList({
   const totalModelCount = facetCounts.total;
   const capabilityFilterOptions = buildCapabilityFilterOptions(facetCounts);
   const typeFilterOptions = buildTypeFilterOptions(facetCounts);
-  const currentSortLabel = filterSort === "status" ? "Status" : "Name";
+  const currentSortLabel = SORT_OPTIONS.find((option) => option.value === filterSort)?.label ?? "Name";
   const activeAdvancedFilterCount = selectedCapabilities.length + selectedTypes.length;
   const activeFilterTokens = buildActiveFilterTokens(selectedCapabilities, selectedTypes);
   const hasListRefinements = normalizedSearchQuery.length > 0 || activeAdvancedFilterCount > 0;
