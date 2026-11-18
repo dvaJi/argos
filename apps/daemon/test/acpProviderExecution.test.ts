@@ -20,6 +20,7 @@ describe("AcpProviderExecutionPort", () => {
     const port = new AcpProviderExecutionPort({} as never, {} as never, { publish: vi.fn() } as never, {
       dataDir: "/tmp",
       appVersion: "1.0.0",
+      toolchains: {} as never,
       db: { prepare: vi.fn() },
     });
     (port as any).activeTurns.set("session-1", {
@@ -42,6 +43,7 @@ describe("AcpProviderExecutionPort", () => {
       {
         dataDir: "/tmp",
         appVersion: "1.0.0",
+        toolchains: {} as never,
         db: { prepare: vi.fn() },
       },
     );
@@ -144,6 +146,7 @@ describe("AcpProviderExecutionPort", () => {
       {
         dataDir: "/tmp",
         appVersion: "1.0.0",
+        toolchains: {} as never,
         db: { prepare: vi.fn() },
       },
     );
@@ -192,7 +195,7 @@ describe("AcpProviderExecutionPort", () => {
         costSource: "reported",
       }),
     );
-    const metadata = JSON.parse(finalizeAssistantMessage.mock.calls[0][2]);
+    const metadata = JSON.parse((finalizeAssistantMessage.mock.calls[0] as unknown[])[2] as string);
     expect(metadata.usage).toEqual({ used: 1000, size: 5000, cost: { amount: 0.42, currency: "USD" }, meta: null });
     expect(setMessageError).not.toHaveBeenCalled();
   });
@@ -208,6 +211,7 @@ describe("AcpProviderExecutionPort", () => {
       {
         dataDir: "/tmp",
         appVersion: "1.0.0",
+        toolchains: {} as never,
         db: { prepare: vi.fn() },
       },
     );
@@ -273,7 +277,7 @@ describe("AcpProviderExecutionPort", () => {
       {} as never,
       { getPermissionMode: vi.fn(async () => "full_access") } as never,
       { publish: vi.fn() } as never,
-      { dataDir: "/tmp", appVersion: "1.0.0", db: { prepare: vi.fn() } },
+      { dataDir: "/tmp", appVersion: "1.0.0", toolchains: {} as never, db: { prepare: vi.fn() } },
     );
 
     await expect(
@@ -287,6 +291,7 @@ describe("AcpProviderExecutionPort", () => {
     const port = new AcpProviderExecutionPort({} as never, {} as never, { publish: vi.fn() } as never, {
       dataDir: "/tmp",
       appVersion: "1.0.0",
+      toolchains: {} as never,
       db: { prepare: vi.fn() },
     });
     const runtime = {
@@ -351,7 +356,7 @@ describe("AcpProviderExecutionPort", () => {
       } as never,
       {} as never,
       { publish: vi.fn() } as never,
-      { dataDir: "/tmp", appVersion: "1.0.0", db: { prepare: vi.fn() } },
+      { dataDir: "/tmp", appVersion: "1.0.0", toolchains: {} as never, db: { prepare: vi.fn() } },
     );
     (port as any).runtimePromise = Promise.resolve({ processManager: {}, sessionManager: {}, sessionPersistence: {} });
 
@@ -362,6 +367,7 @@ describe("AcpProviderExecutionPort", () => {
     const port = new AcpProviderExecutionPort({} as never, {} as never, { publish: vi.fn() } as never, {
       dataDir: "/tmp",
       appVersion: "1.0.0",
+      toolchains: {} as never,
       db: { prepare: vi.fn() },
     });
 
@@ -450,7 +456,7 @@ describe("AcpProviderExecutionPort", () => {
       {} as never,
       { getPermissionMode: vi.fn(async () => "default") } as never,
       { publish } as never,
-      { dataDir: "/tmp", appVersion: "1.0.0", db: { prepare: vi.fn() } },
+      { dataDir: "/tmp", appVersion: "1.0.0", toolchains: {} as never, db: { prepare: vi.fn() } },
     );
 
     const pending = (port as any).handlePermissionRequest(
@@ -471,5 +477,54 @@ describe("AcpProviderExecutionPort", () => {
       port.respondToolInteraction("conversation-1", "message-1", "tool-1", { kind: "permission", granted: true }),
     ).resolves.toEqual({ handledInline: true });
     await expect(pending).resolves.toEqual({ outcome: { outcome: "selected", optionId: "allow-once" } });
+  });
+  describe("getAcpSessionConfigOptions", () => {
+    const modelState = {
+      source: "configOptions",
+      options: [{ id: "model", label: "Model", type: "select", currentValue: "deepseek-v4.1-flash", options: [] }],
+    } as any;
+    const emptyState = { source: "legacy", options: [] } as any;
+
+    const createPort = (input: { sessionConfig?: unknown; boundConfig?: unknown }) => {
+      const sessionRepository = { get: vi.fn(async () => null) };
+      const port = new AcpProviderExecutionPort(
+        {} as never,
+        sessionRepository as never,
+        { publish: vi.fn() } as never,
+        {
+          dataDir: "/tmp",
+          appVersion: "1.0.0",
+          toolchains: {} as never,
+          db: { prepare: vi.fn() },
+        },
+      );
+      const session = input.sessionConfig === undefined ? null : { configState: input.sessionConfig };
+      (port as any).runtimePromise = Promise.resolve({
+        sessionManager: { getSession: vi.fn(() => session) },
+        processManager: {
+          getBoundProcess: vi.fn(() => (input.boundConfig === undefined ? null : { configState: input.boundConfig })),
+          getProcessConfigState: vi.fn(() => emptyState),
+        },
+      });
+      return { port, sessionRepository };
+    };
+
+    it("returns the session's own config when it has options", async () => {
+      const { port } = createPort({ sessionConfig: modelState, boundConfig: emptyState });
+      await expect(port.getAcpSessionConfigOptions("conversation-1")).resolves.toBe(modelState);
+    });
+
+    it("falls back to the bound process config when the session's config is empty", async () => {
+      // A resumed draft session can carry an empty config; returning it wiped the composer chips.
+      const { port, sessionRepository } = createPort({ sessionConfig: emptyState, boundConfig: modelState });
+      await expect(port.getAcpSessionConfigOptions("conversation-1")).resolves.toBe(modelState);
+      expect(sessionRepository.get).not.toHaveBeenCalled();
+    });
+
+    it("returns a live session's empty config without spawning a fallback process", async () => {
+      const { port, sessionRepository } = createPort({ sessionConfig: emptyState, boundConfig: emptyState });
+      await expect(port.getAcpSessionConfigOptions("conversation-1")).resolves.toBe(emptyState);
+      expect(sessionRepository.get).not.toHaveBeenCalled();
+    });
   });
 });

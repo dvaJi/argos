@@ -127,7 +127,7 @@ async function openAndCaptureSettingsPage(
   visualState: { dark?: boolean; rtl?: boolean },
 ): Promise<boolean> {
   const tab = page.getByTestId(item.tabTestId);
-  if (item.optional && (await tab.count()) === 0) {
+  if ("optional" in item && item.optional && (await tab.count()) === 0) {
     return false;
   }
 

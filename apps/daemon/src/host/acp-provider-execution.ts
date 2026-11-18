@@ -846,9 +846,28 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
   }
 
   async getAcpSessionConfigOptions(conversationId: string): Promise<AcpConfigState | null> {
+    const hasOptions = (state: AcpConfigState | null | undefined): state is AcpConfigState =>
+      Boolean(state?.options?.length);
+    // The session's own state wins; when it is empty (e.g. a resumed session
+    // whose resume response carried no config), the process bound to this
+    // conversation is the authority — never a freshly warmed, unbound process,
+    // whose initialize-only state is empty and would wipe the composer chips.
+    const readBoundState = async (): Promise<AcpConfigState | null> => {
+      const session = await this.getSessionRecord(conversationId);
+      if (hasOptions(session?.configState)) return session.configState;
+      const runtime = await this.getRuntime();
+      const bound = runtime.processManager.getBoundProcess(conversationId)?.configState;
+      return hasOptions(bound) ? bound : null;
+    };
+
+    const boundState = await readBoundState();
+    if (boundState) {
+      console.log(`[acp] getAcpSessionConfigOptions: in-memory session hit for ${conversationId}`);
+      return boundState;
+    }
     const session = await this.getSessionRecord(conversationId);
     if (session?.configState) {
-      console.log(`[acp] getAcpSessionConfigOptions: in-memory session hit for ${conversationId}`);
+      // Live session, just no options (yet): don't spawn another process.
       return session.configState;
     }
 
@@ -886,7 +905,7 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
         );
       }
 
-      const state = runtime.processManager.getProcessConfigState(agentId, workdir) ?? null;
+      const state = (await readBoundState()) ?? runtime.processManager.getProcessConfigState(agentId, workdir) ?? null;
       console.log(
         `[acp] getAcpSessionConfigOptions: processConfigState=${state ? `${state.options?.length ?? 0} options` : "null"}`,
       );

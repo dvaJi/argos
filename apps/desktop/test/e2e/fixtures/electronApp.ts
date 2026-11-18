@@ -25,10 +25,31 @@ const WINDOWS_PACKAGED_EXECUTABLE = resolve(
 const MAX_MAIN_LOG_ATTACHMENT_BYTES = 512 * 1024;
 const CLEAN_PROFILE_PREFIX = "argos-e2e-";
 
+/** `process.env` values may be undefined; Playwright's launch `env` wants plain strings. */
+const definedEnv = (): Record<string, string> =>
+  Object.fromEntries(Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined));
+
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const isMainAppWindow = async (page: Page): Promise<boolean> => {
   const url = page.url();
+  // The splash window (an inline data: URL) is also titled "Argos" and closes
+  // once the UI is up, so it must never be picked as the main window.
+  if (
+    url.startsWith("data:") ||
+    url.startsWith("chrome-error:") ||
+    url.startsWith("devtools://") ||
+    url.includes("/splash") ||
+    url.includes("/settings")
+  ) {
+    return false;
+  }
+
+  // Windows load UI routes from the local daemon, e.g. http://127.0.0.1:<port>/#/chat.
+  if (url.includes("#/chat")) {
+    return true;
+  }
+
   if (
     url.includes("/renderer/index.html") &&
     !url.includes("/settings/index.html") &&
@@ -217,13 +238,10 @@ export const test = base.extend<ElectronFixtures>({
               args: ["."],
             }),
         cwd: REPO_ROOT,
-        env: cleanProfileDir
-          ? {
-              ...process.env,
-              APPDATA: cleanProfileDir,
-              LOCALAPPDATA: cleanProfileDir,
-            }
-          : process.env,
+        env: {
+          ...definedEnv(),
+          ...(cleanProfileDir ? { APPDATA: cleanProfileDir, LOCALAPPDATA: cleanProfileDir } : {}),
+        },
         timeout: 120_000,
       });
 

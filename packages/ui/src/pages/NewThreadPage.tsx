@@ -518,23 +518,33 @@ function useAcpDraftSession(input: {
   const lastAcpDraftKeyRef = useRef<string | null>(null);
   const acpDraftRequestSeqRef = useRef(0);
   const cancelEnsureDraftTaskRef = useRef<(() => void) | null>(null);
-  const ensureAcpDraftSession = async (agentId: string, projectPath: string) => {
-    const projectDir = projectPath.trim();
-    if (!projectDir) return;
-    const draftKey = `${agentId}::${projectDir}`;
-    if (lastAcpDraftKeyRef.current === draftKey && acpDraftSessionId) return;
-    const requestSeq = ++acpDraftRequestSeqRef.current;
+  // Key of the draft request that is scheduled or in flight. Re-renders for the
+  // same agent+project must not cancel it: ensuring a draft spawns the agent
+  // process (seconds for npx agents), and any render in between used to bump the
+  // request seq and silently discard the result, so the chips never appeared.
+  const pendingAcpDraftKeyRef = useRef<string | null>(null);
+  // Latest submission target, read after the await (closure values are stale).
+  const currentTargetRef = useRef({ agentId: currentAgentId, projectDir: currentProjectDir, permissionMode });
+  useEffect(() => {
+    currentTargetRef.current = { agentId: currentAgentId, projectDir: currentProjectDir, permissionMode };
+  }, [currentAgentId, currentProjectDir, permissionMode]);
+  const ensureAcpDraftSession = async (agentId: string, projectDir: string, draftKey: string, requestSeq: number) => {
+    const settle = () => {
+      if (pendingAcpDraftKeyRef.current === draftKey) pendingAcpDraftKeyRef.current = null;
+    };
     try {
       const session = await sessionClient.ensureAcpDraftSession({
         agentId,
         projectDir,
-        permissionMode,
+        permissionMode: currentTargetRef.current.permissionMode,
       });
       if (requestSeq !== acpDraftRequestSeqRef.current) return;
+      settle();
       // Compare against the *submission* agent (selected or effective fallback),
       // not `selectedAgentId` — in the welcome state there is no explicit
       // selection yet but the draft still targets the effective agent.
-      if (currentAgentId !== agentId || currentProjectDir !== projectDir) return;
+      const target = currentTargetRef.current;
+      if (target.agentId !== agentId || target.projectDir !== projectDir) return;
       const sessionId = typeof session?.id === "string" ? session.id.trim() : "";
       if (!sessionId) {
         setAcpDraftSessionId(null);
@@ -560,44 +570,52 @@ function useAcpDraftSession(input: {
       lastAcpDraftKeyRef.current = draftKey;
     } catch (error) {
       if (requestSeq !== acpDraftRequestSeqRef.current) return;
+      settle();
       console.warn("[NewThreadPage] Failed to ensure ACP draft session:", error);
       setAcpDraftSessionId(null);
       setAcpDraftModelSelection(null);
       lastAcpDraftKeyRef.current = null;
     }
   };
+  const ensureAcpDraftSessionRef = useRef(ensureAcpDraftSession);
+  // Declared before the scheduling effect below so it always sees the latest closure.
+  useEffect(() => {
+    ensureAcpDraftSessionRef.current = ensureAcpDraftSession;
+  });
   useEffect(() => {
     void Promise.resolve().then(() => {
       if (!isAcpSelectedAgent || !selectedProjectPath || selectedProjectDirectoryStatus !== "valid") {
+        if (pendingAcpDraftKeyRef.current) {
+          acpDraftRequestSeqRef.current += 1;
+          cancelEnsureDraftTaskRef.current?.();
+          cancelEnsureDraftTaskRef.current = null;
+          pendingAcpDraftKeyRef.current = null;
+        }
         setAcpDraftSessionId(null);
         setAcpDraftModelSelection(null);
         lastAcpDraftKeyRef.current = null;
         return;
       }
       const agentId = selectedAgentId;
-      const projectPath = selectedProjectPath;
-      const draftKey = `${agentId}::${projectPath}`;
+      const projectDir = selectedProjectPath.trim();
+      const draftKey = `${agentId}::${projectDir}`;
       if (lastAcpDraftKeyRef.current === draftKey && acpDraftSessionId) return;
-      acpDraftRequestSeqRef.current += 1;
+      // Same target already scheduled / in flight: let it finish.
+      if (pendingAcpDraftKeyRef.current === draftKey) return;
+      const requestSeq = ++acpDraftRequestSeqRef.current;
       cancelEnsureDraftTaskRef.current?.();
       cancelEnsureDraftTaskRef.current = null;
+      pendingAcpDraftKeyRef.current = draftKey;
       if (lastAcpDraftKeyRef.current !== draftKey) {
         setAcpDraftSessionId(null);
         setAcpDraftModelSelection(null);
         lastAcpDraftKeyRef.current = null;
       }
       cancelEnsureDraftTaskRef.current = scheduleStartupDeferredTask(async () => {
-        await ensureAcpDraftSession(agentId, projectPath);
+        await ensureAcpDraftSessionRef.current(agentId, projectDir, draftKey, requestSeq);
       });
     });
-  }, [
-    selectedAgentId,
-    selectedProjectPath,
-    selectedProjectDirectoryStatus,
-    isAcpSelectedAgent,
-    acpDraftSessionId,
-    ensureAcpDraftSession,
-  ]);
+  }, [selectedAgentId, selectedProjectPath, selectedProjectDirectoryStatus, isAcpSelectedAgent, acpDraftSessionId]);
   useEffect(() => {
     return () => {
       cancelEnsureDraftTaskRef.current?.();
