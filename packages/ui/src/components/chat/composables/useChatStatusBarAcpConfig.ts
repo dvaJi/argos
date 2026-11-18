@@ -2,7 +2,9 @@ import { useState, useEffect, useRef } from "react";
 import type { ProviderClient } from "#api/ProviderClient";
 import type { SessionClient } from "#api/SessionClient";
 import type { AcpConfigOption, AcpConfigState } from "@argos/shared/presenter";
-const ACP_INLINE_OPTION_LIMIT = 3;
+import { sortAcpOptions } from "../acpOptionKind";
+// Model, reasoning, permission/mode and collaboration all fit inline; extras overflow.
+const ACP_INLINE_OPTION_LIMIT = 4;
 type UseChatStatusBarAcpConfigOptions = {
   isAcpAgent: boolean;
   activeAcpAgentId: string | null;
@@ -138,9 +140,12 @@ export function useChatStatusBarAcpConfig(options: UseChatStatusBarAcpConfigOpti
     }
     return !isAcpSessionConfigLoaded;
   })();
-  const acpInlineOptions = acpConfigOptions
-    .filter((option) => option.type === "select")
-    .slice(0, ACP_INLINE_OPTION_LIMIT);
+  // Sorted before the inline cut so the primary controls (model first) are
+  // never pushed into the overflow popover by agent-reported order.
+  const acpInlineOptions = sortAcpOptions(acpConfigOptions.filter((option) => option.type === "select")).slice(
+    0,
+    ACP_INLINE_OPTION_LIMIT,
+  );
   const acpOverflowOptions = (() => {
     const inlineIds = new Set(acpInlineOptions.map((option) => option.id));
     return acpConfigOptions.filter((option) => !inlineIds.has(option.id));

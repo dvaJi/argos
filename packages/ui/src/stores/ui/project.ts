@@ -264,9 +264,11 @@ export function useProjectStore() {
 }
 
 /**
- * Save the current project selection for the outgoing agent, then restore the
- * stored project (or clear it) for the incoming agent. This gives each agent
- * tab its own project context instead of sharing a single global selection.
+ * Save the current project selection for the outgoing agent, then pick the
+ * project for the incoming agent. A project the user chose stays selected
+ * across agent switches (switching agents must not drop the working
+ * project); the incoming agent's remembered project only fills in when the
+ * current selection is empty or came from a default.
  */
 export function swapProjectForAgent(nextAgentId: string, prevAgentId: string | null): void {
   if (nextAgentId === prevAgentId) return;
@@ -278,11 +280,20 @@ export function swapProjectForAgent(nextAgentId: string, prevAgentId: string | n
       updatedByAgent[prevAgentId] = prev.selectedProjectPath;
     }
 
-    const restored = updatedByAgent[nextAgentId] ?? null;
+    const keepCurrent = Boolean(prev.selectedProjectPath) && prev.selectionSource === "manual";
+    const remembered = updatedByAgent[nextAgentId] ?? null;
+    const nextPath = keepCurrent ? prev.selectedProjectPath : (remembered ?? prev.selectedProjectPath ?? null);
+    const nextSource: ProjectSelectionSource = keepCurrent
+      ? prev.selectionSource
+      : remembered
+        ? "manual"
+        : nextPath
+          ? prev.selectionSource
+          : "none";
     const merged = {
       ...prev,
-      selectedProjectPath: restored,
-      selectionSource: (restored ? "manual" : "none") as ProjectSelectionSource,
+      selectedProjectPath: nextPath,
+      selectionSource: nextSource,
     };
     return { ...merged, projectByAgentId: updatedByAgent, projects: reconcileProjects(merged, prev.projects) };
   });

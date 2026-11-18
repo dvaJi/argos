@@ -255,11 +255,11 @@ const ChatStatusBar = ({
     return selectedAgentType === "acp";
   })();
 
-  // When the composer footer bar owns the ACP chips (active session on the
-  // chat page), the status bar renders none of them and skips its own
-  // config-option sync — the footer's AcpComposerControls is the single
-  // owner. Pre-session ACP keeps its status-bar surfaces, so the sync runs.
-  const footerOwnsAcpControls = composerFooterActive && hasActiveSession && isAcpAgent;
+  // When the composer footer bar is rendered it owns the ACP chips (active
+  // and pre-session), and the agent identity lives in AgentSwitcher — the
+  // status bar renders nothing and skips its own config-option sync so the
+  // footer's AcpComposerControls is the single owner.
+  const footerOwnsAcpControls = composerFooterActive && isAcpAgent;
   const acpView = resolveAcpViewContext({
     hasActiveSession,
     activeSession,
@@ -289,19 +289,16 @@ const ChatStatusBar = ({
     acp.acpAgentLabel,
   );
   useAcpConfigOptionsSync({
-    isAcpAgent,
+    isAcpAgent: isAcpAgent && !footerOwnsAcpControls,
     activeAcpSessionId: acpView.activeAcpSessionId ?? null,
     sessionClient,
     syncAcpConfigOptions: acp.syncAcpConfigOptions,
     handleAcpConfigOptionsReady: acp.handleAcpConfigOptionsReady,
   });
 
-  // This bar only has content for pre-session ACP surfaces (agent badge,
-  // inline config chips, advanced popover). Active ACP sessions are owned by
-  // the composer footer, and argos sessions own everything in the footer too
-  // (model/effort/mode pickers, tools & MCP popover) — rendering the row for
-  // those would just be an empty strip.
-  if (footerOwnsAcpControls || (composerFooterActive && !isAcpAgent)) {
+  // With the composer footer active, ACP and argos controls both live in the
+  // footer — rendering the row would duplicate them or leave an empty strip.
+  if (composerFooterActive) {
     return null;
   }
   return (
