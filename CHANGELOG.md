@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.8.0 (2026-11-18)
+
+### Composer and model picker
+- One ACP control surface: the duplicated agent list and the bogus Codex label are gone from the model picker; ACP model / reasoning / permission / collaboration chips now show in the composer footer before a session starts
+- New ACP option picker with All / Favorites / lab filters, search, and per-agent favorites; selects are ordered model → reasoning → permission/mode → collaboration
+- Picking a model keeps the picker open, and a bottom dock exposes reasoning-effort tabs plus the access (permission) toggle; provider pills scope the list and effort/permission state stays in sync with the footer chips
+- Fixed model/effort chips never appearing for slow-starting npx-launched ACP agents (e.g. Command Code) before the first message, including after a session resume
+- Manually selected projects are kept when switching ACP agents
+
+### Models and providers
+- Fixed model catalogs silently going stale: the provider DB size guard rejected every upstream refresh since July; catalog-backed providers (DeepSeek, ...) now read models live, and stored remote lists auto re-fetch when empty, older than 24h, or on an older schema (15s timeout with retry back-off)
+- OpenRouter catalogs include all output modalities with vision/tools/reasoning mapping, model types (decisions, embedding, rerank, image, video, tts), free flag and creation date
+- Model list: compact rows, Free filter and badge, Newest sort by default; pickers default to chat models, the image-generation picker offers image models, and connection checks prefer chat models
+- Default providers synced with DeepChat, with icons for the new ones
+- Command Code added as a built-in ACP agent, with its brand icon
+
+### Dev
+- `bun run e2e:demo` records a scripted product demo (agent → project → model → prompt) with a visible fake cursor; `bun run demo:render` trims and exports MP4/GIF
+- e2e fixture no longer picks the splash window as the main window
+
 ## v0.7.0 (2026-11-15)
 
 ### Thread sidebar, archive, and projects
