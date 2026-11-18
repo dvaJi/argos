@@ -20,6 +20,7 @@ describe("AcpProviderExecutionPort", () => {
     const port = new AcpProviderExecutionPort({} as never, {} as never, { publish: vi.fn() } as never, {
       dataDir: "/tmp",
       appVersion: "1.0.0",
+      toolchains: {} as never,
       db: { prepare: vi.fn() },
     });
     (port as any).activeTurns.set("session-1", {
@@ -42,6 +43,7 @@ describe("AcpProviderExecutionPort", () => {
       {
         dataDir: "/tmp",
         appVersion: "1.0.0",
+        toolchains: {} as never,
         db: { prepare: vi.fn() },
       },
     );
@@ -144,6 +146,7 @@ describe("AcpProviderExecutionPort", () => {
       {
         dataDir: "/tmp",
         appVersion: "1.0.0",
+        toolchains: {} as never,
         db: { prepare: vi.fn() },
       },
     );
@@ -192,7 +195,7 @@ describe("AcpProviderExecutionPort", () => {
         costSource: "reported",
       }),
     );
-    const metadata = JSON.parse(finalizeAssistantMessage.mock.calls[0][2]);
+    const metadata = JSON.parse((finalizeAssistantMessage.mock.calls[0] as unknown[])[2] as string);
     expect(metadata.usage).toEqual({ used: 1000, size: 5000, cost: { amount: 0.42, currency: "USD" }, meta: null });
     expect(setMessageError).not.toHaveBeenCalled();
   });
@@ -208,6 +211,7 @@ describe("AcpProviderExecutionPort", () => {
       {
         dataDir: "/tmp",
         appVersion: "1.0.0",
+        toolchains: {} as never,
         db: { prepare: vi.fn() },
       },
     );
@@ -273,7 +277,7 @@ describe("AcpProviderExecutionPort", () => {
       {} as never,
       { getPermissionMode: vi.fn(async () => "full_access") } as never,
       { publish: vi.fn() } as never,
-      { dataDir: "/tmp", appVersion: "1.0.0", db: { prepare: vi.fn() } },
+      { dataDir: "/tmp", appVersion: "1.0.0", toolchains: {} as never, db: { prepare: vi.fn() } },
     );
 
     await expect(
@@ -287,6 +291,7 @@ describe("AcpProviderExecutionPort", () => {
     const port = new AcpProviderExecutionPort({} as never, {} as never, { publish: vi.fn() } as never, {
       dataDir: "/tmp",
       appVersion: "1.0.0",
+      toolchains: {} as never,
       db: { prepare: vi.fn() },
     });
     const runtime = {
@@ -351,7 +356,7 @@ describe("AcpProviderExecutionPort", () => {
       } as never,
       {} as never,
       { publish: vi.fn() } as never,
-      { dataDir: "/tmp", appVersion: "1.0.0", db: { prepare: vi.fn() } },
+      { dataDir: "/tmp", appVersion: "1.0.0", toolchains: {} as never, db: { prepare: vi.fn() } },
     );
     (port as any).runtimePromise = Promise.resolve({ processManager: {}, sessionManager: {}, sessionPersistence: {} });
 
@@ -362,6 +367,7 @@ describe("AcpProviderExecutionPort", () => {
     const port = new AcpProviderExecutionPort({} as never, {} as never, { publish: vi.fn() } as never, {
       dataDir: "/tmp",
       appVersion: "1.0.0",
+      toolchains: {} as never,
       db: { prepare: vi.fn() },
     });
 
@@ -450,7 +456,7 @@ describe("AcpProviderExecutionPort", () => {
       {} as never,
       { getPermissionMode: vi.fn(async () => "default") } as never,
       { publish } as never,
-      { dataDir: "/tmp", appVersion: "1.0.0", db: { prepare: vi.fn() } },
+      { dataDir: "/tmp", appVersion: "1.0.0", toolchains: {} as never, db: { prepare: vi.fn() } },
     );
 
     const pending = (port as any).handlePermissionRequest(
@@ -488,6 +494,7 @@ describe("AcpProviderExecutionPort", () => {
         {
           dataDir: "/tmp",
           appVersion: "1.0.0",
+          toolchains: {} as never,
           db: { prepare: vi.fn() },
         },
       );

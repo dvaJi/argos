@@ -25,6 +25,10 @@ const WINDOWS_PACKAGED_EXECUTABLE = resolve(
 const MAX_MAIN_LOG_ATTACHMENT_BYTES = 512 * 1024;
 const CLEAN_PROFILE_PREFIX = "argos-e2e-";
 
+/** `process.env` values may be undefined; Playwright's launch `env` wants plain strings. */
+const definedEnv = (): Record<string, string> =>
+  Object.fromEntries(Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined));
+
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const isMainAppWindow = async (page: Page): Promise<boolean> => {
@@ -234,13 +238,10 @@ export const test = base.extend<ElectronFixtures>({
               args: ["."],
             }),
         cwd: REPO_ROOT,
-        env: cleanProfileDir
-          ? {
-              ...process.env,
-              APPDATA: cleanProfileDir,
-              LOCALAPPDATA: cleanProfileDir,
-            }
-          : process.env,
+        env: {
+          ...definedEnv(),
+          ...(cleanProfileDir ? { APPDATA: cleanProfileDir, LOCALAPPDATA: cleanProfileDir } : {}),
+        },
         timeout: 120_000,
       });
 
