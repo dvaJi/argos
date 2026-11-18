@@ -472,4 +472,52 @@ describe("AcpProviderExecutionPort", () => {
     ).resolves.toEqual({ handledInline: true });
     await expect(pending).resolves.toEqual({ outcome: { outcome: "selected", optionId: "allow-once" } });
   });
+  describe("getAcpSessionConfigOptions", () => {
+    const modelState = {
+      source: "configOptions",
+      options: [{ id: "model", label: "Model", type: "select", currentValue: "deepseek-v4.1-flash", options: [] }],
+    } as any;
+    const emptyState = { source: "legacy", options: [] } as any;
+
+    const createPort = (input: { sessionConfig?: unknown; boundConfig?: unknown }) => {
+      const sessionRepository = { get: vi.fn(async () => null) };
+      const port = new AcpProviderExecutionPort(
+        {} as never,
+        sessionRepository as never,
+        { publish: vi.fn() } as never,
+        {
+          dataDir: "/tmp",
+          appVersion: "1.0.0",
+          db: { prepare: vi.fn() },
+        },
+      );
+      const session = input.sessionConfig === undefined ? null : { configState: input.sessionConfig };
+      (port as any).runtimePromise = Promise.resolve({
+        sessionManager: { getSession: vi.fn(() => session) },
+        processManager: {
+          getBoundProcess: vi.fn(() => (input.boundConfig === undefined ? null : { configState: input.boundConfig })),
+          getProcessConfigState: vi.fn(() => emptyState),
+        },
+      });
+      return { port, sessionRepository };
+    };
+
+    it("returns the session's own config when it has options", async () => {
+      const { port } = createPort({ sessionConfig: modelState, boundConfig: emptyState });
+      await expect(port.getAcpSessionConfigOptions("conversation-1")).resolves.toBe(modelState);
+    });
+
+    it("falls back to the bound process config when the session's config is empty", async () => {
+      // A resumed draft session can carry an empty config; returning it wiped the composer chips.
+      const { port, sessionRepository } = createPort({ sessionConfig: emptyState, boundConfig: modelState });
+      await expect(port.getAcpSessionConfigOptions("conversation-1")).resolves.toBe(modelState);
+      expect(sessionRepository.get).not.toHaveBeenCalled();
+    });
+
+    it("returns a live session's empty config without spawning a fallback process", async () => {
+      const { port, sessionRepository } = createPort({ sessionConfig: emptyState, boundConfig: emptyState });
+      await expect(port.getAcpSessionConfigOptions("conversation-1")).resolves.toBe(emptyState);
+      expect(sessionRepository.get).not.toHaveBeenCalled();
+    });
+  });
 });
