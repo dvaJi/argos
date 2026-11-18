@@ -29,6 +29,23 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const isMainAppWindow = async (page: Page): Promise<boolean> => {
   const url = page.url();
+  // The splash window (an inline data: URL) is also titled "Argos" and closes
+  // once the UI is up, so it must never be picked as the main window.
+  if (
+    url.startsWith("data:") ||
+    url.startsWith("chrome-error:") ||
+    url.startsWith("devtools://") ||
+    url.includes("/splash") ||
+    url.includes("/settings")
+  ) {
+    return false;
+  }
+
+  // Windows load UI routes from the local daemon, e.g. http://127.0.0.1:<port>/#/chat.
+  if (url.includes("#/chat")) {
+    return true;
+  }
+
   if (
     url.includes("/renderer/index.html") &&
     !url.includes("/settings/index.html") &&
