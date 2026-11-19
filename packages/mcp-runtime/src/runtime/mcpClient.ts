@@ -34,6 +34,7 @@ const MCP_EVENTS = {
   CLIENT_LIST_UPDATED: "mcp:client-list-updated",
   SERVER_STATUS_CHANGED: "mcp:server-status-changed",
   TOOL_CALL_RESULT: "mcp:tool-call-result",
+  TOOL_CALL_PROGRESS: "mcp:tool-call-progress",
   SAMPLING_REQUEST: "mcp:sampling-request",
 } as const;
 
@@ -1215,9 +1216,20 @@ export class McpClient {
       } else if (message.type === "error") {
         const rawError = message.error as { message?: string; code?: number } | undefined;
         finalError = new Error(rawError?.message || "Task failed");
+      } else {
+        // 'taskCreated' / 'taskStatus': surface long-running tool progress on
+        // the events bus so hosts can show per-call progress in the UI.
+        const task = (message as { task?: { taskId?: unknown; status?: unknown; statusMessage?: unknown } }).task;
+        if (task && typeof task === "object") {
+          this.ports.events.broadcast(MCP_EVENTS.TOOL_CALL_PROGRESS, {
+            serverName: this.serverName,
+            toolName,
+            taskId: typeof task.taskId === "string" ? task.taskId : null,
+            status: typeof task.status === "string" ? task.status : null,
+            statusMessage: typeof task.statusMessage === "string" ? task.statusMessage : null,
+          });
+        }
       }
-      // 'taskCreated' / 'taskStatus' messages: long-running tool progress.
-      // Surfacing them as UI progress is a follow-up.
     }
     if (finalError) {
       throw finalError;

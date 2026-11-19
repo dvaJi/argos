@@ -879,6 +879,46 @@ describe("McpClient Runtime Command Processing Tests", () => {
       expect(result).toEqual({ content: [{ type: "text", text: "Task finished" }], isError: false });
     });
 
+    it("broadcasts task progress events for taskCreated/taskStatus messages", async () => {
+      const client = new McpClient("long-runner", { type: "stdio" }, testPorts);
+      await client.connect().catch(() => undefined);
+
+      const broadcasts: Array<{ channel: string; payload: Record<string, unknown> }> = [];
+      const ports = (client as any).ports;
+      const originalBroadcast = ports.events.broadcast;
+      ports.events.broadcast = (channel: string, payload: unknown) => {
+        broadcasts.push({ channel, payload: payload as Record<string, unknown> });
+        originalBroadcast(channel, payload);
+      };
+
+      (client as any).client = {
+        experimental: {
+          tasks: {
+            callToolStream: async function* () {
+              yield { type: "taskCreated", task: { taskId: "t9", status: "working", statusMessage: "Starting deploy" } };
+              yield { type: "taskStatus", task: { taskId: "t9", status: "running" } };
+              yield { type: "result", result: { content: [{ type: "text", text: "done" }], isError: false } };
+            },
+          },
+        },
+      };
+      (client as any).isConnected = true;
+
+      const result = await client.callTool("deploy", {});
+
+      expect(result).toEqual({ content: [{ type: "text", text: "done" }], isError: false });
+      const progressEvents = broadcasts.filter((b) => b.channel === "mcp:tool-call-progress");
+      expect(progressEvents).toHaveLength(2);
+      expect(progressEvents[0].payload).toMatchObject({
+        serverName: "long-runner",
+        toolName: "deploy",
+        taskId: "t9",
+        status: "working",
+        statusMessage: "Starting deploy",
+      });
+      expect(progressEvents[1].payload.status).toBe("running");
+    });
+
     it("throws the stream error when a task ends in failure", async () => {
       const client = new McpClient("long-runner", { type: "stdio" }, testPorts);
       await client.connect().catch(() => undefined);
