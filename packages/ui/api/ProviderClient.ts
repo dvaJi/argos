@@ -1,6 +1,8 @@
 import type { ArgosBridge } from "@argos/shared-contracts/bridge";
 import {
   acpAuthChangedEvent,
+  acpAuthElicitationEvent,
+  acpAuthElicitationResolvedEvent,
   acpAuthRequiredEvent,
   providersChangedEvent,
   providersOllamaPullProgressEvent,
@@ -9,6 +11,7 @@ import {
   providersAddRoute,
   providersGetAcpAgentDiagnosticsRoute,
   providersStartAcpAuthRoute,
+  providersRespondAcpAuthElicitationRoute,
   providersWriteAcpAuthInputRoute,
   providersCancelAcpAuthRoute,
   providersGetAcpProcessConfigOptionsRoute,
@@ -262,6 +265,37 @@ export function createProviderClient(bridge: ArgosBridge = getArgosBridge()) {
     return bridge.on(acpAuthChangedEvent.name, listener);
   }
 
+  /** Raised when an auth/config-phase ACP elicitation needs the user's input. */
+  function onAcpAuthElicitation(
+    listener: (payload: {
+      requestId: string;
+      agentId: string;
+      workdir?: string | null;
+      mode: string;
+      message: string;
+      requestedSchema?: unknown;
+      url?: string | null;
+      elicitationId?: string | null;
+      toolCallId?: string | null;
+    }) => void,
+  ) {
+    return bridge.on(acpAuthElicitationEvent.name, listener);
+  }
+
+  /** Raised when a pending auth elicitation was answered or cancelled. */
+  function onAcpAuthElicitationResolved(listener: (payload: { requestId: string }) => void) {
+    return bridge.on(acpAuthElicitationResolvedEvent.name, listener);
+  }
+
+  /** Answer a pending auth-phase elicitation. */
+  async function respondAcpAuthElicitation(input: {
+    requestId: string;
+    action: "accept" | "decline" | "cancel";
+    content?: Record<string, string | number | boolean | string[]>;
+  }) {
+    return await bridge.invoke(providersRespondAcpAuthElicitationRoute.name, input);
+  }
+
   /** Raised when a normal-flow ACP call fails with `auth_required`. */
   function onAcpAuthRequired(
     listener: (payload: {
@@ -298,6 +332,9 @@ export function createProviderClient(bridge: ArgosBridge = getArgosBridge()) {
     writeAcpAuthInput,
     cancelAcpAuth,
     onAcpAuthChanged,
+    onAcpAuthElicitation,
+    onAcpAuthElicitationResolved,
+    respondAcpAuthElicitation,
     onAcpAuthRequired,
     getKeyStatus,
     refreshProviderDb,

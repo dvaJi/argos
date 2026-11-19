@@ -15,6 +15,7 @@ import type {
 import { ErrorBoundary } from "#/components/ErrorBoundary";
 import SettledBanner from "#/components/threads/SettledBanner";
 import AcpAuthBanner from "#/components/chat/AcpAuthBanner";
+import AcpAuthElicitationCard from "#/components/chat/AcpAuthElicitationCard";
 import AgentProgressFloat from "#/components/chat/AgentProgressFloat";
 import PendingInputLane from "#/components/chat/PendingInputLane";
 import ChatStatusBar from "#/components/chat/ChatStatusBar";
@@ -1619,6 +1620,7 @@ function ChatComposerDock(input: {
             {!activePendingInteraction && (
               <div ref={heroHostRef} className="mx-auto flex w-full max-w-4xl flex-col">
                 <AcpAuthBanner sessionId={sessionId} />
+                <AcpAuthElicitationCard />
                 <SettledBanner sessionId={sessionId} />
                 <AcpCursorForkMenu sessionId={sessionId} />
                 {promptSuggestions.length > 0 && !isGenerating && (
