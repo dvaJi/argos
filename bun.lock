@@ -28,12 +28,12 @@
     },
     "apps/daemon": {
       "name": "@argos/daemon",
-      "version": "0.7.0",
+      "version": "0.8.0",
       "bin": {
         "argos-daemon": "./src/index.ts",
       },
       "dependencies": {
-        "@agentclientprotocol/sdk": "^2.5.0",
+        "@agentclientprotocol/sdk": "^2.8.0",
         "@argos/acp-runtime": "workspace:*",
         "@argos/agent-runtime": "workspace:*",
         "@argos/backend-core": "workspace:*",
@@ -64,7 +64,7 @@
     },
     "apps/desktop": {
       "name": "@argos/desktop",
-      "version": "0.7.0",
+      "version": "0.8.0",
       "dependencies": {
         "@ai-sdk/amazon-bedrock": "catalog:",
         "@ai-sdk/anthropic": "catalog:",
@@ -116,7 +116,7 @@
         "xml2js": "^0.6.2",
       },
       "devDependencies": {
-        "@agentclientprotocol/sdk": "^2.5.0",
+        "@agentclientprotocol/sdk": "^2.8.0",
         "@electron-toolkit/tsconfig": "^2.0.0",
         "@playwright/test": "catalog:",
         "@types/node": "catalog:",
@@ -165,7 +165,7 @@
       "name": "@argos/acp-runtime",
       "version": "0.1.0",
       "dependencies": {
-        "@agentclientprotocol/sdk": "^2.5.0",
+        "@agentclientprotocol/sdk": "^2.8.0",
         "@argos/backend-core": "workspace:*",
         "@argos/shared": "workspace:*",
         "@argos/shared-contracts": "workspace:*",
@@ -502,7 +502,7 @@
     "zod": "^4.5.4",
   },
   "packages": {
-    "@agentclientprotocol/sdk": ["@agentclientprotocol/sdk@2.5.0", "", { "peerDependencies": { "@modelcontextprotocol/server": "^2.4.0", "zod": "^3.25.76 || ^4.0.0" }, "optionalPeers": ["@modelcontextprotocol/server"] }, "sha512-MFlXeIuwN6nZSK45SAsSnVjbLgQ2r4fnthoF1lQoGJP3PdaPRpOZeCF2Dds8S4cN8yZP5QbxB1bkJccGskmcYw=="],
+    "@agentclientprotocol/sdk": ["@agentclientprotocol/sdk@2.8.0", "", { "peerDependencies": { "@modelcontextprotocol/server": "^2.4.0", "zod": "^3.25.76 || ^4.0.0" }, "optionalPeers": ["@modelcontextprotocol/server"] }, "sha512-EjsvoRX8nEH2z3PAVI2ILsVXAefVcSlLPeXGjlQoFgkJE71F2J0Fj7N6oL/k7SnP0vY+9hmONPFz/K2zalnTiw=="],
 
     "@ai-sdk/amazon-bedrock": ["@ai-sdk/amazon-bedrock@5.0.135", "", { "dependencies": { "@ai-sdk/anthropic": "4.0.99", "@ai-sdk/openai": "4.0.111", "@ai-sdk/provider": "4.0.37", "@ai-sdk/provider-utils": "5.0.76", "@smithy/eventstream-codec": "^4.3.3", "@smithy/util-utf8": "^4.3.3", "aws4fetch": "^1.0.20" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-3iP20eXI5JaWJZCV/dKMBsAbhTtz+6rHpkm2KP6OF5tQqgpQkI/UldOpCmGDEUJuyAIHy40fA3RJEEdtUvqCrg=="],
 
