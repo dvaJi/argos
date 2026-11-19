@@ -6,6 +6,7 @@ import { ScrollArea } from "#shadcn/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "#shadcn/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#shadcn/components/ui/select";
 import { useMcpStore } from "#/stores/mcp";
+import { createMcpClient } from "#api/McpClient";
 import McpJsonViewer from "./McpJsonViewer";
 import type { ResourceListEntry } from "@argos/shared/presenter";
 interface McpResourceViewerProps {
@@ -36,9 +37,28 @@ const McpResourceViewer: FC<McpResourceViewerProps> = ({ serverName, open, onOpe
   const [selectedResource, setSelectedResource] = useState("");
   const [resourceContent, setResourceContent] = useState("");
   const [resourceLoading, setResourceLoading] = useState(false);
+  const [resourceTemplates, setResourceTemplates] = useState<
+    Array<{ uriTemplate: string; name?: string; description?: string; mimeType?: string }>
+  >([]);
   const serverResources = serverName
     ? mcpStore.resources.filter((resource) => resource.client.name === serverName)
     : mcpStore.resources;
+
+  useEffect(() => {
+    if (!open || !serverName) return;
+    let cancelled = false;
+    createMcpClient()
+      .getAllResourceTemplates()
+      .then((all) => {
+        if (!cancelled) setResourceTemplates(all.filter((t) => t.client?.name === serverName));
+      })
+      .catch(() => {
+        if (!cancelled) setResourceTemplates([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, serverName]);
 
   // Reset the resource form when the dialog opens or the selection changes
   // (adjusted during render so the React Compiler can track it).
@@ -126,12 +146,38 @@ const McpResourceViewer: FC<McpResourceViewerProps> = ({ serverName, open, onOpe
                     <Icon icon="lucide:loader" className="h-6 w-6 animate-spin text-muted-foreground" />
                   </div>
                 )}
-                {!mcpStore.toolsLoading && serverResources.length === 0 && (
+                {!mcpStore.toolsLoading && serverResources.length === 0 && resourceTemplates.length === 0 && (
                   <div className="text-center py-8">
                     <div className="mx-auto w-12 h-12 bg-muted/30 rounded-full flex items-center justify-center mb-3">
                       <Icon icon="lucide:folder" className="h-5 w-5 text-muted-foreground" />
                     </div>
                     <p className="text-sm text-muted-foreground">No resources available</p>
+                  </div>
+                )}
+                {resourceTemplates.length > 0 && (
+                  <div className="px-2 pt-2">
+                    <div className="px-1 pb-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+                      Resource templates
+                    </div>
+                    {resourceTemplates.map((template) => (
+                      <div
+                        key={template.uriTemplate}
+                        className="rounded-md border border-dashed border-border/60 bg-muted/20 px-2.5 py-2 mb-1"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Icon icon="lucide:braces" className="size-3.5 shrink-0 text-muted-foreground" />
+                          <div className="min-w-0">
+                            <div className="truncate text-xs font-medium">{template.name ?? template.uriTemplate}</div>
+                            {template.description && (
+                              <div className="truncate text-[11px] text-muted-foreground">{template.description}</div>
+                            )}
+                          </div>
+                        </div>
+                        <code className="mt-1 block truncate text-[10px] text-muted-foreground">
+                          {template.uriTemplate}
+                        </code>
+                      </div>
+                    ))}
                   </div>
                 )}
                 {!mcpStore.toolsLoading && serverResources.length > 0 && (
