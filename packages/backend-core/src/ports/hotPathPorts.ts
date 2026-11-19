@@ -73,6 +73,11 @@ export interface ProviderExecutionPort {
   pushAcpSessionTitle?(conversationId: string, title: string): Promise<void>;
   archiveAcpSession?(conversationId: string, archived: boolean): Promise<void>;
   getAcpSessionStatus?(conversationId: string): Promise<string | null>;
+  respondAcpAuthElicitation?(
+    requestId: string,
+    action: "accept" | "decline" | "cancel",
+    content?: Record<string, string | number | boolean | string[]>,
+  ): Promise<boolean>;
   generateCompletion?(input: {
     providerId: string;
     modelId: string;

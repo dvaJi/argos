@@ -55,3 +55,25 @@ export const acpAuthChangedEvent = defineEventContract({
       .optional(),
   }),
 });
+
+export const acpAuthElicitationEvent = defineEventContract({
+  name: "providers.acpAuth.elicitation",
+  payload: zod.object({
+    requestId: zod.string(),
+    agentId: zod.string(),
+    workdir: zod.string().nullable().optional(),
+    mode: zod.string(),
+    message: zod.string(),
+    requestedSchema: zod.unknown().optional(),
+    url: zod.string().nullable().optional(),
+    elicitationId: zod.string().nullable().optional(),
+    toolCallId: zod.string().nullable().optional(),
+  }),
+});
+
+export const acpAuthElicitationResolvedEvent = defineEventContract({
+  name: "providers.acpAuth.elicitationResolved",
+  payload: zod.object({
+    requestId: zod.string(),
+  }),
+});

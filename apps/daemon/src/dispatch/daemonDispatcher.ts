@@ -321,6 +321,7 @@ import {
   providersImportScanRoute,
   providersImportApplyRoute,
   providersStartAcpAuthRoute,
+  providersRespondAcpAuthElicitationRoute,
   providersWriteAcpAuthInputRoute,
   providersCancelAcpAuthRoute,
   modelsListRuntimeRoute,
@@ -367,6 +368,11 @@ type DaemonAcpSessionExecutionPort = {
   }>;
   writeAcpAuthInput?(agentId: string, runId: string, data: string): Promise<void>;
   cancelAcpAuth?(agentId: string): Promise<void>;
+  respondAcpAuthElicitation?(
+    requestId: string,
+    action: "accept" | "decline" | "cancel",
+    content?: Record<string, string | number | boolean | string[]>,
+  ): Promise<boolean>;
 };
 
 type DaemonTranslatePort = {
@@ -3493,6 +3499,19 @@ export function createDaemonDispatcher(
       }
       const result = await acpSessionExecutionPort.startAcpAuth(input);
       return providersStartAcpAuthRoute.output.parse(result);
+    }
+
+    if (route === providersRespondAcpAuthElicitationRoute.name) {
+      const input = providersRespondAcpAuthElicitationRoute.input.parse(rawInput);
+      if (!acpSessionExecutionPort?.respondAcpAuthElicitation) {
+        return providersRespondAcpAuthElicitationRoute.output.parse({ handled: false });
+      }
+      const handled = await acpSessionExecutionPort.respondAcpAuthElicitation(
+        input.requestId,
+        input.action,
+        input.content,
+      );
+      return providersRespondAcpAuthElicitationRoute.output.parse({ handled });
     }
 
     if (route === providersWriteAcpAuthInputRoute.name) {

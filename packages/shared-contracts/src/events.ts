@@ -47,7 +47,13 @@ import {
   modelBatchStatusChangedEvent,
 } from "./events/models.events";
 import { providersOllamaPullProgressEvent } from "./events/misc.providers.events";
-import { acpAuthChangedEvent, acpAuthRequiredEvent, providersChangedEvent } from "./events/providers.events";
+import {
+  acpAuthChangedEvent,
+  acpAuthElicitationEvent,
+  acpAuthElicitationResolvedEvent,
+  acpAuthRequiredEvent,
+  providersChangedEvent,
+} from "./events/providers.events";
 import { settingsChangedEvent } from "./events/settings.events";
 import { startupWorkloadChangedEvent } from "./events/startup.events";
 import {
@@ -136,6 +142,8 @@ export const ARGOS_EVENT_CATALOG = {
   [providersChangedEvent.name]: providersChangedEvent,
   [acpAuthRequiredEvent.name]: acpAuthRequiredEvent,
   [acpAuthChangedEvent.name]: acpAuthChangedEvent,
+  [acpAuthElicitationEvent.name]: acpAuthElicitationEvent,
+  [acpAuthElicitationResolvedEvent.name]: acpAuthElicitationResolvedEvent,
   [providersOllamaPullProgressEvent.name]: providersOllamaPullProgressEvent,
   [modelsChangedEvent.name]: modelsChangedEvent,
   [modelsStatusChangedEvent.name]: modelsStatusChangedEvent,

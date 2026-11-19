@@ -55,6 +55,7 @@ const createHarness = (options?: {
       },
     })),
     release,
+    setAuthElicitationHandler: vi.fn(),
   } as any;
 
   const spawned: Array<{ argv: string[]; env: Record<string, string | undefined> }> = [];

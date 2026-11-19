@@ -359,6 +359,20 @@ export const providersStartAcpAuthRoute = defineRouteContract({
   }),
 });
 
+export const providersRespondAcpAuthElicitationRoute = defineRouteContract({
+  name: "providers.respondAcpAuthElicitation",
+  input: zod.object({
+    requestId: zod.string(),
+    action: zod.enum(["accept", "decline", "cancel"]),
+    content: zod
+      .record(zod.string(), zod.union([zod.string(), zod.number(), zod.boolean(), zod.array(zod.string())]))
+      .optional(),
+  }),
+  output: zod.object({
+    handled: zod.boolean(),
+  }),
+});
+
 export const providersWriteAcpAuthInputRoute = defineRouteContract({
   name: "providers.writeAcpAuthInput",
   input: zod.object({

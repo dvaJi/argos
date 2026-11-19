@@ -205,6 +205,16 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
     auth.cancel({ agentId });
   }
 
+  /** Resolve a pending auth-phase ACP elicitation with the renderer's decision. */
+  async respondAcpAuthElicitation(
+    requestId: string,
+    action: "accept" | "decline" | "cancel",
+    content?: Record<string, string | number | boolean | string[]>,
+  ): Promise<boolean> {
+    const auth = await this.getAuthRuntime();
+    return auth.respondAcpAuthElicitation(requestId, action, content);
+  }
+
   private async getSessionRecord(conversationId: string): Promise<AcpSessionRecord | null> {
     const runtime = await this.getRuntime();
     return runtime.sessionManager.getSession(conversationId);

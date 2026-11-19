@@ -52,7 +52,10 @@ import {
  */
 type AcpClientHandlers = {
   requestPermission(params: schema.RequestPermissionRequest): Promise<schema.RequestPermissionResponse>;
-  elicitationCreate(params: schema.CreateElicitationRequest): Promise<schema.CreateElicitationResponse>;
+  elicitationCreate(
+    params: schema.CreateElicitationRequest,
+    jsonRpcRequestId?: string | number,
+  ): Promise<schema.CreateElicitationResponse>;
   elicitationComplete(params: schema.CompleteElicitationNotification): Promise<void>;
   sessionUpdate(notification: schema.SessionNotification): Promise<void>;
   readTextFile(params: schema.ReadTextFileRequest): Promise<schema.ReadTextFileResponse>;
@@ -122,6 +125,11 @@ export type PermissionResolver = (
 
 export type ElicitationResolver = (
   request: schema.CreateElicitationRequest,
+) => Promise<schema.CreateElicitationResponse>;
+
+export type AuthElicitationHandler = (
+  params: schema.CreateElicitationRequest,
+  jsonRpcRequestId?: string | number,
 ) => Promise<schema.CreateElicitationResponse>;
 
 interface SessionListenerEntry {
@@ -257,6 +265,16 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
     string,
     { sessionId: string; resolve: (response: schema.CreateElicitationResponse) => void }
   >();
+  /**
+   * Slot for elicitations with no session scope (auth/config phases). The auth
+   * runtime registers a handler while a flow is active; without it,
+   * request-scoped elicitations are declined.
+   */
+  private authElicitationHandler: AuthElicitationHandler | null = null;
+
+  setAuthElicitationHandler(handler: AuthElicitationHandler | null): void {
+    this.authElicitationHandler = handler;
+  }
   private permissionResolverTimeoutMs = DEFAULT_PERMISSION_RESOLVER_TIMEOUT_MS;
   private readonly ports: AcpHostPorts;
   private terminalManager!: AcpTerminalManager;
@@ -1629,7 +1647,12 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
     };
     return createAcpClientApp({ name: "Argos" })
       .onRequest(acpMethods.client.session.requestPermission, (ctx) => client.requestPermission(ctx.params))
-      .onRequest(acpMethods.client.elicitation.create, (ctx) => client.elicitationCreate(ctx.params))
+      .onRequest(acpMethods.client.elicitation.create, (ctx) => {
+        const rawRequestId = ctx.requestId as string | number | null | undefined;
+        const jsonRpcRequestId =
+          typeof rawRequestId === "string" || typeof rawRequestId === "number" ? rawRequestId : undefined;
+        return client.elicitationCreate(ctx.params, jsonRpcRequestId);
+      })
       .onNotification(acpMethods.client.elicitation.complete, (ctx) => client.elicitationComplete(ctx.params))
       .onNotification(acpMethods.client.auth.statusUpdate, (ctx) => broadcastAuthStatus(ctx.params))
       .onNotification(acpMethods.client.session.update, (ctx) => {
@@ -1647,7 +1670,7 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
   private createClientProxy(): AcpClientHandlers {
     return {
       requestPermission: async (params) => this.dispatchPermissionRequest(params),
-      elicitationCreate: async (params) => this.dispatchElicitationRequest(params),
+      elicitationCreate: async (params, jsonRpcRequestId) => this.dispatchElicitationRequest(params, jsonRpcRequestId),
       elicitationComplete: async (params) => {
         const agentElicitationId = params.elicitationId;
         const pending = agentElicitationId ? this.pendingUrlAccepts.get(agentElicitationId) : undefined;
@@ -1820,17 +1843,18 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
    * session's elicitation resolver (mirroring permission requests). URL-mode
    * elicitations can also complete out-of-band: the agent sends an
    * `elicitation/complete` notification, which races the user's answer.
-   * Request-scoped elicitations and unknown custom modes are still declined —
-   * Argos advertises only session-scoped form + URL.
+   * Request-scoped elicitations (auth/config phases, before any session)
+   * route through the auth-elicitation slot when an auth flow is active; the
+   * unknown custom modes are still declined.
    */
   private async dispatchElicitationRequest(
     params: schema.CreateElicitationRequest,
+    jsonRpcRequestId?: string | number,
   ): Promise<schema.CreateElicitationResponse> {
     const rawSessionId = (params as { sessionId?: unknown }).sessionId;
     const sessionId = typeof rawSessionId === "string" ? rawSessionId : undefined;
     if (!sessionId) {
-      console.warn("[ACP] Request-scoped elicitation has no UI surface yet, declining");
-      return { action: "decline" };
+      return this.dispatchAuthElicitation(params, jsonRpcRequestId);
     }
     if (params.mode !== "form" && params.mode !== "url") {
       console.warn(`[ACP] Elicitation mode "${params.mode}" is not supported, declining (session "${sessionId}")`);
@@ -1844,7 +1868,7 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
     }
 
     if (params.mode === "url") {
-      return this.dispatchUrlElicitation(params as schema.CreateElicitationRequest & { mode: "url" }, sessionId, entry);
+      return this.dispatchUrlElicitation(params, sessionId, entry);
     }
 
     try {
@@ -1871,6 +1895,31 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
       );
     } catch (error) {
       console.error("[ACP] Elicitation resolver failed:", error);
+      return { action: "decline" };
+    }
+  }
+
+  /**
+   * Request-scoped elicitations (auth/config phases, no session): route to the
+   * auth-elicitation slot when an auth flow is active, else decline.
+   */
+  private async dispatchAuthElicitation(
+    params: schema.CreateElicitationRequest,
+    jsonRpcRequestId?: string | number,
+  ): Promise<schema.CreateElicitationResponse> {
+    const handler = this.authElicitationHandler;
+    if (!handler) {
+      console.warn("[ACP] Request-scoped elicitation declined: no auth flow is active");
+      return { action: "decline" };
+    }
+    try {
+      return await resolveElicitationWithTimeout(
+        () => handler(params, jsonRpcRequestId),
+        this.permissionResolverTimeoutMs,
+        () => console.warn("[ACP] Auth-phase elicitation timed out, returning cancelled"),
+      );
+    } catch (error) {
+      console.error("[ACP] Auth-phase elicitation resolver failed:", error);
       return { action: "decline" };
     }
   }

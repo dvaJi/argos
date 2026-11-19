@@ -84,8 +84,73 @@ interface ActiveRun {
 export class DaemonAcpAuthRuntime {
   private readonly activeByAgent = new Map<string, ActiveRun>();
   private readonly runsById = new Map<string, ActiveRun>();
+  /** Pending request-scoped elicitations keyed by the elicitation's JSON-RPC request id. */
+  private readonly pendingAuthElicitations = new Map<
+    string,
+    { resolve: (response: schema.CreateElicitationResponse) => void }
+  >();
 
   constructor(private readonly deps: AcpAuthRuntimeDeps) {}
+
+  /**
+   * While an auth flow runs, request-scoped elicitations (no session scope)
+   * route here: broadcast to the renderer and await its decision.
+   */
+  private registerAuthElicitationHandler(agentId: string, workdir?: string): () => void {
+    void this.deps.getProcessManager().then((processManager) => {
+      processManager.setAuthElicitationHandler(async (params, jsonRpcRequestId) => {
+        const requestId = jsonRpcRequestId != null ? String(jsonRpcRequestId) : `auth_el_${Date.now()}`;
+        const payload: Record<string, unknown> = {
+          requestId,
+          agentId,
+          workdir: workdir ?? null,
+          mode: (params as { mode?: unknown }).mode ?? "form",
+          message: typeof params.message === "string" ? params.message : "",
+          toolCallId: null,
+        };
+        if (params.mode === "url") {
+          const urlView = params as { url?: unknown; elicitationId?: unknown };
+          payload.url = typeof urlView.url === "string" ? urlView.url : "";
+          payload.elicitationId = typeof urlView.elicitationId === "string" ? urlView.elicitationId : null;
+        } else {
+          const schemaView = params as { requestedSchema?: unknown };
+          payload.requestedSchema = schemaView.requestedSchema ?? {};
+        }
+        this.deps.eventPublisher.publish("providers.acpAuth.elicitation", payload);
+        return await new Promise<schema.CreateElicitationResponse>((resolve) => {
+          this.pendingAuthElicitations.set(requestId, { resolve });
+        });
+      });
+    });
+    return () => {
+      // Flow finished: drop the slot and cancel any unanswered elicitations.
+      void this.deps.getProcessManager().then((processManager) => {
+        processManager.setAuthElicitationHandler(null);
+      });
+      for (const [requestId, pending] of this.pendingAuthElicitations) {
+        this.pendingAuthElicitations.delete(requestId);
+        pending.resolve({ action: "cancel" });
+      }
+    };
+  }
+
+  /** Resolve a pending auth-phase elicitation with the renderer's decision. */
+  respondAcpAuthElicitation(
+    requestId: string,
+    action: "accept" | "decline" | "cancel",
+    content?: Record<string, string | number | boolean | string[]>,
+  ): boolean {
+    const pending = this.pendingAuthElicitations.get(requestId);
+    if (!pending) return false;
+    this.pendingAuthElicitations.delete(requestId);
+    if (action === "accept") {
+      pending.resolve({ action: "accept", content: content ?? null });
+    } else {
+      pending.resolve({ action });
+    }
+    this.deps.eventPublisher.publish("providers.acpAuth.elicitationResolved", { requestId });
+    return true;
+  }
 
   isActive(agentId: string): boolean {
     return this.activeByAgent.get(agentId)?.state === "running";
@@ -217,12 +282,14 @@ export class DaemonAcpAuthRuntime {
     this.publish({ run, state: "running" });
 
     void (async () => {
+      let clearAuthElicitation: (() => void) | null = null;
       try {
         const processManager = await this.deps.getProcessManager();
         const handle = await processManager.getConnection(
           { id: input.agentId, name: input.agentId } as AcpAgentConfig,
           input.workdir,
         );
+        clearAuthElicitation = this.registerAuthElicitationHandler(input.agentId, input.workdir);
         const authenticate = handle.connection.agent.request(acpMethods.agent.authenticate, {
           methodId: method.id,
         } as schema.AuthenticateRequest);
@@ -241,6 +308,8 @@ export class DaemonAcpAuthRuntime {
           state: run.state,
           error: cancelled ? "Authentication cancelled" : error instanceof Error ? error.message : String(error),
         });
+      } finally {
+        clearAuthElicitation?.();
       }
     })();
     return { mode: "agent", runId: null };

@@ -79,6 +79,7 @@ type DaemonProviderExecutionPort = Required<
     | "pushAcpSessionTitle"
     | "archiveAcpSession"
     | "getAcpSessionStatus"
+    | "respondAcpAuthElicitation"
   >
 >;
 
@@ -614,6 +615,9 @@ async function initializeDaemon(options: StartDaemonOptions | undefined, early: 
     },
     async getAcpSessionStatus(conversationId) {
       return acpProviderExecutionPort.getAcpSessionStatus(conversationId);
+    },
+    async respondAcpAuthElicitation(requestId, action, content) {
+      return acpProviderExecutionPort.respondAcpAuthElicitation(requestId, action, content);
     },
   };
 
