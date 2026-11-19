@@ -8,5 +8,6 @@
 - [x] 6. Sign-out: `McpClient.invalidateCredentials` → `ServerManager.invalidateCredentials` → `DaemonMcpRuntime.invalidateOAuthCredentials` → `mcp.invalidateOAuthCredentials` route; renderer `McpClient.invalidateOAuthCredentials`; "Sign out" button on OAuth server detail sheets (tokens scope) with toasts.
 - [x] 7. Tests: `oauthProvider.test.ts` — loopback callback capture + timeout rejection, storage round-trip, scoped invalidation (4 tests).
 - [x] 8. Validate: typecheck 17/17 packages, lint, format, full desktop+daemon suites green.
+- [x] 9. Sign-out scope UI: the detail sheet offers "Sign out" (tokens — keeps client registration for faster re-auth) and "All" (invalidates tokens, client registration, verifier, discovery) with per-scope toast descriptions.
 
-Follow-ups: `invalidateCredentials` scope UI (all vs tokens), server-config UX for the `oauth: true` toggle, loopback-server unit tests, desktop-host end-to-end validation with a running desktop instance.
+Follow-ups: server-config UX for the `oauth: true` toggle, desktop-host end-to-end validation with a running desktop instance (requires an interactive session).
