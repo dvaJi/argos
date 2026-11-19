@@ -238,6 +238,8 @@ import {
   mcpReadResourceRoute,
   mcpSubmitSamplingDecisionRoute,
   mcpCancelSamplingRequestRoute,
+  mcpCancelElicitationRoute,
+  mcpSubmitElicitationDecisionRoute,
   skillsListMetadataRoute,
   skillsGetDirectoryRoute,
   skillsInstallFromFolderRoute,
@@ -831,6 +833,8 @@ export function createDaemonDispatcher(
     getPrompt(p: unknown, a?: Record<string, unknown>): Promise<unknown>;
     listResources(): Promise<unknown[]>;
     readResource(r: unknown): Promise<unknown>;
+    resolveElicitationDecision(decision: unknown): boolean;
+    cancelElicitation(requestId: string, reason?: string): boolean;
   },
   skillRuntime: {
     presenter: {
@@ -1314,6 +1318,18 @@ export function createDaemonDispatcher(
     if (route === mcpCancelSamplingRequestRoute.name) {
       mcpCancelSamplingRequestRoute.input.parse(rawInput);
       return mcpCancelSamplingRequestRoute.output.parse({ cancelled: true });
+    }
+
+    if (route === mcpSubmitElicitationDecisionRoute.name) {
+      const input = mcpSubmitElicitationDecisionRoute.input.parse(rawInput);
+      const handled = mcpRuntime.resolveElicitationDecision(input.decision);
+      return mcpSubmitElicitationDecisionRoute.output.parse({ handled });
+    }
+
+    if (route === mcpCancelElicitationRoute.name) {
+      const input = mcpCancelElicitationRoute.input.parse(rawInput);
+      const cancelled = mcpRuntime.cancelElicitation(input.requestId, input.reason);
+      return mcpCancelElicitationRoute.output.parse({ cancelled });
     }
 
     // === Skills routes ===

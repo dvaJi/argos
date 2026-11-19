@@ -141,3 +141,19 @@ export interface McpSamplingDecision {
   modelId?: string;
   reason?: string;
 }
+
+export interface McpElicitationRequestPayload {
+  requestId: string;
+  serverName: string;
+  message: string;
+  /** JSON schema (primitive-typed properties) describing the expected input. */
+  requestedSchema: unknown;
+}
+
+export interface McpElicitationDecision {
+  requestId: string;
+  action: "accept" | "decline" | "cancel";
+  /** User-provided values matching the requested schema (accept only). */
+  content?: Record<string, string | number | boolean | string[]>;
+  reason?: string;
+}

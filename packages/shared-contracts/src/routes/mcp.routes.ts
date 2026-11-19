@@ -5,6 +5,7 @@ import type {
   MCPToolDefinition,
   MCPToolResponse,
   McpClient,
+  McpElicitationDecision,
   McpSamplingDecision,
   PromptListEntry,
   Resource,
@@ -21,6 +22,7 @@ const ResourceSchema = zod.custom<Resource>();
 const MCPToolCallSchema = zod.custom<MCPToolCall>();
 const MCPToolResponseSchema = zod.custom<MCPToolResponse>();
 const McpSamplingDecisionSchema = zod.custom<McpSamplingDecision>();
+const McpElicitationDecisionSchema = zod.custom<McpElicitationDecision>();
 const NpmRegistryStatusSchema = zod.custom<{
   currentRegistry: string | null;
   isFromCache: boolean;
@@ -201,6 +203,27 @@ export const mcpSubmitSamplingDecisionRoute = defineRouteContract({
   }),
   output: zod.object({
     submitted: zod.literal(true),
+  }),
+});
+
+export const mcpSubmitElicitationDecisionRoute = defineRouteContract({
+  name: "mcp.submitElicitationDecision",
+  input: zod.object({
+    decision: McpElicitationDecisionSchema,
+  }),
+  output: zod.object({
+    handled: zod.boolean(),
+  }),
+});
+
+export const mcpCancelElicitationRoute = defineRouteContract({
+  name: "mcp.cancelElicitation",
+  input: zod.object({
+    requestId: zod.string(),
+    reason: zod.string().optional(),
+  }),
+  output: zod.object({
+    cancelled: zod.boolean(),
   }),
 });
 

@@ -1807,6 +1807,8 @@ export type McpSamplingMessage = import("../core/mcp").McpSamplingMessage;
 export type McpSamplingRequestPayload = import("../core/mcp").McpSamplingRequestPayload;
 export type McpSamplingDecision = import("../core/mcp").McpSamplingDecision;
 export type McpSamplingModelPreferences = import("../core/mcp").McpSamplingModelPreferences;
+export type McpElicitationRequestPayload = import("../core/mcp").McpElicitationRequestPayload;
+export type McpElicitationDecision = import("../core/mcp").McpElicitationDecision;
 
 /** Content item type */
 export type MCPContentItem = MCPTextContent | MCPImageContent | MCPResourceContent;

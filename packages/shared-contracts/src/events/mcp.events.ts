@@ -1,9 +1,17 @@
 import zod from "zod";
-import type { MCPServerConfig, McpSamplingDecision, McpSamplingRequestPayload } from "@argos/shared/presenter";
+import type {
+  MCPServerConfig,
+  McpElicitationDecision,
+  McpElicitationRequestPayload,
+  McpSamplingDecision,
+  McpSamplingRequestPayload,
+} from "@argos/shared/presenter";
 import { defineEventContract } from "../common";
 
 const McpSamplingRequestSchema = zod.custom<McpSamplingRequestPayload>();
 const McpSamplingDecisionSchema = zod.custom<McpSamplingDecision>();
+const McpElicitationRequestSchema = zod.custom<McpElicitationRequestPayload>();
+const McpElicitationDecisionSchema = zod.custom<McpElicitationDecision>();
 const MCPServerConfigSchema = zod.custom<MCPServerConfig>();
 
 export const mcpServerStartedEvent = defineEventContract({
@@ -46,6 +54,29 @@ export const mcpToolCallResultEvent = defineEventContract({
     functionName: zod.string().optional(),
     content: zod.custom<string | { type: string; text: string }[]>(),
     version: zod.number().int(),
+  }),
+});
+
+export const mcpElicitationRequestEvent = defineEventContract({
+  name: "mcp.elicitation.request",
+  payload: zod.object({
+    request: McpElicitationRequestSchema,
+    version: zod.number().int(),
+  }),
+});
+
+export const mcpElicitationDecisionEvent = defineEventContract({
+  name: "mcp.elicitation.decision",
+  payload: zod.object({
+    decision: McpElicitationDecisionSchema,
+    version: zod.number().int(),
+  }),
+});
+
+export const mcpElicitationCancelledEvent = defineEventContract({
+  name: "mcp.elicitation.cancelled",
+  payload: zod.object({
+    requestId: zod.string(),
   }),
 });
 

@@ -11,11 +11,29 @@ export class DaemonMcpRuntime {
   readonly serverManager: ServerManager;
   readonly toolManager: ToolManager;
   private readonly configPresenter: DaemonConfigPresenter;
+  private readonly ports: McpHostPorts;
 
   constructor(configPresenter: DaemonConfigPresenter, ports: McpHostPorts) {
     this.configPresenter = configPresenter;
+    this.ports = ports;
     this.serverManager = new ServerManager(configPresenter as never, ports);
     this.toolManager = new ToolManager(configPresenter as never, this.serverManager, ports);
+  }
+
+  /** Resolve a pending MCP elicitation with the renderer's decision. */
+  resolveElicitationDecision(decision: unknown): boolean {
+    const bridge = (this.ports as { elicitationBridge?: { resolveDecision(d: unknown): boolean } }).elicitationBridge;
+    return bridge?.resolveDecision(decision) ?? false;
+  }
+
+  /** Cancel a pending MCP elicitation (renderer dismissed it). */
+  cancelElicitation(requestId: string, reason?: string): boolean {
+    const bridge = (
+      this.ports as {
+        elicitationBridge?: { cancelRequest(id: string, reason?: string): boolean };
+      }
+    ).elicitationBridge;
+    return bridge?.cancelRequest(requestId, reason) ?? false;
   }
 
   async startServer(serverName: string) {

@@ -15,6 +15,7 @@ import {
 } from "@argos/mcp-runtime";
 import { BuiltinKnowledgeServer } from "@argos/backend-core";
 import type { IEventPublisher } from "@argos/backend-core";
+import type { McpElicitationDecision, McpElicitationRequestPayload } from "@argos/shared/presenter";
 import type { DaemonConfigPresenter } from "./daemonConfigPresenter";
 import type { ToolchainService } from "./toolchains/service";
 import type { PluginToolPolicyDecision } from "@argos/shared/types/plugin";
@@ -75,7 +76,32 @@ export function createDaemonMcpPorts(deps: {
       }>
     >;
   };
-}): McpHostPorts {
+}): McpHostPorts & { elicitationBridge: DaemonElicitationBridge } {
+  /**
+   * Interactive MCP elicitations: the renderer answers via
+   * `mcp.submitElicitationDecision` / `mcp.cancelElicitation` (dispatcher),
+   * which land on the bridge below.
+   */
+  const pendingElicitations = new Map<
+    string,
+    { resolve: (decision: McpElicitationDecision) => void; reject: (error: Error) => void }
+  >();
+  const elicitationBridge: DaemonElicitationBridge = {
+    resolveDecision(decision: McpElicitationDecision): boolean {
+      const pending = pendingElicitations.get(decision.requestId);
+      if (!pending) return false;
+      pendingElicitations.delete(decision.requestId);
+      pending.resolve(decision);
+      return true;
+    },
+    cancelRequest(requestId: string, reason?: string): boolean {
+      const pending = pendingElicitations.get(requestId);
+      if (!pending) return false;
+      pendingElicitations.delete(requestId);
+      pending.reject(new Error(reason || "Elicitation cancelled"));
+      return true;
+    },
+  };
   const subscribers = new Map<string, Set<(payload: unknown) => void>>();
   const toolPolicyStore = createJsonStoreFactory(deps.configDir)<ToolPolicyStoreShape>({
     name: "plugin-tool-policies",
@@ -438,6 +464,19 @@ export function createDaemonMcpPorts(deps: {
         return { requestId: req.requestId, approved: true, providerId: provider.id, modelId };
       },
       cancelSamplingRequest: async () => {},
+      // MCP servers ask the user structured questions: broadcast and wait for
+      // the renderer's decision via the elicitation bridge.
+      handleElicitationRequest: async (payload: unknown) => {
+        const request = payload as McpElicitationRequestPayload;
+        deps.eventPublisher.publish("mcp.elicitation.request", { request, version: Date.now() });
+        return await new Promise<McpElicitationDecision>((resolve, reject) => {
+          pendingElicitations.set(request.requestId, { resolve, reject });
+        });
+      },
+      cancelElicitationRequest: async (requestId: string, reason?: string) => {
+        elicitationBridge.cancelRequest(requestId, reason);
+        deps.eventPublisher.publish("mcp.elicitation.cancelled", { requestId });
+      },
       generateCompletionStandalone: async (...args: unknown[]) => {
         const providerId = args[0] as string;
         const messages = args[1] as Array<{ role: string; content: string }>;
@@ -499,5 +538,11 @@ export function createDaemonMcpPorts(deps: {
         }
       },
     },
-  };
+    elicitationBridge,
+  } as McpHostPorts & { elicitationBridge: DaemonElicitationBridge };
+}
+
+export interface DaemonElicitationBridge {
+  resolveDecision(decision: McpElicitationDecision): boolean;
+  cancelRequest(requestId: string, reason?: string): boolean;
 }
