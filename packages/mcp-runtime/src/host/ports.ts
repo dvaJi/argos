@@ -58,6 +58,9 @@ export interface McpHostServices {
   /** MCP server requests LLM sampling; host resolves via UI + provider. */
   handleSamplingRequest?(payload: unknown): Promise<unknown>;
   cancelSamplingRequest?(requestId: string, reason?: string): Promise<void>;
+  /** MCP server elicits structured input from the user; host resolves via UI. */
+  handleElicitationRequest?(payload: unknown): Promise<unknown>;
+  cancelElicitationRequest?(requestId: string, reason?: string): Promise<void>;
   generateCompletionStandalone?(...args: unknown[]): Promise<string>;
   getProviderModels?(providerId: string): unknown[];
   getCustomModels?(providerId: string): unknown[];

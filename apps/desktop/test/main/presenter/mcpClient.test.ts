@@ -51,6 +51,8 @@ vi.mock("../../../src/main/eventbus", () => ({
 const presenterMocks = vi.hoisted(() => ({
   handleSamplingRequest: vi.fn<(...args: any[]) => any>(),
   cancelSamplingRequest: vi.fn<(...args: any[]) => any>(),
+  handleElicitationRequest: vi.fn<(...args: any[]) => any>(),
+  cancelElicitationRequest: vi.fn<(...args: any[]) => any>(),
   executeWithRateLimit: vi.fn<(...args: any[]) => any>(),
   generateCompletionStandalone: vi.fn<(...args: any[]) => any>(),
   getProviderModels: vi.fn<(...args: any[]) => any>(),
@@ -67,6 +69,8 @@ vi.mock("../../../src/main/presenter", () => ({
     mcpPresenter: {
       handleSamplingRequest: presenterMocks.handleSamplingRequest,
       cancelSamplingRequest: presenterMocks.cancelSamplingRequest,
+      handleElicitationRequest: presenterMocks.handleElicitationRequest,
+      cancelElicitationRequest: presenterMocks.cancelElicitationRequest,
     },
     llmproviderPresenter: {
       executeWithRateLimit: presenterMocks.executeWithRateLimit,
@@ -77,6 +81,8 @@ vi.mock("../../../src/main/presenter", () => ({
 
 const mockHandleSamplingRequest = presenterMocks.handleSamplingRequest;
 const mockCancelSamplingRequest = presenterMocks.cancelSamplingRequest;
+const mockHandleElicitationRequest = presenterMocks.handleElicitationRequest;
+const mockCancelElicitationRequest = presenterMocks.cancelElicitationRequest;
 const mockGenerateCompletionStandalone = presenterMocks.generateCompletionStandalone;
 const mockGetProviderModels = presenterMocks.getProviderModels;
 const mockGetCustomModels = presenterMocks.getCustomModels;
@@ -160,6 +166,8 @@ const testPorts: McpHostPorts = {
     getInMemoryServer: (name, args, env) => getInMemoryServer(name, args, env) as never,
     handleSamplingRequest: (payload) => presenterMocks.handleSamplingRequest(payload) as Promise<unknown>,
     cancelSamplingRequest: (id, reason) => presenterMocks.cancelSamplingRequest(id, reason),
+    handleElicitationRequest: (payload) => presenterMocks.handleElicitationRequest(payload) as Promise<unknown>,
+    cancelElicitationRequest: (id, reason) => presenterMocks.cancelElicitationRequest(id, reason),
     generateCompletionStandalone: (...args) => presenterMocks.generateCompletionStandalone(...args) as Promise<string>,
     getProviderModels: (id) => presenterMocks.getProviderModels(id),
     getCustomModels: (id) => presenterMocks.getCustomModels(id),
@@ -183,6 +191,8 @@ describe("McpClient Runtime Command Processing Tests", () => {
 
     mockHandleSamplingRequest.mockReset();
     mockCancelSamplingRequest.mockReset();
+    mockHandleElicitationRequest.mockReset();
+    mockCancelElicitationRequest.mockReset();
     mockGenerateCompletionStandalone.mockReset();
     mockGetProviderModels.mockReset();
     mockGetCustomModels.mockReset();
@@ -766,6 +776,82 @@ describe("McpClient Runtime Command Processing Tests", () => {
       expect(caughtError).toHaveProperty("code", ErrorCode.InvalidRequest);
 
       expect(mockGenerateCompletionStandalone).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("Elicitation support", () => {
+    it("passes the elicitation payload to the host and maps an accepted decision", async () => {
+      const client = new McpClient("code-reviewer", { type: "stdio" }, testPorts);
+
+      mockHandleElicitationRequest.mockResolvedValue({
+        action: "accept",
+        content: { confirm: true },
+      });
+
+      const request = {
+        params: {
+          message: "Proceed with the deployment?",
+          requestedSchema: {
+            type: "object",
+            properties: { confirm: { type: "boolean", title: "Confirm" } },
+            required: ["confirm"],
+          },
+        },
+      };
+
+      const result = await (client as any).handleElicitationCreate(request, { requestId: "rpc-el-1" });
+
+      expect(mockHandleElicitationRequest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          requestId: "rpc-el-1",
+          serverName: "code-reviewer",
+          message: "Proceed with the deployment?",
+          requestedSchema: request.params.requestedSchema,
+        }),
+      );
+      expect(result).toEqual({ action: "accept", content: { confirm: true } });
+    });
+
+    it("declines when the host has no elicitation support", async () => {
+      const portsWithoutElicitation = {
+        ...testPorts,
+        services: { ...testPorts.services, handleElicitationRequest: undefined },
+      } as typeof testPorts;
+      const client = new McpClient("code-reviewer", { type: "stdio" }, portsWithoutElicitation);
+
+      const result = await (client as any).handleElicitationCreate(
+        { params: { message: "Proceed?" } },
+        { requestId: "rpc-el-2" },
+      );
+
+      expect(result).toEqual({ action: "decline" });
+      expect(mockHandleElicitationRequest).not.toHaveBeenCalled();
+    });
+
+    it("maps host rejections to a decline response", async () => {
+      const client = new McpClient("code-reviewer", { type: "stdio" }, testPorts);
+
+      mockHandleElicitationRequest.mockRejectedValue(new Error("user dismissed the overlay"));
+
+      const result = await (client as any).handleElicitationCreate(
+        { params: { message: "Proceed?" } },
+        { requestId: "rpc-el-3" },
+      );
+
+      expect(result).toEqual({ action: "decline" });
+    });
+
+    it("normalizes unknown decision actions to cancel", async () => {
+      const client = new McpClient("code-reviewer", { type: "stdio" }, testPorts);
+
+      mockHandleElicitationRequest.mockResolvedValue({ action: "banana" });
+
+      const result = await (client as any).handleElicitationCreate(
+        { params: { message: "Proceed?" } },
+        { requestId: "rpc-el-4" },
+      );
+
+      expect(result).toEqual({ action: "cancel" });
     });
   });
 });

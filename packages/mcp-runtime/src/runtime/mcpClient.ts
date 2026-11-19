@@ -10,10 +10,15 @@ import {
   ResourceUpdatedNotificationSchema,
   LoggingMessageNotificationSchema,
   CreateMessageRequestSchema,
+  ElicitRequestSchema,
   ErrorCode,
   McpError,
 } from "@modelcontextprotocol/sdk/types.js";
-import type { CreateMessageRequest, CreateMessageResult } from "@modelcontextprotocol/sdk/types.js";
+import type {
+  ClientResult,
+  CreateMessageRequest,
+  CreateMessageResult,
+} from "@modelcontextprotocol/sdk/types.js";
 import path from "path";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { terminateProcessTree, createMinimalProcessEnvironment } from "@argos/backend-core";
@@ -425,6 +430,7 @@ export class McpClient {
         {
           capabilities: {
             sampling: {},
+            elicitation: {},
           },
         },
       );
@@ -435,6 +441,11 @@ export class McpClient {
       // Register sampling request handler
       this.client.setRequestHandler(CreateMessageRequestSchema, async (request, extra) => {
         return this.handleSamplingCreateMessage(request, extra);
+      });
+
+      // Register elicitation request handler (server asks the user a question)
+      this.client.setRequestHandler(ElicitRequestSchema, async (request, extra) => {
+        return this.handleElicitationCreate(request, extra);
       });
 
       // Set connection timeout
@@ -701,12 +712,91 @@ export class McpClient {
     return result;
   }
 
+  /**
+   * MCP elicitation: the server asks the user a structured question (form
+   * schema) or for confirmation. The host surfaces it interactively and
+   * answers with `{ action: "accept"|"decline"|"cancel", content? }`.
+   */
+  private async handleElicitationCreate(request: unknown, extra: RequestHandlerContext): Promise<ClientResult> {
+    const services = this.ports.services;
+    if (!services.handleElicitationRequest) {
+      console.warn(`[MCP] Server ${this.serverName} requested elicitation but the host has no support; declining`);
+      return { action: "decline" };
+    }
+
+    const params = ((request as { params?: unknown }).params ?? {}) as {
+      message?: unknown;
+      requestedSchema?: unknown;
+    };
+    const requestId = this.resolveSamplingRequestId(extra);
+    const payload = {
+      requestId,
+      serverName: this.serverName,
+      message: typeof params.message === "string" ? params.message : "",
+      requestedSchema: params.requestedSchema ?? {},
+    };
+
+    const decisionPromise = services.handleElicitationRequest(payload) as Promise<{
+      action?: unknown;
+      content?: unknown;
+    }>;
+    const signal = extra?.signal as AbortSignal | undefined;
+
+    try {
+      let decision: { action?: unknown; content?: unknown };
+      if (signal) {
+        decision = await new Promise<{ action?: unknown; content?: unknown }>((resolve, reject) => {
+          const onAbort = () => {
+            signal.removeEventListener("abort", onAbort);
+            void services
+              .cancelElicitationRequest?.(payload.requestId, "cancelled by server")
+              .catch((error) => {
+                console.warn(`[MCP] Failed to cancel elicitation request ${payload.requestId}:`, error);
+              });
+            reject(new McpError(ErrorCode.RequestTimeout, "Elicitation cancelled"));
+          };
+
+          if (signal.aborted) {
+            onAbort();
+            return;
+          }
+
+          signal.addEventListener("abort", onAbort, { once: true });
+          decisionPromise
+            .then((value) => {
+              signal.removeEventListener("abort", onAbort);
+              resolve(value);
+            })
+            .catch((error) => {
+              signal.removeEventListener("abort", onAbort);
+              reject(error);
+            });
+        });
+      } else {
+        decision = await decisionPromise;
+      }
+
+      const action = typeof decision.action === "string" ? decision.action : "cancel";
+      if (action !== "accept" && action !== "decline" && action !== "cancel") {
+        return { action: "cancel" };
+      }
+      const result: Record<string, unknown> = { action };
+      if (action === "accept" && decision.content && typeof decision.content === "object") {
+        result.content = decision.content;
+      }
+      return result as ClientResult;
+    } catch (error) {
+      if (error instanceof McpError) throw error;
+      console.warn(`[MCP] Elicitation failed for server ${this.serverName}, declining:`, error);
+      return { action: "decline" };
+    }
+  }
+
   private resolveSamplingRequestId(extra: RequestHandlerContext): string {
     const rawId = extra?.requestId;
     if (typeof rawId === "string" || typeof rawId === "number") {
       return String(rawId);
     }
-
     return `${this.serverName}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   }
 
