@@ -22,6 +22,7 @@ import ChatStatusBar from "#/components/chat/ChatStatusBar";
 import ChatToolInteractionOverlay from "#/components/chat/ChatToolInteractionOverlay";
 import AcpCursorForkMenu from "#/components/chat/AcpCursorForkMenu";
 import McpTaskProgressIndicator from "#/components/chat/McpTaskProgressIndicator";
+import AcpSessionStatusChip from "#/components/chat/AcpSessionStatusChip";
 import TraceDialog from "#/components/trace/TraceDialog";
 import { useToast } from "#/components/use-toast";
 import { createChatClient } from "../../api/ChatClient";
@@ -1623,6 +1624,11 @@ function ChatComposerDock(input: {
                 <AcpAuthBanner sessionId={sessionId} />
                 <AcpAuthElicitationCard />
                 <McpTaskProgressIndicator />
+                {isAcpSession && (
+                  <div className="flex items-center gap-1.5 px-1">
+                    <AcpSessionStatusChip conversationId={sessionId} isAcpSession={isAcpSession} />
+                  </div>
+                )}
                 <SettledBanner sessionId={sessionId} />
                 <AcpCursorForkMenu sessionId={sessionId} />
                 {promptSuggestions.length > 0 && !isGenerating && (
