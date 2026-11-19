@@ -20,7 +20,7 @@ const CALLBACK_TIMEOUT_MS = 5 * 60_000;
  * Loopback HTTP server that captures the OAuth authorization response
  * (`?code=...&state=...`) on 127.0.0.1 and resolves the waiter.
  */
-class LoopbackCallbackServer {
+export class LoopbackCallbackServer {
   private server: Server | null = null;
   private port = 0;
   private resolveCallback: ((url: URL) => void) | null = null;

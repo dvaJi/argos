@@ -845,7 +845,10 @@ export function createDaemonDispatcher(
     readResource(r: unknown): Promise<unknown>;
     listResourceTemplates(): Promise<unknown[]>;
     completeArgument(serverName: string, params: unknown): Promise<unknown>;
-    invalidateOAuthCredentials(serverName: string, scope?: "all" | "client" | "tokens" | "verifier" | "state" | "discovery"): Promise<void>;
+    invalidateOAuthCredentials(
+      serverName: string,
+      scope?: "all" | "client" | "tokens" | "verifier" | "state" | "discovery",
+    ): Promise<void>;
     resolveElicitationDecision(decision: unknown): boolean;
     cancelElicitation(requestId: string, reason?: string): boolean;
   },
