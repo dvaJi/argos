@@ -84,11 +84,17 @@ export const McpServers = forwardRef<McpServersRef, McpServersProps>(
         (mcpStore.config.mcpServers[serverName] as unknown as Record<string, unknown> | undefined)?.oauth === true,
       );
 
-    const handleSignOut = async (serverName: string) => {
+    const handleSignOut = async (serverName: string, scope: "tokens" | "all") => {
       setSigningOutServer(serverName);
       try {
-        await mcpClient.invalidateOAuthCredentials(serverName, "tokens");
-        toast({ title: "Signed out", description: `Stored credentials for ${serverName} were removed.` });
+        await mcpClient.invalidateOAuthCredentials(serverName, scope);
+        toast({
+          title: "Signed out",
+          description:
+            scope === "all"
+              ? `All stored OAuth state for ${serverName} was removed (tokens, client registration, verifier).`
+              : `Stored tokens for ${serverName} were removed.`,
+        });
       } catch (signOutError) {
         console.error("[McpServers] OAuth sign-out failed:", signOutError);
         toast({ title: "Sign out failed", description: String(signOutError), variant: "destructive" });
@@ -555,7 +561,7 @@ const McpServerDetailSheet = ({
   onViewResources: (serverName: string) => void;
   onEdit: (serverName: string) => void;
   onRemove: (serverName: string) => void;
-  onSignOut: (serverName: string) => void;
+  onSignOut: (serverName: string, scope: "tokens" | "all") => void;
 }) => {
   return (
     <Sheet open={Boolean(server)} onOpenChange={onOpenChange}>
@@ -575,16 +581,29 @@ const McpServerDetailSheet = ({
             {isOAuthServer(server.name) && (
               <div className="flex items-center justify-between gap-2 rounded-md border bg-background/50 px-3 py-2">
                 <span className="text-xs text-muted-foreground">Signed in via OAuth</span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-xs"
-                  disabled={signingOut}
-                  onClick={() => onSignOut(server.name)}
-                >
-                  <Icon icon="lucide:log-out" className="size-3.5" />
-                  {signingOut ? "Signing out…" : "Sign out"}
-                </Button>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    disabled={signingOut}
+                    title="Remove stored access/refresh tokens; the client registration is kept for faster re-auth."
+                    onClick={() => onSignOut(server.name, "tokens")}
+                  >
+                    <Icon icon="lucide:log-out" className="size-3.5" />
+                    {signingOut ? "Signing out…" : "Sign out"}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs text-muted-foreground"
+                    disabled={signingOut}
+                    title="Remove all stored OAuth state: tokens, client registration, code verifier, and discovery cache."
+                    onClick={() => onSignOut(server.name, "all")}
+                  >
+                    All
+                  </Button>
+                </div>
               </div>
             )}
 
