@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { McpClient } from "@argos/mcp-runtime";
 import { RuntimeHelper } from "../../../src/main/lib/runtimeHelper";
 import path from "path";
+import { pathToFileURL } from "node:url";
 import fs from "fs";
 import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -852,6 +853,28 @@ describe("McpClient Runtime Command Processing Tests", () => {
       );
 
       expect(result).toEqual({ action: "cancel" });
+    });
+  });
+
+  describe("Roots support", () => {
+    it("exposes the server cwd as a file:// root", () => {
+      const client = new McpClient(
+        "workspace-server",
+        { type: "stdio", command: "node", cwd: "/repo/workspace" },
+        testPorts,
+      );
+
+      const result = (client as any).handleListRoots();
+
+      expect(result.roots).toEqual([{ uri: pathToFileURL("/repo/workspace").href, name: "workspace" }]);
+    });
+
+    it("returns no roots when the server has no cwd", () => {
+      const client = new McpClient("remote-server", { type: "sse", baseUrl: "https://example.com/mcp" }, testPorts);
+
+      const result = (client as any).handleListRoots();
+
+      expect(result.roots).toEqual([]);
     });
   });
 });

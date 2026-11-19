@@ -13,6 +13,9 @@ const providerClient = createProviderClient();
 export default function AcpAuthBanner({ sessionId }: { sessionId: string }) {
   const [authPrompt, setAuthPrompt] = useState<{ agentId: string; workdir?: string | null } | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [accounts, setAccounts] = useState<
+    Array<{ label: string; description?: string | null; active?: boolean | null }>
+  >([]);
 
   useEffect(() => {
     const offRequired = providerClient.onAcpAuthRequired((payload) => {
@@ -22,8 +25,11 @@ export default function AcpAuthBanner({ sessionId }: { sessionId: string }) {
       setDialogOpen(true);
     });
     const offChanged = providerClient.onAcpAuthChanged((payload) => {
-      // Only the same agent's success clears the prompt — signing in to a
+      // Only the same agent's success clears the prompt - signing in to a
       // different agent elsewhere must not dismiss an unrelated prompt.
+      if (payload.authStatus?.accounts) {
+        setAccounts(payload.authStatus.accounts);
+      }
       if (payload.state === "ready" && authPrompt?.agentId === payload.agentId) {
         setAuthPrompt(null);
       }
@@ -53,6 +59,22 @@ export default function AcpAuthBanner({ sessionId }: { sessionId: string }) {
           Sign in
         </Button>
       </div>
+      {accounts.length > 0 && (
+        <div className="mx-auto mb-2 flex w-full max-w-4xl flex-wrap gap-1.5" data-testid="acp-auth-accounts">
+          {accounts.map((account) => (
+            <span
+              key={account.label}
+              title={account.description ?? account.label}
+              className="inline-flex items-center gap-1 rounded-full border bg-background/60 px-2.5 py-0.5 text-[11px] text-muted-foreground"
+            >
+              {account.active && (
+                <Icon icon="lucide:check" className="h-3 w-3 text-emerald-600" aria-label="active account" />
+              )}
+              {account.label}
+            </span>
+          ))}
+        </div>
+      )}
       <AcpAuthDialog
         open={dialogOpen}
         agentId={authPrompt.agentId}

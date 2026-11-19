@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { methods as acpMethods } from "@agentclientprotocol/sdk/unstable";
 import type * as schema from "@agentclientprotocol/sdk/unstable";
 import type { IEventPublisher } from "@argos/backend-core";
-import type { AcpProcessManager } from "@argos/acp-runtime/process/acpProcessManager";
+import type { AcpProcessManager, AcpProcessHandle } from "@argos/acp-runtime/process/acpProcessManager";
 import type { AcpAgentConfig } from "@argos/shared/presenter";
 
 /**
@@ -177,6 +177,16 @@ export class DaemonAcpAuthRuntime {
     output?: string | null;
     exitCode?: number | null;
     error?: string | null;
+    authStatus?: {
+      state: string;
+      accounts: Array<{
+        label: string;
+        description?: string | null;
+        active?: boolean | null;
+        name?: string | null;
+        email?: string | null;
+      }>;
+    };
   }): void {
     this.deps.eventPublisher.publish("providers.acpAuth.changed", {
       agentId: payload.run.agentId,
@@ -187,6 +197,7 @@ export class DaemonAcpAuthRuntime {
       output: payload.output ?? null,
       exitCode: payload.exitCode ?? null,
       error: payload.error ?? null,
+      authStatus: payload.authStatus ?? null,
     });
   }
 
@@ -220,7 +231,8 @@ export class DaemonAcpAuthRuntime {
         });
         await Promise.race([authenticate, timeout, run.abortPromise!]);
         run.state = "ready";
-        this.publish({ run, state: "ready" });
+        const authStatus = await this.fetchAuthStatus(handle);
+        this.publish({ run, state: "ready", authStatus: authStatus ?? undefined });
       } catch (error) {
         const cancelled = run.abort?.signal.aborted === true;
         run.state = cancelled ? "cancelled" : "error";
@@ -232,6 +244,54 @@ export class DaemonAcpAuthRuntime {
       }
     })();
     return { mode: "agent", runId: null };
+  }
+
+  /**
+   * Best-effort `auth/status` query: returns the agent's auth state plus its
+   * configured accounts (label/description/active) for display.
+   */
+  private async fetchAuthStatus(handle: AcpProcessHandle): Promise<{
+    state: string;
+    accounts: Array<{
+      label: string;
+      description?: string | null;
+      active?: boolean | null;
+      name?: string | null;
+      email?: string | null;
+    }>;
+  } | null> {
+    try {
+      const response = (await handle.connection.agent.request(acpMethods.agent.auth.status, {})) as {
+        state?: unknown;
+        accounts?: unknown;
+      };
+      const state = typeof response.state === "string" ? response.state : "unknown";
+      const accounts = Array.isArray(response.accounts)
+        ? response.accounts
+            .map((account) => {
+              const view = account as {
+                label?: unknown;
+                description?: unknown;
+                active?: unknown;
+                name?: unknown;
+                email?: unknown;
+              };
+              if (typeof view.label !== "string" || !view.label.trim()) return null;
+              return {
+                label: view.label.trim(),
+                description: typeof view.description === "string" && view.description.trim() ? view.description : null,
+                active: view.active === true ? true : null,
+                name: typeof view.name === "string" && view.name.trim() ? view.name : null,
+                email: typeof view.email === "string" && view.email.trim() ? view.email : null,
+              };
+            })
+            .filter((account): account is NonNullable<typeof account> => account !== null)
+        : [];
+      return { state, accounts };
+    } catch (error) {
+      console.warn("[ACP] auth/status query failed:", error);
+      return null;
+    }
   }
 
   private async startTerminalFlow(

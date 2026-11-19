@@ -11,6 +11,7 @@ import {
   LoggingMessageNotificationSchema,
   CreateMessageRequestSchema,
   ElicitRequestSchema,
+  ListRootsRequestSchema,
   ErrorCode,
   McpError,
 } from "@modelcontextprotocol/sdk/types.js";
@@ -20,6 +21,7 @@ import type {
   CreateMessageResult,
 } from "@modelcontextprotocol/sdk/types.js";
 import path from "path";
+import { pathToFileURL } from "node:url";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { terminateProcessTree, createMinimalProcessEnvironment } from "@argos/backend-core";
 import type { ChildProcess } from "node:child_process";
@@ -431,6 +433,7 @@ export class McpClient {
           capabilities: {
             sampling: {},
             elicitation: {},
+            roots: { listChanged: false },
           },
         },
       );
@@ -446,6 +449,11 @@ export class McpClient {
       // Register elicitation request handler (server asks the user a question)
       this.client.setRequestHandler(ElicitRequestSchema, async (request, extra) => {
         return this.handleElicitationCreate(request, extra);
+      });
+
+      // Register roots handler (server asks which directories Argos exposes)
+      this.client.setRequestHandler(ListRootsRequestSchema, async () => {
+        return this.handleListRoots();
       });
 
       // Set connection timeout
@@ -790,6 +798,20 @@ export class McpClient {
       console.warn(`[MCP] Elicitation failed for server ${this.serverName}, declining:`, error);
       return { action: "decline" };
     }
+  }
+
+  /**
+   * MCP roots: expose the server's own working directory as the single
+   * filesystem root Argos grants it (stdio servers only; remote servers
+   * have no cwd). Callers must treat an empty list as "no roots".
+   */
+  private handleListRoots(): { roots: Array<{ uri: string; name: string }> } {
+    const cwd = typeof this.serverConfig.cwd === "string" ? this.serverConfig.cwd.trim() : "";
+    if (!cwd) {
+      return { roots: [] };
+    }
+    const uri = pathToFileURL(cwd).href;
+    return { roots: [{ uri, name: path.basename(cwd) || cwd }] };
   }
 
   private resolveSamplingRequestId(extra: RequestHandlerContext): string {

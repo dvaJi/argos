@@ -247,6 +247,16 @@ export function createProviderClient(bridge: ArgosBridge = getArgosBridge()) {
       output?: string | null;
       exitCode?: number | null;
       error?: string | null;
+      authStatus?: {
+        state: string;
+        accounts?: Array<{
+          label: string;
+          description?: string | null;
+          active?: boolean | null;
+          name?: string | null;
+          email?: string | null;
+        }>;
+      };
     }) => void,
   ) {
     return bridge.on(acpAuthChangedEvent.name, listener);

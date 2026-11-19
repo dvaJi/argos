@@ -37,5 +37,21 @@ export const acpAuthChangedEvent = defineEventContract({
     output: zod.string().nullable().optional(),
     exitCode: zod.number().nullable().optional(),
     error: zod.string().nullable().optional(),
+    authStatus: zod
+      .object({
+        state: zod.string(),
+        accounts: zod
+          .array(
+            zod.object({
+              label: zod.string(),
+              description: zod.string().nullable().optional(),
+              active: zod.boolean().nullable().optional(),
+              name: zod.string().nullable().optional(),
+              email: zod.string().nullable().optional(),
+            }),
+          )
+          .optional(),
+      })
+      .optional(),
   }),
 });

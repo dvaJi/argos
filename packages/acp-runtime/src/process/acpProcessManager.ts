@@ -841,7 +841,7 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
     const child = await this.spawnAgentProcess(agent, workdir, launchSpec);
     const stderrChunks: string[] = [];
     const stream = this.createAgentStream(agent.id, child);
-    const connection = this.createClientApp().connect(stream);
+    const connection = this.createClientApp(agent.id).connect(stream);
     const handleSeed: Partial<AcpProcessHandle> = {};
     let readyHandle: AcpProcessHandle | null = null;
 
@@ -1621,12 +1621,17 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
     });
   }
 
-  private createClientApp(): ClientApp {
+  private createClientApp(agentId?: string): ClientApp {
     const client = this.createClientProxy();
+    const broadcastAuthStatus = (payload: unknown) => {
+      if (!agentId) return;
+      this.ports.events.broadcast("acp.auth.status_update", { agentId, ...(payload as Record<string, unknown>) });
+    };
     return createAcpClientApp({ name: "Argos" })
       .onRequest(acpMethods.client.session.requestPermission, (ctx) => client.requestPermission(ctx.params))
       .onRequest(acpMethods.client.elicitation.create, (ctx) => client.elicitationCreate(ctx.params))
       .onNotification(acpMethods.client.elicitation.complete, (ctx) => client.elicitationComplete(ctx.params))
+      .onNotification(acpMethods.client.auth.statusUpdate, (ctx) => broadcastAuthStatus(ctx.params))
       .onNotification(acpMethods.client.session.update, (ctx) => {
         client.sessionUpdate(ctx.params);
       })

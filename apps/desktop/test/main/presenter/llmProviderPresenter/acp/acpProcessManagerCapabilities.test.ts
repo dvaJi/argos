@@ -67,6 +67,7 @@ vi.mock("@agentclientprotocol/sdk/unstable", () => {
       client: {
         session: { requestPermission: "session/request_permission", update: "session/update" },
         elicitation: { create: "elicitation/create", complete: "elicitation/complete" },
+        auth: { statusUpdate: "auth/status_update" },
         fs: { readTextFile: "fs/read_text_file", writeTextFile: "fs/write_text_file" },
         terminal: {
           create: "terminal/create",
