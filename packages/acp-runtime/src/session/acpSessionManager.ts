@@ -309,6 +309,27 @@ export class AcpSessionManager {
     return [detachUpdate, detachPermission, detachElicitation];
   }
 
+  private readRememberedConfigOptions(
+    persistedSession: { metadata?: Record<string, unknown> | null } | null,
+  ): schema.SessionConfigOption[] {
+    const raw = persistedSession?.metadata?.["configOptions"];
+    if (!Array.isArray(raw)) return [];
+    return raw.filter(
+      (entry): entry is schema.SessionConfigOption =>
+        Boolean(entry) &&
+        typeof entry === "object" &&
+        typeof (entry as { id?: unknown }).id === "string" &&
+        typeof (entry as { currentValue?: unknown }).currentValue !== "undefined",
+    );
+  }
+
+  private isInvalidParamsError(error: unknown): boolean {
+    const code = (error as { code?: unknown } | null)?.code;
+    if (code === -32602) return true;
+    const message = error instanceof Error ? error.message : String(error);
+    return message.includes("-32602") || message.toLowerCase().includes("invalid params");
+  }
+
   private async initializeSession(
     handle: AcpProcessHandle,
     conversationId: string,
@@ -328,6 +349,7 @@ export class AcpSessionManager {
 
       const persistedSession = await this.sessionPersistence.getSessionData(conversationId, agent.id);
       const persistedSessionId = persistedSession?.sessionId?.trim() || null;
+      const rememberedConfigOptions = this.readRememberedConfigOptions(persistedSession);
 
       let sessionId = "";
       let configState = handle.configState ?? createEmptyAcpConfigState("legacy");
@@ -458,6 +480,16 @@ export class AcpSessionManager {
           if (hasAcpConfigStateData(loadedConfigState)) {
             configState = loadedConfigState;
           }
+          if (Array.isArray(loadResponse.configOptions)) {
+            await this.sessionPersistence
+              .mergeMetadata(conversationId, agent.id, { configOptions: loadResponse.configOptions })
+              .catch((persistError) =>
+                console.warn(
+                  `[ACP] Failed to persist config options for conversation ${conversationId}:`,
+                  persistError,
+                ),
+              );
+          }
           console.info(
             `[ACP] Loaded persisted session ${sessionId} for conversation ${conversationId} (agent ${agent.id})`,
           );
@@ -496,6 +528,7 @@ export class AcpSessionManager {
           cwd: workdir,
           mcpServerCount: mcpServers.length,
           mcpServers: summarizeMcpServers(mcpServers),
+          rememberedConfigOptions: rememberedConfigOptions.length,
         };
         console.info(
           `[ACP] Creating new ACP session for conversation ${conversationId} (agent ${agent.id})`,
@@ -506,13 +539,45 @@ export class AcpSessionManager {
           action: "session/new",
           payload: newSessionRequestSummary,
         });
-        const response = await handle.connection.agent.request(acpMethods.agent.session.new, {
+        const newSessionRequest: Record<string, unknown> = {
           cwd: workdir,
           mcpServers,
-        });
+          ...(rememberedConfigOptions.length > 0 ? { configOptions: rememberedConfigOptions } : {}),
+        };
+        let response: schema.NewSessionResponse;
+        try {
+          response = (await handle.connection.agent.request(
+            acpMethods.agent.session.new,
+            newSessionRequest,
+          )) as schema.NewSessionResponse;
+        } catch (error) {
+          // Strict agents reject malformed remembered entries with -32602
+          // (invalid params). Retry once with agent defaults instead of
+          // failing session creation.
+          if (!rememberedConfigOptions.length || !this.isInvalidParamsError(error)) {
+            throw error;
+          }
+          console.warn(
+            `[ACP] Agent rejected remembered config options for conversation ${conversationId}; retrying session/new with defaults`,
+            error,
+          );
+          response = (await handle.connection.agent.request(acpMethods.agent.session.new, {
+            cwd: workdir,
+            mcpServers,
+          })) as schema.NewSessionResponse;
+        }
         sessionId = response.sessionId;
         sessionResponse = response;
         responseModeState = response.modes ?? undefined;
+        // Persist the canonical raw options so future session/new calls
+        // remember the conversation's choices.
+        if (Array.isArray(response.configOptions)) {
+          await this.sessionPersistence
+            .mergeMetadata(conversationId, agent.id, { configOptions: response.configOptions })
+            .catch((persistError) =>
+              console.warn(`[ACP] Failed to persist config options for conversation ${conversationId}:`, persistError),
+            );
+        }
         const nextConfigState = normalizeAcpConfigState({
           configOptions: response.configOptions,
           modes: response.modes,
