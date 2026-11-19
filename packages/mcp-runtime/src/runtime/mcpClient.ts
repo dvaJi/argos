@@ -18,6 +18,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import type {
   ClientResult,
+  CompleteRequest,
   CreateMessageRequest,
   CreateMessageResult,
 } from "@modelcontextprotocol/sdk/types.js";
@@ -1451,6 +1452,29 @@ export class McpClient {
       }
       console.warn(`[MCP] Failed to list resource templates for server ${this.serverName}:`, error);
       return [];
+    }
+  }
+
+  /**
+   * `completion/complete`: ask the server for argument completions for a
+   * prompt or resource-template argument. Servers without completion support
+   * return an empty value list.
+   */
+  async completeArgument(params: CompleteRequest["params"]): Promise<unknown> {
+    try {
+      if (!this.isConnected) {
+        await this.connect();
+      }
+      if (!this.client || typeof this.client.complete !== "function") {
+        return { completion: { values: [], total: 0, hasMore: false } };
+      }
+      return await this.client.complete(params);
+    } catch (error) {
+      await this.checkAndHandleSessionError(error);
+      if (isUnsupportedCapabilityError(error)) {
+        return { completion: { values: [], total: 0, hasMore: false } };
+      }
+      throw error;
     }
   }
 

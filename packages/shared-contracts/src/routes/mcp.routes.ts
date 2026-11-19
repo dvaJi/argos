@@ -100,6 +100,17 @@ export const mcpListResourceTemplatesRoute = defineRouteContract({
   }),
 });
 
+export const mcpCompleteArgumentRoute = defineRouteContract({
+  name: "mcp.completeArgument",
+  input: zod.object({
+    serverName: zod.string(),
+    params: zod.unknown(),
+  }),
+  output: zod.object({
+    completion: zod.unknown(),
+  }),
+});
+
 export const mcpCallToolRoute = defineRouteContract({
   name: "mcp.callTool",
   input: zod.object({

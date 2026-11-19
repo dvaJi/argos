@@ -320,6 +320,16 @@ export const sessionsGetAcpCursorsRoute = defineRouteContract({
   }),
 });
 
+export const sessionsGetAcpSessionStatusRoute = defineRouteContract({
+  name: "sessions.getAcpSessionStatus",
+  input: zod.object({
+    conversationId: EntityIdSchema,
+  }),
+  output: zod.object({
+    status: zod.string().nullable(),
+  }),
+});
+
 export const sessionsForkAcpCursorRoute = defineRouteContract({
   name: "sessions.forkAcpCursor",
   input: zod.object({

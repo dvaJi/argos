@@ -30,6 +30,7 @@ import {
   mcpListPromptsRoute,
   mcpListResourcesRoute,
   mcpListResourceTemplatesRoute,
+  mcpCompleteArgumentRoute,
   mcpListToolDefinitionsRoute,
   mcpReadResourceRoute,
   mcpRefreshNpmRegistryRoute,
@@ -95,6 +96,10 @@ export function createMcpClient(bridge: ArgosBridge = getArgosBridge()) {
     return result.templates;
   }
 
+  async function completeArgument(serverName: string, params: unknown) {
+    const result = await bridge.invoke(mcpCompleteArgumentRoute.name, { serverName, params });
+    return result.completion;
+  }
   async function callTool(request: MCPToolCall) {
     return await bridge.invoke(mcpCallToolRoute.name, { request });
   }
@@ -288,6 +293,7 @@ export function createMcpClient(bridge: ArgosBridge = getArgosBridge()) {
     getAllPrompts,
     getAllResources,
     getAllResourceTemplates,
+    completeArgument,
     callTool,
     addMcpServer,
     updateMcpServer,

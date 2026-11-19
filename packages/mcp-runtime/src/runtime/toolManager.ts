@@ -1,4 +1,5 @@
 import type { McpHostPorts } from "../host/ports";
+import type { CompleteRequest } from "@modelcontextprotocol/sdk/types.js";
 
 const MCP_EVENTS = {
   CLIENT_LIST_UPDATED: "mcp:client-list-updated",
@@ -912,6 +913,34 @@ export class ToolManager {
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.error("Failed to get prompt template:", errorMessage);
       throw new Error(`Failed to get prompt template: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * `completion/complete` against a specific server: argument suggestions for
+   * prompts / resource templates (server-provided; empty when unsupported).
+   */
+  async completeArgumentByClient(
+    clientName: string,
+    params: CompleteRequest["params"],
+  ): Promise<unknown> {
+    try {
+      const clients = await this.getRunningClients();
+
+      const client = clients.find((c) => c.serverName === clientName);
+      if (!client) {
+        throw new Error(`MCP client not found: ${clientName}`);
+      }
+
+      if (typeof client.completeArgument !== "function") {
+        throw new Error(`MCP client ${clientName} does not support argument completion`);
+      }
+
+      return await client.completeArgument(params);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error("Failed to complete argument:", errorMessage);
+      throw new Error(`Failed to complete argument: ${errorMessage}`);
     }
   }
 

@@ -298,6 +298,15 @@ export class DaemonMcpRuntime {
     return templates;
   }
 
+  async completeArgument(serverName: string, params: unknown) {
+    const enabled = await this.configPresenter.getMcpEnabled();
+    const servers = await this.configPresenter.getMcpServers();
+    if (!enabled && !(servers[serverName]?.ownerPluginId || servers[serverName]?.sourceId)) {
+      throw new Error("MCP functionality is disabled");
+    }
+    return (await this.toolManager.completeArgumentByClient(serverName, params as never)) as unknown;
+  }
+
   async readResource(resource: unknown) {
     const typedResource = resource as { client: { name: string }; uri: string };
     const enabled = await this.configPresenter.getMcpEnabled();

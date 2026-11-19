@@ -172,6 +172,7 @@ import {
   sessionsEditUserMessageRoute,
   sessionsForkRoute,
   sessionsGetAcpCursorsRoute,
+  sessionsGetAcpSessionStatusRoute,
   sessionsForkAcpCursorRoute,
   sessionsSearchHistoryRoute,
   sessionsGetSearchResultsRoute,
@@ -236,6 +237,7 @@ import {
   mcpGetPromptRoute,
   mcpListResourcesRoute,
   mcpListResourceTemplatesRoute,
+  mcpCompleteArgumentRoute,
   mcpReadResourceRoute,
   mcpSubmitSamplingDecisionRoute,
   mcpCancelSamplingRequestRoute,
@@ -841,6 +843,7 @@ export function createDaemonDispatcher(
     listResources(): Promise<unknown[]>;
     readResource(r: unknown): Promise<unknown>;
     listResourceTemplates(): Promise<unknown[]>;
+    completeArgument(serverName: string, params: unknown): Promise<unknown>;
     resolveElicitationDecision(decision: unknown): boolean;
     cancelElicitation(requestId: string, reason?: string): boolean;
   },
@@ -1314,6 +1317,12 @@ export function createDaemonDispatcher(
     if (route === mcpListResourceTemplatesRoute.name) {
       mcpListResourceTemplatesRoute.input.parse(rawInput);
       return mcpListResourceTemplatesRoute.output.parse({ templates: await mcpRuntime.listResourceTemplates() });
+    }
+
+    if (route === mcpCompleteArgumentRoute.name) {
+      const input = mcpCompleteArgumentRoute.input.parse(rawInput);
+      const completion = await mcpRuntime.completeArgument(input.serverName, input.params);
+      return mcpCompleteArgumentRoute.output.parse({ completion });
     }
 
     if (route === mcpReadResourceRoute.name) {
@@ -3023,6 +3032,12 @@ export function createDaemonDispatcher(
       const input = sessionsGetAcpCursorsRoute.input.parse(rawInput);
       const cursors = (await acpSessionExecutionPort?.getAcpSessionCursors?.(input.conversationId)) ?? [];
       return sessionsGetAcpCursorsRoute.output.parse({ cursors });
+    }
+
+    if (route === sessionsGetAcpSessionStatusRoute.name) {
+      const input = sessionsGetAcpSessionStatusRoute.input.parse(rawInput);
+      const status = (await acpSessionExecutionPort?.getAcpSessionStatus?.(input.conversationId)) ?? null;
+      return sessionsGetAcpSessionStatusRoute.output.parse({ status });
     }
 
     if (route === sessionsForkAcpCursorRoute.name) {

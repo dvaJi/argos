@@ -50,6 +50,15 @@ export default function AcpAuthDialog({
   );
   const [error, setError] = useState<string | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
+  const [accounts, setAccounts] = useState<
+    Array<{
+      label: string;
+      description?: string | null;
+      active?: boolean | null;
+      name?: string | null;
+      email?: string | null;
+    }>
+  >([]);
   const terminalRef = useRef<HTMLDivElement | null>(null);
   const xtermRef = useRef<Terminal | null>(null);
   const pendingOutputRef = useRef<string[]>([]);
@@ -90,6 +99,9 @@ export default function AcpAuthDialog({
         } else {
           pendingOutputRef.current.push(payload.output);
         }
+      }
+      if (payload.authStatus?.accounts) {
+        setAccounts(payload.authStatus.accounts);
       }
       if (payload.state === "ready") {
         setFlowState("ready");
@@ -266,9 +278,36 @@ export default function AcpAuthDialog({
         ) : null}
 
         {flowState === "ready" ? (
-          <div className="flex items-center gap-2 rounded-lg border border-green-600/30 bg-green-600/10 px-3 py-2 text-sm text-green-700 dark:text-green-400">
-            <Icon icon="lucide:check-circle-2" className="size-4" />
-            Authenticated. You can retry the conversation now.
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 rounded-lg border border-green-600/30 bg-green-600/10 px-3 py-2 text-sm text-green-700 dark:text-green-400">
+              <Icon icon="lucide:check-circle-2" className="size-4" />
+              Authenticated. You can retry the conversation now.
+            </div>
+            {accounts.length > 0 && (
+              <div className="space-y-1.5">
+                <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Configured accounts</div>
+                {accounts.map((account) => (
+                  <div
+                    key={account.label}
+                    className="flex items-center justify-between gap-2 rounded-md border bg-background/50 px-2.5 py-1.5"
+                  >
+                    <div className="min-w-0">
+                      <div className="truncate text-xs font-medium">{account.label}</div>
+                      {(account.description || account.name || account.email) && (
+                        <div className="truncate text-[11px] text-muted-foreground">
+                          {[account.description, account.name, account.email].filter(Boolean).join(" · ")}
+                        </div>
+                      )}
+                    </div>
+                    {account.active && (
+                      <Badge variant="outline" className="shrink-0 text-[10px]">
+                        active
+                      </Badge>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         ) : null}
 
