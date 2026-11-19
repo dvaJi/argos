@@ -835,8 +835,12 @@ export class ToolManager {
         };
       }
 
-      // Call the tool on the target client using the ORIGINAL name
-      const result = await targetClient.callTool(originalName, args || {});
+      // Call the tool on the target client using the ORIGINAL name. The LLM
+      // tool-call id is threaded through so task progress events can be
+      // correlated with the chat's tool_call blocks.
+      const result = await targetClient.callTool(originalName, args || {}, {
+        toolCallId: toolCall.id,
+      });
 
       // Format response
       let formattedContent: string | MCPContentItem[] = "";

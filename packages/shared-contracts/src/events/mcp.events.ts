@@ -62,6 +62,7 @@ export const mcpToolCallProgressEvent = defineEventContract({
   payload: zod.object({
     serverName: zod.string(),
     toolName: zod.string(),
+    toolCallId: zod.string().nullable(),
     taskId: zod.string().nullable(),
     status: zod.string().nullable(),
     statusMessage: zod.string().nullable(),

@@ -7,6 +7,10 @@ const mcpClient = createMcpClient();
 export interface McpTaskProgressEntry {
   serverName: string;
   toolName: string;
+  /** LLM tool-call id when the call came through the agent tool pipeline; lets chat blocks correlate progress. */
+  toolCallId: string | null;
+  /** Server-assigned task id for the task-augmented call. */
+  taskId: string | null;
   status: string | null;
   statusMessage: string | null;
   updatedAt: number;
@@ -25,18 +29,23 @@ const eventCleanups: Array<() => void> = [];
 const handleProgress = (payload: {
   serverName: string;
   toolName: string;
+  toolCallId: string | null;
   taskId: string | null;
   status: string | null;
   statusMessage: string | null;
 }) => {
-  if (!payload.taskId) return;
-  const taskId: string = payload.taskId;
+  // Key by toolCallId when available (chat-block correlation) so multiple
+  // concurrent calls to the same server stay separate; fall back to taskId.
+  const key = payload.toolCallId ?? payload.taskId;
+  if (!key) return;
   mcpTaskProgressStore.setState((prev) => ({
     tasks: {
       ...prev.tasks,
-      [taskId]: {
+      [key]: {
         serverName: payload.serverName,
         toolName: payload.toolName,
+        toolCallId: payload.toolCallId,
+        taskId: payload.taskId,
         status: payload.status,
         statusMessage: payload.statusMessage,
         updatedAt: Date.now(),
@@ -48,7 +57,7 @@ const handleProgress = (payload: {
   if (payload.status === "completed" || payload.status === "failed" || payload.status === "cancelled") {
     setTimeout(() => {
       mcpTaskProgressStore.setState((prev) => {
-        const { [payload.taskId as string]: _removed, ...rest } = prev.tasks;
+        const { [key as string]: _removed, ...rest } = prev.tasks;
         return { tasks: rest };
       });
     }, 3000);
@@ -72,4 +81,10 @@ export function useMcpTaskProgress(): McpTaskProgressEntry[] {
     return cleanupMcpTaskProgress;
   }, []);
   return Object.values(state.tasks);
+}
+
+export function useMcpToolCallProgress(toolCallId: string | null): McpTaskProgressEntry | null {
+  const tasks = useMcpTaskProgress();
+  if (!toolCallId) return null;
+  return tasks.find((task) => task.toolCallId === toolCallId) ?? null;
 }

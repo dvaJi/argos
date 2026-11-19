@@ -1133,7 +1133,11 @@ export class McpClient {
   }
 
   // Call MCP tool
-  async callTool(toolName: string, args: Record<string, unknown>): Promise<ToolCallResult> {
+  async callTool(
+    toolName: string,
+    args: Record<string, unknown>,
+    options?: { toolCallId?: string },
+  ): Promise<ToolCallResult> {
     try {
       if (!this.isConnected) {
         await this.connect();
@@ -1146,7 +1150,7 @@ export class McpClient {
       // Prefer the experimental task stream: servers that augment tool calls
       // with tasks emit status updates plus the final result through it, while
       // plain servers yield a single result message.
-      const streamed = await this.callToolWithTaskStream(toolName, args);
+      const streamed = await this.callToolWithTaskStream(toolName, args, options?.toolCallId);
       let result: ToolCallResult;
       if (streamed !== null) {
         result = streamed;
@@ -1192,6 +1196,7 @@ export class McpClient {
   private async callToolWithTaskStream(
     toolName: string,
     args: Record<string, unknown>,
+    toolCallId?: string,
   ): Promise<ToolCallResult | null> {
     const client = this.client as unknown as {
       experimental?: {
@@ -1218,12 +1223,15 @@ export class McpClient {
         finalError = new Error(rawError?.message || "Task failed");
       } else {
         // 'taskCreated' / 'taskStatus': surface long-running tool progress on
-        // the events bus so hosts can show per-call progress in the UI.
+        // the events bus so hosts can show per-call progress in the UI. The
+        // LLM tool-call id lets renderers correlate updates with the chat's
+        // tool_call blocks.
         const task = (message as { task?: { taskId?: unknown; status?: unknown; statusMessage?: unknown } }).task;
         if (task && typeof task === "object") {
           this.ports.events.broadcast(MCP_EVENTS.TOOL_CALL_PROGRESS, {
             serverName: this.serverName,
             toolName,
+            toolCallId: toolCallId ?? null,
             taskId: typeof task.taskId === "string" ? task.taskId : null,
             status: typeof task.status === "string" ? task.status : null,
             statusMessage: typeof task.statusMessage === "string" ? task.statusMessage : null,

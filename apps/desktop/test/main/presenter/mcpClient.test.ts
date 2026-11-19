@@ -907,7 +907,7 @@ describe("McpClient Runtime Command Processing Tests", () => {
       };
       (client as any).isConnected = true;
 
-      const result = await client.callTool("deploy", {});
+      const result = await client.callTool("deploy", {}, { toolCallId: "chat_tc_42" });
 
       expect(result).toEqual({ content: [{ type: "text", text: "done" }], isError: false });
       const progressEvents = broadcasts.filter((b) => b.channel === "mcp:tool-call-progress");
@@ -915,6 +915,7 @@ describe("McpClient Runtime Command Processing Tests", () => {
       expect(progressEvents[0].payload).toMatchObject({
         serverName: "long-runner",
         toolName: "deploy",
+        toolCallId: "chat_tc_42",
         taskId: "t9",
         status: "working",
         statusMessage: "Starting deploy",

@@ -264,6 +264,7 @@ export function createMcpClient(bridge: ArgosBridge = getArgosBridge()) {
     listener: (payload: {
       serverName: string;
       toolName: string;
+      toolCallId: string | null;
       taskId: string | null;
       status: string | null;
       statusMessage: string | null;
