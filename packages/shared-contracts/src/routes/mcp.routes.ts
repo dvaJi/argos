@@ -81,6 +81,25 @@ export const mcpListResourcesRoute = defineRouteContract({
   }),
 });
 
+const ResourceTemplateEntrySchema = zod.object({
+  client: zod.object({
+    name: zod.string(),
+    icon: zod.string().optional(),
+  }),
+  uriTemplate: zod.string(),
+  name: zod.string().optional(),
+  description: zod.string().optional(),
+  mimeType: zod.string().optional(),
+});
+
+export const mcpListResourceTemplatesRoute = defineRouteContract({
+  name: "mcp.listResourceTemplates",
+  input: zod.object({}),
+  output: zod.object({
+    templates: zod.array(ResourceTemplateEntrySchema),
+  }),
+});
+
 export const mcpCallToolRoute = defineRouteContract({
   name: "mcp.callTool",
   input: zod.object({

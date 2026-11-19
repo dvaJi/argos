@@ -235,6 +235,7 @@ import {
   mcpListPromptsRoute,
   mcpGetPromptRoute,
   mcpListResourcesRoute,
+  mcpListResourceTemplatesRoute,
   mcpReadResourceRoute,
   mcpSubmitSamplingDecisionRoute,
   mcpCancelSamplingRequestRoute,
@@ -833,6 +834,7 @@ export function createDaemonDispatcher(
     getPrompt(p: unknown, a?: Record<string, unknown>): Promise<unknown>;
     listResources(): Promise<unknown[]>;
     readResource(r: unknown): Promise<unknown>;
+    listResourceTemplates(): Promise<unknown[]>;
     resolveElicitationDecision(decision: unknown): boolean;
     cancelElicitation(requestId: string, reason?: string): boolean;
   },
@@ -1301,6 +1303,11 @@ export function createDaemonDispatcher(
     if (route === mcpListResourcesRoute.name) {
       mcpListResourcesRoute.input.parse(rawInput);
       return mcpListResourcesRoute.output.parse({ resources: await mcpRuntime.listResources() });
+    }
+
+    if (route === mcpListResourceTemplatesRoute.name) {
+      mcpListResourceTemplatesRoute.input.parse(rawInput);
+      return mcpListResourceTemplatesRoute.output.parse({ templates: await mcpRuntime.listResourceTemplates() });
     }
 
     if (route === mcpReadResourceRoute.name) {

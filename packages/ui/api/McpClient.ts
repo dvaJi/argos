@@ -29,6 +29,7 @@ import {
   mcpListMcpRouterServersRoute,
   mcpListPromptsRoute,
   mcpListResourcesRoute,
+  mcpListResourceTemplatesRoute,
   mcpListToolDefinitionsRoute,
   mcpReadResourceRoute,
   mcpRefreshNpmRegistryRoute,
@@ -87,6 +88,11 @@ export function createMcpClient(bridge: ArgosBridge = getArgosBridge()) {
   async function getAllResources() {
     const result = await bridge.invoke(mcpListResourcesRoute.name, {});
     return result.resources;
+  }
+
+  async function getAllResourceTemplates() {
+    const result = await bridge.invoke(mcpListResourceTemplatesRoute.name, {});
+    return result.templates;
   }
 
   async function callTool(request: MCPToolCall) {
@@ -281,6 +287,7 @@ export function createMcpClient(bridge: ArgosBridge = getArgosBridge()) {
     getAllToolDefinitions,
     getAllPrompts,
     getAllResources,
+    getAllResourceTemplates,
     callTool,
     addMcpServer,
     updateMcpServer,

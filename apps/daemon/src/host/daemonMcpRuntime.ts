@@ -274,6 +274,30 @@ export class DaemonMcpRuntime {
     return resources;
   }
 
+  async listResourceTemplates() {
+    const enabled = await this.configPresenter.getMcpEnabled();
+    const servers = await this.configPresenter.getMcpServers();
+    const clients = (await this.toolManager.getRunningClients()).filter(
+      (client) => enabled || Boolean(servers[client.serverName]?.ownerPluginId || servers[client.serverName]?.sourceId),
+    );
+
+    const templates: Array<Record<string, unknown> & { client: { name: string; icon: string } }> = [];
+    for (const client of clients) {
+      if (typeof client.listResourceTemplates !== "function") continue;
+      const clientTemplates = await client.listResourceTemplates().catch(() => []);
+      for (const template of clientTemplates ?? []) {
+        templates.push({
+          ...template,
+          client: {
+            name: client.serverName,
+            icon: client.serverConfig["icons"] as string,
+          },
+        });
+      }
+    }
+    return templates;
+  }
+
   async readResource(resource: unknown) {
     const typedResource = resource as { client: { name: string }; uri: string };
     const enabled = await this.configPresenter.getMcpEnabled();

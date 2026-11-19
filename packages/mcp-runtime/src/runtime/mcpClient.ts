@@ -1317,6 +1317,43 @@ export class McpClient {
     }
   }
 
+  /**
+   * Best-effort `resources/templates/list` probe: servers without template
+   * support are treated as "no templates", mirroring the other optional
+   * capability probes.
+   */
+  async listResourceTemplates(): Promise<Array<{ uriTemplate: string; name?: string; description?: string; mimeType?: string }>> {
+    try {
+      if (!this.isConnected) {
+        await this.connect();
+      }
+      if (!this.client || typeof this.client.listResourceTemplates !== "function") {
+        return [];
+      }
+      const response = await this.client.listResourceTemplates();
+      const list = (response as { resourceTemplates?: unknown }).resourceTemplates;
+      if (!Array.isArray(list)) {
+        return [];
+      }
+      return list.map((template) => {
+        const view = template as Record<string, unknown>;
+        return {
+          uriTemplate: typeof view.uriTemplate === "string" ? view.uriTemplate : "unknown",
+          name: typeof view.name === "string" ? view.name : undefined,
+          description: typeof view.description === "string" ? view.description : undefined,
+          mimeType: typeof view.mimeType === "string" ? view.mimeType : undefined,
+        };
+      });
+    } catch (error) {
+      await this.checkAndHandleSessionError(error);
+      if (isUnsupportedCapabilityError(error)) {
+        return [];
+      }
+      console.warn(`[MCP] Failed to list resource templates for server ${this.serverName}:`, error);
+      return [];
+    }
+  }
+
   // Read resource
   async readResource(resourceUri: string): Promise<Resource> {
     try {
