@@ -192,6 +192,7 @@ const McpPromptPanel: FC<McpPromptPanelProps> = ({ serverName, open, onOpenChang
                       />
 
                       <PromptRunCard
+                        key={selectedPromptObj.name}
                         params={promptParams}
                         jsonError={jsonPromptError}
                         loading={promptLoading}
@@ -343,6 +344,17 @@ function PromptRunCard({
       return input;
     }
   };
+  /** Sync field edits into the JSON params so onRun always uses current values. */
+  const handleFieldValuesChange = (values: Record<string, string>) => {
+    setFieldValues(values);
+    const paramsObject: Record<string, string> = {};
+    for (const [key, value] of Object.entries(values)) {
+      if (value.trim()) paramsObject[key] = value;
+    }
+    onParamsChange(JSON.stringify(paramsObject, null, 2));
+  };
+  const missingRequired =
+    inputMode === "fields" ? promptArgs.filter((a) => a.required && !fieldValues[a.name]?.trim()) : [];
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -386,7 +398,7 @@ function PromptRunCard({
           args={promptArgs}
           disabled={loading}
           values={fieldValues}
-          onValuesChange={setFieldValues}
+          onValuesChange={handleFieldValuesChange}
         />
       ) : (
         <div className="relative">
@@ -408,7 +420,11 @@ function PromptRunCard({
         </div>
       )}
 
-      <Button className="w-full" disabled={loading} onClick={onRun}>
+      {inputMode === "fields" && missingRequired.length > 0 && (
+        <p className="text-[11px] text-muted-foreground">Required: {missingRequired.map((a) => a.name).join(", ")}</p>
+      )}
+
+      <Button className="w-full" disabled={loading || missingRequired.length > 0} onClick={onRun}>
         {loading ? (
           <Icon icon="lucide:loader" className="mr-2 h-4 w-4 animate-spin" />
         ) : (
