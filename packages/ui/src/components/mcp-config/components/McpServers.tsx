@@ -12,10 +12,10 @@ import {
 } from "#shadcn/components/ui/dialog";
 import { Badge } from "#shadcn/components/ui/badge";
 import { createMcpClient } from "#api/McpClient";
+import { useToast } from "#/components/use-toast";
 import { Input } from "#shadcn/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "#shadcn/components/ui/sheet";
 import { useMcpStore } from "#/stores/mcp";
-import { useToast } from "#/components/use-toast";
 import { useNavigate } from "@tanstack/react-router";
 import McpServerCard from "./McpServerCard";
 import McpServerForm from "../mcpServerForm";
@@ -50,7 +50,34 @@ export const McpServers = forwardRef<McpServersRef, McpServersProps>(
     const [selectedServerForResources, setSelectedServerForResources] = useState("");
     const [selectedDetailServerName, setSelectedDetailServerName] = useState("");
     const [signingOutServer, setSigningOutServer] = useState<string | null>(null);
+    const [detailResourceTemplates, setDetailResourceTemplates] = useState<
+      Array<{
+        uriTemplate: string;
+        name?: string;
+        description?: string;
+        mimeType?: string;
+        client: { name: string; icon?: string };
+      }>
+    >([]);
     const mcpClient = createMcpClient();
+
+    useEffect(() => {
+      if (!selectedDetailServerName) return;
+      let cancelled = false;
+      mcpClient
+        .getAllResourceTemplates()
+        .then((all) => {
+          if (!cancelled) {
+            setDetailResourceTemplates(all.filter((t) => t.client?.name === selectedDetailServerName));
+          }
+        })
+        .catch(() => {
+          if (!cancelled) setDetailResourceTemplates([]);
+        });
+      return () => {
+        cancelled = true;
+      };
+    }, [selectedDetailServerName, mcpClient]);
 
     const isOAuthServer = (serverName: string): boolean =>
       Boolean(
@@ -265,6 +292,7 @@ export const McpServers = forwardRef<McpServersRef, McpServersProps>(
           isBuiltInServer={isBuiltInServer}
           isOAuthServer={isOAuthServer}
           signingOut={signingOutServer === selectedDetailServerName}
+          resourceTemplates={detailResourceTemplates}
           onSignOut={handleSignOut}
           getToolsCount={getServerToolsCount}
           getPromptsCount={getServerPromptsCount}
@@ -495,6 +523,7 @@ const McpServerDetailSheet = ({
   isBuiltInServer,
   isOAuthServer,
   signingOut,
+  resourceTemplates,
   getToolsCount,
   getPromptsCount,
   getResourcesCount,
@@ -510,6 +539,13 @@ const McpServerDetailSheet = ({
   isBuiltInServer: (serverName: string) => boolean;
   isOAuthServer: (serverName: string) => boolean;
   signingOut: boolean;
+  resourceTemplates: Array<{
+    uriTemplate: string;
+    name?: string;
+    description?: string;
+    mimeType?: string;
+    client: { name: string; icon?: string };
+  }>;
   getToolsCount: (serverName: string) => number;
   getPromptsCount: (serverName: string) => number;
   getResourcesCount: (serverName: string) => number;
@@ -520,84 +556,103 @@ const McpServerDetailSheet = ({
   onEdit: (serverName: string) => void;
   onRemove: (serverName: string) => void;
   onSignOut: (serverName: string) => void;
-}) => (
-  <Sheet open={Boolean(server)} onOpenChange={onOpenChange}>
-    <SheetContent className="flex w-full flex-col sm:max-w-xl">
-      <SheetHeader>
-        <SheetTitle>{server?.name}</SheetTitle>
-        <SheetDescription>{server?.descriptions}</SheetDescription>
-      </SheetHeader>
-      {server && (
-        <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-4">
-          <div className="flex flex-wrap gap-2">
-            <Badge variant="secondary">{server.isRunning ? "Running" : "Stopped"}</Badge>
-            <Badge variant="outline">{isBuiltInServer(server.name) ? "Built-in" : "Custom"}</Badge>
-            {isOAuthServer(server.name) && <Badge variant="outline">OAuth</Badge>}
-          </div>
+}) => {
+  return (
+    <Sheet open={Boolean(server)} onOpenChange={onOpenChange}>
+      <SheetContent className="flex w-full flex-col sm:max-w-xl">
+        <SheetHeader>
+          <SheetTitle>{server?.name}</SheetTitle>
+          <SheetDescription>{server?.descriptions}</SheetDescription>
+        </SheetHeader>
+        {server && (
+          <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-4">
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="secondary">{server.isRunning ? "Running" : "Stopped"}</Badge>
+              <Badge variant="outline">{isBuiltInServer(server.name) ? "Built-in" : "Custom"}</Badge>
+              {isOAuthServer(server.name) && <Badge variant="outline">OAuth</Badge>}
+            </div>
 
-          {isOAuthServer(server.name) && (
-            <div className="flex items-center justify-between gap-2 rounded-md border bg-background/50 px-3 py-2">
-              <span className="text-xs text-muted-foreground">Signed in via OAuth</span>
+            {isOAuthServer(server.name) && (
+              <div className="flex items-center justify-between gap-2 rounded-md border bg-background/50 px-3 py-2">
+                <span className="text-xs text-muted-foreground">Signed in via OAuth</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  disabled={signingOut}
+                  onClick={() => onSignOut(server.name)}
+                >
+                  <Icon icon="lucide:log-out" className="size-3.5" />
+                  {signingOut ? "Signing out…" : "Sign out"}
+                </Button>
+              </div>
+            )}
+
+            <div className="grid gap-2 sm:grid-cols-3">
               <Button
                 variant="outline"
-                size="sm"
-                className="h-7 text-xs"
-                disabled={signingOut}
-                onClick={() => onSignOut(server.name)}
+                disabled={getToolsCount(server.name) === 0}
+                onClick={() => onViewTools(server.name)}
               >
-                <Icon icon="lucide:log-out" className="size-3.5" />
-                {signingOut ? "Signing out…" : "Sign out"}
+                <Icon icon="lucide:wrench" className="size-4" />
+                {getToolsCount(server.name)}
+              </Button>
+              <Button
+                variant="outline"
+                disabled={getPromptsCount(server.name) === 0}
+                onClick={() => onViewPrompts(server.name)}
+              >
+                <Icon icon="lucide:message-square-quote" className="size-4" />
+                {getPromptsCount(server.name)}
+              </Button>
+              <Button
+                variant="outline"
+                disabled={getResourcesCount(server.name) === 0}
+                onClick={() => onViewResources(server.name)}
+              >
+                <Icon icon="lucide:folder" className="size-4" />
+                {getResourcesCount(server.name)}
               </Button>
             </div>
-          )}
 
-          <div className="grid gap-2 sm:grid-cols-3">
-            <Button
-              variant="outline"
-              disabled={getToolsCount(server.name) === 0}
-              onClick={() => onViewTools(server.name)}
-            >
-              <Icon icon="lucide:wrench" className="size-4" />
-              {getToolsCount(server.name)}
-            </Button>
-            <Button
-              variant="outline"
-              disabled={getPromptsCount(server.name) === 0}
-              onClick={() => onViewPrompts(server.name)}
-            >
-              <Icon icon="lucide:message-square-quote" className="size-4" />
-              {getPromptsCount(server.name)}
-            </Button>
-            <Button
-              variant="outline"
-              disabled={getResourcesCount(server.name) === 0}
-              onClick={() => onViewResources(server.name)}
-            >
-              <Icon icon="lucide:folder" className="size-4" />
-              {getResourcesCount(server.name)}
-            </Button>
-          </div>
-
-          <div className="rounded-lg border border-border p-3">
-            <div className="text-xs font-medium text-muted-foreground">Command</div>
-            <div className="mt-1 break-all font-mono text-xs">{server.command || "-"}</div>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => onEdit(server.name)}>
-              <Icon icon="lucide:settings" className="size-4" /> Edit
-            </Button>
-            {!isBuiltInServer(server.name) && (
-              <Button variant="destructive" onClick={() => onRemove(server.name)}>
-                <Icon icon="lucide:trash-2" className="size-4" /> Remove
-              </Button>
+            {resourceTemplates.length > 0 && (
+              <div className="space-y-1.5">
+                <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Resource templates</div>
+                {resourceTemplates.map((template) => (
+                  <div key={template.uriTemplate} className="rounded-md border bg-background/50 px-2.5 py-1.5 text-xs">
+                    <div className="truncate font-medium">{template.name ?? template.uriTemplate}</div>
+                    {template.description && (
+                      <div className="mt-0.5 truncate text-[11px] text-muted-foreground">{template.description}</div>
+                    )}
+                    <code className="mt-0.5 block truncate text-[10px] text-muted-foreground">
+                      {template.uriTemplate}
+                    </code>
+                  </div>
+                ))}
+              </div>
             )}
+
+            <div className="rounded-lg border border-border p-3">
+              <div className="text-xs font-medium text-muted-foreground">Command</div>
+              <div className="mt-1 break-all font-mono text-xs">{server.command || "-"}</div>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={() => onEdit(server.name)}>
+                <Icon icon="lucide:settings" className="size-4" /> Edit
+              </Button>
+              {!isBuiltInServer(server.name) && (
+                <Button variant="destructive" onClick={() => onRemove(server.name)}>
+                  <Icon icon="lucide:trash-2" className="size-4" /> Remove
+                </Button>
+              )}
+            </div>
           </div>
-        </div>
-      )}
-    </SheetContent>
-  </Sheet>
-);
+        )}
+      </SheetContent>
+    </Sheet>
+  );
+};
 
 const McpEditServerDialog = ({
   open,
