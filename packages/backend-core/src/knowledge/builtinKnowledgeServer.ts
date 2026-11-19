@@ -35,7 +35,7 @@ export class BuiltinKnowledgeServer {
   }
 
   private setupRequestHandlers(): void {
-    this.server.setRequestHandler(ListToolsRequestSchema, async () => {
+    this.server.setRequestHandler("tools/list", { params: ListToolsRequestSchema }, async () => {
       const enabledConfigs = this.getEnabledConfigs();
       const tools = enabledConfigs.map((config, index) => {
         const suffix = enabledConfigs.length > 1 ? `_${index + 1}` : "";
@@ -51,7 +51,7 @@ export class BuiltinKnowledgeServer {
       });
       return { tools };
     });
-    this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
+    this.server.setRequestHandler("tools/call", { params: CallToolRequestSchema }, async (request) => {
       const { name, arguments: parameters } = request.params;
       if (name.startsWith("builtin_knowledge_search")) {
         try {

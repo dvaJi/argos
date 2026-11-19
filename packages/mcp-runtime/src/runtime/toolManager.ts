@@ -1,5 +1,5 @@
 import type { McpHostPorts } from "../host/ports";
-import type { CompleteRequest } from "@modelcontextprotocol/sdk/types.js";
+import type { CompleteRequest } from "@modelcontextprotocol/client";
 
 const MCP_EVENTS = {
   CLIENT_LIST_UPDATED: "mcp:client-list-updated",

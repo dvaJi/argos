@@ -88,7 +88,10 @@
         "@electron-toolkit/preload": "^3.0.2",
         "@electron-toolkit/utils": "^4.0.0",
         "@jxa/run": "^1.4.0",
+        "@modelcontextprotocol/client": "catalog:",
+        "@modelcontextprotocol/core": "catalog:",
         "@modelcontextprotocol/sdk": "catalog:",
+        "@modelcontextprotocol/server": "catalog:",
         "ai": "catalog:",
         "axios": "^1.21.1",
         "chokidar": "^6.0.0",
@@ -274,7 +277,10 @@
         "@argos/backend-core": "workspace:*",
         "@argos/shared": "workspace:*",
         "@argos/shared-contracts": "workspace:*",
+        "@modelcontextprotocol/client": "catalog:",
+        "@modelcontextprotocol/core": "catalog:",
         "@modelcontextprotocol/sdk": "catalog:",
+        "@modelcontextprotocol/server": "catalog:",
         "axios": "^1.21.1",
         "compare-versions": "^6.1.1",
         "jsonrepair": "^3.15.0",
@@ -458,7 +464,10 @@
     "@aws-sdk/client-bedrock": "^3.1164.0",
     "@earendil-works/pi-coding-agent": "1.5.2",
     "@earendil-works/pi-schema": "1.5.2",
+    "@modelcontextprotocol/client": "2.4.0",
+    "@modelcontextprotocol/core": "2.4.0",
     "@modelcontextprotocol/sdk": "^1.32.2",
+    "@modelcontextprotocol/server": "2.4.0",
     "@playwright/test": "^1.65.0",
     "@tailwindcss/vite": "^4.3.5",
     "@tanstack/react-query": "^5.107.1",
@@ -953,6 +962,8 @@
     "@mermaid-js/parser": ["@mermaid-js/parser@2.0.1", "", { "dependencies": { "@chevrotain/types": "~13.2.0" } }, "sha512-j37dj/h6p6pots1L7pLPPNuABEEu9WP4OYg9pW1g+nYG331j0+3canE9OagtYdytYvdSAMG+2fKU5cxep6LgjA=="],
 
     "@mixmark-io/domino": ["@mixmark-io/domino@2.2.0", "", {}, "sha512-Y28PR25bHXUg88kCV7nivXrP2Nj2RueZ3/l/jdx6J9f8J4nsEGcgX0Qe6lt7Pa+J79+kPiJU3LguR6O/6zrLOw=="],
+
+    "@modelcontextprotocol/client": ["@modelcontextprotocol/client@2.4.0", "", { "dependencies": { "@modelcontextprotocol/core": "2.4.0", "cross-spawn": "^7.0.5", "eventsource": "^3.0.2", "eventsource-parser": "^3.0.8", "jose": "^6.1.3", "pkce-challenge": "^5.0.0", "zod": "^4.2.0" } }, "sha512-LgrD2OphHuG12vfKFKz6SOnq7bKHQmhGJIAYdD+MZBn2npHEyry6uD8zvktodtl5CQM85MO0anUyD9JwmUmxww=="],
 
     "@modelcontextprotocol/core": ["@modelcontextprotocol/core@2.4.0", "", { "dependencies": { "zod": "^4.2.0" } }, "sha512-z8QBKqdfXLPzkLQuG4xp8hrVEMm1PZ1IgxMN2sMbJiFiAKOWXnAzogXn2W4aqIBlP1ea6U5yiqVquvUNM1Cj6Q=="],
 

@@ -1,7 +1,7 @@
 // https://github.com/supermemoryai/apple-mcp
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { ListToolsRequestSchema, CallToolRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-import { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
+import { Server, CallToolRequestSchema, ListToolsRequestSchema } from "@argos/mcp-runtime";
+
+import type { Transport } from "@argos/mcp-runtime";
 import { toJSONSchema, z } from "zod";
 import { runAppleScript } from "run-applescript";
 import { run } from "@jxa/run";
@@ -1150,7 +1150,7 @@ export class AppleServer {
 
   private setupRequestHandlers(): void {
     // Register tools/list handler
-    this.server.setRequestHandler(ListToolsRequestSchema, async () => ({
+    this.server.setRequestHandler("tools/list", { params: ListToolsRequestSchema }, async () => ({
       tools: [
         {
           name: "calendar",
@@ -1221,7 +1221,7 @@ export class AppleServer {
     }));
 
     // Register tools/call handler
-    this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
+    this.server.setRequestHandler("tools/call", { params: CallToolRequestSchema }, async (request) => {
       const { name, arguments: args } = request.params;
 
       try {

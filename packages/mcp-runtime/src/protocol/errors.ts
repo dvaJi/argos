@@ -1,9 +1,11 @@
 /**
  * JSON-RPC protocol error codes and error class for MCP protocol errors.
  *
- * These are protocol-level errors (JSON-RPC responses), not SDK/transport
- * errors. Both 1.x and v2 use the same JSON-RPC error code numbering.
- * Defined locally so mcp-runtime doesn't depend on either SDK version.
+ * These are protocol-level errors (JSON-RPC error responses), not
+ * SDK/transport errors. The numbering is identical across MCP SDK 1.x and
+ * v2 — v2 exposes it as `ProtocolErrorCode` plus the `ProtocolError` class
+ * (both re-exported here under the 1.x names so the rest of the codebase
+ * and downstream packages keep their imports stable).
  */
 export const ErrorCode = {
   ParseError: -32700,
@@ -11,14 +13,9 @@ export const ErrorCode = {
   MethodNotFound: -32601,
   InvalidParams: -32602,
   InternalError: -32603,
+  ResourceNotFound: -32002,
+  /** 1.x-defined server-range code, kept for the elicitation-abort path. */
+  RequestTimeout: -32001,
 } as const;
 
-/** JSON-RPC protocol error with a numeric code (compatible with 1.x McpError). */
-export class McpError extends Error {
-  readonly code: number;
-
-  constructor(code: number, message: string) {
-    super(message);
-    this.code = code;
-  }
-}
+export { ProtocolError as McpError } from "@modelcontextprotocol/client";

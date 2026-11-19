@@ -4,11 +4,9 @@ import { RuntimeHelper } from "../../../src/main/lib/runtimeHelper";
 import path from "path";
 import { pathToFileURL } from "node:url";
 import fs from "fs";
-import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { ErrorCode, McpError } from "@argos/mcp-runtime";
+import { Client, SSEClientTransport, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
+import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 import type { McpHostPorts } from "@argos/mcp-runtime";
 import { getInMemoryServer } from "../../../src/main/presenter/mcpPresenter/inMemoryServers/builder";
 
@@ -99,24 +97,50 @@ vi.mock("../../../src/main/presenter/mcpPresenter/inMemoryServers/builder", () =
   getInMemoryServer: vi.fn<(...args: any[]) => any>(),
 }));
 
-// Mock MCP SDK modules
-vi.mock("@modelcontextprotocol/sdk/client/index.js", () => ({
-  Client: vi.fn<(...args: any[]) => any>().mockImplementation(function () {
-    return {
-      connect: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
-      callTool: vi.fn<(...args: any[]) => any>(),
-      listTools: vi.fn<(...args: any[]) => any>(),
-      listPrompts: vi.fn<(...args: any[]) => any>(),
-      getPrompt: vi.fn<(...args: any[]) => any>(),
-      listResources: vi.fn<(...args: any[]) => any>(),
-      readResource: vi.fn<(...args: any[]) => any>(),
-      setNotificationHandler: vi.fn<(...args: any[]) => any>(),
-      setRequestHandler: vi.fn<(...args: any[]) => any>(),
-    };
-  }),
-}));
+// Mock MCP SDK modules (v2 — the runtime imports from @modelcontextprotocol/client)
+vi.mock("@modelcontextprotocol/client", () => {
+  class MockProtocolError extends Error {
+    readonly code: number;
+    constructor(code: number, message: string) {
+      super(message);
+      this.code = code;
+    }
+  }
+  return {
+    Client: vi.fn<(...args: any[]) => any>().mockImplementation(function () {
+      return {
+        connect: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+        callTool: vi.fn<(...args: any[]) => any>(),
+        listTools: vi.fn<(...args: any[]) => any>(),
+        listPrompts: vi.fn<(...args: any[]) => any>(),
+        getPrompt: vi.fn<(...args: any[]) => any>(),
+        listResources: vi.fn<(...args: any[]) => any>(),
+        readResource: vi.fn<(...args: any[]) => any>(),
+        setNotificationHandler: vi.fn<(...args: any[]) => any>(),
+        setRequestHandler: vi.fn<(...args: any[]) => any>(),
+      };
+    }),
+    SSEClientTransport: vi.fn<(...args: any[]) => any>(),
+    StreamableHTTPClientTransport: vi.fn<(...args: any[]) => any>(),
+    InMemoryTransport: {
+      createLinkedPair: vi.fn<(...args: any[]) => any>(() => [
+        vi.fn<(...args: any[]) => any>(),
+        vi.fn<(...args: any[]) => any>(),
+      ]),
+    },
+    ProtocolError: MockProtocolError,
+    UnauthorizedError: class MockUnauthorizedError extends Error {},
+    ProtocolErrorCode: {
+      ParseError: -32700,
+      InvalidRequest: -32600,
+      MethodNotFound: -32601,
+      InvalidParams: -32602,
+      InternalError: -32603,
+    },
+  };
+});
 
-vi.mock("@modelcontextprotocol/sdk/client/stdio.js", () => ({
+vi.mock("@modelcontextprotocol/client/stdio", () => ({
   StdioClientTransport: vi.fn<(...args: any[]) => any>().mockImplementation(function () {
     return {
       stderr: {
@@ -125,23 +149,6 @@ vi.mock("@modelcontextprotocol/sdk/client/stdio.js", () => ({
       close: vi.fn<(...args: any[]) => any>(),
     };
   }),
-}));
-
-vi.mock("@modelcontextprotocol/sdk/client/sse.js", () => ({
-  SSEClientTransport: vi.fn<(...args: any[]) => any>(),
-}));
-
-vi.mock("@modelcontextprotocol/sdk/inMemory.js", () => ({
-  InMemoryTransport: {
-    createLinkedPair: vi.fn<(...args: any[]) => any>(() => [
-      vi.fn<(...args: any[]) => any>(),
-      vi.fn<(...args: any[]) => any>(),
-    ]),
-  },
-}));
-
-vi.mock("@modelcontextprotocol/sdk/client/streamableHttp.js", () => ({
-  StreamableHTTPClientTransport: vi.fn<(...args: any[]) => any>(),
 }));
 
 const testPorts: McpHostPorts = {
@@ -711,16 +718,14 @@ describe("McpClient Runtime Command Processing Tests", () => {
       mockGetProviderModels.mockReturnValue([{ id: "model-42", name: "Model Forty Two" }]);
       mockGetCustomModels.mockReturnValue([]);
 
-      const request = {
-        params: {
-          maxTokens: 256,
-          systemPrompt: "System context",
-          messages: [{ role: "user", content: { type: "text", text: "Explain this change." } }],
-        },
+      const params = {
+        maxTokens: 256,
+        systemPrompt: "System context",
+        messages: [{ role: "user", content: { type: "text", text: "Explain this change." } }],
       };
 
-      const result = await (client as any).handleSamplingCreateMessage(request, {
-        requestId: "rpc-001",
+      const result = await (client as any).handleSamplingCreateMessage(params, {
+        mcpReq: { id: "rpc-001" },
       });
 
       expect(mockHandleSamplingRequest).toHaveBeenCalledWith(
@@ -759,15 +764,13 @@ describe("McpClient Runtime Command Processing Tests", () => {
         testPorts,
       );
 
-      const request = {
-        params: {
-          messages: [{ role: "user", content: { type: "text", text: "hello" } }],
-        },
+      const params = {
+        messages: [{ role: "user", content: { type: "text", text: "hello" } }],
       };
 
       let caughtError: unknown;
       try {
-        await (client as any).handleSamplingCreateMessage(request, { requestId: "rpc-002" });
+        await (client as any).handleSamplingCreateMessage(params, { mcpReq: { id: "rpc-002" } });
       } catch (error) {
         caughtError = error;
       }
@@ -789,25 +792,23 @@ describe("McpClient Runtime Command Processing Tests", () => {
         content: { confirm: true },
       });
 
-      const request = {
-        params: {
-          message: "Proceed with the deployment?",
-          requestedSchema: {
-            type: "object",
-            properties: { confirm: { type: "boolean", title: "Confirm" } },
-            required: ["confirm"],
-          },
+      const params = {
+        message: "Proceed with the deployment?",
+        requestedSchema: {
+          type: "object",
+          properties: { confirm: { type: "boolean", title: "Confirm" } },
+          required: ["confirm"],
         },
       };
 
-      const result = await (client as any).handleElicitationCreate(request, { requestId: "rpc-el-1" });
+      const result = await (client as any).handleElicitationCreate(params, { mcpReq: { id: "rpc-el-1" } });
 
       expect(mockHandleElicitationRequest).toHaveBeenCalledWith(
         expect.objectContaining({
           requestId: "rpc-el-1",
           serverName: "code-reviewer",
           message: "Proceed with the deployment?",
-          requestedSchema: request.params.requestedSchema,
+          requestedSchema: params.requestedSchema,
         }),
       );
       expect(result).toEqual({ action: "accept", content: { confirm: true } });
@@ -821,8 +822,8 @@ describe("McpClient Runtime Command Processing Tests", () => {
       const client = new McpClient("code-reviewer", { type: "stdio" }, portsWithoutElicitation);
 
       const result = await (client as any).handleElicitationCreate(
-        { params: { message: "Proceed?" } },
-        { requestId: "rpc-el-2" },
+        { message: "Proceed?" },
+        { mcpReq: { id: "rpc-el-2" } },
       );
 
       expect(result).toEqual({ action: "decline" });
@@ -835,8 +836,8 @@ describe("McpClient Runtime Command Processing Tests", () => {
       mockHandleElicitationRequest.mockRejectedValue(new Error("user dismissed the overlay"));
 
       const result = await (client as any).handleElicitationCreate(
-        { params: { message: "Proceed?" } },
-        { requestId: "rpc-el-3" },
+        { message: "Proceed?" },
+        { mcpReq: { id: "rpc-el-3" } },
       );
 
       expect(result).toEqual({ action: "decline" });
@@ -848,8 +849,8 @@ describe("McpClient Runtime Command Processing Tests", () => {
       mockHandleElicitationRequest.mockResolvedValue({ action: "banana" });
 
       const result = await (client as any).handleElicitationCreate(
-        { params: { message: "Proceed?" } },
-        { requestId: "rpc-el-4" },
+        { message: "Proceed?" },
+        { mcpReq: { id: "rpc-el-4" } },
       );
 
       expect(result).toEqual({ action: "cancel" });

@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+import { Server } from "@argos/mcp-runtime";
+import { CallToolRequestSchema, ListToolsRequestSchema } from "@argos/mcp-runtime";
 import { BuiltinKnowledgeServer } from "@argos/backend-core";
 
 const serverInstances = vi.hoisted(() => [] as Array<{ handlers: Map<unknown, Function> }>);
 const mockGetKnowledgeConfigs = vi.hoisted(() => vi.fn<(...args: any[]) => any>());
 const mockSimilarityQuery = vi.hoisted(() => vi.fn<(...args: any[]) => any>());
 
-vi.mock("@modelcontextprotocol/sdk/server/index.js", () => ({
+vi.mock("@modelcontextprotocol/server", () => ({
   Server: vi.fn<(...args: any[]) => any>(),
 }));
 
@@ -46,8 +46,8 @@ describe("BuiltinKnowledgeServer", () => {
       const instance = {
         handlers: new Map<unknown, Function>(),
         connect: vi.fn<(...args: any[]) => any>(),
-        setRequestHandler: vi.fn<(...args: any[]) => any>((schema: unknown, handler: Function) => {
-          instance.handlers.set(schema, handler);
+        setRequestHandler: vi.fn<(...args: any[]) => any>((method: unknown, _schemas: unknown, handler: Function) => {
+          instance.handlers.set(method, handler);
         }),
       };
       serverInstances.push(instance);
@@ -64,7 +64,7 @@ describe("BuiltinKnowledgeServer", () => {
       similarityQuery: mockSimilarityQuery,
     });
 
-    const handler = serverInstances[0].handlers.get(ListToolsRequestSchema);
+    const handler = serverInstances[0].handlers.get("tools/list");
     await expect(handler?.()).resolves.toEqual({ tools: [] });
   });
 
@@ -79,7 +79,7 @@ describe("BuiltinKnowledgeServer", () => {
       similarityQuery: mockSimilarityQuery,
     });
 
-    const handler = serverInstances[0].handlers.get(ListToolsRequestSchema);
+    const handler = serverInstances[0].handlers.get("tools/list");
     const result = await handler?.();
 
     expect(result.tools).toEqual([
@@ -111,7 +111,7 @@ describe("BuiltinKnowledgeServer", () => {
       similarityQuery: mockSimilarityQuery,
     });
 
-    const handler = serverInstances[0].handlers.get(CallToolRequestSchema);
+    const handler = serverInstances[0].handlers.get("tools/call");
     const result = await handler?.({
       params: {
         name: "builtin_knowledge_search",
