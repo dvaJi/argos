@@ -6,6 +6,7 @@ import { selectSession } from "#/stores/ui/session";
 import { getLanguageFromFilename } from "@argos/shared/utils/codeLanguage";
 import type { DisplayAssistantMessageBlock } from "#/components/chat/messageListItems";
 import { createDeviceClient } from "#api/DeviceClient";
+import { useMcpToolCallProgress } from "#/stores/mcpTaskProgress";
 import { MessageBlockToolCallImagePreview } from "./MessageBlockToolCallImagePreview";
 import "./MessageBlockToolCall.css";
 interface MessageBlockToolCallProps {
@@ -286,6 +287,7 @@ const ToolCallTrigger = ({
   summaryText,
   hasImagePreviews,
   imagePreviewCount,
+  mcpProgressMessage,
   onToggle,
 }: {
   statusVariant: ToolStatusVariant;
@@ -295,6 +297,7 @@ const ToolCallTrigger = ({
   summaryText: string;
   hasImagePreviews: boolean;
   imagePreviewCount: number;
+  mcpProgressMessage: string | null;
   onToggle: () => void;
 }) => (
   <div
@@ -323,6 +326,15 @@ const ToolCallTrigger = ({
       {summaryText && (
         <span data-testid="tool-call-summary" className="tool-call-summary text-[11px]" title={summaryText}>
           {summaryText}
+        </span>
+      )}
+      {mcpProgressMessage && (
+        <span
+          data-testid="tool-call-mcp-progress"
+          className="text-[11px] text-muted-foreground truncate max-w-48"
+          title={mcpProgressMessage}
+        >
+          {mcpProgressMessage}
         </span>
       )}
     </div>
@@ -521,6 +533,11 @@ const MessageBlockToolCallBase: FC<MessageBlockToolCallProps> = ({ block }) => {
   const subagentTasks = resolveSubagentTasks(block);
   const statusIconName = resolveStatusIconName(statusVariant, Boolean(block.tool_call));
   const statusIconClass = resolveStatusIconClass(statusVariant);
+  // Live MCP task-augmented tool progress (mcp:tool-call-progress), matched by
+  // the block's LLM tool-call id; shown while the block is still running.
+  const mcpProgress = useMcpToolCallProgress(block.tool_call?.id ?? null);
+  const mcpProgressMessage =
+    statusVariant === "running" ? (mcpProgress?.statusMessage ?? mcpProgress?.status ?? null) : null;
   const isDiffTool = resolveIsDiffTool(block.tool_call?.name ?? "", block.status);
   const diffData = resolveDiffData(isDiffTool, hasResponse, responseText);
   const paramsPath = resolveParamsPath(paramsText);
@@ -644,6 +661,7 @@ const MessageBlockToolCallBase: FC<MessageBlockToolCallProps> = ({ block }) => {
         summaryText={summaryText}
         hasImagePreviews={hasImagePreviews}
         imagePreviewCount={imagePreviews.length}
+        mcpProgressMessage={mcpProgressMessage}
         onToggle={toggleExpanded}
       />
 
