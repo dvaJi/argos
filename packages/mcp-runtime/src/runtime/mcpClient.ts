@@ -193,6 +193,14 @@ export class McpClient {
     return this.oauthProvider;
   }
 
+  /** Best-effort sign-out: invalidate stored OAuth credentials (all or scoped). */
+  async invalidateCredentials(scope?: "all" | "client" | "tokens" | "verifier" | "state" | "discovery"): Promise<void> {
+    if (!this.oauthProvider) {
+      this.oauthProvider = this.getOAuthProvider();
+    }
+    await this.oauthProvider.invalidateCredentials(scope);
+  }
+
   // Connect to MCP server
   async connect(): Promise<void> {
     if (this.isConnected && this.client) {

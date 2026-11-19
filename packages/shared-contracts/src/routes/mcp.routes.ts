@@ -111,6 +111,17 @@ export const mcpCompleteArgumentRoute = defineRouteContract({
   }),
 });
 
+export const mcpInvalidateOAuthCredentialsRoute = defineRouteContract({
+  name: "mcp.invalidateOAuthCredentials",
+  input: zod.object({
+    serverName: zod.string(),
+    scope: zod.enum(["all", "client", "tokens", "verifier", "state", "discovery"]).optional(),
+  }),
+  output: zod.object({
+    invalidated: zod.literal(true),
+  }),
+});
+
 export const mcpCallToolRoute = defineRouteContract({
   name: "mcp.callTool",
   input: zod.object({

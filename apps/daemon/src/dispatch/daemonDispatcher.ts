@@ -238,6 +238,7 @@ import {
   mcpListResourcesRoute,
   mcpListResourceTemplatesRoute,
   mcpCompleteArgumentRoute,
+  mcpInvalidateOAuthCredentialsRoute,
   mcpReadResourceRoute,
   mcpSubmitSamplingDecisionRoute,
   mcpCancelSamplingRequestRoute,
@@ -844,6 +845,7 @@ export function createDaemonDispatcher(
     readResource(r: unknown): Promise<unknown>;
     listResourceTemplates(): Promise<unknown[]>;
     completeArgument(serverName: string, params: unknown): Promise<unknown>;
+    invalidateOAuthCredentials(serverName: string, scope?: "all" | "client" | "tokens" | "verifier" | "state" | "discovery"): Promise<void>;
     resolveElicitationDecision(decision: unknown): boolean;
     cancelElicitation(requestId: string, reason?: string): boolean;
   },
@@ -1323,6 +1325,12 @@ export function createDaemonDispatcher(
       const input = mcpCompleteArgumentRoute.input.parse(rawInput);
       const completion = await mcpRuntime.completeArgument(input.serverName, input.params);
       return mcpCompleteArgumentRoute.output.parse({ completion });
+    }
+
+    if (route === mcpInvalidateOAuthCredentialsRoute.name) {
+      const input = mcpInvalidateOAuthCredentialsRoute.input.parse(rawInput);
+      await mcpRuntime.invalidateOAuthCredentials(input.serverName, input.scope);
+      return mcpInvalidateOAuthCredentialsRoute.output.parse({ invalidated: true });
     }
 
     if (route === mcpReadResourceRoute.name) {

@@ -307,6 +307,13 @@ export class DaemonMcpRuntime {
     return (await this.toolManager.completeArgumentByClient(serverName, params as never)) as unknown;
   }
 
+  async invalidateOAuthCredentials(
+    serverName: string,
+    scope?: "all" | "client" | "tokens" | "verifier" | "state" | "discovery",
+  ) {
+    await this.serverManager.invalidateCredentials(serverName, scope);
+  }
+
   async readResource(resource: unknown) {
     const typedResource = resource as { client: { name: string }; uri: string };
     const enabled = await this.configPresenter.getMcpEnabled();

@@ -31,6 +31,7 @@ import {
   mcpListResourcesRoute,
   mcpListResourceTemplatesRoute,
   mcpCompleteArgumentRoute,
+  mcpInvalidateOAuthCredentialsRoute,
   mcpListToolDefinitionsRoute,
   mcpReadResourceRoute,
   mcpRefreshNpmRegistryRoute,
@@ -99,6 +100,13 @@ export function createMcpClient(bridge: ArgosBridge = getArgosBridge()) {
   async function completeArgument(serverName: string, params: unknown) {
     const result = await bridge.invoke(mcpCompleteArgumentRoute.name, { serverName, params });
     return result.completion;
+  }
+
+  async function invalidateOAuthCredentials(
+    serverName: string,
+    scope?: "all" | "client" | "tokens" | "verifier" | "state" | "discovery",
+  ) {
+    await bridge.invoke(mcpInvalidateOAuthCredentialsRoute.name, { serverName, scope });
   }
   async function callTool(request: MCPToolCall) {
     return await bridge.invoke(mcpCallToolRoute.name, { request });
@@ -294,6 +302,7 @@ export function createMcpClient(bridge: ArgosBridge = getArgosBridge()) {
     getAllResources,
     getAllResourceTemplates,
     completeArgument,
+    invalidateOAuthCredentials,
     callTool,
     addMcpServer,
     updateMcpServer,

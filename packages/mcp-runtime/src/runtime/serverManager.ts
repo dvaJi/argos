@@ -316,6 +316,15 @@ export class ServerManager {
     return client.isServerRunning();
   }
 
+  /** Best-effort OAuth sign-out for a server (invalidates stored credentials). */
+  async invalidateCredentials(name: string, scope?: "all" | "client" | "tokens" | "verifier" | "state" | "discovery"): Promise<void> {
+    const client = this.clients.get(name);
+    if (!client) {
+      throw new Error(`MCP client not found: ${name}`);
+    }
+    await client.invalidateCredentials(scope);
+  }
+
   /**
    * Get client instance
    */

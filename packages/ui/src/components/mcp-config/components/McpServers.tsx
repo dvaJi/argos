@@ -11,6 +11,7 @@ import {
   DialogDescription,
 } from "#shadcn/components/ui/dialog";
 import { Badge } from "#shadcn/components/ui/badge";
+import { createMcpClient } from "#api/McpClient";
 import { Input } from "#shadcn/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "#shadcn/components/ui/sheet";
 import { useMcpStore } from "#/stores/mcp";
@@ -48,6 +49,25 @@ export const McpServers = forwardRef<McpServersRef, McpServersProps>(
     const [selectedServerForPrompts, setSelectedServerForPrompts] = useState("");
     const [selectedServerForResources, setSelectedServerForResources] = useState("");
     const [selectedDetailServerName, setSelectedDetailServerName] = useState("");
+    const [signingOutServer, setSigningOutServer] = useState<string | null>(null);
+    const mcpClient = createMcpClient();
+
+    const isOAuthServer = (serverName: string): boolean =>
+      Boolean(
+        (mcpStore.config.mcpServers[serverName] as unknown as Record<string, unknown> | undefined)?.oauth === true,
+      );
+
+    const handleSignOut = async (serverName: string) => {
+      setSigningOutServer(serverName);
+      try {
+        await mcpClient.invalidateOAuthCredentials(serverName, "tokens");
+        toast({ title: "Signed out", description: `Stored credentials for ${serverName} were removed.` });
+      } catch (signOutError) {
+        console.error("[McpServers] OAuth sign-out failed:", signOutError);
+        toast({ title: "Sign out failed", description: String(signOutError), variant: "destructive" });
+      }
+      setSigningOutServer(null);
+    };
     const [searchQuery, setSearchQuery] = useState("");
     const [activeFilter, setActiveFilter] = useState<McpFilter>("all");
     useEffect(() => {
@@ -243,6 +263,9 @@ export const McpServers = forwardRef<McpServersRef, McpServersProps>(
         <McpServerDetailSheet
           server={selectedDetailServer}
           isBuiltInServer={isBuiltInServer}
+          isOAuthServer={isOAuthServer}
+          signingOut={signingOutServer === selectedDetailServerName}
+          onSignOut={handleSignOut}
           getToolsCount={getServerToolsCount}
           getPromptsCount={getServerPromptsCount}
           getResourcesCount={getServerResourcesCount}
@@ -470,6 +493,8 @@ const McpServersFooter = ({
 const McpServerDetailSheet = ({
   server,
   isBuiltInServer,
+  isOAuthServer,
+  signingOut,
   getToolsCount,
   getPromptsCount,
   getResourcesCount,
@@ -479,9 +504,12 @@ const McpServerDetailSheet = ({
   onViewResources,
   onEdit,
   onRemove,
+  onSignOut,
 }: {
   server: McpServerListItem | undefined;
   isBuiltInServer: (serverName: string) => boolean;
+  isOAuthServer: (serverName: string) => boolean;
+  signingOut: boolean;
   getToolsCount: (serverName: string) => number;
   getPromptsCount: (serverName: string) => number;
   getResourcesCount: (serverName: string) => number;
@@ -491,6 +519,7 @@ const McpServerDetailSheet = ({
   onViewResources: (serverName: string) => void;
   onEdit: (serverName: string) => void;
   onRemove: (serverName: string) => void;
+  onSignOut: (serverName: string) => void;
 }) => (
   <Sheet open={Boolean(server)} onOpenChange={onOpenChange}>
     <SheetContent className="flex w-full flex-col sm:max-w-xl">
@@ -503,7 +532,24 @@ const McpServerDetailSheet = ({
           <div className="flex flex-wrap gap-2">
             <Badge variant="secondary">{server.isRunning ? "Running" : "Stopped"}</Badge>
             <Badge variant="outline">{isBuiltInServer(server.name) ? "Built-in" : "Custom"}</Badge>
+            {isOAuthServer(server.name) && <Badge variant="outline">OAuth</Badge>}
           </div>
+
+          {isOAuthServer(server.name) && (
+            <div className="flex items-center justify-between gap-2 rounded-md border bg-background/50 px-3 py-2">
+              <span className="text-xs text-muted-foreground">Signed in via OAuth</span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                disabled={signingOut}
+                onClick={() => onSignOut(server.name)}
+              >
+                <Icon icon="lucide:log-out" className="size-3.5" />
+                {signingOut ? "Signing out…" : "Sign out"}
+              </Button>
+            </div>
+          )}
 
           <div className="grid gap-2 sm:grid-cols-3">
             <Button

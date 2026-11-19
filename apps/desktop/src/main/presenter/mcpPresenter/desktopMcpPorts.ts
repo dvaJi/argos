@@ -52,6 +52,20 @@ export function createDesktopMcpPorts(configPresenter: {
       handleSamplingRequest: (payload) =>
         presenter.mcpPresenter.handleSamplingRequest(payload as never) as Promise<unknown>,
       cancelSamplingRequest: (requestId, reason) => presenter.mcpPresenter.cancelSamplingRequest(requestId, reason),
+      // OAuth (opt-in per server): open the authorization URL in the system
+      // browser and persist tokens under the Electron userData dir.
+      openExternal: async (url: string) => {
+        const { shell } = await import("electron");
+        await shell.openExternal(url);
+      },
+      readJsonFile: async (key: string) => {
+        const { readJsonFile } = await import("./oauthStorage");
+        return readJsonFile(key);
+      },
+      writeJsonFile: async (key: string, value: unknown) => {
+        const { writeJsonFile } = await import("./oauthStorage");
+        await writeJsonFile(key, value);
+      },
       generateCompletionStandalone: (...args) =>
         presenter.llmproviderPresenter.generateCompletionStandalone(
           args[0] as never,
