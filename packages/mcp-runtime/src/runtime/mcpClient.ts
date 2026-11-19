@@ -434,6 +434,9 @@ export class McpClient {
             sampling: {},
             elicitation: {},
             roots: { listChanged: false },
+            experimental: {
+              tasks: { list: {}, cancel: {} },
+            },
           },
         },
       );
@@ -1088,14 +1091,24 @@ export class McpClient {
         throw new Error(`MCP client ${this.serverName} not initialized`);
       }
 
-      // Call the tool
-      const result = (await this.client.callTool({
-        name: toolName,
-        arguments: args,
-      })) as ToolCallResult;
+      // Prefer the experimental task stream: servers that augment tool calls
+      // with tasks emit status updates plus the final result through it, while
+      // plain servers yield a single result message.
+      const streamed = await this.callToolWithTaskStream(toolName, args);
+      let result: ToolCallResult;
+      if (streamed !== null) {
+        result = streamed;
+        this.hasRestarted = false;
+      } else {
+        // Call the tool
+        result = (await this.client.callTool({
+          name: toolName,
+          arguments: args,
+        })) as ToolCallResult;
 
-      // Reset restart flag on successful call
-      this.hasRestarted = false;
+        // Reset restart flag on successful call
+        this.hasRestarted = false;
+      }
 
       // Check result
       if (result.isError) {
@@ -1117,6 +1130,51 @@ export class McpClient {
       this.cachedTools = null;
       throw error;
     }
+  }
+
+  /**
+   * Run a tool call through the experimental task stream when the SDK exposes
+   * it (`client.experimental.tasks.callToolStream`). Returns null when the
+   * stream API is unavailable so callers fall back to the plain request.
+   */
+  private async callToolWithTaskStream(
+    toolName: string,
+    args: Record<string, unknown>,
+  ): Promise<ToolCallResult | null> {
+    const client = this.client as unknown as {
+      experimental?: {
+        tasks?: {
+          callToolStream?: (params: {
+            name: string;
+            arguments: Record<string, unknown>;
+          }) => AsyncGenerator<{ type: string; result?: unknown; error?: unknown }, void, unknown>;
+        };
+      };
+    };
+    const streamFactory = client.experimental?.tasks?.callToolStream;
+    if (typeof streamFactory !== "function") {
+      return null;
+    }
+
+    let finalResult: ToolCallResult | null = null;
+    let finalError: Error | null = null;
+    for await (const message of streamFactory.call(client.experimental!.tasks, { name: toolName, arguments: args })) {
+      if (message.type === "result") {
+        finalResult = (message.result ?? null) as ToolCallResult | null;
+      } else if (message.type === "error") {
+        const rawError = message.error as { message?: string; code?: number } | undefined;
+        finalError = new Error(rawError?.message || "Task failed");
+      }
+      // 'taskCreated' / 'taskStatus' messages: long-running tool progress.
+      // Surfacing them as UI progress is a follow-up.
+    }
+    if (finalError) {
+      throw finalError;
+    }
+    if (!finalResult) {
+      throw new Error("Task stream ended without a result");
+    }
+    return finalResult;
   }
 
   // List available tools

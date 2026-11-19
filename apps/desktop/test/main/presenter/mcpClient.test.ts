@@ -856,6 +856,72 @@ describe("McpClient Runtime Command Processing Tests", () => {
     });
   });
 
+  describe("Task-augmented tool calls (experimental tasks)", () => {
+    it("runs tools through the task stream and maps the final result", async () => {
+      const client = new McpClient("long-runner", { type: "stdio" }, testPorts);
+      await client.connect().catch(() => undefined);
+
+      (client as any).client = {
+        experimental: {
+          tasks: {
+            callToolStream: async function* () {
+              yield { type: "taskCreated", task: { taskId: "t1", status: "working" } };
+              yield { type: "taskStatus", task: { taskId: "t1", status: "running" } };
+              yield { type: "result", result: { content: [{ type: "text", text: "Task finished" }], isError: false } };
+            },
+          },
+        },
+      };
+      (client as any).isConnected = true;
+
+      const result = await client.callTool("deploy", { env: "prod" });
+
+      expect(result).toEqual({ content: [{ type: "text", text: "Task finished" }], isError: false });
+    });
+
+    it("throws the stream error when a task ends in failure", async () => {
+      const client = new McpClient("long-runner", { type: "stdio" }, testPorts);
+      await client.connect().catch(() => undefined);
+
+      (client as any).client = {
+        experimental: {
+          tasks: {
+            callToolStream: async function* () {
+              yield { type: "taskStatus", task: { taskId: "t2", status: "failed" } };
+              yield { type: "error", error: { message: "deploy failed", code: -32000 } };
+            },
+          },
+        },
+      };
+      (client as any).isConnected = true;
+
+      let caughtError: unknown;
+      try {
+        await client.callTool("deploy", {});
+      } catch (error) {
+        caughtError = error;
+      }
+      expect((caughtError as Error).message).toBe("deploy failed");
+    });
+
+    it("falls back to the plain request when the task stream is unavailable", async () => {
+      const client = new McpClient("plain-server", { type: "stdio" }, testPorts);
+      await client.connect().catch(() => undefined);
+
+      const plainCallTool = vi.fn(async () => ({
+        content: [{ type: "text", text: "plain result" }],
+        isError: false,
+      }));
+      (client as any).client = { callTool: plainCallTool };
+      (client as any).isConnected = true;
+
+      const result = await client.callTool("ping", {});
+
+      expect(plainCallTool).toHaveBeenCalledWith({ name: "ping", arguments: {} });
+      expect(result).toEqual({ content: [{ type: "text", text: "plain result" }], isError: false });
+    });
+  });
+
   describe("Roots support", () => {
     it("exposes the server cwd as a file:// root", () => {
       const client = new McpClient(
