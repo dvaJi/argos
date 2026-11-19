@@ -195,6 +195,31 @@ export default function AcpAuthDialog({
 
         {flowState === "select" ? (
           <div className="flex flex-col gap-2">
+            {accounts.length > 0 && (
+              <div className="space-y-1.5">
+                <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Configured accounts</div>
+                {accounts.map((account) => (
+                  <div
+                    key={account.label}
+                    className="flex items-center justify-between gap-2 rounded-md border bg-background/50 px-2.5 py-1.5"
+                  >
+                    <div className="min-w-0">
+                      <div className="truncate text-xs font-medium">{account.label}</div>
+                      {(account.description || account.name || account.email) && (
+                        <div className="truncate text-[11px] text-muted-foreground">
+                          {[account.description, account.name, account.email].filter(Boolean).join(" · ")}
+                        </div>
+                      )}
+                    </div>
+                    {account.active && (
+                      <Badge variant="outline" className="shrink-0 text-[10px]">
+                        active
+                      </Badge>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
             {methods.length === 0 && !loading ? (
               <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
                 The agent did not advertise any authentication methods. Check the agent's connection status in ACP

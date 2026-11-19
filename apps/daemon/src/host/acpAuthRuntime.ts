@@ -290,6 +290,12 @@ export class DaemonAcpAuthRuntime {
           input.workdir,
         );
         clearAuthElicitation = this.registerAuthElicitationHandler(input.agentId, input.workdir);
+        // Fire-and-forget: publish configured accounts so the sign-in dialog
+        // can show them in the method-select state. Must not block the
+        // authenticate call.
+        void this.fetchAuthStatus(handle).then((status) => {
+          if (status) this.publish({ run, state: "running", authStatus: status });
+        });
         const authenticate = handle.connection.agent.request(acpMethods.agent.authenticate, {
           methodId: method.id,
         } as schema.AuthenticateRequest);
