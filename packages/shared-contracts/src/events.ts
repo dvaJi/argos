@@ -38,6 +38,7 @@ import {
   mcpServerStatusChangedEvent,
   mcpServerStoppedEvent,
   mcpToolCallResultEvent,
+  mcpToolCallProgressEvent,
 } from "./events/mcp.events";
 import { knowledgeFileProgressEvent, knowledgeFileUpdatedEvent } from "./events/knowledge.events";
 import {
@@ -163,6 +164,7 @@ export const ARGOS_EVENT_CATALOG = {
   [mcpConfigChangedEvent.name]: mcpConfigChangedEvent,
   [mcpServerStatusChangedEvent.name]: mcpServerStatusChangedEvent,
   [mcpToolCallResultEvent.name]: mcpToolCallResultEvent,
+  [mcpToolCallProgressEvent.name]: mcpToolCallProgressEvent,
   [mcpSamplingRequestEvent.name]: mcpSamplingRequestEvent,
   [mcpSamplingDecisionEvent.name]: mcpSamplingDecisionEvent,
   [mcpSamplingCancelledEvent.name]: mcpSamplingCancelledEvent,

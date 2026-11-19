@@ -21,6 +21,7 @@ import PendingInputLane from "#/components/chat/PendingInputLane";
 import ChatStatusBar from "#/components/chat/ChatStatusBar";
 import ChatToolInteractionOverlay from "#/components/chat/ChatToolInteractionOverlay";
 import AcpCursorForkMenu from "#/components/chat/AcpCursorForkMenu";
+import McpTaskProgressIndicator from "#/components/chat/McpTaskProgressIndicator";
 import TraceDialog from "#/components/trace/TraceDialog";
 import { useToast } from "#/components/use-toast";
 import { createChatClient } from "../../api/ChatClient";
@@ -1621,6 +1622,7 @@ function ChatComposerDock(input: {
               <div ref={heroHostRef} className="mx-auto flex w-full max-w-4xl flex-col">
                 <AcpAuthBanner sessionId={sessionId} />
                 <AcpAuthElicitationCard />
+                <McpTaskProgressIndicator />
                 <SettledBanner sessionId={sessionId} />
                 <AcpCursorForkMenu sessionId={sessionId} />
                 {promptSuggestions.length > 0 && !isGenerating && (

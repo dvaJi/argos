@@ -11,6 +11,7 @@ import {
   mcpServerStatusChangedEvent,
   mcpServerStoppedEvent,
   mcpToolCallResultEvent,
+  mcpToolCallProgressEvent,
 } from "@argos/shared-contracts/events";
 import {
   mcpAddServerRoute,
@@ -259,6 +260,18 @@ export function createMcpClient(bridge: ArgosBridge = getArgosBridge()) {
     return bridge.on(mcpToolCallResultEvent.name, listener);
   }
 
+  function onToolCallProgress(
+    listener: (payload: {
+      serverName: string;
+      toolName: string;
+      taskId: string | null;
+      status: string | null;
+      statusMessage: string | null;
+    }) => void,
+  ) {
+    return bridge.on(mcpToolCallProgressEvent.name, listener);
+  }
+
   function onSamplingRequest(listener: (payload: { request: unknown; version: number }) => void) {
     return bridge.on(mcpSamplingRequestEvent.name, (payload) => {
       listener(payload as { request: unknown; version: number });
@@ -332,6 +345,7 @@ export function createMcpClient(bridge: ArgosBridge = getArgosBridge()) {
     onConfigChanged,
     onServerStatusChanged,
     onToolCallResult,
+    onToolCallProgress,
     onSamplingRequest,
     onSamplingDecision,
     onSamplingCancelled,

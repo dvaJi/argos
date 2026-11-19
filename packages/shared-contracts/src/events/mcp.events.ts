@@ -57,6 +57,17 @@ export const mcpToolCallResultEvent = defineEventContract({
   }),
 });
 
+export const mcpToolCallProgressEvent = defineEventContract({
+  name: "mcp:tool-call-progress",
+  payload: zod.object({
+    serverName: zod.string(),
+    toolName: zod.string(),
+    taskId: zod.string().nullable(),
+    status: zod.string().nullable(),
+    statusMessage: zod.string().nullable(),
+  }),
+});
+
 export const mcpElicitationRequestEvent = defineEventContract({
   name: "mcp.elicitation.request",
   payload: zod.object({
