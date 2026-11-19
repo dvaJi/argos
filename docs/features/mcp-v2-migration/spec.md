@@ -1,36 +1,28 @@
 # MCP v2 Migration
 
-Implements the migration scoped in `evaluation.md`. Phase 1 makes the v2 packages available additively (alongside 1.x) so the runtime can be migrated incrementally without breaking the tree.
+Implements the migration scoped in `evaluation.md`. **Completed** on the `migration/mcp-v2` branch after the user directed the upgrade to the current major version.
 
-## Phase 1: Runtime import swap (in progress)
+## What changed
 
-`packages/mcp-runtime` migrates first — it owns the client, transports, protocol handlers, OAuth provider, and in-memory servers, and is covered by the protocol test surface (`mcpClient.test.ts`, `oauthProvider.test.ts`).
+- **Dependencies**: `@modelcontextprotocol/sdk` (1.x) removed from the catalog, mcp-runtime, and desktop; replaced by `@modelcontextprotocol/client@2.4.0`, `@modelcontextprotocol/server@2.4.0`, `@modelcontextprotocol/core@2.4.0`.
+- **Protocol schemas**: all zod schemas (`CallToolRequestSchema`, `ElicitRequestSchema`, `ListRootsRequestSchema`, notification schemas, …) come from `@modelcontextprotocol/core` and are re-exported from `@argos/mcp-runtime` (`protocol/v2-schemas.ts`) for in-memory servers, backend-core's knowledge server, and tests.
+- **Errors**: `McpError` → v2 `ProtocolError`, `ErrorCode` → the same numeric JSON-RPC codes (re-exposed via `protocol/errors.ts` with the 1.x shape, plus `RequestTimeout = -32001` kept for the elicitation-abort path).
+- **Handler registrations** (the real API delta):
+  - Client-side (`mcpClient.ts`): v2 typed-method form — `"sampling/createMessage"`, `"elicitation/create"`, `"roots/list"`; **v2 passes handlers the request's PARAMS directly** (1.x passed the full request), and the context carries the request id under `ctx.mcpReq.id`.
+  - Server-side (9 in-memory servers + backend-core knowledge server): v2 3-arg form `setRequestHandler("tools/call", { params: CallToolRequestSchema }, handler)` — passing the full-request schema as `params` preserves the 1.x handler bodies unchanged.
+- **Notifications**: typed method strings (`notifications/tools/list_changed`, …).
+- **OAuth**: `OAuthClientProvider` + metadata/token types from the v2 client root; the provider interface is member-compatible with our implementation.
+- **Transports**: unchanged shapes — `StdioClientTransport` (now at the `/stdio` subpath), `SSEClientTransport`, `StreamableHTTPClientTransport`, `InMemoryTransport.createLinkedPair()`.
+- **Tasks (experimental)**: the 1.x `experimental.tasks.callToolStream` API does not exist in v2; `callTool` uses the plain request (the duck-typed stream detection remains, so it lights up again if a future SDK exposes a stream API). v2-native task augmentation (`_meta` task params + `tasks/get`) is a follow-up.
+- **Downstream**: desktop `appleServer.ts` and 5 test files import via `@argos/mcp-runtime` or the v2 packages; the client test's SDK mock now includes `ProtocolError`/`UnauthorizedError`/`ProtocolErrorCode`.
 
-Import mapping (v2 packages export the same class/schema names from their top-level or matching subpaths):
+## Validation
 
-| 1.x import | v2 import |
-|---|---|
-| `@modelcontextprotocol/sdk/client/index.js` (Client) | `@modelcontextprotocol/client` (Client) |
-| `@modelcontextprotocol/sdk/client/{stdio,sse,streamableHttp}.js` | `@modelcontextprotocol/client/{stdio,sse,streamableHttp}.js` (check per-file exports) |
-| `@modelcontextprotocol/sdk/inMemory.js` (InMemoryTransport) | `@modelcontextprotocol/client` (InMemoryTransport) |
-| `@modelcontextprotocol/sdk/client/auth.js` (OAuthClientProvider, UnauthorizedError, auth) | `@modelcontextprotocol/client` (auth, OAuthClientProvider, UnauthorizedError) |
-| `@modelcontextprotocol/sdk/shared/auth.js` (OAuthClientMetadata/Tokens/ClientInformationMixed) | `@modelcontextprotocol/client` |
-| `@modelcontextprotocol/sdk/shared/transport.js` (Transport) | `@modelcontextprotocol/client` |
-| `@modelcontextprotocol/sdk/types.js` (all schemas/types) | `@modelcontextprotocol/client` or `@modelcontextprotocol/core` |
-| `@modelcontextprotocol/sdk/server/index.js` (Server) | `@modelcontextprotocol/server` |
-| `@modelcontextprotocol/sdk/inMemory.js` server-side pair | `@modelcontextprotocol/server` |
+- typecheck 17/17 packages (0 errors) with 1.x fully removed
+- desktop suite 212 files / 1826 tests green; daemon suite green
+- lint + format clean
 
-Behavioral deltas to verify against Argos' surfaces (from v2.4.0 notes): structuredContent unwrapping for `$ref`-rooted object schemas, `x-mcp-header` number rejection, stricter Ajv/fast-uri validation.
+## Follow-ups
 
-## Phase 2 (follow-up)
-
-- Migrate `packages/mcp-runtime` imports + run the protocol test surface.
-- Migrate the in-memory servers (`src/inMemory/*`) to `@modelcontextprotocol/server`.
-- Drop `@modelcontextprotocol/sdk` from the catalog once no imports remain.
-- Desktop-host MCP presenter test fixtures updated.
-
-## Acceptance Criteria (Phase 1)
-
-- v2 packages present in the catalog and installed (additive).
-- Runtime typechecks and protocol tests pass **on 1.x still** (Phase 1 is preparation only; the import swap lands in Phase 2 to keep the tree green per-commit).
-- Phase-2 tasks documented with the import mapping table.
+- v2-native task augmentation for tool calls (SEP-1686 via `_meta` task params)
+- Behavioral deltas to observe in real usage: structuredContent unwrapping for `$ref` schemas, `x-mcp-header` number rejection, Ajv validation strictness

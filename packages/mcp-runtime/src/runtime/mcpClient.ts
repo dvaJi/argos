@@ -1,30 +1,9 @@
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { UnauthorizedError } from "@modelcontextprotocol/sdk/client/auth.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { type Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
-import {
-  ToolListChangedNotificationSchema,
-  PromptListChangedNotificationSchema,
-  ResourceListChangedNotificationSchema,
-  ResourceUpdatedNotificationSchema,
-  LoggingMessageNotificationSchema,
-  CreateMessageRequestSchema,
-  ElicitRequestSchema,
-  ListRootsRequestSchema,
-  ErrorCode,
-  McpError,
-} from "@modelcontextprotocol/sdk/types.js";
-import type {
-  ClientResult,
-  CompleteRequest,
-  CreateMessageRequest,
-  CreateMessageResult,
-} from "@modelcontextprotocol/sdk/types.js";
+import { Client, UnauthorizedError, InMemoryTransport, SSEClientTransport, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
+import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
+import type { Transport, ElicitResult, CompleteRequest, CreateMessageRequest, CreateMessageResult } from "@modelcontextprotocol/client";
+import { ErrorCode, McpError } from "../protocol/errors";
 import path from "path";
 import { pathToFileURL } from "node:url";
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { terminateProcessTree, createMinimalProcessEnvironment } from "@argos/backend-core";
 import type { ChildProcess } from "node:child_process";
 import type { McpHostPorts } from "../host/ports";
@@ -68,9 +47,10 @@ interface SessionError extends Error {
   isSessionExpired?: boolean;
 }
 
+/** v2 handler context: the request id lives under `mcpReq.id`. */
 interface RequestHandlerContext {
   signal?: AbortSignal;
-  requestId?: string | number;
+  mcpReq?: { id?: string | number; method?: string };
   [key: string]: unknown;
 }
 
@@ -472,18 +452,22 @@ export class McpClient {
       // Set up notification handler
       this.registerNotificationHandlers();
 
-      // Register sampling request handler
-      this.client.setRequestHandler(CreateMessageRequestSchema, async (request, extra) => {
-        return this.handleSamplingCreateMessage(request, extra);
+      // Register sampling request handler. v2 passes the handler the request's
+      // PARAMS directly (not the full request like 1.x).
+      this.client.setRequestHandler("sampling/createMessage", async (params, extra) => {
+        return this.handleSamplingCreateMessage(
+          params as unknown as CreateMessageRequest["params"],
+          extra as unknown as RequestHandlerContext,
+        );
       });
 
       // Register elicitation request handler (server asks the user a question)
-      this.client.setRequestHandler(ElicitRequestSchema, async (request, extra) => {
-        return this.handleElicitationCreate(request, extra);
+      this.client.setRequestHandler("elicitation/create", async (params, extra) => {
+        return this.handleElicitationCreate(params, extra as unknown as RequestHandlerContext);
       });
 
       // Register roots handler (server asks which directories Argos exposes)
-      this.client.setRequestHandler(ListRootsRequestSchema, async () => {
+      this.client.setRequestHandler("roots/list", async () => {
         return this.handleListRoots();
       });
 
@@ -639,7 +623,7 @@ export class McpClient {
     }
 
     // Tool list changed notification - clear tool cache and actively refresh
-    this.client.setNotificationHandler(ToolListChangedNotificationSchema, async () => {
+    this.client.setNotificationHandler("notifications/tools/list_changed", async () => {
       console.info(`[MCP] Tools list changed for server: ${this.serverName}`);
       this.cachedTools = null;
       // Actively refresh tool list
@@ -651,7 +635,7 @@ export class McpClient {
     });
 
     // Prompt list changed notification - clear prompt cache and actively refresh
-    this.client.setNotificationHandler(PromptListChangedNotificationSchema, async () => {
+    this.client.setNotificationHandler("notifications/prompts/list_changed", async () => {
       console.info(`[MCP] Prompts list changed for server: ${this.serverName}`);
       this.cachedPrompts = null;
       // Actively refresh prompt list
@@ -663,7 +647,7 @@ export class McpClient {
     });
 
     // Resource list changed notification - clear resource cache and actively refresh
-    this.client.setNotificationHandler(ResourceListChangedNotificationSchema, async () => {
+    this.client.setNotificationHandler("notifications/resources/list_changed", async () => {
       console.info(`[MCP] Resources list changed for server: ${this.serverName}`);
       this.cachedResources = null;
       // Actively refresh resource list
@@ -675,7 +659,7 @@ export class McpClient {
     });
 
     // Resource updated notification - clear resource cache and actively refresh
-    this.client.setNotificationHandler(ResourceUpdatedNotificationSchema, async (params) => {
+    this.client.setNotificationHandler("notifications/resources/updated", async (params) => {
       console.info(`[MCP] Resource updated for server: ${this.serverName}`, params);
       this.cachedResources = null;
       // Actively refresh resource list
@@ -687,18 +671,18 @@ export class McpClient {
     });
 
     // Logging message notification - just log the message
-    this.client.setNotificationHandler(LoggingMessageNotificationSchema, async (params) => {
+    this.client.setNotificationHandler("notifications/message", async (params) => {
       console.info(`[MCP] Log message from server ${this.serverName}:`, params);
     });
   }
 
   private async handleSamplingCreateMessage(
-    request: CreateMessageRequest,
+    params: CreateMessageRequest["params"],
     extra: RequestHandlerContext,
   ): Promise<CreateMessageResult> {
-    const params = request.params ?? {};
+    const safeParams = params ?? {};
     const requestId = this.resolveSamplingRequestId(extra);
-    const { payload, chatMessages } = this.prepareSamplingContext(requestId, params);
+    const { payload, chatMessages } = this.prepareSamplingContext(requestId, safeParams);
 
     const decisionPromise = this.ports.services.handleSamplingRequest!(payload) as Promise<McpSamplingDecision>;
     const signal = extra?.signal as AbortSignal | undefined;
@@ -753,7 +737,7 @@ export class McpClient {
         chatMessages,
         decision.modelId,
         undefined,
-        params.maxTokens,
+        safeParams.maxTokens,
       );
     } catch (error) {
       console.error(`[MCP] Sampling request failed for server ${this.serverName}:`, error);
@@ -780,17 +764,17 @@ export class McpClient {
    * schema) or for confirmation. The host surfaces it interactively and
    * answers with `{ action: "accept"|"decline"|"cancel", content? }`.
    */
-  private async handleElicitationCreate(request: unknown, extra: RequestHandlerContext): Promise<ClientResult> {
+  private async handleElicitationCreate(rawParams: unknown, extra: RequestHandlerContext): Promise<ElicitResult> {
     const services = this.ports.services;
     if (!services.handleElicitationRequest) {
       console.warn(`[MCP] Server ${this.serverName} requested elicitation but the host has no support; declining`);
       return { action: "decline" };
     }
 
-    const params = ((request as { params?: unknown }).params ?? {}) as {
+    const params = ((rawParams ?? {}) as {
       message?: unknown;
       requestedSchema?: unknown;
-    };
+    });
     const requestId = this.resolveSamplingRequestId(extra);
     const payload = {
       requestId,
@@ -847,7 +831,7 @@ export class McpClient {
       if (action === "accept" && decision.content && typeof decision.content === "object") {
         result.content = decision.content;
       }
-      return result as ClientResult;
+      return result as ElicitResult;
     } catch (error) {
       if (error instanceof McpError) throw error;
       console.warn(`[MCP] Elicitation failed for server ${this.serverName}, declining:`, error);
@@ -870,7 +854,7 @@ export class McpClient {
   }
 
   private resolveSamplingRequestId(extra: RequestHandlerContext): string {
-    const rawId = extra?.requestId;
+    const rawId = extra?.mcpReq?.id;
     if (typeof rawId === "string" || typeof rawId === "number") {
       return String(rawId);
     }

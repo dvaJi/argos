@@ -1,10 +1,10 @@
 import { createServer, type Server } from "node:http";
-import type { OAuthClientProvider } from "@modelcontextprotocol/sdk/client/auth.js";
+import type { OAuthClientProvider } from "@modelcontextprotocol/client";
 import type {
   OAuthClientInformationMixed,
   OAuthClientMetadata,
   OAuthTokens,
-} from "@modelcontextprotocol/sdk/shared/auth.js";
+} from "@modelcontextprotocol/client";
 import type { McpHostServices } from "../host/ports";
 
 export interface ArgosOAuthOptions {

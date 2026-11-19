@@ -1,12 +1,12 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+import { Server } from "@argos/mcp-runtime";
+import { CallToolRequestSchema, ListToolsRequestSchema } from "@argos/mcp-runtime";
 import { AutoPromptingServer } from "@argos/mcp-runtime";
 
 const serverInstances = vi.hoisted(() => [] as Array<{ handlers: Map<unknown, Function> }>);
 const mockGetCustomPrompts = vi.hoisted(() => vi.fn<(...args: any[]) => any>());
 
-vi.mock("@modelcontextprotocol/sdk/server/index.js", () => ({
+vi.mock("@modelcontextprotocol/server", () => ({
   Server: vi.fn<(...args: any[]) => any>(),
 }));
 
@@ -21,8 +21,8 @@ describe("AutoPromptingServer", () => {
       const instance = {
         handlers: new Map<unknown, Function>(),
         connect: vi.fn<(...args: any[]) => any>(),
-        setRequestHandler: vi.fn<(...args: any[]) => any>((schema: unknown, handler: Function) => {
-          instance.handlers.set(schema, handler);
+        setRequestHandler: vi.fn<(...args: any[]) => any>((method: unknown, _schemas: unknown, handler: Function) => {
+          instance.handlers.set(method, handler);
         }),
       };
       serverInstances.push(instance);
@@ -45,7 +45,7 @@ describe("AutoPromptingServer", () => {
       getCustomPrompts: mockGetCustomPrompts,
     });
 
-    const listHandler = serverInstances[0].handlers.get(ListToolsRequestSchema);
+    const listHandler = serverInstances[0].handlers.get("tools/list");
     const toolsResult = await listHandler?.();
     expect(toolsResult.tools).toEqual([
       expect.objectContaining({
@@ -59,7 +59,7 @@ describe("AutoPromptingServer", () => {
       }),
     ]);
 
-    const callHandler = serverInstances[0].handlers.get(CallToolRequestSchema);
+    const callHandler = serverInstances[0].handlers.get("tools/call");
     const result = await callHandler?.({
       params: {
         name: "list_all_prompt_template_names",
