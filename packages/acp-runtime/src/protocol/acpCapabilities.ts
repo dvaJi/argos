@@ -86,11 +86,11 @@ export function buildClientCapabilities(options: AcpCapabilityOptions = {}): sch
   caps.plan = {};
 
   // Handled live-update contracts: ID-addressed compaction updates and
-  // user-facing notices, plus session-scoped form elicitation (the dialog
-  // renders in chat like a permission request), prompt suggestions
-  // (composer chips), subagent sessions (virtual tool calls), and session
-  // cursors (fork affordance). Capabilities without working UI handling
-  // stay unadvertised on purpose (URL elicitation only).
+  // user-facing notices, plus session-scoped elicitation in form AND URL
+  // modes (dialogs render in chat like permission requests), prompt
+  // suggestions (composer chips), subagent sessions (virtual tool calls),
+  // and session cursors (fork affordance). No unadvertised surfaces remain
+  // on the v1 entry.
   caps.session = {
     compaction: {},
     notices: {},
@@ -101,7 +101,7 @@ export function buildClientCapabilities(options: AcpCapabilityOptions = {}): sch
   // Child-session activity renders as virtual tool calls (see AcpContentMapper).
   caps.subagents = {};
 
-  caps.elicitation = { form: {} };
+  caps.elicitation = { form: {}, url: {} };
 
   return caps;
 }

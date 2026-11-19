@@ -34,6 +34,8 @@ interface SessionHooks {
   onSessionUpdate: SessionNotificationHandler;
   onPermission: PermissionResolver;
   onElicitation: ElicitationResolver;
+  /** Notified when the agent reports a URL-based elicitation completed. */
+  onElicitationComplete?: (elicitationId: string) => void;
 }
 
 type AcpConnectionWithUnstableSessionLifecycle = ClientConnection;
@@ -298,7 +300,12 @@ export class AcpSessionManager {
   private attachSessionHooks(agentId: string, sessionId: string, hooks: SessionHooks): Array<() => void> {
     const detachUpdate = this.processManager.registerSessionListener(agentId, sessionId, hooks.onSessionUpdate);
     const detachPermission = this.processManager.registerPermissionResolver(agentId, sessionId, hooks.onPermission);
-    const detachElicitation = this.processManager.registerElicitationResolver(agentId, sessionId, hooks.onElicitation);
+    const detachElicitation = this.processManager.registerElicitationResolver(
+      agentId,
+      sessionId,
+      hooks.onElicitation,
+      hooks.onElicitationComplete,
+    );
     return [detachUpdate, detachPermission, detachElicitation];
   }
 

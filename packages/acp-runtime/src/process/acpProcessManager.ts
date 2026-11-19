@@ -53,6 +53,7 @@ import {
 type AcpClientHandlers = {
   requestPermission(params: schema.RequestPermissionRequest): Promise<schema.RequestPermissionResponse>;
   elicitationCreate(params: schema.CreateElicitationRequest): Promise<schema.CreateElicitationResponse>;
+  elicitationComplete(params: schema.CompleteElicitationNotification): Promise<void>;
   sessionUpdate(notification: schema.SessionNotification): Promise<void>;
   readTextFile(params: schema.ReadTextFileRequest): Promise<schema.ReadTextFileResponse>;
   writeTextFile(params: schema.WriteTextFileRequest): Promise<schema.WriteTextFileResponse>;
@@ -157,6 +158,8 @@ interface PermissionResolverEntry {
 interface ElicitationResolverEntry {
   agentId: string;
   resolver: ElicitationResolver;
+  /** Notified when the agent reports a URL-based elicitation completed. */
+  onComplete?: (elicitationId: string) => void;
 }
 
 interface BufferedSessionUpdate {
@@ -249,6 +252,11 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
   private readonly bufferedSessionUpdates = new Map<string, BufferedSessionUpdate[]>();
   private readonly permissionResolvers = new Map<string, PermissionResolverEntry>();
   private readonly elicitationResolvers = new Map<string, ElicitationResolverEntry>();
+  /** In-flight URL-mode elicitations that the agent may complete via `elicitation/complete`. */
+  private readonly pendingUrlAccepts = new Map<
+    string,
+    { sessionId: string; resolve: (response: schema.CreateElicitationResponse) => void }
+  >();
   private permissionResolverTimeoutMs = DEFAULT_PERMISSION_RESOLVER_TIMEOUT_MS;
   private readonly ports: AcpHostPorts;
   private terminalManager!: AcpTerminalManager;
@@ -770,11 +778,16 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
     };
   }
 
-  registerElicitationResolver(agentId: string, sessionId: string, resolver: ElicitationResolver): () => void {
+  registerElicitationResolver(
+    agentId: string,
+    sessionId: string,
+    resolver: ElicitationResolver,
+    onComplete?: (elicitationId: string) => void,
+  ): () => void {
     if (this.elicitationResolvers.has(sessionId)) {
       console.warn(`[ACP] Overwriting existing elicitation resolver for session "${sessionId}" (agent ${agentId})`);
     }
-    this.elicitationResolvers.set(sessionId, { agentId, resolver });
+    this.elicitationResolvers.set(sessionId, { agentId, resolver, onComplete });
 
     return () => {
       const entry = this.elicitationResolvers.get(sessionId);
@@ -1613,6 +1626,7 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
     return createAcpClientApp({ name: "Argos" })
       .onRequest(acpMethods.client.session.requestPermission, (ctx) => client.requestPermission(ctx.params))
       .onRequest(acpMethods.client.elicitation.create, (ctx) => client.elicitationCreate(ctx.params))
+      .onNotification(acpMethods.client.elicitation.complete, (ctx) => client.elicitationComplete(ctx.params))
       .onNotification(acpMethods.client.session.update, (ctx) => {
         client.sessionUpdate(ctx.params);
       })
@@ -1629,6 +1643,16 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
     return {
       requestPermission: async (params) => this.dispatchPermissionRequest(params),
       elicitationCreate: async (params) => this.dispatchElicitationRequest(params),
+      elicitationComplete: async (params) => {
+        const agentElicitationId = params.elicitationId;
+        const pending = agentElicitationId ? this.pendingUrlAccepts.get(agentElicitationId) : undefined;
+        if (pending) {
+          this.pendingUrlAccepts.delete(agentElicitationId);
+          pending.resolve({ action: "accept" });
+        }
+        const resolverEntry = pending ? this.elicitationResolvers.get(pending.sessionId) : undefined;
+        resolverEntry?.onComplete?.(agentElicitationId);
+      },
       sessionUpdate: async (notification) => {
         this.dispatchSessionUpdate(notification);
       },
@@ -1787,11 +1811,12 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
   /**
    * Handle an agent `elicitation/create` request.
    *
-   * Session-scoped form requests are forwarded to the UI through the
-   * session's elicitation resolver (mirroring permission requests).
-   * Request-scoped elicitations, URL-mode elicitations, and unknown custom
-   * modes have no surface yet and are declined — Argos only advertises the
-   * form capability, so well-behaved agents should not send the others.
+   * Session-scoped form and URL requests are forwarded to the UI through the
+   * session's elicitation resolver (mirroring permission requests). URL-mode
+   * elicitations can also complete out-of-band: the agent sends an
+   * `elicitation/complete` notification, which races the user's answer.
+   * Request-scoped elicitations and unknown custom modes are still declined —
+   * Argos advertises only session-scoped form + URL.
    */
   private async dispatchElicitationRequest(
     params: schema.CreateElicitationRequest,
@@ -1802,8 +1827,8 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
       console.warn("[ACP] Request-scoped elicitation has no UI surface yet, declining");
       return { action: "decline" };
     }
-    if (params.mode !== "form") {
-      console.warn(`[ACP] Elicitation mode "${params.mode}" is not supported yet, declining (session "${sessionId}")`);
+    if (params.mode !== "form" && params.mode !== "url") {
+      console.warn(`[ACP] Elicitation mode "${params.mode}" is not supported, declining (session "${sessionId}")`);
       return { action: "decline" };
     }
 
@@ -1811,6 +1836,10 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
     if (!entry) {
       console.warn(`[ACP] Missing elicitation resolver for session "${sessionId}", declining`);
       return { action: "decline" };
+    }
+
+    if (params.mode === "url") {
+      return this.dispatchUrlElicitation(params as schema.CreateElicitationRequest & { mode: "url" }, sessionId, entry);
     }
 
     try {
@@ -1838,6 +1867,50 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
     } catch (error) {
       console.error("[ACP] Elicitation resolver failed:", error);
       return { action: "decline" };
+    }
+  }
+
+  /**
+   * URL-mode elicitations race the user's answer against the agent's
+   * `elicitation/complete` notification: whichever arrives first resolves the
+   * request as accepted.
+   */
+  private async dispatchUrlElicitation(
+    params: schema.CreateElicitationRequest,
+    sessionId: string,
+    entry: ElicitationResolverEntry,
+  ): Promise<schema.CreateElicitationResponse> {
+    const rawElicitationId = (params as { elicitationId?: unknown }).elicitationId;
+    const agentElicitationId = typeof rawElicitationId === "string" ? rawElicitationId : undefined;
+    let resolveAccept: ((response: schema.CreateElicitationResponse) => void) | undefined;
+    const acceptedOnComplete = new Promise<schema.CreateElicitationResponse>((resolve) => {
+      resolveAccept = resolve;
+    });
+    if (agentElicitationId && resolveAccept) {
+      this.pendingUrlAccepts.set(agentElicitationId, { sessionId, resolve: resolveAccept });
+    }
+
+    try {
+      this.debugLog.append(entry.agentId, {
+        kind: "permission",
+        action: "elicitation/create.url",
+        sessionId,
+        payload: params,
+      });
+      return await Promise.race([
+        resolveElicitationWithTimeout(
+          () => entry.resolver(params),
+          this.permissionResolverTimeoutMs,
+          () => {
+            console.warn(`[ACP] URL elicitation timed out for session "${sessionId}", returning cancelled`);
+          },
+        ),
+        acceptedOnComplete,
+      ]);
+    } finally {
+      if (agentElicitationId) {
+        this.pendingUrlAccepts.delete(agentElicitationId);
+      }
     }
   }
 

@@ -28,6 +28,7 @@ export interface AcpRuntime {
     workdir?: string;
     onPermission?: PermissionResolver;
     onElicitation?: ElicitationResolver;
+    onElicitationComplete?: (elicitationId: string) => void;
   }): AsyncGenerator<schema.SessionNotification, void, unknown>;
 }
 
@@ -102,6 +103,7 @@ export function createAcpRuntime(deps: {
           onSessionUpdate: () => {},
           onPermission: args.onPermission ?? (async () => ({ outcome: { outcome: "cancelled" } })),
           onElicitation: args.onElicitation ?? (async () => ({ action: "decline" })),
+          onElicitationComplete: args.onElicitationComplete,
         },
         args.workdir,
       );

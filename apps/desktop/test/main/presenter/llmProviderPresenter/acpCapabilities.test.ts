@@ -58,12 +58,10 @@ describe("AcpCapabilities", () => {
         promptSuggestions: {},
         cursors: {},
       });
-      // Form elicitation is surfaced through the chat overlay; URL mode stays
-      // unadvertised until it has a UI.
-      expect(caps.elicitation).toEqual({ form: {} });
+      // Elicitation supports form dialogs and the URL card (open browser +
+      // mark complete, auto-accepted on the agent's elicitation/complete).
+      expect(caps.elicitation).toEqual({ form: {}, url: {} });
       expect(caps.subagents).toEqual({});
-      // Capabilities without working Argos handling must stay unadvertised.
-      expect(caps.elicitation?.url).toBeUndefined();
     });
   });
 

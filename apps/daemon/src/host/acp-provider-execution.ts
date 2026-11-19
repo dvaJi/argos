@@ -53,6 +53,8 @@ type PendingAcpPermission = {
 
 type PendingAcpElicitation = {
   sessionId: string;
+  /** The agent-provided elicitation id (URL mode), for `elicitation/complete` correlation. */
+  agentElicitationId?: string | null;
   resolve: (response: schema.CreateElicitationResponse) => void;
 };
 
@@ -546,6 +548,7 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
         workdir,
         onPermission: (params) => this.handlePermissionRequest(sessionId, assistantMessageId, requestId, params),
         onElicitation: (params) => this.handleElicitationRequest(sessionId, assistantMessageId, requestId, params),
+        onElicitationComplete: (elicitationId) => void this.notifyAcpElicitationComplete(elicitationId),
       })) {
         if (controller.signal.aborted) break;
 
@@ -824,6 +827,9 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
     requestId: string,
     params: schema.CreateElicitationRequest,
   ): Promise<schema.CreateElicitationResponse> {
+    if (params.mode === "url") {
+      return this.handleUrlElicitationRequest(sessionId, messageId, requestId, params);
+    }
     if (params.mode !== "form") {
       return { action: "decline" };
     }
@@ -852,6 +858,7 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
             elicitationRequestId,
             providerId: ACP_PROVIDER_ID,
             elicitationPayload: JSON.stringify({
+              mode: "form",
               message: params.message,
               title: requestedSchema.title ?? null,
               description: requestedSchema.description ?? null,
@@ -867,6 +874,72 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
     return await new Promise<schema.CreateElicitationResponse>((resolve) => {
       this.pendingElicitations.set(elicitationRequestId, { sessionId, resolve });
     });
+  }
+
+  /**
+   * URL-mode elicitation: direct the user to the agent-provided URL and wait
+   * for their answer or the agent's `elicitation/complete` notification.
+   */
+  private async handleUrlElicitationRequest(
+    sessionId: string,
+    messageId: string,
+    requestId: string,
+    params: schema.CreateElicitationRequest,
+  ): Promise<schema.CreateElicitationResponse> {
+    const elicitationRequestId = crypto.randomUUID();
+    const now = Date.now();
+    const rawUrl = (params as { url?: unknown }).url;
+    const url = typeof rawUrl === "string" ? rawUrl : "";
+    const rawAgentElicitationId = (params as { elicitationId?: unknown }).elicitationId;
+    const agentElicitationId = typeof rawAgentElicitationId === "string" ? rawAgentElicitationId : null;
+    const toolCallId = (params as { toolCallId?: string | null }).toolCallId ?? null;
+    this.eventPublisher.publish("chat.stream.updated", {
+      kind: "snapshot",
+      requestId,
+      sessionId,
+      messageId,
+      updatedAt: now,
+      blocks: [
+        {
+          type: "action",
+          action_type: "elicitation_request",
+          content: params.message,
+          status: "pending",
+          timestamp: now,
+          extra: {
+            needsUserAction: true,
+            elicitationRequestId,
+            providerId: ACP_PROVIDER_ID,
+            elicitationPayload: JSON.stringify({
+              mode: "url",
+              message: params.message,
+              url,
+              elicitationId: agentElicitationId,
+              toolCallId,
+            }),
+          },
+        },
+      ],
+    });
+
+    return await new Promise<schema.CreateElicitationResponse>((resolve) => {
+      this.pendingElicitations.set(elicitationRequestId, {
+        sessionId,
+        agentElicitationId,
+        resolve,
+      });
+    });
+  }
+
+  /** Resolve a pending URL-mode elicitation as accepted (agent reported completion). */
+  async notifyAcpElicitationComplete(elicitationId: string): Promise<boolean> {
+    for (const [id, pending] of this.pendingElicitations) {
+      if (pending.agentElicitationId !== elicitationId) continue;
+      this.pendingElicitations.delete(id);
+      pending.resolve({ action: "accept" });
+      return true;
+    }
+    return false;
   }
 
   private publishPromptSuggestions(sessionId: string, messageId: string, suggestions: string[]): void {

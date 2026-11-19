@@ -104,15 +104,40 @@ describe("ACP elicitation", () => {
 
     await expect(
       (port as any).handleElicitationRequest("conversation-1", "assistant-1", "request-1", {
-        mode: "url",
+        mode: "custom",
         sessionId: "conversation-1",
-        elicitationId: "e1",
-        url: "https://example.com/login",
-        message: "Please log in",
+        message: "Something odd",
       } as unknown as schema.CreateElicitationRequest),
     ).resolves.toEqual({ action: "decline" });
 
     expect(publish).not.toHaveBeenCalled();
+  });
+
+  it("publishes URL elicitations as cards and accepts on agent completion", async () => {
+    const { port, publish } = createPort();
+
+    const pending = (port as any).handleElicitationRequest("conversation-1", "assistant-1", "request-1", {
+      mode: "url",
+      sessionId: "conversation-1",
+      elicitationId: "el-1",
+      url: "https://example.com/login",
+      message: "Please log in",
+    } as unknown as schema.CreateElicitationRequest);
+
+    const block = findElicitationBlock(publish);
+    const payload = JSON.parse(block.extra.elicitationPayload as string) as Record<string, unknown>;
+    expect(payload).toMatchObject({
+      mode: "url",
+      message: "Please log in",
+      url: "https://example.com/login",
+      elicitationId: "el-1",
+    });
+
+    // The agent reports the browser flow completed: the pending request
+    // resolves as accepted without user action.
+    await expect(port.notifyAcpElicitationComplete("el-1")).resolves.toBe(true);
+    await expect(pending).resolves.toEqual({ action: "accept" });
+    await expect(port.notifyAcpElicitationComplete("el-1")).resolves.toBe(false);
   });
 
   it("cancels pending elicitations when the turn is cancelled", async () => {

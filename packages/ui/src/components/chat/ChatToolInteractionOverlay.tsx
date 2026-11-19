@@ -4,6 +4,7 @@ import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
 import { Label } from "#shadcn/components/ui/label";
 import { Checkbox } from "#shadcn/components/ui/checkbox";
+import { openRuntimeExternal } from "#api/runtime";
 import type { ToolInteractionResponse } from "@argos/shared/types/agent-interface";
 import type { DisplayAssistantMessageBlock } from "#/components/chat/messageListItems";
 type PendingInteractionView = {
@@ -29,12 +30,15 @@ type ElicitationPropertyView = {
   items?: { type?: string; enum?: string[] };
 };
 type ElicitationFormView = {
+  mode?: string;
   message?: string;
   title?: string | null;
   description?: string | null;
   properties?: Record<string, ElicitationPropertyView>;
   required?: string[];
   toolCallId?: string | null;
+  url?: string;
+  elicitationId?: string;
 };
 
 const parseElicitationPayload = (raw: unknown): ElicitationFormView | null => {
@@ -48,6 +52,61 @@ const parseElicitationPayload = (raw: unknown): ElicitationFormView | null => {
 };
 
 type ElicitationFieldValue = string | boolean | string[];
+
+/** URL-mode elicitation: direct the user to the agent's URL and wait for completion. */
+const ChatUrlElicitationCard: FC<{
+  payload: ElicitationFormView;
+  processing: boolean;
+  onRespond: (response: ToolInteractionResponse) => void;
+}> = ({ payload, processing, onRespond }) => {
+  const url = typeof payload.url === "string" ? payload.url : "";
+  return (
+    <div className="mt-3 space-y-2">
+      {url && (
+        <button
+          type="button"
+          disabled={processing}
+          className="w-full rounded-md border bg-muted/50 px-3 py-2 text-left text-xs break-all transition-colors hover:bg-muted disabled:opacity-50"
+          title={url}
+          onClick={() => void openRuntimeExternal(url)}
+        >
+          <span className="flex items-center gap-1.5">
+            <Icon icon="lucide:external-link" className="h-3.5 w-3.5 shrink-0" />
+            {url}
+          </span>
+        </button>
+      )}
+      <div className="flex gap-2">
+        <Button
+          disabled={processing}
+          variant="outline"
+          size="sm"
+          className="h-8 flex-1 text-xs"
+          onClick={() => onRespond({ kind: "elicitation", action: "cancel" })}
+        >
+          Cancel
+        </Button>
+        <Button
+          disabled={processing}
+          variant="outline"
+          size="sm"
+          className="h-8 flex-1 text-xs"
+          onClick={() => onRespond({ kind: "elicitation", action: "decline" })}
+        >
+          Decline
+        </Button>
+        <Button
+          disabled={processing}
+          size="sm"
+          className="h-8 flex-1 text-xs"
+          onClick={() => onRespond({ kind: "elicitation", action: "accept" })}
+        >
+          Mark complete
+        </Button>
+      </div>
+    </div>
+  );
+};
 
 const ChatElicitationForm: FC<{
   payload: ElicitationFormView;
@@ -373,7 +432,11 @@ const ChatToolInteractionOverlay: FC<ChatToolInteractionOverlayProps> = ({
       )}
 
       {isElicitation && elicitation ? (
-        <ChatElicitationForm payload={elicitation} processing={processing} onRespond={onRespond} />
+        elicitation.mode === "url" ? (
+          <ChatUrlElicitationCard payload={elicitation} processing={processing} onRespond={onRespond} />
+        ) : (
+          <ChatElicitationForm payload={elicitation} processing={processing} onRespond={onRespond} />
+        )
       ) : isQuestion ? (
         <div className="mt-4 flex flex-wrap gap-2">
           {questionOptions.map((option) => (
