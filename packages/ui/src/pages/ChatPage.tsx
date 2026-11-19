@@ -19,6 +19,7 @@ import AgentProgressFloat from "#/components/chat/AgentProgressFloat";
 import PendingInputLane from "#/components/chat/PendingInputLane";
 import ChatStatusBar from "#/components/chat/ChatStatusBar";
 import ChatToolInteractionOverlay from "#/components/chat/ChatToolInteractionOverlay";
+import AcpCursorForkMenu from "#/components/chat/AcpCursorForkMenu";
 import TraceDialog from "#/components/trace/TraceDialog";
 import { useToast } from "#/components/use-toast";
 import { createChatClient } from "../../api/ChatClient";
@@ -134,6 +135,29 @@ function usePlanSnapshotSubscription(chatClient: ReturnType<typeof createChatCli
       cancelPlanUpdatedListenerRef.current = null;
     };
   }, [chatClient, sessionId]);
+}
+
+/** Tracks the agent's predicted next prompts for the composer chips (reset on session switch). */
+function usePromptSuggestions(chatClient: ReturnType<typeof createChatClient>, sessionId: string) {
+  const [promptSuggestions, setPromptSuggestions] = useState<string[]>([]);
+  const [suggestionsSession, setSuggestionsSession] = useState(sessionId);
+  if (suggestionsSession !== sessionId) {
+    setSuggestionsSession(sessionId);
+    setPromptSuggestions([]);
+  }
+  const cancelSuggestionsListenerRef = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    cancelSuggestionsListenerRef.current = chatClient.onPromptSuggestionsUpdated((payload) => {
+      if (payload.sessionId === sessionId) {
+        setPromptSuggestions(payload.suggestions);
+      }
+    });
+    return () => {
+      cancelSuggestionsListenerRef.current?.();
+      cancelSuggestionsListenerRef.current = null;
+    };
+  }, [chatClient, sessionId]);
+  return promptSuggestions;
 }
 /** Installs the page-lifetime window listeners (Ask-AI menu, workspace reference insert, find shortcut). */
 function useChatWindowListeners(input: {
@@ -399,6 +423,12 @@ function ChatPage({ sessionId }: ChatPageProps) {
     handleWindowKeydown,
   });
   usePlanSnapshotSubscription(chatClient, sessionId);
+  const promptSuggestions = usePromptSuggestions(chatClient, sessionId);
+  const onPromptSuggestionSelect = (suggestion: string) => {
+    // Suggestions are predictions, not commands: fill the input for review.
+    setMessage(suggestion);
+    chatInputRef.current?.focusInput();
+  };
   useChatPageLifecycle({
     resolveChatInputBoxElement,
     messageSearchRootRef,
@@ -486,6 +516,8 @@ function ChatPage({ sessionId }: ChatPageProps) {
           chatInputRef={chatInputRef}
           message={message}
           onMessageChange={setMessage}
+          promptSuggestions={promptSuggestions}
+          onSuggestionSelect={onPromptSuggestionSelect}
           attachedFiles={attachedFiles}
           onFilesChange={onFilesChange}
           workspacePath={activeSession?.projectDir ?? null}
@@ -508,7 +540,7 @@ type PendingInteractionView = {
   sessionId: string;
   messageId: string;
   toolCallId: string;
-  actionType: "question_request" | "tool_call_permission";
+  actionType: "question_request" | "tool_call_permission" | "elicitation_request";
   toolName: string;
   toolArgs: string;
   block: DisplayAssistantMessageBlock;
@@ -545,12 +577,18 @@ function collectPendingInteractions(
     for (const block of blocks) {
       if (
         block.type !== "action" ||
-        (block.action_type !== "question_request" && block.action_type !== "tool_call_permission") ||
+        (block.action_type !== "question_request" &&
+          block.action_type !== "tool_call_permission" &&
+          block.action_type !== "elicitation_request") ||
         block.status !== "pending" ||
         block.extra?.needsUserAction === false
       )
         continue;
-      const toolCallId = block.tool_call?.id;
+      // Elicitation blocks correlate through extra.elicitationRequestId; other
+      // interactions correlate through the tool_call id.
+      const toolCallId =
+        block.tool_call?.id ??
+        (typeof block.extra?.elicitationRequestId === "string" ? block.extra.elicitationRequestId : undefined);
       if (!toolCallId) continue;
       const toolCall = block.tool_call;
       list.push({
@@ -1471,6 +1509,8 @@ function ChatComposerDock(input: {
   chatInputRef: RefObject<ThreadComposerHandle | null>;
   message: string;
   onMessageChange: (message: string) => void;
+  promptSuggestions: string[];
+  onSuggestionSelect: (suggestion: string) => void;
   attachedFiles: MessageFile[];
   onFilesChange: (files: MessageFile[]) => void;
   workspacePath: string | null;
@@ -1502,6 +1542,8 @@ function ChatComposerDock(input: {
     chatInputRef,
     message,
     onMessageChange,
+    promptSuggestions,
+    onSuggestionSelect,
     attachedFiles,
     onFilesChange,
     workspacePath,
@@ -1578,6 +1620,22 @@ function ChatComposerDock(input: {
               <div ref={heroHostRef} className="mx-auto flex w-full max-w-4xl flex-col">
                 <AcpAuthBanner sessionId={sessionId} />
                 <SettledBanner sessionId={sessionId} />
+                <AcpCursorForkMenu sessionId={sessionId} />
+                {promptSuggestions.length > 0 && !isGenerating && (
+                  <div className="mb-2 flex w-full flex-wrap gap-1.5" data-testid="prompt-suggestions">
+                    {promptSuggestions.map((suggestion) => (
+                      <button
+                        key={suggestion}
+                        type="button"
+                        title={suggestion}
+                        className="max-w-full truncate rounded-full border bg-background/60 px-3 py-1 text-left text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                        onClick={() => onSuggestionSelect(suggestion)}
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <ThreadComposer
                   ref={chatInputRef}
                   message={message}
