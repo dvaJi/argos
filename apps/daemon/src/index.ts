@@ -74,6 +74,11 @@ type DaemonProviderExecutionPort = Required<
     | "getAcpSessionModes"
     | "setAcpSessionMode"
     | "resolveAgentPermission"
+    | "getAcpSessionCursors"
+    | "forkAcpSessionAtCursor"
+    | "pushAcpSessionTitle"
+    | "archiveAcpSession"
+    | "getAcpSessionStatus"
   >
 >;
 
@@ -594,6 +599,21 @@ async function initializeDaemon(options: StartDaemonOptions | undefined, early: 
     },
     async resolveAgentPermission(requestId, granted) {
       return acpProviderExecutionPort.resolveAgentPermission(requestId, granted);
+    },
+    async getAcpSessionCursors(conversationId) {
+      return acpProviderExecutionPort.getAcpSessionCursors(conversationId);
+    },
+    async forkAcpSessionAtCursor(conversationId, cursorId) {
+      return acpProviderExecutionPort.forkAcpSessionAtCursor(conversationId, cursorId);
+    },
+    async pushAcpSessionTitle(conversationId, title) {
+      return acpProviderExecutionPort.pushAcpSessionTitle(conversationId, title);
+    },
+    async archiveAcpSession(conversationId, archived) {
+      return acpProviderExecutionPort.archiveAcpSession(conversationId, archived);
+    },
+    async getAcpSessionStatus(conversationId) {
+      return acpProviderExecutionPort.getAcpSessionStatus(conversationId);
     },
   };
 

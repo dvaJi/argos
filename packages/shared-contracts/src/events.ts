@@ -7,6 +7,7 @@ import {
 } from "./events/browser.events";
 import {
   chatPlanUpdatedEvent,
+  chatPromptSuggestionsUpdatedEvent,
   chatStreamCompletedEvent,
   chatStreamFailedEvent,
   chatStreamUpdatedEvent,
@@ -141,6 +142,7 @@ export const ARGOS_EVENT_CATALOG = {
   [chatStreamCompletedEvent.name]: chatStreamCompletedEvent,
   [chatStreamFailedEvent.name]: chatStreamFailedEvent,
   [chatPlanUpdatedEvent.name]: chatPlanUpdatedEvent,
+  [chatPromptSuggestionsUpdatedEvent.name]: chatPromptSuggestionsUpdatedEvent,
   [skillsCatalogChangedEvent.name]: skillsCatalogChangedEvent,
   [skillsSessionChangedEvent.name]: skillsSessionChangedEvent,
   [terminalOutputEvent.name]: terminalOutputEvent,

@@ -51,3 +51,13 @@ export const chatPlanUpdatedEvent = defineEventContract({
     updatedAt: zod.string(),
   }),
 });
+
+export const chatPromptSuggestionsUpdatedEvent = defineEventContract({
+  name: "chat.promptSuggestions.updated",
+  payload: zod.object({
+    sessionId: EntityIdSchema,
+    messageId: EntityIdSchema,
+    suggestions: zod.array(zod.string()),
+    updatedAt: TimestampMsSchema,
+  }),
+});

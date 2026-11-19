@@ -68,6 +68,11 @@ export interface ProviderExecutionPort {
   getAcpSessionModes?(conversationId: string): Promise<unknown>;
   setAcpSessionMode?(conversationId: string, modeId: string): Promise<void>;
   resolveAgentPermission?(requestId: string, granted: boolean): Promise<void>;
+  getAcpSessionCursors?(conversationId: string): Promise<unknown>;
+  forkAcpSessionAtCursor?(conversationId: string, cursorId?: string): Promise<unknown>;
+  pushAcpSessionTitle?(conversationId: string, title: string): Promise<void>;
+  archiveAcpSession?(conversationId: string, archived: boolean): Promise<void>;
+  getAcpSessionStatus?(conversationId: string): Promise<string | null>;
   generateCompletion?(input: {
     providerId: string;
     modelId: string;

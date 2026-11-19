@@ -123,7 +123,12 @@ export type AssistantMessageBlock = {
     server_icons?: string;
     server_description?: string;
   };
-  action_type?: "tool_call_permission" | "maximum_tool_calls_reached" | "rate_limit" | "question_request";
+  action_type?:
+    | "tool_call_permission"
+    | "maximum_tool_calls_reached"
+    | "rate_limit"
+    | "question_request"
+    | "elicitation_request";
   image_data?: {
     data: string;
     mimeType: string;

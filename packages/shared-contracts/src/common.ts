@@ -177,6 +177,13 @@ export const ToolInteractionResponseSchema = zod.discriminatedUnion("kind", [
   zod.object({
     kind: zod.literal("question_other"),
   }),
+  zod.object({
+    kind: zod.literal("elicitation"),
+    action: zod.enum(["accept", "decline", "cancel"]),
+    content: zod
+      .record(zod.string(), zod.union([zod.string(), zod.number(), zod.boolean(), zod.array(zod.string())]))
+      .optional(),
+  }),
 ]);
 
 export const ToolInteractionResultSchema = zod.object({
@@ -374,7 +381,7 @@ export const AssistantMessageBlockSchema = zod.object({
     })
     .optional(),
   extra: zod.record(zod.string(), JsonValueSchema).optional(),
-  action_type: zod.enum(["tool_call_permission", "question_request", "rate_limit"]).optional(),
+  action_type: zod.enum(["tool_call_permission", "question_request", "rate_limit", "elicitation_request"]).optional(),
   file_changes: zod.object({ files: zod.array(TurnFileChangeSchema) }).optional(),
 });
 

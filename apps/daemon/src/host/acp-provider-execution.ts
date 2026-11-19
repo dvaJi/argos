@@ -16,13 +16,14 @@ import {
   normalizeAcpConfigState,
   updateAcpConfigStateValue,
 } from "@argos/acp-runtime";
-import { createAcpRuntime, type AcpRuntime } from "@argos/acp-runtime";
+import { createAcpRuntime, type AcpRuntime, type AcpCursorEntry } from "@argos/acp-runtime";
 import { runAcpDebugAction, computeAcpDiagnostics } from "@argos/acp-runtime";
 import { AcpSessionPersistence } from "@argos/acp-runtime/session/acpSessionPersistence";
 import type { AcpSessionRecord } from "@argos/acp-runtime/session/acpSessionManager";
 import type { AcpProcessHandle } from "@argos/acp-runtime/process/acpProcessManager";
 import type { DaemonConfigPresenter } from "./daemonConfigPresenter";
 import type { BunSessionRepository } from "./bun-session-repository";
+import type { SessionWithState } from "@argos/shared/types/agent-interface";
 import { usageDateKey } from "./bun-session-repository";
 import { createDaemonAcpPorts } from "./acpPorts";
 import { createDaemonAcpSqlitePresenter } from "./daemonAcpSqlite";
@@ -50,6 +51,11 @@ type PendingAcpPermission = {
   resolve: (response: schema.RequestPermissionResponse) => void;
 };
 
+type PendingAcpElicitation = {
+  sessionId: string;
+  resolve: (response: schema.CreateElicitationResponse) => void;
+};
+
 /**
  * Daemon ACP execution adapter. Spawns and drives ACP agents via the shared
  * `createAcpRuntime`, streaming `session/update` notifications to attached
@@ -73,6 +79,8 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
     }
   >();
   private pendingPermissions = new Map<string, PendingAcpPermission>();
+  private pendingElicitations = new Map<string, PendingAcpElicitation>();
+  private sessionCursors = new Map<string, AcpCursorEntry[]>();
   private readonly contentMapper = new AcpContentMapper();
   /** Invoked after a turn completes successfully (used to drain pending inputs). */
   private turnSettledHandler: ((sessionId: string) => void | Promise<void>) | null = null;
@@ -371,6 +379,7 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
         {
           onSessionUpdate: () => {},
           onPermission: async () => ({ outcome: { outcome: "cancelled" } }),
+          onElicitation: async () => ({ action: "decline" }),
         },
         normalizedWorkdir,
       );
@@ -536,10 +545,22 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
         prompt,
         workdir,
         onPermission: (params) => this.handlePermissionRequest(sessionId, assistantMessageId, requestId, params),
+        onElicitation: (params) => this.handleElicitationRequest(sessionId, assistantMessageId, requestId, params),
       })) {
         if (controller.signal.aborted) break;
 
         const mapped = this.contentMapper.map(notification);
+        if (mapped.promptSuggestions !== undefined) {
+          // Empty array is a valid update: it withdraws the current suggestions.
+          this.publishPromptSuggestions(sessionId, assistantMessageId, mapped.promptSuggestions);
+        }
+        if (mapped.cursors !== undefined) {
+          // Only forkable cursors are actionable for the UI fork affordance.
+          this.sessionCursors.set(
+            sessionId,
+            mapped.cursors.filter((cursor) => cursor.forkable),
+          );
+        }
         if (mapped.usage) {
           lastUsage = mapped.usage;
         }
@@ -792,6 +813,71 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
     });
   }
 
+  /**
+   * Surface a session-scoped form elicitation as a pending chat action block
+   * and wait for the user's answer. The runtime only forwards session-scoped
+   * form requests here; URL/request-scoped/custom modes are declined upstream.
+   */
+  private async handleElicitationRequest(
+    sessionId: string,
+    messageId: string,
+    requestId: string,
+    params: schema.CreateElicitationRequest,
+  ): Promise<schema.CreateElicitationResponse> {
+    if (params.mode !== "form") {
+      return { action: "decline" };
+    }
+    const requestedSchema = (params as { requestedSchema?: schema.ElicitationSchema }).requestedSchema;
+    if (!requestedSchema) {
+      return { action: "decline" };
+    }
+    const toolCallId = (params as { toolCallId?: string | null }).toolCallId ?? null;
+    const elicitationRequestId = crypto.randomUUID();
+    const now = Date.now();
+    this.eventPublisher.publish("chat.stream.updated", {
+      kind: "snapshot",
+      requestId,
+      sessionId,
+      messageId,
+      updatedAt: now,
+      blocks: [
+        {
+          type: "action",
+          action_type: "elicitation_request",
+          content: params.message,
+          status: "pending",
+          timestamp: now,
+          extra: {
+            needsUserAction: true,
+            elicitationRequestId,
+            providerId: ACP_PROVIDER_ID,
+            elicitationPayload: JSON.stringify({
+              message: params.message,
+              title: requestedSchema.title ?? null,
+              description: requestedSchema.description ?? null,
+              properties: requestedSchema.properties ?? {},
+              required: requestedSchema.required ?? [],
+              toolCallId,
+            }),
+          },
+        },
+      ],
+    });
+
+    return await new Promise<schema.CreateElicitationResponse>((resolve) => {
+      this.pendingElicitations.set(elicitationRequestId, { sessionId, resolve });
+    });
+  }
+
+  private publishPromptSuggestions(sessionId: string, messageId: string, suggestions: string[]): void {
+    this.eventPublisher.publish("chat.promptSuggestions.updated", {
+      sessionId,
+      messageId,
+      suggestions,
+      updatedAt: Date.now(),
+    });
+  }
+
   async steerActiveTurn(sessionId: string, content: string | SendMessageInput): Promise<void> {
     await this.interruptActiveTurn(sessionId);
     await this.sendMessage(sessionId, content);
@@ -816,6 +902,12 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
       pending.resolve({ outcome: { outcome: "cancelled" } });
     }
 
+    for (const [elicitationRequestId, pending] of this.pendingElicitations) {
+      if (pending.sessionId !== sessionId) continue;
+      this.pendingElicitations.delete(elicitationRequestId);
+      pending.resolve({ action: "cancel" });
+    }
+
     try {
       const runtime = await this.getRuntime();
       const session = runtime.sessionManager.getSession(sessionId);
@@ -829,6 +921,133 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
     }
 
     await Promise.race([active.donePromise, Bun.sleep(4000)]).catch(() => {});
+  }
+
+  /** Forkable cursors announced by the agent for this conversation. */
+  async getAcpSessionCursors(conversationId: string): Promise<AcpCursorEntry[]> {
+    return this.sessionCursors.get(conversationId) ?? [];
+  }
+
+  /** Resolve the bound process + agent-side session id for a conversation, or null when unbound. */
+  private async getBoundAcpSession(
+    conversationId: string,
+  ): Promise<{ handle: AcpProcessHandle; agentId: string; acpSessionId: string } | null> {
+    try {
+      const runtime = await this.getRuntime();
+      const handle = runtime.processManager.getBoundProcess(conversationId);
+      if (!handle) return null;
+      const agentId = handle.agentId;
+      const bound = await runtime.sessionPersistence.getSessionData(conversationId, agentId);
+      if (!bound?.sessionId) return null;
+      return { handle, agentId, acpSessionId: bound.sessionId };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Best-effort `session/setTitle` so the agent's own transcript reflects the
+   * Argos conversation title. Never fails the local rename.
+   */
+  async pushAcpSessionTitle(conversationId: string, title: string): Promise<void> {
+    const bound = await this.getBoundAcpSession(conversationId);
+    if (!bound) return;
+    try {
+      await bound.handle.connection.agent.request(acpMethods.agent.session.setTitle, {
+        sessionId: bound.acpSessionId,
+        title,
+      });
+    } catch (error) {
+      console.warn(`[ACP] session/setTitle failed for conversation ${conversationId}:`, error);
+    }
+  }
+
+  /** Best-effort agent-side archive/unarchive, gated on the agent's `archive` capability. */
+  async archiveAcpSession(conversationId: string, archived: boolean): Promise<void> {
+    const bound = await this.getBoundAcpSession(conversationId);
+    if (!bound) return;
+    if (!bound.handle.capabilitySnapshot?.supports.sessionArchive) return;
+    try {
+      await bound.handle.connection.agent.request(
+        archived ? acpMethods.agent.session.archive : acpMethods.agent.session.unarchive,
+        { sessionId: bound.acpSessionId },
+      );
+    } catch (error) {
+      console.warn(`[ACP] session archive/unarchive failed for conversation ${conversationId}:`, error);
+    }
+  }
+
+  /** Query `session/status` (gated on the agent's `status` capability); null when unavailable. */
+  async getAcpSessionStatus(conversationId: string): Promise<string | null> {
+    const bound = await this.getBoundAcpSession(conversationId);
+    if (!bound) return null;
+    if (!bound.handle.capabilitySnapshot?.supports.sessionStatus) return null;
+    try {
+      const response = await bound.handle.connection.agent.request(acpMethods.agent.session.status, {
+        sessionId: bound.acpSessionId,
+      });
+      const status = (response as { status?: unknown }).status;
+      return typeof status === "string" ? status : null;
+    } catch (error) {
+      console.warn(`[ACP] session/status failed for conversation ${conversationId}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Fork the bound ACP session (at an announced cursor when given) into a new
+   * conversation. The forked history lives agent-side; the new Argos
+   * conversation starts empty and is bound to the new ACP session id.
+   */
+  async forkAcpSessionAtCursor(conversationId: string, cursorId?: string): Promise<SessionWithState> {
+    const session = await this.sessionRepository.get(conversationId);
+    if (!session) throw new Error(`Session not found: ${conversationId}`);
+    const agentId = session.modelId;
+    const runtime = await this.getRuntime();
+    const handle = runtime.processManager.getBoundProcess(conversationId);
+    if (!handle) {
+      throw new Error(`ACP agent process is not bound for conversation ${conversationId}`);
+    }
+    const bound = await runtime.sessionPersistence.getSessionData(conversationId, agentId);
+    if (!bound?.sessionId) {
+      throw new Error(`No bound ACP session for conversation ${conversationId}`);
+    }
+    const workdir = session.projectDir || (await runtime.sessionPersistence.getWorkdir(conversationId, agentId)) || "";
+
+    // Preserve the session's config options across the fork when the agent
+    // resolves them (`session/options`), best-effort.
+    let configOptions: schema.SessionConfigOption[] | undefined;
+    try {
+      const options = await handle.connection.agent.request(acpMethods.agent.session.options, {
+        cwd: workdir,
+        sessionId: bound.sessionId,
+      });
+      const optionsView = options as { configOptions?: unknown };
+      if (Array.isArray(optionsView.configOptions) && optionsView.configOptions.length > 0) {
+        configOptions = optionsView.configOptions as schema.SessionConfigOption[];
+      }
+    } catch (error) {
+      console.warn(`[ACP] session/options pre-fetch failed for conversation ${conversationId}:`, error);
+    }
+
+    const response = (await handle.connection.agent.request(acpMethods.agent.session.fork, {
+      sessionId: bound.sessionId,
+      cursorId: cursorId ?? null,
+      cwd: workdir,
+      configOptions,
+    })) as { sessionId: string };
+
+    const forked = await this.sessionRepository.createForkedAcpSession({
+      agentId,
+      projectDir: workdir,
+      title: `Fork: ${session.title}`,
+      sourceSessionId: conversationId,
+    });
+    await runtime.sessionPersistence.saveSessionData(forked.id, agentId, response.sessionId, workdir, "idle", {
+      forkedFrom: conversationId,
+      forkedCursorId: cursorId ?? null,
+    });
+    return forked;
   }
 
   async getAcpSessionCommands(conversationId: string): Promise<
@@ -900,6 +1119,7 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
           {
             onSessionUpdate: () => {},
             onPermission: async () => ({ outcome: { outcome: "cancelled" } }),
+            onElicitation: async () => ({ action: "decline" }),
           },
           workdir ?? null,
         );
@@ -1014,6 +1234,11 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
       this.pendingPermissions.delete(toolCallId);
       pending.resolve({ outcome: { outcome: "cancelled" } });
     }
+    for (const [elicitationRequestId, pending] of this.pendingElicitations) {
+      if (pending.sessionId !== sessionId) continue;
+      this.pendingElicitations.delete(elicitationRequestId);
+      pending.resolve({ action: "cancel" });
+    }
     try {
       const runtime = await this.getRuntime();
       await runtime.sessionManager.clearSession(sessionId);
@@ -1029,6 +1254,20 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
     // ACP uninstall guard stuck permanently.
     await this.cancelGeneration(sessionId).catch(() => undefined);
     const runtime = await this.getRuntime();
+    // Free the agent-side session too (capability-gated, best-effort): the
+    // local rows are going away, so the agent should drop its state as well.
+    try {
+      const handle = runtime.processManager.getBoundProcess(sessionId);
+      const agentId = handle?.agentId;
+      const bound = agentId ? await runtime.sessionPersistence.getSessionData(sessionId, agentId) : null;
+      if (handle && agentId && bound?.sessionId && handle.capabilitySnapshot?.supports.sessionDelete) {
+        await handle.connection.agent.request(acpMethods.agent.session.delete, {
+          sessionId: bound.sessionId,
+        });
+      }
+    } catch (error) {
+      console.warn(`[ACP] session/delete failed during purge of ${sessionId}:`, error);
+    }
     await runtime.sessionPersistence.deleteAllSessions(sessionId);
   }
 
@@ -1038,6 +1277,24 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
     toolCallId: string,
     response: ToolInteractionResponse,
   ): Promise<ToolInteractionResult> {
+    if (response.kind === "elicitation") {
+      const pendingElicitation = this.pendingElicitations.get(toolCallId);
+      if (!pendingElicitation || pendingElicitation.sessionId !== sessionId) {
+        // Stale overlay: the session was interrupted/closed before the user
+        // responded. Clear it gracefully so the renderer can drop the block.
+        console.warn(`[acp] respondToolInteraction: no pending elicitation for ${toolCallId} (session ${sessionId})`);
+        this.pendingElicitations.delete(toolCallId);
+        return { handledInline: true };
+      }
+      this.pendingElicitations.delete(toolCallId);
+      if (response.action === "accept") {
+        pendingElicitation.resolve({ action: "accept", content: response.content ?? null });
+      } else {
+        pendingElicitation.resolve({ action: response.action });
+      }
+      return { handledInline: true };
+    }
+
     const pending = this.pendingPermissions.get(toolCallId);
     if (!pending || pending.sessionId !== sessionId) {
       // Stale overlay: the session was interrupted/closed before the user

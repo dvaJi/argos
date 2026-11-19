@@ -171,6 +171,8 @@ import {
   sessionsDeleteMessageRoute,
   sessionsEditUserMessageRoute,
   sessionsForkRoute,
+  sessionsGetAcpCursorsRoute,
+  sessionsForkAcpCursorRoute,
   sessionsSearchHistoryRoute,
   sessionsGetSearchResultsRoute,
   sessionsListMessageTracesRoute,
@@ -351,6 +353,11 @@ type DaemonAcpSessionExecutionPort = {
   getAcpSessionModes?(conversationId: string): Promise<unknown>;
   setAcpSessionMode?(conversationId: string, modeId: string): Promise<void>;
   resolveAgentPermission?(requestId: string, granted: boolean): Promise<void>;
+  getAcpSessionCursors?(conversationId: string): Promise<unknown>;
+  forkAcpSessionAtCursor?(conversationId: string, cursorId?: string): Promise<unknown>;
+  pushAcpSessionTitle?(conversationId: string, title: string): Promise<void>;
+  archiveAcpSession?(conversationId: string, archived: boolean): Promise<void>;
+  getAcpSessionStatus?(conversationId: string): Promise<string | null>;
   startAcpAuth?(input: { agentId: string; workdir?: string; methodId: string }): Promise<{
     mode: "agent" | "terminal";
     runId: string | null;
@@ -2983,6 +2990,21 @@ export function createDaemonDispatcher(
       return sessionsForkRoute.output.parse({ session });
     }
 
+    if (route === sessionsGetAcpCursorsRoute.name) {
+      const input = sessionsGetAcpCursorsRoute.input.parse(rawInput);
+      const cursors = (await acpSessionExecutionPort?.getAcpSessionCursors?.(input.conversationId)) ?? [];
+      return sessionsGetAcpCursorsRoute.output.parse({ cursors });
+    }
+
+    if (route === sessionsForkAcpCursorRoute.name) {
+      const input = sessionsForkAcpCursorRoute.input.parse(rawInput);
+      if (!acpSessionExecutionPort?.forkAcpSessionAtCursor) {
+        throw new Error("ACP session execution port is not available");
+      }
+      const session = await acpSessionExecutionPort.forkAcpSessionAtCursor(input.conversationId, input.cursorId);
+      return sessionsForkAcpCursorRoute.output.parse({ session });
+    }
+
     if (route === sessionsSearchHistoryRoute.name) {
       const input = sessionsSearchHistoryRoute.input.parse(rawInput);
       const normalizedQuery = normalizeSearchText(input.query);
@@ -3290,6 +3312,8 @@ export function createDaemonDispatcher(
     if (route === sessionsRenameRoute.name) {
       const input = sessionsRenameRoute.input.parse(rawInput);
       await (runtime as any).sessionRepository.rename(input.sessionId, input.title);
+      // Best-effort: mirror the title into the agent's own transcript.
+      await acpSessionExecutionPort?.pushAcpSessionTitle?.(input.sessionId, input.title).catch(() => undefined);
       return sessionsRenameRoute.output.parse({ updated: true });
     }
 
@@ -3302,6 +3326,8 @@ export function createDaemonDispatcher(
     if (route === sessionsSetArchivedRoute.name) {
       const input = sessionsSetArchivedRoute.input.parse(rawInput);
       await (runtime as any).sessionRepository.setArchived(input.sessionId, input.archived);
+      // Best-effort: mirror the archive state into the agent (capability-gated).
+      await acpSessionExecutionPort?.archiveAcpSession?.(input.sessionId, input.archived).catch(() => undefined);
       return sessionsSetArchivedRoute.output.parse({ updated: true });
     }
 
