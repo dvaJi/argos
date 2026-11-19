@@ -3,6 +3,7 @@ import type { AgentSessionState } from "../protocol/types";
 import type {
   AcpProcessManager,
   AcpProcessHandle,
+  ElicitationResolver,
   PermissionResolver,
   SessionNotificationHandler,
 } from "../process/acpProcessManager";
@@ -32,6 +33,7 @@ interface AcpSessionManagerOptions {
 interface SessionHooks {
   onSessionUpdate: SessionNotificationHandler;
   onPermission: PermissionResolver;
+  onElicitation: ElicitationResolver;
 }
 
 type AcpConnectionWithUnstableSessionLifecycle = ClientConnection;
@@ -296,7 +298,8 @@ export class AcpSessionManager {
   private attachSessionHooks(agentId: string, sessionId: string, hooks: SessionHooks): Array<() => void> {
     const detachUpdate = this.processManager.registerSessionListener(agentId, sessionId, hooks.onSessionUpdate);
     const detachPermission = this.processManager.registerPermissionResolver(agentId, sessionId, hooks.onPermission);
-    return [detachUpdate, detachPermission];
+    const detachElicitation = this.processManager.registerElicitationResolver(agentId, sessionId, hooks.onElicitation);
+    return [detachUpdate, detachPermission, detachElicitation];
   }
 
   private async initializeSession(

@@ -128,6 +128,7 @@ describe("AcpSessionManager loadSession fallback behavior", () => {
       registerSessionWorkdir: vi.fn<(...args: any[]) => any>(),
       registerSessionListener: vi.fn<(...args: any[]) => any>().mockReturnValue(vi.fn<(...args: any[]) => any>()),
       registerPermissionResolver: vi.fn<(...args: any[]) => any>().mockReturnValue(vi.fn<(...args: any[]) => any>()),
+      registerElicitationResolver: vi.fn<(...args: any[]) => any>().mockReturnValue(vi.fn<(...args: any[]) => any>()),
       clearSession: vi.fn<(...args: any[]) => any>(),
     }) as any;
   const createSessionHooks = () => ({

@@ -52,10 +52,12 @@ describe("AcpSessionManager createSession error handling", () => {
       throw new Error("detach failed");
     });
     const normalDetach = vi.fn<(...args: any[]) => any>();
+    const elicitationDetach = vi.fn<(...args: any[]) => any>();
     manager.processManager = {
       registerSessionWorkdir: vi.fn<(...args: any[]) => any>(),
       registerSessionListener: vi.fn<(...args: any[]) => any>().mockReturnValue(throwingDetach),
       registerPermissionResolver: vi.fn<(...args: any[]) => any>().mockReturnValue(normalDetach),
+      registerElicitationResolver: vi.fn<(...args: any[]) => any>().mockReturnValue(elicitationDetach),
       clearSession: vi.fn<(...args: any[]) => any>(),
     };
     manager.sessionPersistence = {
@@ -76,10 +78,12 @@ describe("AcpSessionManager createSession error handling", () => {
     const session = await manager.initializeSession(handle, "conv1", agent as any, "/tmp", {
       onSessionUpdate: vi.fn<(...args: any[]) => any>(),
       onPermission: vi.fn<(...args: any[]) => any>(),
+      onElicitation: vi.fn<(...args: any[]) => any>(),
     });
 
     expect(throwingDetach).toHaveBeenCalledTimes(1);
     expect(normalDetach).toHaveBeenCalledTimes(1);
+    expect(elicitationDetach).toHaveBeenCalledTimes(1);
     expect(manager.processManager.clearSession).toHaveBeenCalledWith("persisted-session");
     expect(request).toHaveBeenCalledWith("session/new", {
       cwd: "/tmp",

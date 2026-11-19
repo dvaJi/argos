@@ -40,7 +40,11 @@ import {
 } from "../protocol/acpConfigState";
 import type { AcpHostPorts } from "../host/ports";
 import { AcpDebugLog } from "../config/acpDebugLog";
-import { DEFAULT_PERMISSION_RESOLVER_TIMEOUT_MS, resolvePermissionWithTimeout } from "./permissionTimeout";
+import {
+  DEFAULT_PERMISSION_RESOLVER_TIMEOUT_MS,
+  resolveElicitationWithTimeout,
+  resolvePermissionWithTimeout,
+} from "./permissionTimeout";
 
 /**
  * Handlers Argos implements for agent-to-client ACP requests. Replaces the SDK's `Client`
@@ -48,6 +52,7 @@ import { DEFAULT_PERMISSION_RESOLVER_TIMEOUT_MS, resolvePermissionWithTimeout } 
  */
 type AcpClientHandlers = {
   requestPermission(params: schema.RequestPermissionRequest): Promise<schema.RequestPermissionResponse>;
+  elicitationCreate(params: schema.CreateElicitationRequest): Promise<schema.CreateElicitationResponse>;
   sessionUpdate(notification: schema.SessionNotification): Promise<void>;
   readTextFile(params: schema.ReadTextFileRequest): Promise<schema.ReadTextFileResponse>;
   writeTextFile(params: schema.WriteTextFileRequest): Promise<schema.WriteTextFileResponse>;
@@ -114,6 +119,10 @@ export type PermissionResolver = (
   request: schema.RequestPermissionRequest,
 ) => Promise<schema.RequestPermissionResponse>;
 
+export type ElicitationResolver = (
+  request: schema.CreateElicitationRequest,
+) => Promise<schema.CreateElicitationResponse>;
+
 interface SessionListenerEntry {
   agentId: string;
   handlers: Set<SessionNotificationHandler>;
@@ -143,6 +152,11 @@ function isElectron(): boolean {
 interface PermissionResolverEntry {
   agentId: string;
   resolver: PermissionResolver;
+}
+
+interface ElicitationResolverEntry {
+  agentId: string;
+  resolver: ElicitationResolver;
 }
 
 interface BufferedSessionUpdate {
@@ -234,6 +248,7 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
   private readonly sessionListeners = new Map<string, SessionListenerEntry>();
   private readonly bufferedSessionUpdates = new Map<string, BufferedSessionUpdate[]>();
   private readonly permissionResolvers = new Map<string, PermissionResolverEntry>();
+  private readonly elicitationResolvers = new Map<string, ElicitationResolverEntry>();
   private permissionResolverTimeoutMs = DEFAULT_PERMISSION_RESOLVER_TIMEOUT_MS;
   private readonly ports: AcpHostPorts;
   private terminalManager!: AcpTerminalManager;
@@ -611,6 +626,7 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
     this.boundHandles.clear();
     this.sessionListeners.clear();
     this.permissionResolvers.clear();
+    this.elicitationResolvers.clear();
     this.pendingHandles.clear();
     this.sessionWorkdirs.clear();
     this.sessionConversations.clear();
@@ -754,9 +770,24 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
     };
   }
 
+  registerElicitationResolver(agentId: string, sessionId: string, resolver: ElicitationResolver): () => void {
+    if (this.elicitationResolvers.has(sessionId)) {
+      console.warn(`[ACP] Overwriting existing elicitation resolver for session "${sessionId}" (agent ${agentId})`);
+    }
+    this.elicitationResolvers.set(sessionId, { agentId, resolver });
+
+    return () => {
+      const entry = this.elicitationResolvers.get(sessionId);
+      if (entry && entry.resolver === resolver) {
+        this.elicitationResolvers.delete(sessionId);
+      }
+    };
+  }
+
   clearSession(sessionId: string): void {
     this.sessionListeners.delete(sessionId);
     this.permissionResolvers.delete(sessionId);
+    this.elicitationResolvers.delete(sessionId);
     this.sessionWorkdirs.delete(sessionId);
     this.sessionConversations.delete(sessionId);
     this.fsHandlers.delete(sessionId);
@@ -1581,6 +1612,7 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
     const client = this.createClientProxy();
     return createAcpClientApp({ name: "Argos" })
       .onRequest(acpMethods.client.session.requestPermission, (ctx) => client.requestPermission(ctx.params))
+      .onRequest(acpMethods.client.elicitation.create, (ctx) => client.elicitationCreate(ctx.params))
       .onNotification(acpMethods.client.session.update, (ctx) => {
         client.sessionUpdate(ctx.params);
       })
@@ -1596,6 +1628,7 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
   private createClientProxy(): AcpClientHandlers {
     return {
       requestPermission: async (params) => this.dispatchPermissionRequest(params),
+      elicitationCreate: async (params) => this.dispatchElicitationRequest(params),
       sessionUpdate: async (notification) => {
         this.dispatchSessionUpdate(notification);
       },
@@ -1751,6 +1784,63 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
     }
   }
 
+  /**
+   * Handle an agent `elicitation/create` request.
+   *
+   * Session-scoped form requests are forwarded to the UI through the
+   * session's elicitation resolver (mirroring permission requests).
+   * Request-scoped elicitations, URL-mode elicitations, and unknown custom
+   * modes have no surface yet and are declined — Argos only advertises the
+   * form capability, so well-behaved agents should not send the others.
+   */
+  private async dispatchElicitationRequest(
+    params: schema.CreateElicitationRequest,
+  ): Promise<schema.CreateElicitationResponse> {
+    const rawSessionId = (params as { sessionId?: unknown }).sessionId;
+    const sessionId = typeof rawSessionId === "string" ? rawSessionId : undefined;
+    if (!sessionId) {
+      console.warn("[ACP] Request-scoped elicitation has no UI surface yet, declining");
+      return { action: "decline" };
+    }
+    if (params.mode !== "form") {
+      console.warn(`[ACP] Elicitation mode "${params.mode}" is not supported yet, declining (session "${sessionId}")`);
+      return { action: "decline" };
+    }
+
+    const entry = this.elicitationResolvers.get(sessionId);
+    if (!entry) {
+      console.warn(`[ACP] Missing elicitation resolver for session "${sessionId}", declining`);
+      return { action: "decline" };
+    }
+
+    try {
+      this.debugLog.append(entry.agentId, {
+        kind: "permission",
+        action: "elicitation/create",
+        sessionId,
+        payload: params,
+      });
+      return await resolveElicitationWithTimeout(
+        () => entry.resolver(params),
+        this.permissionResolverTimeoutMs,
+        () => {
+          console.warn(
+            `[ACP] Elicitation resolver timed out for session "${sessionId}" after ${this.permissionResolverTimeoutMs}ms, returning cancelled`,
+          );
+          this.debugLog.append(entry.agentId, {
+            kind: "permission",
+            action: "elicitation/create.timeout",
+            sessionId,
+            payload: { timeoutMs: this.permissionResolverTimeoutMs },
+          });
+        },
+      );
+    } catch (error) {
+      console.error("[ACP] Elicitation resolver failed:", error);
+      return { action: "decline" };
+    }
+  }
+
   private notifyModesReady(handle: AcpProcessHandle, conversationId?: string): void {
     if (!handle.availableModes || handle.availableModes.length === 0) return;
 
@@ -1887,6 +1977,12 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
     for (const [sessionId, entry] of this.permissionResolvers.entries()) {
       if (entry.agentId === agentId) {
         this.permissionResolvers.delete(sessionId);
+      }
+    }
+
+    for (const [sessionId, entry] of this.elicitationResolvers.entries()) {
+      if (entry.agentId === agentId) {
+        this.elicitationResolvers.delete(sessionId);
       }
     }
 
