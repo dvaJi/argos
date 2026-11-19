@@ -895,7 +895,10 @@ describe("McpClient Runtime Command Processing Tests", () => {
         experimental: {
           tasks: {
             callToolStream: async function* () {
-              yield { type: "taskCreated", task: { taskId: "t9", status: "working", statusMessage: "Starting deploy" } };
+              yield {
+                type: "taskCreated",
+                task: { taskId: "t9", status: "working", statusMessage: "Starting deploy" },
+              };
               yield { type: "taskStatus", task: { taskId: "t9", status: "running" } };
               yield { type: "result", result: { content: [{ type: "text", text: "done" }], isError: false } };
             },
