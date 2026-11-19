@@ -1,5 +1,6 @@
 import { homedir } from "node:os";
 import { delimiter } from "node:path";
+import { spawn } from "node:child_process";
 import { createJsonStoreFactory } from "./jsonStoreFactory";
 import {
   ArtifactsServer,
@@ -103,6 +104,9 @@ export function createDaemonMcpPorts(deps: {
     },
   };
   const subscribers = new Map<string, Set<(payload: unknown) => void>>();
+  const oauthStore = createJsonStoreFactory(deps.configDir)<Record<string, unknown>>({
+    name: "mcp-oauth",
+  });
   const toolPolicyStore = createJsonStoreFactory(deps.configDir)<ToolPolicyStoreShape>({
     name: "plugin-tool-policies",
     defaults: {
@@ -476,6 +480,25 @@ export function createDaemonMcpPorts(deps: {
       cancelElicitationRequest: async (requestId: string, reason?: string) => {
         elicitationBridge.cancelRequest(requestId, reason);
         deps.eventPublisher.publish("mcp.elicitation.cancelled", { requestId });
+      },
+      // OAuth flows (opt-in via the server config's `oauth: true`): open the
+      // authorization URL in the system browser and persist tokens/client
+      // state under the daemon config dir.
+      openExternal: async (url: string) => {
+        const command = process.platform === "win32" ? "cmd" : process.platform === "darwin" ? "open" : "xdg-open";
+        const args = process.platform === "win32" ? ["/c", "start", "", url] : [url];
+        await new Promise<void>((resolve) => {
+          const child = spawn(command, args, { detached: true, stdio: "ignore" });
+          child.on("error", (error) => {
+            console.warn(`[MCP] Failed to open ${url} in the system browser:`, error);
+            resolve();
+          });
+          child.on("close", () => resolve());
+        });
+      },
+      readJsonFile: async (key: string) => (oauthStore.get(key) ?? null) as unknown,
+      writeJsonFile: async (key: string, value: unknown) => {
+        oauthStore.set(key, value);
       },
       generateCompletionStandalone: async (...args: unknown[]) => {
         const providerId = args[0] as string;

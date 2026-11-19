@@ -1,4 +1,5 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { UnauthorizedError } from "@modelcontextprotocol/sdk/client/auth.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
@@ -26,6 +27,7 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import { terminateProcessTree, createMinimalProcessEnvironment } from "@argos/backend-core";
 import type { ChildProcess } from "node:child_process";
 import type { McpHostPorts } from "../host/ports";
+import { ArgosOAuthClientProvider } from "./oauthProvider";
 
 const MCP_EVENTS = {
   CLIENT_LIST_UPDATED: "mcp:client-list-updated",
@@ -122,6 +124,8 @@ export class McpClient {
   public serverName: string;
   public serverConfig: Record<string, unknown>;
   private isConnected: boolean = false;
+  private oauthProvider: ArgosOAuthClientProvider | null = null;
+  private oauthRetryCount = 0;
   private connectionTimeout: NodeJS.Timeout | null = null;
   private npmRegistry: string | null = null;
   private uvRegistry: string | null = null;
@@ -178,6 +182,16 @@ export class McpClient {
     this.ports.runtime.setUvRuntimePath(value);
   }
 
+  private getOAuthProvider(): ArgosOAuthClientProvider {
+    if (!this.oauthProvider) {
+      this.oauthProvider = new ArgosOAuthClientProvider({
+        serverName: this.serverName,
+        services: this.ports.services,
+      });
+    }
+    return this.oauthProvider;
+  }
+
   // Connect to MCP server
   async connect(): Promise<void> {
     if (this.isConnected && this.client) {
@@ -189,11 +203,13 @@ export class McpClient {
       console.info(`Starting MCP server ${this.serverName}...`, this.serverConfig);
 
       // A static Authorization header (e.g. "Bearer <token>") is sent as-is with every request.
-      // Do not wrap it in an SDK authProvider: on a 401 the SDK would start a full OAuth flow
-      // against it, which needs a complete OAuthClientProvider (clientInformation(), etc.).
+      // Opt-in OAuth (`oauth: true` on the server config) wraps the flow in a
+      // full OAuthClientProvider instead: on 401 the SDK runs discovery + PKCE,
+      // opens the browser via the host, and the loopback callback completes it.
       const customHeaders = this.serverConfig.customHeaders
         ? { ...(this.serverConfig.customHeaders as Record<string, string>) }
         : {};
+      const authProvider = this.serverConfig.oauth === true ? this.getOAuthProvider() : undefined;
 
       if (this.serverConfig.type === "inmemory") {
         const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
@@ -417,10 +433,12 @@ export class McpClient {
       } else if (this.serverConfig.baseUrl && this.serverConfig.type === "sse") {
         this.transport = new SSEClientTransport(new URL(this.serverConfig.baseUrl as string), {
           requestInit: { headers: customHeaders },
+          authProvider,
         });
       } else if (this.serverConfig.baseUrl && this.serverConfig.type === "http") {
         this.transport = new StreamableHTTPClientTransport(new URL(this.serverConfig.baseUrl as string), {
           requestInit: { headers: customHeaders },
+          authProvider,
         });
       } else {
         throw new Error(`Unsupported transport type: ${this.serverConfig.type}`);
@@ -497,6 +515,30 @@ export class McpClient {
       // Wait for connection to complete or time out
       await Promise.race([connectPromise, timeoutPromise]);
     } catch (error) {
+      // OAuth: on 401 the SDK ran the provider up to the redirect step. Wait
+      // for the browser round-trip, then retry the connect once with the
+      // stored tokens in place.
+      if (this.oauthProvider && error instanceof UnauthorizedError) {
+        console.info(`[MCP] Server ${this.serverName} requires authorization; waiting for the browser flow`);
+        try {
+          await this.oauthProvider.waitForAuthorization();
+          await this.oauthProvider.stopAuthorization();
+          await this.cleanupResources();
+          this.isConnected = false;
+          this.client = null as unknown as Client;
+          this.transport = null as unknown as Transport;
+          this.oauthRetryCount += 1;
+          if (this.oauthRetryCount <= 1) {
+            console.info(`[MCP] Authorization complete; reconnecting to ${this.serverName}`);
+            return await this.connect();
+          }
+        } catch (authError) {
+          console.error(`[MCP] OAuth flow failed for server ${this.serverName}:`, authError);
+          this.oauthRetryCount = 0;
+          throw authError instanceof Error ? authError : new Error(String(authError));
+        }
+      }
+
       // Clear timeout
       if (this.connectionTimeout) {
         clearTimeout(this.connectionTimeout);
