@@ -9,5 +9,6 @@
 - [x] 7. Tests: `oauthProvider.test.ts` — loopback callback capture + timeout rejection, storage round-trip, scoped invalidation (4 tests).
 - [x] 8. Validate: typecheck 17/17 packages, lint, format, full desktop+daemon suites green.
 - [x] 9. Sign-out scope UI: the detail sheet offers "Sign out" (tokens — keeps client registration for faster re-auth) and "All" (invalidates tokens, client registration, verifier, discovery) with per-scope toast descriptions.
+- [x] 10. Server-config toggle UX: the server form gains an OAuth checkbox in the remote (SSE/HTTP) section — state + `SET_OAUTH` reducer action + submit wiring (`oauth` on the server config); `MCPServerConfig.oauth?: boolean` is now a typed field (the detail sheet reads it without casts).
 
-Follow-ups: server-config UX for the `oauth: true` toggle, desktop-host end-to-end validation with a running desktop instance (requires an interactive session).
+Follow-ups: desktop-host end-to-end validation with a running desktop instance (requires an interactive session).
