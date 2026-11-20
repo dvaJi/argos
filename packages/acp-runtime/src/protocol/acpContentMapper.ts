@@ -89,6 +89,24 @@ export class AcpContentMapper {
   private readonly messageStreamed = new Set<string>();
   private readonly sessionCursors = new Map<string, Map<string, AcpCursorEntry>>();
 
+  /**
+   * Forget every per-session cache (cursors, tool-call state, subagent and
+   * message-owner bookkeeping) for an agent session that is going away, so
+   * the long-lived mapper does not grow and a reused id starts clean.
+   */
+  forgetSession(sessionId: string): void {
+    this.sessionCursors.delete(sessionId);
+    const prefix = `${sessionId}:`;
+    for (const store of [this.toolCallStates, this.subagentSessions, this.messageOwners] as Map<string, unknown>[]) {
+      for (const key of store.keys()) {
+        if (key.startsWith(prefix)) store.delete(key);
+      }
+    }
+    for (const key of this.messageStreamed) {
+      if (key.startsWith(prefix)) this.messageStreamed.delete(key);
+    }
+  }
+
   map(notification: schema.SessionNotification): MappedContent {
     const { update, sessionId } = notification;
     const payload: MappedContent = { events: [], blocks: [] };
@@ -491,7 +509,7 @@ export class AcpContentMapper {
     recipientSessionId?: string | null,
   ): string | undefined {
     const stored = this.messageOwners.get(this.messageOwnerKey(parentSessionId, messageId));
-    if (stored) return stored;
+    if (stored && stored !== parentSessionId) return stored;
     if (senderSessionId && senderSessionId !== parentSessionId) return senderSessionId;
     if (recipientSessionId && recipientSessionId !== parentSessionId) return recipientSessionId;
     return undefined;
@@ -557,10 +575,10 @@ export class AcpContentMapper {
       update.senderSessionId,
       update.recipientSessionId,
     );
-    if (update.senderSessionId) {
-      this.messageOwners.set(ownerKey, update.senderSessionId);
-    } else if (update.recipientSessionId) {
-      this.messageOwners.set(ownerKey, update.recipientSessionId);
+    // Remember the resolved child (never the parent itself) so later chunks
+    // and updates for this messageId attribute to the same subagent.
+    if (childSessionId) {
+      this.messageOwners.set(ownerKey, childSessionId);
     }
     if (!childSessionId) return;
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { McpClient } from "@argos/mcp-runtime";
+import { McpClient, ELICITATION_TIMEOUT_MS } from "@argos/mcp-runtime";
 import { RuntimeHelper } from "../../../src/main/lib/runtimeHelper";
 import path from "path";
 import { pathToFileURL } from "node:url";
@@ -730,7 +730,7 @@ describe("McpClient Runtime Command Processing Tests", () => {
 
       expect(mockHandleSamplingRequest).toHaveBeenCalledWith(
         expect.objectContaining({
-          requestId: "rpc-001",
+          requestId: expect.stringMatching(/^code-reviewer:[^:]+:rpc-001$/),
           serverName: "code-reviewer",
         }),
       );
@@ -805,7 +805,7 @@ describe("McpClient Runtime Command Processing Tests", () => {
 
       expect(mockHandleElicitationRequest).toHaveBeenCalledWith(
         expect.objectContaining({
-          requestId: "rpc-el-1",
+          requestId: expect.stringMatching(/^code-reviewer:[^:]+:rpc-el-1$/),
           serverName: "code-reviewer",
           message: "Proceed with the deployment?",
           requestedSchema: params.requestedSchema,
@@ -843,6 +843,29 @@ describe("McpClient Runtime Command Processing Tests", () => {
       expect(result).toEqual({ action: "decline" });
     });
 
+    it("times out an unanswered elicitation as cancel and dismisses it on the host", async () => {
+      vi.useFakeTimers();
+      try {
+        const client = new McpClient("code-reviewer", { type: "stdio" }, testPorts);
+        mockHandleElicitationRequest.mockReturnValue(new Promise(() => undefined));
+        presenterMocks.cancelElicitationRequest.mockResolvedValue(undefined);
+
+        const pending = (client as any).handleElicitationCreate(
+          { message: "Proceed?" },
+          { mcpReq: { id: "rpc-el-t" } },
+        );
+        await vi.advanceTimersByTimeAsync(ELICITATION_TIMEOUT_MS + 1);
+
+        await expect(pending).resolves.toEqual({ action: "cancel" });
+        expect(presenterMocks.cancelElicitationRequest).toHaveBeenCalledWith(
+          expect.stringMatching(/:rpc-el-t$/),
+          expect.any(String),
+        );
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     it("normalizes unknown decision actions to cancel", async () => {
       const client = new McpClient("code-reviewer", { type: "stdio" }, testPorts);
 
@@ -857,22 +880,67 @@ describe("McpClient Runtime Command Processing Tests", () => {
     });
   });
 
+  describe("Connection lifecycle", () => {
+    it("shares one in-flight connect between concurrent callers", async () => {
+      const client = new McpClient("remote", { type: "http", baseUrl: "http://127.0.0.1:1/mcp" }, testPorts);
+      let release!: () => void;
+      const connectOnce = vi.fn(() => new Promise<void>((resolve) => (release = resolve)));
+      (client as any).connectOnce = connectOnce;
+
+      const first = client.connect();
+      const second = client.connect();
+      release();
+      await Promise.all([first, second]);
+
+      expect(connectOnce).toHaveBeenCalledTimes(1);
+      // A later connect starts a fresh attempt.
+      const third = client.connect();
+      release();
+      await third;
+      expect(connectOnce).toHaveBeenCalledTimes(2);
+    });
+
+    it("namespaces host-side request ids by server and connection", () => {
+      const client = new McpClient("srv-a", { type: "stdio" }, testPorts);
+      const other = new McpClient("srv-b", { type: "stdio" }, testPorts);
+      const a = (client as any).resolveSamplingRequestId({ mcpReq: { id: 0 } });
+      const b = (other as any).resolveSamplingRequestId({ mcpReq: { id: 0 } });
+
+      expect(a).toMatch(/^srv-a:[^:]+:0$/);
+      expect(b).toMatch(/^srv-b:[^:]+:0$/);
+      expect(a).not.toBe(b);
+    });
+  });
+
   describe("Task-augmented tool calls (v2 task augmentation)", () => {
     function createTaskAwareClient(overrides?: {
       capabilities?: unknown;
       createResult?: unknown;
       taskStatus?: unknown;
       taskResult?: unknown;
+      taskSupport?: string;
     }) {
       const client = new McpClient("long-runner", { type: "stdio" }, testPorts);
       const calls: Array<{ method: string; params: Record<string, unknown> }> = [];
       const mockClient = {
         getServerCapabilities: vi.fn(() => overrides?.capabilities ?? { tasks: { requests: { tools: { call: {} } } } }),
-        callTool: vi.fn(
-          async () => overrides?.createResult ?? { task: { taskId: "t1", status: "working", pollInterval: 1 } },
-        ),
-        request: vi.fn(async (request: { method: string; params: Record<string, unknown> }) => {
+        listTools: vi.fn(async () => ({
+          tools: ["deploy", "ping"].map((name) => ({
+            name,
+            inputSchema: { type: "object" },
+            ...(overrides?.taskSupport === "none"
+              ? {}
+              : { execution: { taskSupport: overrides?.taskSupport ?? "optional" } }),
+          })),
+        })),
+        callTool: vi.fn(async () => overrides?.createResult ?? { content: [], isError: false }),
+        // A real SDK method: it must be invoked with `this` bound to the client.
+        request: vi.fn(async function (this: unknown, request: { method: string; params: Record<string, unknown> }) {
+          if (this !== mockClient) throw new TypeError("request() called without its client receiver");
           calls.push({ method: request.method, params: request.params });
+          if (request.method === "tools/call") {
+            return overrides?.createResult ?? { task: { taskId: "t1", status: "working", pollInterval: 1 } };
+          }
           if (request.method === "tasks/get") {
             return overrides?.taskStatus ?? { taskId: "t1", status: "completed" };
           }
@@ -893,7 +961,11 @@ describe("McpClient Runtime Command Processing Tests", () => {
       const result = await client.callTool("deploy", { env: "prod" });
 
       expect(result).toEqual({ content: [{ type: "text", text: "Task finished" }], isError: false });
-      expect(mockClient.callTool).toHaveBeenCalledWith({ name: "deploy", arguments: { env: "prod" }, task: {} });
+      expect(mockClient.callTool).not.toHaveBeenCalled();
+      expect(mockClient.request.mock.calls[0][0]).toEqual({
+        method: "tools/call",
+        params: { name: "deploy", arguments: { env: "prod" }, task: {} },
+      });
       const methods = mockClient.request.mock.calls.map(([req]: [{ method: string }]) => req.method);
       expect(methods).toContain("tasks/get");
       expect(methods).toContain("tasks/result");
@@ -939,6 +1011,93 @@ describe("McpClient Runtime Command Processing Tests", () => {
       }
       expect((caughtError as Error).message).toBe("deploy failed");
     });
+
+    it("stops polling on input_required and blocks on tasks/result", async () => {
+      const { client, calls } = createTaskAwareClient({
+        taskStatus: { taskId: "t1", status: "input_required" },
+      });
+
+      const result = await client.callTool("deploy", {});
+
+      expect(result).toEqual({ content: [{ type: "text", text: "Task finished" }], isError: false });
+      expect(calls.filter((c) => c.method === "tasks/get")).toHaveLength(1);
+      expect(calls.map((c) => c.method)).toContain("tasks/result");
+    });
+
+    it("sends tasks/cancel and rejects when the caller aborts", async () => {
+      const { client, calls } = createTaskAwareClient({
+        taskStatus: { taskId: "t1", status: "working" },
+      });
+      const controller = new AbortController();
+
+      const pending = client.callTool("deploy", {}, { signal: controller.signal });
+      setTimeout(() => controller.abort(), 20);
+
+      await expect(pending).rejects.toThrow("cancelled");
+      expect(calls.map((c) => c.method)).toContain("tasks/cancel");
+      expect(calls.map((c) => c.method)).not.toContain("tasks/result");
+    });
+
+    it("settles the progress indicator when tasks/get fails mid-poll", async () => {
+      const { client, mockClient } = createTaskAwareClient();
+      const original = mockClient.request.getMockImplementation()!;
+      mockClient.request.mockImplementation(async function (this: unknown, req: { method: string }) {
+        if (req.method === "tasks/get") throw new Error("server went away");
+        return original.call(this, req as never);
+      });
+      const statuses: unknown[] = [];
+      const ports = (client as any).ports;
+      const originalBroadcast = ports.events.broadcast;
+      ports.events.broadcast = (channel: string, payload: { status?: unknown }) => {
+        if (channel === "mcp:tool-call-progress") statuses.push(payload.status);
+        originalBroadcast(channel, payload);
+      };
+
+      await expect(client.callTool("deploy", {}, { toolCallId: "tc-1" })).rejects.toThrow("server went away");
+      ports.events.broadcast = originalBroadcast;
+
+      expect(statuses).toEqual(["working", "failed"]);
+    });
+
+    it("keeps the tool cache when the caller aborts", async () => {
+      const { client } = createTaskAwareClient({ taskStatus: { taskId: "t1", status: "working" } });
+      await client.listTools();
+      const cached = (client as any).cachedTools;
+      const controller = new AbortController();
+      const pending = client.callTool("deploy", {}, { signal: controller.signal });
+      setTimeout(() => controller.abort(), 20);
+
+      await expect(pending).rejects.toThrow("cancelled");
+      expect((client as any).cachedTools).toBe(cached);
+    });
+
+    it("passes the abort signal to plain tool calls", async () => {
+      const { client, mockClient } = createTaskAwareClient({
+        capabilities: {},
+        createResult: { content: [{ type: "text", text: "ok" }], isError: false },
+      });
+      const controller = new AbortController();
+
+      await client.callTool("ping", {}, { signal: controller.signal });
+
+      expect(mockClient.callTool).toHaveBeenCalledWith({ name: "ping", arguments: {} }, { signal: controller.signal });
+    });
+
+    it.each(["none", "forbidden"])(
+      "uses the plain request for tools that do not opt into tasks (taskSupport: %s)",
+      async (taskSupport) => {
+        const { client, mockClient } = createTaskAwareClient({
+          taskSupport,
+          createResult: { content: [{ type: "text", text: "plain" }], isError: false },
+        });
+
+        const result = await client.callTool("ping", {});
+
+        expect(mockClient.request).not.toHaveBeenCalled();
+        expect(mockClient.callTool).toHaveBeenCalledWith({ name: "ping", arguments: {} });
+        expect(result).toEqual({ content: [{ type: "text", text: "plain" }], isError: false });
+      },
+    );
 
     it("falls back to the plain request when the server does not advertise tasks", async () => {
       const { client, mockClient } = createTaskAwareClient({

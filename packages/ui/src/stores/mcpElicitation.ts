@@ -16,7 +16,10 @@ export type ElicitationPropertyView = {
 };
 
 type McpElicitationState = {
+  /** The request currently shown in the dialog (head of the queue). */
   request: McpElicitationRequestPayload | null;
+  /** Requests waiting behind the visible one, oldest first. */
+  queue: McpElicitationRequestPayload[];
   /** Per-field values keyed by property name (scalars as strings until submit). */
   values: Record<string, string>;
   error: string | null;
@@ -24,11 +27,18 @@ type McpElicitationState = {
 
 const mcpElicitationStore = new Store<McpElicitationState>({
   request: null,
+  queue: [],
   values: {},
   error: null,
 });
 
-const eventCleanups: Array<() => void> = [];
+/**
+ * One shared set of event subscriptions, ref-counted across hook instances:
+ * the first hook subscribes, the last one to unmount unsubscribes (a second
+ * mount, or StrictMode's mount/unmount/mount, must not drop the listeners).
+ */
+let subscriberCount = 0;
+let eventCleanups: Array<() => void> = [];
 
 function schemaProperties(request: McpElicitationRequestPayload | null): Record<string, ElicitationPropertyView> {
   const schema = request?.requestedSchema as { properties?: Record<string, ElicitationPropertyView> } | undefined;
@@ -40,12 +50,32 @@ function requiredFields(request: McpElicitationRequestPayload | null): Set<strin
   return new Set(schema?.required ?? []);
 }
 
+/**
+ * Enqueue a request. Concurrent elicitations (several servers or tool calls)
+ * are shown one at a time instead of replacing each other, so every daemon
+ * waiter eventually gets a decision.
+ */
 const openRequest = (request: McpElicitationRequestPayload) => {
-  mcpElicitationStore.setState((prev) => ({ ...prev, request, values: {}, error: null }));
+  mcpElicitationStore.setState((prev) => {
+    if (prev.request?.requestId === request.requestId || prev.queue.some((r) => r.requestId === request.requestId)) {
+      return prev;
+    }
+    if (!prev.request) {
+      return { ...prev, request, values: {}, error: null };
+    }
+    return { ...prev, queue: [...prev.queue, request] };
+  });
 };
 
-const clearRequest = () => {
-  mcpElicitationStore.setState((prev) => ({ ...prev, request: null, values: {}, error: null }));
+/** Remove a request (visible or queued) and advance to the next one. */
+const removeRequest = (requestId: string) => {
+  mcpElicitationStore.setState((prev) => {
+    if (prev.request?.requestId === requestId) {
+      const [next = null, ...rest] = prev.queue;
+      return { ...prev, request: next, queue: rest, values: {}, error: null };
+    }
+    return { ...prev, queue: prev.queue.filter((r) => r.requestId !== requestId) };
+  });
 };
 
 const setValue = (key: string, value: string) => {
@@ -103,11 +133,11 @@ const submitDecision = async (action: McpElicitationDecision["action"]) => {
       action,
       ...(action === "accept" ? { content: buildContent() } : {}),
     });
-    clearRequest();
+    removeRequest(request.requestId);
   } catch (error) {
     console.error("[MCP] Failed to submit elicitation decision:", error);
-    await mcpClient.cancelElicitation(request.requestId, "Decision submission failed");
-    clearRequest();
+    await mcpClient.cancelElicitation(request.requestId, "Decision submission failed").catch(() => undefined);
+    removeRequest(request.requestId);
   }
 };
 
@@ -117,28 +147,30 @@ const handleElicitationRequest = (payload: { request: unknown }) => {
 };
 
 const handleElicitationCancelled = (payload: { requestId: string }) => {
-  if (mcpElicitationStore.state.request && payload.requestId === mcpElicitationStore.state.request.requestId) {
-    clearRequest();
-  }
+  if (payload?.requestId) removeRequest(payload.requestId);
 };
 
 const handleElicitationDecision = (payload: { decision: unknown }) => {
   const decision = payload.decision as McpElicitationDecision | undefined;
-  if (mcpElicitationStore.state.request && decision?.requestId === mcpElicitationStore.state.request.requestId) {
-    clearRequest();
-  }
+  if (decision?.requestId) removeRequest(decision.requestId);
 };
 
 const initMcpElicitation = () => {
-  eventCleanups.push(mcpClient.onElicitationRequest(handleElicitationRequest));
-  eventCleanups.push(mcpClient.onElicitationCancelled(handleElicitationCancelled));
-  eventCleanups.push(mcpClient.onElicitationDecision(handleElicitationDecision));
+  subscriberCount += 1;
+  if (eventCleanups.length > 0) return;
+  eventCleanups = [
+    mcpClient.onElicitationRequest(handleElicitationRequest),
+    mcpClient.onElicitationCancelled(handleElicitationCancelled),
+    mcpClient.onElicitationDecision(handleElicitationDecision),
+  ];
 };
 
 const cleanupMcpElicitation = () => {
-  while (eventCleanups.length > 0) {
-    eventCleanups.pop()?.();
-  }
+  subscriberCount = Math.max(0, subscriberCount - 1);
+  if (subscriberCount > 0) return;
+  const cleanups = eventCleanups;
+  eventCleanups = [];
+  for (const cleanup of cleanups) cleanup();
 };
 
 export function useMcpElicitationStore() {

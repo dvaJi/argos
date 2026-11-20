@@ -3368,7 +3368,8 @@ export function createDaemonDispatcher(
       const input = sessionsRenameRoute.input.parse(rawInput);
       await (runtime as any).sessionRepository.rename(input.sessionId, input.title);
       // Best-effort: mirror the title into the agent's own transcript.
-      await acpSessionExecutionPort?.pushAcpSessionTitle?.(input.sessionId, input.title).catch(() => undefined);
+      // Fire-and-forget so a slow or unresponsive agent never delays the rename.
+      void acpSessionExecutionPort?.pushAcpSessionTitle?.(input.sessionId, input.title)?.catch(() => undefined);
       return sessionsRenameRoute.output.parse({ updated: true });
     }
 

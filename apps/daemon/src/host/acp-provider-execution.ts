@@ -438,11 +438,23 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
     const nextResolved = runtime.sessionPersistence.resolveWorkdir(trimmed);
     if (previousResolved !== nextResolved) {
       try {
+        this.forgetSessionCursors(runtime, conversationId);
         await runtime.sessionManager.clearSession(conversationId);
       } catch {
         // best-effort cleanup
       }
     }
+  }
+
+  /**
+   * Drop cached fork cursors for a conversation whose agent session is being
+   * cleared or recreated: cursors belong to the old agent session and cannot
+   * be forked from the new one.
+   */
+  private forgetSessionCursors(runtime: AcpRuntime, conversationId: string): void {
+    this.sessionCursors.delete(conversationId);
+    const agentSessionId = runtime.sessionManager.getSession(conversationId)?.sessionId;
+    if (agentSessionId) this.contentMapper.forgetSession(agentSessionId);
   }
 
   async getAcpWorkdir(conversationId: string, agentId: string): Promise<string> {
@@ -453,6 +465,7 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
   async clearAcpSession(sessionId: string): Promise<void> {
     const runtime = await this.getRuntime();
     try {
+      this.forgetSessionCursors(runtime, sessionId);
       await runtime.sessionManager.clearSession(sessionId);
     } catch {
       // best-effort cleanup
@@ -1035,6 +1048,8 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
   async pushAcpSessionTitle(conversationId: string, title: string): Promise<void> {
     const bound = await this.getBoundAcpSession(conversationId);
     if (!bound) return;
+    // `session/set_title` is capability-gated (`sessionCapabilities.title`).
+    if (!bound.handle.capabilitySnapshot?.supports.sessionTitle) return;
     try {
       await bound.handle.connection.agent.request(acpMethods.agent.session.setTitle, {
         sessionId: bound.acpSessionId,
@@ -1236,6 +1251,7 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
     }
 
     let nextConfigState: AcpConfigState | null = null;
+    let lastRawOptions: unknown = undefined;
     if (configId === "__acp_legacy_mode__") {
       if (typeof value !== "string") {
         throw new Error("ACP legacy mode config option expects a string value");
@@ -1276,6 +1292,7 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
               value,
             });
 
+      lastRawOptions = response.configOptions;
       const normalizedResponse = normalizeAcpConfigState({
         configOptions: response.configOptions,
       });
@@ -1303,7 +1320,54 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
       );
     }
 
+    // Remember the user's choice so a re-created agent session (session/new
+    // with remembered configOptions) starts from it rather than the options
+    // captured at creation time. Legacy mode/model shims are not real agent
+    // config ids and are never replayed.
+    if (configId !== "__acp_legacy_mode__" && configId !== "__acp_legacy_model__") {
+      try {
+        await this.rememberConfigOptionValue(runtime, conversationId, session.agentId, configId, value, lastRawOptions);
+      } catch (error) {
+        console.warn(`[ACP] Failed to persist config option "${configId}" for ${conversationId}:`, error);
+      }
+    }
+
     return nextConfigState;
+  }
+
+  /**
+   * Persist the new value into `acp_sessions.metadata.configOptions`: the
+   * agent's full option list when the set response carried one, otherwise the
+   * previously remembered list with this option's `currentValue` updated.
+   */
+  private async rememberConfigOptionValue(
+    runtime: AcpRuntime,
+    conversationId: string,
+    agentId: string,
+    configId: string,
+    value: string | boolean,
+    rawOptions: unknown,
+  ): Promise<void> {
+    let options: Array<Record<string, unknown>>;
+    if (Array.isArray(rawOptions) && rawOptions.length > 0) {
+      options = rawOptions as Array<Record<string, unknown>>;
+    } else {
+      const persisted = await runtime.sessionPersistence.getSessionData(conversationId, agentId);
+      const remembered = (persisted?.metadata as Record<string, unknown> | null | undefined)?.["configOptions"];
+      options = Array.isArray(remembered) ? [...(remembered as Array<Record<string, unknown>>)] : [];
+    }
+    let found = false;
+    options = options.map((option) => {
+      if (option && typeof option === "object" && option.id === configId) {
+        found = true;
+        return { ...option, currentValue: value };
+      }
+      return option;
+    });
+    if (!found) {
+      options.push({ id: configId, currentValue: value });
+    }
+    await runtime.sessionPersistence.mergeMetadata(conversationId, agentId, { configOptions: options });
   }
 
   async cancelGeneration(sessionId: string): Promise<void> {
@@ -1324,6 +1388,7 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
     }
     try {
       const runtime = await this.getRuntime();
+      this.forgetSessionCursors(runtime, sessionId);
       await runtime.sessionManager.clearSession(sessionId);
     } catch {
       // best-effort cleanup
@@ -1351,6 +1416,7 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
     } catch (error) {
       console.warn(`[ACP] session/delete failed during purge of ${sessionId}:`, error);
     }
+    this.forgetSessionCursors(runtime, sessionId);
     await runtime.sessionPersistence.deleteAllSessions(sessionId);
   }
 
@@ -1366,7 +1432,6 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
         // Stale overlay: the session was interrupted/closed before the user
         // responded. Clear it gracefully so the renderer can drop the block.
         console.warn(`[acp] respondToolInteraction: no pending elicitation for ${toolCallId} (session ${sessionId})`);
-        this.pendingElicitations.delete(toolCallId);
         return { handledInline: true };
       }
       this.pendingElicitations.delete(toolCallId);
@@ -1384,7 +1449,6 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
       // responded. Clear it gracefully instead of throwing so the renderer can
       // drop the overlay without surfacing an error.
       console.warn(`[acp] respondToolInteraction: no pending permission for ${toolCallId} (session ${sessionId})`);
-      this.pendingPermissions.delete(toolCallId);
       return { handledInline: true };
     }
     if (response.kind !== "permission") {

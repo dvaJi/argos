@@ -797,3 +797,29 @@ describe("AcpContentMapper cursor handling", () => {
     expect(second.cursors?.[1]?.forkable).toBe(false);
   });
 });
+
+describe("AcpContentMapper.forgetSession", () => {
+  it("drops every per-session cache for the forgotten session only", () => {
+    const mapper = new AcpContentMapper();
+    const startTool = (sessionId: string) =>
+      mapper.map(
+        createNotification(sessionId, {
+          sessionUpdate: "tool_call",
+          toolCallId: "tc-1",
+          title: "list_files",
+          status: "in_progress",
+          rawInput: {},
+        }),
+      );
+    startTool("session-a");
+    startTool("session-b");
+    const toolCallKeys = () => [
+      ...(mapper as unknown as { toolCallStates: Map<string, unknown> }).toolCallStates.keys(),
+    ];
+    expect(toolCallKeys()).toEqual(["session-a:tc-1", "session-b:tc-1"]);
+
+    mapper.forgetSession("session-a");
+
+    expect(toolCallKeys()).toEqual(["session-b:tc-1"]);
+  });
+});

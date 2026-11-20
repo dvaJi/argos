@@ -322,7 +322,7 @@ export class ToolPresenter implements IToolPresenter {
     }
 
     // Route to MCP (default)
-    return await this.options.mcpPresenter.callTool(request, { accessContext });
+    return await this.options.mcpPresenter.callTool(request, { accessContext, signal: options?.signal });
   }
 
   /**

@@ -67,10 +67,7 @@ export const ResourceTemplateCompletions: FC<ResourceTemplateCompletionsProps> =
     );
   };
 
-  const composedUri = placeholders.reduce(
-    (acc, key) => acc.replace(`{${key}}`, encodeURIComponent(values[key]?.trim() || `{${key}}`)),
-    uriTemplate,
-  );
+  const composedUri = expandTemplate(uriTemplate, values);
 
   return (
     <div className="mt-2 space-y-2">
@@ -129,8 +126,56 @@ export const ResourceTemplateCompletions: FC<ResourceTemplateCompletionsProps> =
   );
 };
 
-/** Extracts `{placeholder}` names from an RFC 6570-style URI template. */
+const EXPRESSION = /\{([+#./;?&]?)([^}]*)\}/g;
+
+/** Splits an expression body (`a,b:3,c*`) into bare variable names. */
+function expressionVariables(body: string): string[] {
+  return body
+    .split(",")
+    .map((spec) => spec.trim().replace(/\*$/, "").replace(/:\d+$/, ""))
+    .filter(Boolean);
+}
+
+/**
+ * Extracts variable names from an RFC 6570 URI template, stripping operators
+ * (`{+path}`, `{?q,page}`, `{/segments*}`) and modifiers, so completion
+ * requests use the argument names the server declared.
+ */
 function parsePlaceholders(uriTemplate: string): string[] {
-  const matches = uriTemplate.match(/\{[^}]+\}/g) ?? [];
-  return matches.map((m) => m.slice(1, -1));
+  const names: string[] = [];
+  for (const match of uriTemplate.matchAll(EXPRESSION)) {
+    for (const name of expressionVariables(match[2])) {
+      if (!names.includes(name)) names.push(name);
+    }
+  }
+  return names;
+}
+
+/**
+ * Previews the URI with the entered values (RFC 6570 level 3 operators).
+ * Expressions without any filled value are left as-is.
+ */
+function expandTemplate(uriTemplate: string, values: Record<string, string>): string {
+  return uriTemplate.replace(EXPRESSION, (expression, operator: string, body: string) => {
+    const filled = expressionVariables(body)
+      .map((name) => [name, values[name]?.trim() ?? ""] as const)
+      .filter(([, value]) => value.length > 0);
+    if (filled.length === 0) return expression;
+    const reserved = operator === "+" || operator === "#";
+    const encode = (value: string) => (reserved ? encodeURI(value) : encodeURIComponent(value));
+    switch (operator) {
+      case "?":
+      case "&":
+        return operator + filled.map(([name, value]) => `${name}=${encode(value)}`).join("&");
+      case ";":
+        return filled.map(([name, value]) => `;${name}=${encode(value)}`).join("");
+      case ".":
+      case "/":
+        return operator + filled.map(([, value]) => encode(value)).join(operator);
+      case "#":
+        return "#" + filled.map(([, value]) => encode(value)).join(",");
+      default:
+        return filled.map(([, value]) => encode(value)).join(",");
+    }
+  });
 }

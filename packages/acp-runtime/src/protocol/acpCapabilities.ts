@@ -15,6 +15,7 @@ export interface AcpCapabilitySupport {
   sessionDelete: boolean;
   sessionArchive: boolean;
   sessionStatus: boolean;
+  sessionTitle: boolean;
   authLogout: boolean;
 }
 
@@ -50,6 +51,7 @@ export function buildCapabilitySnapshot(initializeResult: schema.InitializeRespo
       sessionDelete: Boolean(sessionCapabilities?.delete),
       sessionArchive: Boolean(sessionCapabilities?.archive),
       sessionStatus: Boolean(sessionCapabilities?.status),
+      sessionTitle: Boolean(sessionCapabilities?.title),
       authLogout: Boolean(agentCapabilities?.auth?.logout),
     },
   };

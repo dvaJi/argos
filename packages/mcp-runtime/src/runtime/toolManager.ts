@@ -639,7 +639,7 @@ export class ToolManager {
 
   async callTool(
     toolCall: MCPToolCall,
-    options?: { accessContext?: AgentToolAccessContext },
+    options?: { accessContext?: AgentToolAccessContext; signal?: AbortSignal },
   ): Promise<MCPToolResponse> {
     try {
       const finalName = toolCall.function.name;
@@ -840,6 +840,7 @@ export class ToolManager {
       // correlated with the chat's tool_call blocks.
       const result = await targetClient.callTool(originalName, args || {}, {
         toolCallId: toolCall.id,
+        signal: options?.signal,
       });
 
       // Format response

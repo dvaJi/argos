@@ -474,6 +474,7 @@ export function createDaemonMcpPorts(deps: {
         const request = payload as McpElicitationRequestPayload;
         deps.eventPublisher.publish("mcp.elicitation.request", { request, version: Date.now() });
         return await new Promise<McpElicitationDecision>((resolve, reject) => {
+          // The MCP runtime bounds the wait (timeout → cancelElicitationRequest).
           pendingElicitations.set(request.requestId, { resolve, reject });
         });
       },
@@ -485,8 +486,22 @@ export function createDaemonMcpPorts(deps: {
       // authorization URL in the system browser and persist tokens/client
       // state under the daemon config dir.
       openExternal: async (url: string) => {
-        const command = process.platform === "win32" ? "cmd" : process.platform === "darwin" ? "open" : "xdg-open";
-        const args = process.platform === "win32" ? ["/c", "start", "", url] : [url];
+        // Only hand real web URLs to the OS opener.
+        let parsed: URL;
+        try {
+          parsed = new URL(url);
+        } catch {
+          console.warn(`[MCP] Refusing to open an invalid URL: ${url}`);
+          return;
+        }
+        if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+          console.warn(`[MCP] Refusing to open a non-http(s) URL: ${parsed.protocol}`);
+          return;
+        }
+        // Windows: `cmd /c start` would parse "&" in the query string as a
+        // command separator; rundll32's URL handler takes the URL verbatim.
+        const command = process.platform === "win32" ? "rundll32" : process.platform === "darwin" ? "open" : "xdg-open";
+        const args = process.platform === "win32" ? ["url.dll,FileProtocolHandler", parsed.href] : [parsed.href];
         await new Promise<void>((resolve) => {
           const child = spawn(command, args, { detached: true, stdio: "ignore" });
           child.on("error", (error) => {

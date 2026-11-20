@@ -481,7 +481,7 @@ async function initializeDaemon(options: StartDaemonOptions | undefined, early: 
           ? [...orchestration, ...memoryRuntime.toolDefinitions()]
           : orchestration;
       },
-      callTool: async (request) => {
+      callTool: async (request, options) => {
         if (orchestrationRuntime.handles((request as any).function?.name)) {
           return orchestrationRuntime.call(request as any);
         }
@@ -497,7 +497,7 @@ async function initializeDaemon(options: StartDaemonOptions | undefined, early: 
           }
           return memoryRuntime.callMemoryTool(request as any, session.agentId);
         }
-        return mcpRuntime.callApprovedTool(request);
+        return mcpRuntime.callApprovedTool(request, options);
       },
     },
     agentWorkspaceDir,

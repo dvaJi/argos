@@ -168,6 +168,7 @@ describe("AcpProcessManager initialized capabilities", () => {
       sessionDelete: false,
       sessionArchive: false,
       sessionStatus: false,
+      sessionTitle: false,
       authLogout: false,
     });
   });

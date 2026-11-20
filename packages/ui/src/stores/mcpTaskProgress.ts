@@ -24,7 +24,12 @@ const mcpTaskProgressStore = new Store<McpTaskProgressState>({
   tasks: {},
 });
 
-const eventCleanups: Array<() => void> = [];
+/**
+ * One shared event subscription, ref-counted across every mounted consumer:
+ * the first hook subscribes, the last one to unmount unsubscribes.
+ */
+let subscriberCount = 0;
+let unsubscribe: (() => void) | null = null;
 
 const handleProgress = (payload: {
   serverName: string;
@@ -65,12 +70,17 @@ const handleProgress = (payload: {
 };
 
 const initMcpTaskProgress = () => {
-  eventCleanups.push(mcpClient.onToolCallProgress(handleProgress));
+  subscriberCount += 1;
+  if (!unsubscribe) {
+    unsubscribe = mcpClient.onToolCallProgress(handleProgress);
+  }
 };
 
 const cleanupMcpTaskProgress = () => {
-  while (eventCleanups.length > 0) {
-    eventCleanups.pop()?.();
+  subscriberCount = Math.max(0, subscriberCount - 1);
+  if (subscriberCount === 0 && unsubscribe) {
+    unsubscribe();
+    unsubscribe = null;
   }
 };
 

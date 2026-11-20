@@ -106,6 +106,7 @@ describe("AcpCapabilities", () => {
         sessionDelete: true,
         sessionArchive: true,
         sessionStatus: true,
+        sessionTitle: false,
         authLogout: false,
       });
     });

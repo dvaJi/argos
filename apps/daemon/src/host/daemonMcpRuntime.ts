@@ -179,7 +179,7 @@ export class DaemonMcpRuntime {
   }
 
   /** Execute after the Pi/Argos permission gate has approved this call. */
-  async callApprovedTool(request: unknown) {
+  async callApprovedTool(request: unknown, options?: { signal?: AbortSignal }) {
     const toolCall = request as Parameters<ToolManager["callTool"]>[0];
     const permission = await this.toolManager.preCheckToolPermission(toolCall);
     if (permission) {
@@ -190,7 +190,7 @@ export class DaemonMcpRuntime {
         toolCall.conversationId,
       );
     }
-    const result = await this.toolManager.callTool(toolCall);
+    const result = await this.toolManager.callTool(toolCall, options?.signal ? { signal: options.signal } : undefined);
     // ProviderExecutionPort.callTool is typed Promise<MCPToolResponse>, so keep
     // the call id at the top level; the mcp.callTool route strips it via Zod.
     return {
@@ -281,20 +281,21 @@ export class DaemonMcpRuntime {
       (client) => enabled || Boolean(servers[client.serverName]?.ownerPluginId || servers[client.serverName]?.sourceId),
     );
 
-    const templates: Array<Record<string, unknown> & { client: { name: string; icon: string } }> = [];
-    for (const client of clients) {
-      if (typeof client.listResourceTemplates !== "function") continue;
-      const clientTemplates = await client.listResourceTemplates().catch(() => []);
-      for (const template of clientTemplates ?? []) {
-        templates.push({
+    // Query servers concurrently: one slow server must not serialize the rest.
+    const perClient = await Promise.all(
+      clients.map(async (client) => {
+        if (typeof client.listResourceTemplates !== "function") return [];
+        const clientTemplates = await client.listResourceTemplates().catch(() => []);
+        return (clientTemplates ?? []).map((template) => ({
           ...template,
           client: {
             name: client.serverName,
             icon: client.serverConfig["icons"] as string,
           },
-        });
-      }
-    }
+        }));
+      }),
+    );
+    const templates: Array<Record<string, unknown> & { client: { name: string; icon: string } }> = perClient.flat();
     return templates;
   }
 
