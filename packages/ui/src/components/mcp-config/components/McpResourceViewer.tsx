@@ -7,6 +7,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#shadcn/components/ui/select";
 import { useMcpStore } from "#/stores/mcp";
 import { createMcpClient } from "#api/McpClient";
+import { ResourceTemplateCompletions } from "./ResourceTemplateCompletions";
 import McpJsonViewer from "./McpJsonViewer";
 import type { ResourceListEntry } from "@argos/shared/presenter";
 interface McpResourceViewerProps {
@@ -176,6 +177,9 @@ const McpResourceViewer: FC<McpResourceViewerProps> = ({ serverName, open, onOpe
                         <code className="mt-1 block truncate text-[10px] text-muted-foreground">
                           {template.uriTemplate}
                         </code>
+                        {serverName && (
+                          <ResourceTemplateCompletions serverName={serverName} uriTemplate={template.uriTemplate} />
+                        )}
                       </div>
                     ))}
                   </div>
