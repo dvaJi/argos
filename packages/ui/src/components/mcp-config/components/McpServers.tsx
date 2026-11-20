@@ -79,10 +79,7 @@ export const McpServers = forwardRef<McpServersRef, McpServersProps>(
       };
     }, [selectedDetailServerName, mcpClient]);
 
-    const isOAuthServer = (serverName: string): boolean =>
-      Boolean(
-        (mcpStore.config.mcpServers[serverName] as unknown as Record<string, unknown> | undefined)?.oauth === true,
-      );
+    const isOAuthServer = (serverName: string): boolean => mcpStore.config.mcpServers[serverName]?.oauth === true;
 
     const handleSignOut = async (serverName: string, scope: "tokens" | "all") => {
       setSigningOutServer(serverName);

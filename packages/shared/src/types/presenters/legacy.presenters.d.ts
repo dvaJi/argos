@@ -1703,6 +1703,8 @@ export interface MCPServerConfig {
   disable?: boolean;
   baseUrl?: string;
   customHeaders?: Record<string, string>;
+  /** Opt-in OAuth for remote servers (SSE/HTTP): on 401 run discovery+PKCE with the system browser. */
+  oauth?: boolean;
   customNpmRegistry?: string;
   /** Environment inheritance for stdio spawns; "minimal" passes only essential vars. */
   inheritEnv?: "legacy" | "minimal";
