@@ -105,35 +105,27 @@ describe("ConversationSearchServer", () => {
 
     const callHandler = serverInstances[0].handlers.get("tools/call");
     const searchResult = await callHandler?.({
-      params: {
-        name: "search_conversations",
-        arguments: { query: "daemon" },
-      },
+      name: "search_conversations",
+      arguments: { query: "daemon" },
     });
     expect(searchResult.content[0].text).toContain("Release planning");
     expect(mockSearchConversations).toHaveBeenCalledWith("daemon", 10, 0);
 
     const messagesResult = await callHandler?.({
-      params: {
-        name: "search_messages",
-        arguments: { query: "daemon" },
-      },
+      name: "search_messages",
+      arguments: { query: "daemon" },
     });
     expect(messagesResult.content[0].text).toContain("daemon compatibility");
 
     const historyResult = await callHandler?.({
-      params: {
-        name: "get_conversation_history",
-        arguments: { conversationId: "session-1" },
-      },
+      name: "get_conversation_history",
+      arguments: { conversationId: "session-1" },
     });
     expect(historyResult.content[0].text).toContain('"role": "user"');
 
     const statsResult = await callHandler?.({
-      params: {
-        name: "get_conversation_stats",
-        arguments: { days: 7 },
-      },
+      name: "get_conversation_stats",
+      arguments: { days: 7 },
     });
     expect(statsResult.content[0].text).toContain('"period": "7 days"');
     expect(statsResult.content[0].text).toContain('"conversations": 2');

@@ -1,7 +1,7 @@
 import { Server } from "@modelcontextprotocol/server";
-import type { CallToolRequest } from "@modelcontextprotocol/client";
+import type { ToolsCallParams } from "../protocol/v2-schemas";
 import type { Transport } from "@modelcontextprotocol/client";
-import { CallToolRequestSchema, ListToolsRequestSchema } from "../protocol/v2-schemas";
+import { ToolsCallParamsSchema, ToolsListParamsSchema } from "../protocol/v2-schemas";
 import zod from "zod";
 import type { Prompt } from "@argos/shared/presenter";
 import { isSafeRegexPattern } from "@argos/shared/regexValidator";
@@ -118,8 +118,8 @@ export class AutoPromptingServer {
     };
   }
 
-  private async handleToolCall(request: CallToolRequest) {
-    const { name, arguments: args } = request.params;
+  private async handleToolCall(requestParams: ToolsCallParams) {
+    const { name, arguments: args } = requestParams;
 
     if (name === "list_all_prompt_template_names") {
       try {
@@ -191,10 +191,10 @@ export class AutoPromptingServer {
   }
 
   private setupRequestHandlers(): void {
-    this.server.setRequestHandler("tools/list", { params: ListToolsRequestSchema }, async () => this.listTools());
-    this.server.setRequestHandler("tools/call", { params: CallToolRequestSchema }, async (request) => {
+    this.server.setRequestHandler("tools/list", { params: ToolsListParamsSchema }, async () => this.listTools());
+    this.server.setRequestHandler("tools/call", { params: ToolsCallParamsSchema }, async (requestParams) => {
       try {
-        return await this.handleToolCall(request);
+        return await this.handleToolCall(requestParams);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         return {

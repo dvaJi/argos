@@ -1,7 +1,7 @@
 import { Server } from "@modelcontextprotocol/server";
 
 import type { Transport } from "@modelcontextprotocol/client";
-import { CallToolRequestSchema, ListToolsRequestSchema } from "../protocol/v2-schemas";
+import { ToolsCallParamsSchema, ToolsListParamsSchema } from "../protocol/v2-schemas";
 import zod from "zod";
 
 const SearchConversationsArgsSchema = zod.object({
@@ -67,7 +67,7 @@ export class ConversationSearchServer {
   }
 
   private setupRequestHandlers(): void {
-    this.server.setRequestHandler("tools/list", { params: ListToolsRequestSchema }, async () => {
+    this.server.setRequestHandler("tools/list", { params: ToolsListParamsSchema }, async () => {
       return {
         tools: [
           {
@@ -111,8 +111,8 @@ export class ConversationSearchServer {
       };
     });
 
-    this.server.setRequestHandler("tools/call", { params: CallToolRequestSchema }, async (request) => {
-      const { name, arguments: args } = request.params;
+    this.server.setRequestHandler("tools/call", { params: ToolsCallParamsSchema }, async (requestParams) => {
+      const { name, arguments: args } = requestParams;
 
       try {
         switch (name) {

@@ -61,10 +61,8 @@ describe("AutoPromptingServer", () => {
 
     const callHandler = serverInstances[0].handlers.get("tools/call");
     const result = await callHandler?.({
-      params: {
-        name: "list_all_prompt_template_names",
-        arguments: {},
-      },
+      name: "list_all_prompt_template_names",
+      arguments: {},
     });
 
     expect(result.content[0].text).toContain("foo");

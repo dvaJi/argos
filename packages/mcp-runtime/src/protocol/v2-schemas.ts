@@ -1,3 +1,5 @@
+import zod from "zod";
+
 /**
  * Zod schemas for MCP protocol messages, sourced from
  * `@modelcontextprotocol/core` (v2's schema package — the successor of 1.x's
@@ -37,6 +39,24 @@ export {
   ResourceUpdatedNotificationSchema,
   ResourceUpdatedNotificationParamsSchema,
 } from "@modelcontextprotocol/core";
+
+/**
+ * Params-only schemas for the v2 3-arg `setRequestHandler(method, { params }, handler)`
+ * form: v2 validates the request's PARAMS against the schema and hands the
+ * handler the parsed params directly (loose objects keep unknown keys so
+ * `_meta` and task extensions survive). Core's `*RequestSchema` exports are
+ * FULL-request shapes (with `method` literals) and cannot be used here.
+ */
+export const ToolsListParamsSchema = zod.looseObject({
+  cursor: zod.string().optional(),
+});
+
+export const ToolsCallParamsSchema = zod.looseObject({
+  name: zod.string(),
+  arguments: zod.record(zod.string(), zod.unknown()).optional(),
+});
+
+export type ToolsCallParams = zod.infer<typeof ToolsCallParamsSchema>;
 
 /** Transport interface shared by client and server protocol instances. */
 export type { Transport } from "@modelcontextprotocol/client";

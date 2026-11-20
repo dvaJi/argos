@@ -34,18 +34,14 @@ describe("DeepResearchServer", () => {
     const callHandler = serverInstances[0].handlers.get("tools/call");
 
     const startResult = await callHandler?.({
-      params: {
-        name: "start_deep_research",
-        arguments: { question: "What is Argos?" },
-      },
+      name: "start_deep_research",
+      arguments: { question: "What is Argos?" },
     });
     const sessionId = JSON.parse(startResult.content[0].text).session_id as string;
 
     const finalResult = await callHandler?.({
-      params: {
-        name: "generate_final_answer",
-        arguments: { session_id: sessionId },
-      },
+      name: "generate_final_answer",
+      arguments: { session_id: sessionId },
     });
 
     const payload = JSON.parse(finalResult.content[0].text);

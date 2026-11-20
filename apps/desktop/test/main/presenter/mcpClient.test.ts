@@ -857,32 +857,50 @@ describe("McpClient Runtime Command Processing Tests", () => {
     });
   });
 
-  describe("Task-augmented tool calls (experimental tasks)", () => {
-    it("runs tools through the task stream and maps the final result", async () => {
+  describe("Task-augmented tool calls (v2 task augmentation)", () => {
+    function createTaskAwareClient(overrides?: {
+      capabilities?: unknown;
+      createResult?: unknown;
+      taskStatus?: unknown;
+      taskResult?: unknown;
+    }) {
       const client = new McpClient("long-runner", { type: "stdio" }, testPorts);
-      await client.connect().catch(() => undefined);
-
-      (client as any).client = {
-        experimental: {
-          tasks: {
-            callToolStream: async function* () {
-              yield { type: "taskCreated", task: { taskId: "t1", status: "working" } };
-              yield { type: "taskStatus", task: { taskId: "t1", status: "running" } };
-              yield { type: "result", result: { content: [{ type: "text", text: "Task finished" }], isError: false } };
-            },
-          },
-        },
+      const calls: Array<{ method: string; params: Record<string, unknown> }> = [];
+      const mockClient = {
+        getServerCapabilities: vi.fn(() => overrides?.capabilities ?? { tasks: { requests: { tools: { call: {} } } } }),
+        callTool: vi.fn(
+          async () => overrides?.createResult ?? { task: { taskId: "t1", status: "working", pollInterval: 1 } },
+        ),
+        request: vi.fn(async (request: { method: string; params: Record<string, unknown> }) => {
+          calls.push({ method: request.method, params: request.params });
+          if (request.method === "tasks/get") {
+            return overrides?.taskStatus ?? { taskId: "t1", status: "completed" };
+          }
+          if (request.method === "tasks/result") {
+            return overrides?.taskResult ?? { content: [{ type: "text", text: "Task finished" }], isError: false };
+          }
+          return {};
+        }),
       };
+      (client as any).client = mockClient;
       (client as any).isConnected = true;
+      return { client, mockClient, calls };
+    }
+
+    it("runs tools through task augmentation and maps the final result", async () => {
+      const { client, mockClient } = createTaskAwareClient();
 
       const result = await client.callTool("deploy", { env: "prod" });
 
       expect(result).toEqual({ content: [{ type: "text", text: "Task finished" }], isError: false });
+      expect(mockClient.callTool).toHaveBeenCalledWith({ name: "deploy", arguments: { env: "prod" }, task: {} });
+      const methods = mockClient.request.mock.calls.map(([req]: [{ method: string }]) => req.method);
+      expect(methods).toContain("tasks/get");
+      expect(methods).toContain("tasks/result");
     });
 
-    it("broadcasts task progress events for taskCreated/taskStatus messages", async () => {
-      const client = new McpClient("long-runner", { type: "stdio" }, testPorts);
-      await client.connect().catch(() => undefined);
+    it("broadcasts progress events correlated with the LLM tool-call id", async () => {
+      const { client } = createTaskAwareClient();
 
       const broadcasts: Array<{ channel: string; payload: Record<string, unknown> }> = [];
       const ports = (client as any).ports;
@@ -892,53 +910,26 @@ describe("McpClient Runtime Command Processing Tests", () => {
         originalBroadcast(channel, payload);
       };
 
-      (client as any).client = {
-        experimental: {
-          tasks: {
-            callToolStream: async function* () {
-              yield {
-                type: "taskCreated",
-                task: { taskId: "t9", status: "working", statusMessage: "Starting deploy" },
-              };
-              yield { type: "taskStatus", task: { taskId: "t9", status: "running" } };
-              yield { type: "result", result: { content: [{ type: "text", text: "done" }], isError: false } };
-            },
-          },
-        },
-      };
-      (client as any).isConnected = true;
+      await client.callTool("deploy", {}, { toolCallId: "chat_tc_42" });
 
-      const result = await client.callTool("deploy", {}, { toolCallId: "chat_tc_42" });
-
-      expect(result).toEqual({ content: [{ type: "text", text: "done" }], isError: false });
       const progressEvents = broadcasts.filter((b) => b.channel === "mcp:tool-call-progress");
-      expect(progressEvents).toHaveLength(2);
+      expect(progressEvents.length).toBeGreaterThanOrEqual(2);
       expect(progressEvents[0].payload).toMatchObject({
         serverName: "long-runner",
         toolName: "deploy",
         toolCallId: "chat_tc_42",
-        taskId: "t9",
+        taskId: "t1",
         status: "working",
-        statusMessage: "Starting deploy",
       });
-      expect(progressEvents[1].payload.status).toBe("running");
+      const completedEvent = progressEvents.find((e) => e.payload.status === "completed");
+      expect(completedEvent).toBeDefined();
     });
 
-    it("throws the stream error when a task ends in failure", async () => {
-      const client = new McpClient("long-runner", { type: "stdio" }, testPorts);
-      await client.connect().catch(() => undefined);
-
-      (client as any).client = {
-        experimental: {
-          tasks: {
-            callToolStream: async function* () {
-              yield { type: "taskStatus", task: { taskId: "t2", status: "failed" } };
-              yield { type: "error", error: { message: "deploy failed", code: -32000 } };
-            },
-          },
-        },
-      };
-      (client as any).isConnected = true;
+    it("throws when the task ends in failure", async () => {
+      const { client } = createTaskAwareClient({
+        taskStatus: { taskId: "t2", status: "failed", statusMessage: "deploy failed" },
+        taskResult: { content: [], isError: true },
+      });
 
       let caughtError: unknown;
       try {
@@ -949,21 +940,17 @@ describe("McpClient Runtime Command Processing Tests", () => {
       expect((caughtError as Error).message).toBe("deploy failed");
     });
 
-    it("falls back to the plain request when the task stream is unavailable", async () => {
-      const client = new McpClient("plain-server", { type: "stdio" }, testPorts);
-      await client.connect().catch(() => undefined);
-
-      const plainCallTool = vi.fn(async () => ({
-        content: [{ type: "text", text: "plain result" }],
-        isError: false,
-      }));
-      (client as any).client = { callTool: plainCallTool };
-      (client as any).isConnected = true;
+    it("falls back to the plain request when the server does not advertise tasks", async () => {
+      const { client, mockClient } = createTaskAwareClient({
+        capabilities: {},
+        createResult: { content: [{ type: "text", text: "Task finished" }], isError: false },
+      });
 
       const result = await client.callTool("ping", {});
 
-      expect(plainCallTool).toHaveBeenCalledWith({ name: "ping", arguments: {} });
-      expect(result).toEqual({ content: [{ type: "text", text: "plain result" }], isError: false });
+      expect(mockClient.request).not.toHaveBeenCalled();
+      expect(mockClient.callTool).toHaveBeenCalledWith({ name: "ping", arguments: {} });
+      expect(result).toEqual({ content: [{ type: "text", text: "Task finished" }], isError: false });
     });
   });
 

@@ -2,6 +2,7 @@ import { Client, UnauthorizedError, InMemoryTransport, SSEClientTransport, Strea
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 import type { Transport, ElicitResult, CompleteRequest, CreateMessageRequest, CreateMessageResult } from "@modelcontextprotocol/client";
 import { ErrorCode, McpError } from "../protocol/errors";
+import { CallToolResultSchema, GetTaskResultSchema } from "@modelcontextprotocol/core";
 import path from "path";
 import { pathToFileURL } from "node:url";
 import { terminateProcessTree, createMinimalProcessEnvironment } from "@argos/backend-core";
@@ -30,6 +31,11 @@ import type {
 } from "@argos/shared/presenter";
 
 const ALLOWED_SAMPLING_IMAGE_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
+
+/** Delay between `tasks/get` polls when the server doesn't specify one. */
+const TASK_POLL_INTERVAL_MS = 500;
+/** Upper bound for waiting on a task-augmented tool call. */
+const TASK_POLL_TIMEOUT_MS = 10 * 60_000;
 
 // StdioClientTransport keeps the spawned agent child process on a private
 // `_process` field. We access it to terminate the whole process tree on
@@ -1131,10 +1137,11 @@ export class McpClient {
         throw new Error(`MCP client ${this.serverName} not initialized`);
       }
 
-      // Prefer the experimental task stream: servers that augment tool calls
-      // with tasks emit status updates plus the final result through it, while
-      // plain servers yield a single result message.
-      const streamed = await this.callToolWithTaskStream(toolName, args, options?.toolCallId);
+      // Prefer v2-native task augmentation: servers that advertise
+      // tasks.requests.tools.call run the call as a task (progress polled via
+      // tasks/get, final result via tasks/result), while plain servers yield
+      // the direct result.
+      const streamed = await this.callToolWithTaskAugmentation(toolName, args, options?.toolCallId);
       let result: ToolCallResult;
       if (streamed !== null) {
         result = streamed;
@@ -1173,63 +1180,105 @@ export class McpClient {
   }
 
   /**
-   * Run a tool call through the experimental task stream when the SDK exposes
-   * it (`client.experimental.tasks.callToolStream`). Returns null when the
-   * stream API is unavailable so callers fall back to the plain request.
+   * Run a tool call with v2-native task augmentation (SEP-1686): when the
+   * server advertises `tasks.requests.tools.call`, the call is sent with
+   * task-creation params, the task is polled via `tasks/get` (broadcasting
+   * `mcp:tool-call-progress` per poll), and the final result is fetched via
+   * `tasks/result`. Returns null when the server does not support tasks so
+   * callers fall back to the plain request.
    */
-  private async callToolWithTaskStream(
+  private async callToolWithTaskAugmentation(
     toolName: string,
     args: Record<string, unknown>,
     toolCallId?: string,
   ): Promise<ToolCallResult | null> {
     const client = this.client as unknown as {
-      experimental?: {
-        tasks?: {
-          callToolStream?: (params: {
-            name: string;
-            arguments: Record<string, unknown>;
-          }) => AsyncGenerator<{ type: string; result?: unknown; error?: unknown }, void, unknown>;
-        };
-      };
+      getServerCapabilities?: () => unknown;
+      request?: (
+        request: { method: string; params?: unknown },
+        resultSchema?: unknown,
+        options?: unknown,
+      ) => Promise<unknown>;
+      callTool?: (params: Record<string, unknown>) => Promise<unknown>;
     };
-    const streamFactory = client.experimental?.tasks?.callToolStream;
-    if (typeof streamFactory !== "function") {
+    if (!client?.getServerCapabilities || !client.request || !client.callTool) {
       return null;
     }
 
-    let finalResult: ToolCallResult | null = null;
-    let finalError: Error | null = null;
-    for await (const message of streamFactory.call(client.experimental!.tasks, { name: toolName, arguments: args })) {
-      if (message.type === "result") {
-        finalResult = (message.result ?? null) as ToolCallResult | null;
-      } else if (message.type === "error") {
-        const rawError = message.error as { message?: string; code?: number } | undefined;
-        finalError = new Error(rawError?.message || "Task failed");
-      } else {
-        // 'taskCreated' / 'taskStatus': surface long-running tool progress on
-        // the events bus so hosts can show per-call progress in the UI. The
-        // LLM tool-call id lets renderers correlate updates with the chat's
-        // tool_call blocks.
-        const task = (message as { task?: { taskId?: unknown; status?: unknown; statusMessage?: unknown } }).task;
-        if (task && typeof task === "object") {
-          this.ports.events.broadcast(MCP_EVENTS.TOOL_CALL_PROGRESS, {
-            serverName: this.serverName,
-            toolName,
-            toolCallId: toolCallId ?? null,
-            taskId: typeof task.taskId === "string" ? task.taskId : null,
-            status: typeof task.status === "string" ? task.status : null,
-            statusMessage: typeof task.statusMessage === "string" ? task.statusMessage : null,
-          });
-        }
+    const capabilities = client.getServerCapabilities() as
+      | { tasks?: { requests?: { tools?: { call?: unknown } } } }
+      | undefined;
+    if (!capabilities?.tasks?.requests?.tools?.call) {
+      return null;
+    }
+
+    const created = (await client.callTool({ name: toolName, arguments: args, task: {} })) as {
+      task?: { taskId?: unknown; status?: unknown; statusMessage?: unknown; pollInterval?: unknown };
+      content?: unknown;
+      isError?: unknown;
+    };
+    const taskId = typeof created?.task?.taskId === "string" ? created.task.taskId : null;
+    if (!taskId) {
+      // Server answered with a direct result despite task creation params.
+      return created as unknown as ToolCallResult;
+    }
+
+    const broadcast = (status: string | null, statusMessage: string | null) => {
+      this.ports.events.broadcast(MCP_EVENTS.TOOL_CALL_PROGRESS, {
+        serverName: this.serverName,
+        toolName,
+        toolCallId: toolCallId ?? null,
+        taskId,
+        status,
+        statusMessage,
+      });
+    };
+
+    broadcast(
+      typeof created.task?.status === "string" ? created.task.status : "working",
+      typeof created.task?.statusMessage === "string" ? created.task.statusMessage : null,
+    );
+
+    const request = client.request;
+    let pollIntervalMs =
+      typeof created.task?.pollInterval === "number" && created.task.pollInterval > 0
+        ? created.task.pollInterval
+        : TASK_POLL_INTERVAL_MS;
+    const deadline = Date.now() + TASK_POLL_TIMEOUT_MS;
+    let terminal: { status?: string; statusMessage?: string } | null = null;
+
+    while (Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+      const status = (await request({ method: "tasks/get", params: { taskId } }, GetTaskResultSchema)) as {
+        status?: string;
+        statusMessage?: string;
+        pollInterval?: number;
+      };
+      broadcast(status?.status ?? null, status?.statusMessage ?? null);
+      if (status?.status === "completed" || status?.status === "failed" || status?.status === "cancelled") {
+        terminal = status;
+        break;
+      }
+      if (typeof status?.pollInterval === "number" && status.pollInterval > 0) {
+        pollIntervalMs = status.pollInterval;
       }
     }
-    if (finalError) {
-      throw finalError;
+
+    if (!terminal) {
+      throw new Error(`Task ${taskId} did not reach a terminal state within ${TASK_POLL_TIMEOUT_MS}ms`);
     }
-    if (!finalResult) {
-      throw new Error("Task stream ended without a result");
+    if (terminal.status === "failed") {
+      throw new Error(terminal.statusMessage || `Task ${taskId} failed`);
     }
-    return finalResult;
+    if (terminal.status === "cancelled") {
+      throw new Error(`Task ${taskId} was cancelled`);
+    }
+
+    const result = (await request(
+      { method: "tasks/result", params: { taskId } },
+      CallToolResultSchema,
+    )) as ToolCallResult;
+    return result ?? null;
   }
 
   // List available tools

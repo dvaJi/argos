@@ -2,7 +2,7 @@ import { Server } from "@modelcontextprotocol/server";
 
 import zod from "zod";
 import type { Transport } from "@modelcontextprotocol/client";
-import { CallToolRequestSchema, ListToolsRequestSchema } from "../protocol/v2-schemas";
+import { ToolsCallParamsSchema, ToolsListParamsSchema } from "../protocol/v2-schemas";
 import axios from "axios";
 
 // Schema definitions
@@ -123,7 +123,7 @@ export class DifyKnowledgeServer {
   // Set up request handlers
   private setupRequestHandlers(): void {
     // Register the tools-list handler
-    this.server.setRequestHandler("tools/list", { params: ListToolsRequestSchema }, async () => {
+    this.server.setRequestHandler("tools/list", { params: ToolsListParamsSchema }, async () => {
       const tools = this.configs
         .filter((conf) => conf.enabled)
         .map((config, index) => {
@@ -144,8 +144,8 @@ export class DifyKnowledgeServer {
     });
 
     // Register the tool-call handler
-    this.server.setRequestHandler("tools/call", { params: CallToolRequestSchema }, async (request) => {
-      const { name, arguments: parameters } = request.params;
+    this.server.setRequestHandler("tools/call", { params: ToolsCallParamsSchema }, async (requestParams) => {
+      const { name, arguments: parameters } = requestParams;
 
       // Check whether this is a Dify knowledge-base search tool
       if (name.startsWith("dify_knowledge_search")) {

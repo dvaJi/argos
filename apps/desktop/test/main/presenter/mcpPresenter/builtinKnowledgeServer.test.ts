@@ -113,11 +113,9 @@ describe("BuiltinKnowledgeServer", () => {
 
     const handler = serverInstances[0].handlers.get("tools/call");
     const result = await handler?.({
-      params: {
-        name: "builtin_knowledge_search",
-        arguments: {
-          query: "hello",
-        },
+      name: "builtin_knowledge_search",
+      arguments: {
+        query: "hello",
       },
     });
 

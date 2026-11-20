@@ -2,7 +2,7 @@ import { Server } from "@modelcontextprotocol/server";
 
 import zod from "zod";
 import type { Transport } from "@modelcontextprotocol/client";
-import { CallToolRequestSchema, ListToolsRequestSchema } from "../protocol/v2-schemas";
+import { ToolsCallParamsSchema, ToolsListParamsSchema } from "../protocol/v2-schemas";
 import axios from "axios";
 
 // Schema definitions
@@ -125,7 +125,7 @@ export class BochaSearchServer {
   // Set up request handlers
   private setupRequestHandlers(): void {
     // Register the tools-list handler
-    this.server.setRequestHandler("tools/list", { params: ListToolsRequestSchema }, async () => {
+    this.server.setRequestHandler("tools/list", { params: ToolsListParamsSchema }, async () => {
       return {
         tools: [
           {
@@ -155,9 +155,9 @@ export class BochaSearchServer {
     });
 
     // Register the tool-call handler
-    this.server.setRequestHandler("tools/call", { params: CallToolRequestSchema }, async (request) => {
+    this.server.setRequestHandler("tools/call", { params: ToolsCallParamsSchema }, async (requestParams) => {
       try {
-        const { name, arguments: args } = request.params;
+        const { name, arguments: args } = requestParams;
 
         switch (name) {
           case "bocha_web_search": {
