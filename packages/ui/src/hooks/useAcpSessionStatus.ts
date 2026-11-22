@@ -8,11 +8,18 @@ const sessionClient = createSessionClient();
  * status string ("in_memory" | "saved" | agent-defined) or null when the
  * agent doesn't support the status capability or the session isn't ACP.
  */
-export function useAcpSessionStatus(conversationId: string, isAcpSession: boolean): string | null {
+export function useAcpSessionStatus(
+  conversationId: string,
+  isAcpSession: boolean,
+  /** True while a turn runs; the status is re-queried each time it settles. */
+  turnActive = false,
+): string | null {
   const [status, setStatus] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isAcpSession || !conversationId) return;
+    // Query between turns: the agent may bind or persist the session only
+    // once a turn has run, so each settle refreshes the chip.
+    if (!isAcpSession || !conversationId || turnActive) return;
     let cancelled = false;
     sessionClient
       .getAcpSessionStatus(conversationId)
@@ -25,7 +32,7 @@ export function useAcpSessionStatus(conversationId: string, isAcpSession: boolea
     return () => {
       cancelled = true;
     };
-  }, [conversationId, isAcpSession]);
+  }, [conversationId, isAcpSession, turnActive]);
 
   return status;
 }

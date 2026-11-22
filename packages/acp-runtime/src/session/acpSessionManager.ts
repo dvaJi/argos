@@ -232,7 +232,7 @@ export class AcpSessionManager {
     this.processManager.registerSessionWorkdir(session.sessionId, workdir, conversationId);
 
     void this.sessionPersistence
-      .saveSessionData(conversationId, agent.id, session.sessionId, workdir, "active", {
+      .saveSessionDataMergingMetadata(conversationId, agent.id, session.sessionId, workdir, "active", {
         agentName: agent.name,
       })
       .catch((error) => {

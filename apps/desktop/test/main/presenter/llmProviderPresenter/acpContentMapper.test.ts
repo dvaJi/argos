@@ -521,6 +521,20 @@ describe("AcpContentMapper compaction handling", () => {
     expect(texts(completed.blocks)).toEqual(["Context compaction completed"]);
   });
 
+  it("tracks compactions per session when agents reuse ids", () => {
+    const mapper = new AcpContentMapper();
+    const update = { sessionUpdate: "compaction_update", compactionId: "c1", status: "in_progress" } as const;
+    const texts = (r: ReturnType<typeof mapper.map>) =>
+      r.blocks.filter((b) => b.type === "content").map((b) => b.content);
+
+    expect(texts(mapper.map(createNotification("session-1", update)))).toEqual(["Context compaction in_progress"]);
+    // Same id in another session is a different compaction.
+    expect(texts(mapper.map(createNotification("session-2", update)))).toEqual(["Context compaction in_progress"]);
+    // Forgetting a session drops its state.
+    mapper.forgetSession("session-1");
+    expect(texts(mapper.map(createNotification("session-1", update)))).toEqual(["Context compaction in_progress"]);
+  });
+
   it("reports failed compactions with their error", () => {
     const mapper = new AcpContentMapper();
 

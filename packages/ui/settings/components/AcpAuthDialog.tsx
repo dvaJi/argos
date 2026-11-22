@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from "#shadcn/components/ui/dialog";
 import { createProviderClient } from "#api/ProviderClient";
+import AcpAuthElicitationCard, { useClaimAcpAuthElicitations } from "#/components/chat/AcpAuthElicitationCard";
 import type { AcpAgentDiagnostics } from "@argos/shared/presenter";
 
 const providerClient = createProviderClient();
@@ -50,6 +51,8 @@ export default function AcpAuthDialog({
   );
   const [error, setError] = useState<string | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
+  // Prompts the agent sends during sign-in render here, not behind the modal.
+  useClaimAcpAuthElicitations(agentId, open);
   const [accounts, setAccounts] = useState<
     Array<{
       label: string;
@@ -288,6 +291,8 @@ export default function AcpAuthDialog({
             Waiting for {agentName} to confirm authentication…
           </div>
         ) : null}
+
+        {open ? <AcpAuthElicitationCard agentId={agentId} /> : null}
 
         {flowState === "running" && activeMethod?.mode === "terminal" ? (
           <div className="flex flex-col gap-2">

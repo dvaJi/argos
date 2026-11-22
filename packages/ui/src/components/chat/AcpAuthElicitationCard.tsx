@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
@@ -8,6 +8,35 @@ import { openRuntimeExternal } from "#api/runtime";
 import { createProviderClient } from "#api/ProviderClient";
 
 const providerClient = createProviderClient();
+
+// Agents whose sign-in dialog is open. That dialog renders the agent's prompts
+// itself, so the chat-page card must not show a duplicate behind the modal.
+const dialogOwnedAgents = new Map<string, number>();
+const ownershipListeners = new Set<() => void>();
+let ownershipVersion = 0;
+const notifyOwnership = () => {
+  ownershipVersion += 1;
+  for (const listener of ownershipListeners) listener();
+};
+const subscribeOwnership = (listener: () => void) => {
+  ownershipListeners.add(listener);
+  return () => ownershipListeners.delete(listener);
+};
+
+/** Marks an agent's auth prompts as rendered by an open sign-in dialog. */
+export function useClaimAcpAuthElicitations(agentId: string, active: boolean) {
+  useEffect(() => {
+    if (!active || !agentId) return;
+    dialogOwnedAgents.set(agentId, (dialogOwnedAgents.get(agentId) ?? 0) + 1);
+    notifyOwnership();
+    return () => {
+      const next = (dialogOwnedAgents.get(agentId) ?? 1) - 1;
+      if (next > 0) dialogOwnedAgents.set(agentId, next);
+      else dialogOwnedAgents.delete(agentId);
+      notifyOwnership();
+    };
+  }, [agentId, active]);
+}
 
 type ElicitationPropertyView = {
   type?: string;
@@ -28,8 +57,11 @@ type AuthElicitationView = {
  * Renders request-scoped ACP elicitations that arrive during auth/config
  * flows (no session scope): a form card mirroring the chat elicitation
  * overlay, answered via providers.respondAcpAuthElicitation.
+ *
+ * With `agentId` (inside the sign-in dialog) it shows only that agent's
+ * prompts; without it (chat page) it skips agents whose dialog is open.
  */
-export default function AcpAuthElicitationCard() {
+export default function AcpAuthElicitationCard({ agentId }: { agentId?: string } = {}) {
   const [request, setRequest] = useState<AuthElicitationView | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +72,7 @@ export default function AcpAuthElicitationCard() {
 
   useEffect(() => {
     const offElicitation = providerClient.onAcpAuthElicitation((payload) => {
+      if (agentId && payload.agentId !== agentId) return;
       setRequest(payload as AuthElicitationView);
       setValues({});
       setError(null);
@@ -51,9 +84,11 @@ export default function AcpAuthElicitationCard() {
       offElicitation();
       offResolved();
     };
-  }, []);
+  }, [agentId]);
+  useSyncExternalStore(subscribeOwnership, () => ownershipVersion);
 
   if (!request) return null;
+  if (!agentId && dialogOwnedAgents.has(request.agentId)) return null;
 
   const properties = request.requestedSchema?.properties ?? {};
   const required = new Set(request.requestedSchema?.required ?? []);

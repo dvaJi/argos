@@ -9,11 +9,13 @@ import { useAcpSessionStatus } from "../../hooks/useAcpSessionStatus";
 export default function AcpSessionStatusChip({
   conversationId,
   isAcpSession,
+  turnActive = false,
 }: {
   conversationId: string;
   isAcpSession: boolean;
+  turnActive?: boolean;
 }) {
-  const status = useAcpSessionStatus(conversationId, isAcpSession);
+  const status = useAcpSessionStatus(conversationId, isAcpSession, turnActive);
   if (!status || !isAcpSession) return null;
 
   const label = status === "in_memory" ? "In memory" : status === "saved" ? "Saved" : status;

@@ -83,7 +83,8 @@ const now = () => Date.now();
 
 export class AcpContentMapper {
   private readonly toolCallStates = new Map<string, ToolCallState>();
-  private readonly compactionStates = new Map<schema.CompactionId, CompactionState>();
+  /** Keyed by `${sessionId}:${compactionId}`: agents may reuse ids across sessions. */
+  private readonly compactionStates = new Map<string, CompactionState>();
   private readonly subagentSessions = new Map<string, SubagentSessionEntry>();
   private readonly messageOwners = new Map<string, string>();
   private readonly messageStreamed = new Set<string>();
@@ -97,7 +98,10 @@ export class AcpContentMapper {
   forgetSession(sessionId: string): void {
     this.sessionCursors.delete(sessionId);
     const prefix = `${sessionId}:`;
-    for (const store of [this.toolCallStates, this.subagentSessions, this.messageOwners] as Map<string, unknown>[]) {
+    for (const store of [this.toolCallStates, this.subagentSessions, this.messageOwners, this.compactionStates] as Map<
+      string,
+      unknown
+    >[]) {
       for (const key of store.keys()) {
         if (key.startsWith(prefix)) store.delete(key);
       }
@@ -138,10 +142,10 @@ export class AcpContentMapper {
         this.handleNotice(update, payload);
         break;
       case "compaction_update":
-        this.handleCompactionUpdate(update, payload);
+        this.handleCompactionUpdate(sessionId, update, payload);
         break;
       case "compaction_summary_chunk":
-        this.handleCompactionSummaryChunk(update, payload);
+        this.handleCompactionSummaryChunk(sessionId, update, payload);
         break;
       case "prompt_suggestions_update":
         this.handlePromptSuggestionsUpdate(update, payload);
@@ -377,10 +381,11 @@ export class AcpContentMapper {
   }
 
   private handleCompactionUpdate(
+    sessionId: string,
     update: Extract<schema.SessionNotification["update"], { sessionUpdate: "compaction_update" }>,
     payload: MappedContent,
   ) {
-    const state = this.compactionStates.get(update.compactionId) ?? { summaryStreamed: false };
+    const state = this.compactionStates.get(`${sessionId}:${update.compactionId}`) ?? { summaryStreamed: false };
 
     if (update.status && update.status !== state.status) {
       state.status = update.status;
@@ -397,16 +402,17 @@ export class AcpContentMapper {
       }
     }
 
-    this.compactionStates.set(update.compactionId, state);
+    this.compactionStates.set(`${sessionId}:${update.compactionId}`, state);
   }
 
   private handleCompactionSummaryChunk(
+    sessionId: string,
     update: Extract<schema.SessionNotification["update"], { sessionUpdate: "compaction_summary_chunk" }>,
     payload: MappedContent,
   ) {
-    const state = this.compactionStates.get(update.compactionId) ?? { summaryStreamed: false };
+    const state = this.compactionStates.get(`${sessionId}:${update.compactionId}`) ?? { summaryStreamed: false };
     state.summaryStreamed = true;
-    this.compactionStates.set(update.compactionId, state);
+    this.compactionStates.set(`${sessionId}:${update.compactionId}`, state);
     this.pushContent(update.content, "text", payload);
   }
 

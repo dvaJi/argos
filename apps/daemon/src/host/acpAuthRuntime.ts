@@ -84,11 +84,15 @@ interface ActiveRun {
 export class DaemonAcpAuthRuntime {
   private readonly activeByAgent = new Map<string, ActiveRun>();
   private readonly runsById = new Map<string, ActiveRun>();
-  /** Pending request-scoped elicitations keyed by the elicitation's JSON-RPC request id. */
+  /**
+   * Pending request-scoped elicitations, keyed by `<connection>:<JSON-RPC id>`
+   * so two agent connections reusing the same raw id cannot collide.
+   */
   private readonly pendingAuthElicitations = new Map<
     string,
-    { resolve: (response: schema.CreateElicitationResponse) => void }
+    { agentId: string; resolve: (response: schema.CreateElicitationResponse) => void }
   >();
+  private authElicitationSequence = 0;
 
   constructor(private readonly deps: AcpAuthRuntimeDeps) {}
 
@@ -98,8 +102,9 @@ export class DaemonAcpAuthRuntime {
    */
   private registerAuthElicitationHandler(agentId: string, workdir?: string): () => void {
     void this.deps.getProcessManager().then((processManager) => {
-      processManager.setAuthElicitationHandler(async (params, jsonRpcRequestId) => {
-        const requestId = jsonRpcRequestId != null ? String(jsonRpcRequestId) : `auth_el_${Date.now()}`;
+      processManager.setAuthElicitationHandler(agentId, async (params, jsonRpcRequestId, connectionKey) => {
+        const rawId = jsonRpcRequestId != null ? String(jsonRpcRequestId) : `auto${++this.authElicitationSequence}`;
+        const requestId = `${connectionKey ?? agentId}:${rawId}`;
         const payload: Record<string, unknown> = {
           requestId,
           agentId,
@@ -118,16 +123,17 @@ export class DaemonAcpAuthRuntime {
         }
         this.deps.eventPublisher.publish("providers.acpAuth.elicitation", payload);
         return await new Promise<schema.CreateElicitationResponse>((resolve) => {
-          this.pendingAuthElicitations.set(requestId, { resolve });
+          this.pendingAuthElicitations.set(requestId, { agentId, resolve });
         });
       });
     });
     return () => {
       // Flow finished: drop the slot and cancel any unanswered elicitations.
       void this.deps.getProcessManager().then((processManager) => {
-        processManager.setAuthElicitationHandler(null);
+        processManager.setAuthElicitationHandler(agentId, null);
       });
       for (const [requestId, pending] of this.pendingAuthElicitations) {
+        if (pending.agentId !== agentId) continue;
         this.pendingAuthElicitations.delete(requestId);
         pending.resolve({ action: "cancel" });
       }
@@ -262,7 +268,8 @@ export class DaemonAcpAuthRuntime {
       output: payload.output ?? null,
       exitCode: payload.exitCode ?? null,
       error: payload.error ?? null,
-      authStatus: payload.authStatus ?? null,
+      // The contract allows the field to be omitted, not null.
+      ...(payload.authStatus ? { authStatus: payload.authStatus } : {}),
     });
   }
 

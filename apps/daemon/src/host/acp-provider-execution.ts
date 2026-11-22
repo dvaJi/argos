@@ -571,7 +571,7 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
         workdir,
         onPermission: (params) => this.handlePermissionRequest(sessionId, assistantMessageId, requestId, params),
         onElicitation: (params) => this.handleElicitationRequest(sessionId, assistantMessageId, requestId, params),
-        onElicitationComplete: (elicitationId) => void this.notifyAcpElicitationComplete(elicitationId),
+        onElicitationComplete: (elicitationId) => void this.notifyAcpElicitationComplete(elicitationId, sessionId),
       })) {
         if (controller.signal.aborted) break;
 
@@ -591,12 +591,14 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
           lastUsage = mapped.usage;
         }
 
-        if (mapped.planEntries && mapped.planEntries.length > 0) {
-          planRevision += 1;
+        // An empty array is meaningful: `plan_removed` clears the plan.
+        if (mapped.planEntries) {
+          const removed = mapped.planEntries.length === 0;
           const plan = mapped.planEntries
             .map((entry) => ({ step: (entry.content ?? "").trim(), status: normalizePlanStatus(entry.status) }))
             .filter((item) => item.step.length > 0);
-          if (plan.length > 0) {
+          if (plan.length > 0 || removed) {
+            planRevision += 1;
             this.eventPublisher.publish("chat.plan.updated", {
               sessionId,
               messageId: assistantMessageId,
@@ -955,9 +957,11 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
   }
 
   /** Resolve a pending URL-mode elicitation as accepted (agent reported completion). */
-  async notifyAcpElicitationComplete(elicitationId: string): Promise<boolean> {
+  async notifyAcpElicitationComplete(elicitationId: string, sessionId?: string): Promise<boolean> {
     for (const [id, pending] of this.pendingElicitations) {
       if (pending.agentElicitationId !== elicitationId) continue;
+      // Agents pick their own ids: only the issuing session may complete it.
+      if (sessionId !== undefined && pending.sessionId !== sessionId) continue;
       this.pendingElicitations.delete(id);
       pending.resolve({ action: "accept" });
       return true;
@@ -1400,10 +1404,12 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
     // re-created mid-purge, then delete the durable `acp_sessions` rows.
     // Row deletion failures propagate: a binding left behind would keep the
     // ACP uninstall guard stuck permanently.
-    await this.cancelGeneration(sessionId).catch(() => undefined);
     const runtime = await this.getRuntime();
     // Free the agent-side session too (capability-gated, best-effort): the
     // local rows are going away, so the agent should drop its state as well.
+    // This must run before cancelGeneration, which unbinds and kills the
+    // process; stop the active turn non-destructively first.
+    await this.interruptActiveTurn(sessionId).catch(() => undefined);
     try {
       const handle = runtime.processManager.getBoundProcess(sessionId);
       const agentId = handle?.agentId;
@@ -1416,6 +1422,7 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
     } catch (error) {
       console.warn(`[ACP] session/delete failed during purge of ${sessionId}:`, error);
     }
+    await this.cancelGeneration(sessionId).catch(() => undefined);
     this.forgetSessionCursors(runtime, sessionId);
     await runtime.sessionPersistence.deleteAllSessions(sessionId);
   }

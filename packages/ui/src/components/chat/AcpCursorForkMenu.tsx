@@ -33,14 +33,16 @@ const describeCursor = (cursor: CursorView): string => {
  * Fork affordance for ACP sessions: lists the forkable session cursors the
  * agent announced (`cursor_update`) and forks the agent-side session via
  * `session/fork`. Hidden when the agent announced no forkable cursors.
+ * Cursors arrive during turns, so the list is re-fetched when one settles.
  */
-const AcpCursorForkMenu: FC<{ sessionId: string }> = ({ sessionId }) => {
+const AcpCursorForkMenu: FC<{ sessionId: string; turnActive?: boolean }> = ({ sessionId, turnActive = false }) => {
   const [cursors, setCursors] = useState<CursorView[]>([]);
   const [open, setOpen] = useState(false);
   const [forking, setForking] = useState(false);
   const mountedRef = useRef(true);
   useEffect(() => {
     mountedRef.current = true;
+    if (turnActive) return;
     sessionClient
       .getAcpCursors(sessionId)
       .then((list) => {
@@ -50,7 +52,7 @@ const AcpCursorForkMenu: FC<{ sessionId: string }> = ({ sessionId }) => {
     return () => {
       mountedRef.current = false;
     };
-  }, [sessionId]);
+  }, [sessionId, turnActive]);
 
   if (cursors.length === 0) return null;
 

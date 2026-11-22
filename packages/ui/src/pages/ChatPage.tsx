@@ -1626,11 +1626,15 @@ function ChatComposerDock(input: {
                 <McpTaskProgressIndicator />
                 {isAcpSession && (
                   <div className="flex items-center gap-1.5 px-1">
-                    <AcpSessionStatusChip conversationId={sessionId} isAcpSession={isAcpSession} />
+                    <AcpSessionStatusChip
+                      conversationId={sessionId}
+                      isAcpSession={isAcpSession}
+                      turnActive={isGenerating}
+                    />
                   </div>
                 )}
                 <SettledBanner sessionId={sessionId} />
-                <AcpCursorForkMenu sessionId={sessionId} />
+                <AcpCursorForkMenu sessionId={sessionId} turnActive={isGenerating} />
                 {promptSuggestions.length > 0 && !isGenerating && (
                   <div className="mb-2 flex w-full flex-wrap gap-1.5" data-testid="prompt-suggestions">
                     {promptSuggestions.map((suggestion) => (
