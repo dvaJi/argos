@@ -22,6 +22,33 @@ import type { ToolchainService } from "./toolchains/service";
 import type { PluginToolPolicyDecision } from "@argos/shared/types/plugin";
 
 /** Knowledge capabilities exposed by the daemon knowledge runtime. */
+type SamplingProvider = {
+  id: string;
+  enable: boolean;
+  apiKey: string;
+  baseUrl: string;
+  apiType: string;
+  models?: Array<{ id: string; enabled?: boolean }>;
+  customModels?: Array<{ id: string; enabled?: boolean }>;
+  enabledModels?: string[];
+  disabledModels?: string[];
+};
+
+/**
+ * Model id for an auto-approved sampling request. `models`/`customModels`
+ * hold model records, not ids; pick the first usable one with the same
+ * enabled/disabled rules as the model list.
+ */
+export function pickSamplingModelId(provider: SamplingProvider): string | null {
+  const disabled = new Set(provider.disabledModels ?? []);
+  const explicit = (provider.enabledModels ?? []).find((id) => typeof id === "string" && id && !disabled.has(id));
+  if (explicit) return explicit;
+  const model = [...(provider.models ?? []), ...(provider.customModels ?? [])].find(
+    (entry) => typeof entry?.id === "string" && entry.id && !disabled.has(entry.id) && entry.enabled !== false,
+  );
+  return model?.id ?? null;
+}
+
 export interface DaemonKnowledgePort {
   similarityQuery(id: string, key: string): Promise<import("@argos/shared/presenter").QueryResult[]>;
 }
@@ -446,28 +473,19 @@ export function createDaemonMcpPorts(deps: {
       handleSamplingRequest: async (payload: unknown) => {
         const req = payload as { requestId: string };
         const providers = (
-          deps.configPresenter as unknown as {
-            getProviders: () => Array<{
-              id: string;
-              enable: boolean;
-              apiKey: string;
-              baseUrl: string;
-              apiType: string;
-              models?: string[];
-              enabledModels?: string[];
-              customModels?: Array<{ id: string }>;
-            }>;
-          }
+          deps.configPresenter as unknown as { getProviders: () => SamplingProvider[] }
         ).getProviders();
-        const provider = providers.find((p) => p.enable && p.apiKey && p.baseUrl && p.apiType !== "anthropic");
+        const usable = providers.filter((p) => p.enable && p.apiKey && p.baseUrl && p.apiType !== "anthropic");
+        const provider = usable.find((p) => pickSamplingModelId(p) !== null);
         if (!provider) {
           throw new Error(
-            "No enabled OpenAI-compatible provider with API key for MCP sampling. " +
-              "Configure a provider with an API key and baseUrl, or use an OpenAI-compatible proxy for Anthropic.",
+            usable.length > 0
+              ? "No enabled model on the OpenAI-compatible providers configured for MCP sampling."
+              : "No enabled OpenAI-compatible provider with API key for MCP sampling. " +
+                  "Configure a provider with an API key and baseUrl, or use an OpenAI-compatible proxy for Anthropic.",
           );
         }
-        const modelId =
-          provider.enabledModels?.[0] ?? provider.models?.[0] ?? provider.customModels?.[0]?.id ?? "gpt-4o-mini";
+        const modelId = pickSamplingModelId(provider)!;
         return { requestId: req.requestId, approved: true, providerId: provider.id, modelId };
       },
       cancelSamplingRequest: async () => {},
@@ -521,7 +539,10 @@ export function createDaemonMcpPorts(deps: {
       generateCompletionStandalone: async (...args: unknown[]) => {
         const providerId = args[0] as string;
         const messages = args[1] as Array<{ role: string; content: string }>;
-        const modelId = args[2] as string;
+        const modelId = args[2];
+        if (typeof modelId !== "string" || !modelId) {
+          throw new Error(`MCP sampling needs a model id string, got ${typeof modelId}`);
+        }
         const systemPrompt = args[3] as string | undefined;
         const maxTokens = args[4] as number | undefined;
 
