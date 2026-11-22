@@ -327,6 +327,47 @@ describe("McpClient Runtime Command Processing Tests", () => {
     });
   });
 
+  describe("Registered server-request handlers", () => {
+    // Regression: v2 passes spec-method handlers the full request
+    // ({ method, params }); treating it as params dropped the message, form
+    // schema and sampling messages.
+    it("forwards request.params of elicitation/create and sampling/createMessage", async () => {
+      vi.mocked<(...args: any[]) => any>(StreamableHTTPClientTransport).mockImplementation(function () {
+        return { close: vi.fn<(...args: any[]) => any>() } as any;
+      });
+      const client = new McpClient("remote", { type: "http", baseUrl: "https://mcp.example.test/mcp" }, testPorts);
+      await client.connect().catch(() => {});
+      const sdkClient = vi.mocked(Client).mock.results.at(-1)?.value as { setRequestHandler: ReturnType<typeof vi.fn> };
+      const handlerFor = (method: string) =>
+        sdkClient.setRequestHandler.mock.calls.find(([name]) => name === method)?.[1] as (
+          request: unknown,
+          extra: unknown,
+        ) => Promise<unknown>;
+
+      mockHandleElicitationRequest.mockResolvedValue({ action: "decline" });
+      const schema = { type: "object", properties: { ok: { type: "boolean" } } };
+      await handlerFor("elicitation/create")(
+        { method: "elicitation/create", params: { message: "Deploy?", requestedSchema: schema } },
+        { mcpReq: { id: 7 } },
+      );
+      expect(mockHandleElicitationRequest).toHaveBeenCalledWith(
+        expect.objectContaining({ message: "Deploy?", requestedSchema: schema }),
+      );
+
+      mockHandleSamplingRequest.mockResolvedValue({ requestId: "x", approved: false });
+      await handlerFor("sampling/createMessage")(
+        {
+          method: "sampling/createMessage",
+          params: { messages: [{ role: "user", content: { type: "text", text: "hi" } }], maxTokens: 10 },
+        },
+        { mcpReq: { id: 8 } },
+      ).catch(() => {});
+      expect(mockHandleSamplingRequest).toHaveBeenCalledWith(
+        expect.objectContaining({ messages: [expect.objectContaining({ text: "hi" })] }),
+      );
+    });
+  });
+
   describe("Remote transport authorization", () => {
     // Regression: a static Authorization header used to be wrapped in a partial OAuth provider.
     // On a 401 the SDK then ran its OAuth flow and crashed with

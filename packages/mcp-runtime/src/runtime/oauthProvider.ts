@@ -3,9 +3,20 @@ import type { OAuthClientProvider } from "@modelcontextprotocol/client";
 import type {
   OAuthClientInformationMixed,
   OAuthClientMetadata,
+  OAuthDiscoveryState,
   OAuthTokens,
 } from "@modelcontextprotocol/client";
 import type { McpHostServices } from "../host/ports";
+
+type StorageKey = "client" | "tokens" | "verifier" | "redirect" | "discovery";
+
+/** The browser never came back to the loopback callback within the timeout. */
+export class OAuthCallbackTimeoutError extends Error {
+  constructor() {
+    super("Timed out waiting for the OAuth authorization callback");
+    this.name = "OAuthCallbackTimeoutError";
+  }
+}
 
 export interface ArgosOAuthOptions {
   serverName: string;
@@ -90,7 +101,7 @@ export class LoopbackCallbackServer {
           this.port = address.port;
           this.server = server;
           this.timer = setTimeout(() => {
-            this.fail(new Error("Timed out waiting for the OAuth authorization callback"));
+            this.fail(new OAuthCallbackTimeoutError());
           }, timeoutMs);
           resolve();
         } else {
@@ -110,7 +121,7 @@ export class LoopbackCallbackServer {
     if (timeoutMs !== undefined) {
       this.clearTimer();
       this.timer = setTimeout(() => {
-        this.fail(new Error("Timed out waiting for the OAuth authorization callback"));
+        this.fail(new OAuthCallbackTimeoutError());
       }, timeoutMs);
     }
     return this.callback;
@@ -181,15 +192,15 @@ export class ArgosOAuthClientProvider implements OAuthClientProvider {
     this.storageKey = `mcp-oauth:${options.serverName}`;
   }
 
-  private key(suffix: "client" | "tokens" | "verifier" | "redirect"): string {
+  private key(suffix: StorageKey): string {
     return `${this.storageKey}:${suffix}`;
   }
 
-  private async read(suffix: "client" | "tokens" | "verifier" | "redirect"): Promise<unknown> {
+  private async read(suffix: StorageKey): Promise<unknown> {
     return (await this.options.services.readJsonFile?.(this.key(suffix))) ?? undefined;
   }
 
-  private async write(suffix: "client" | "tokens" | "verifier" | "redirect", value: unknown): Promise<void> {
+  private async write(suffix: StorageKey, value: unknown): Promise<void> {
     await this.options.services.writeJsonFile?.(this.key(suffix), value);
   }
 
@@ -263,6 +274,9 @@ export class ArgosOAuthClientProvider implements OAuthClientProvider {
    */
   async redirectToAuthorization(authorizationUrl: URL): Promise<void> {
     if (!this.interactive) {
+      // Repeated 401 right after a completed login: drop cached discovery so
+      // the next attempt picks up a changed authorization server (SDK guidance).
+      await this.write("discovery", null);
       throw new Error(
         `${this.options.serverName} rejected the credentials from the completed authorization; sign out and try again`,
       );
@@ -338,6 +352,19 @@ export class ArgosOAuthClientProvider implements OAuthClientProvider {
     return stored;
   }
 
+  /**
+   * Discovery state (authorization server + resource metadata) recorded at
+   * redirect time. Persisting it lets the SDK bind the callback leg to the
+   * same authorization server (SEP-2352) and skip re-discovery.
+   */
+  async saveDiscoveryState(state: OAuthDiscoveryState): Promise<void> {
+    await this.write("discovery", state);
+  }
+
+  async discoveryState(): Promise<OAuthDiscoveryState | undefined> {
+    return ((await this.read("discovery")) as OAuthDiscoveryState | undefined) ?? undefined;
+  }
+
   async invalidateCredentials(scope: OAuthInvalidationScope = "all"): Promise<void> {
     switch (scope) {
       case "all":
@@ -345,6 +372,7 @@ export class ArgosOAuthClientProvider implements OAuthClientProvider {
         await this.write("client", null);
         await this.write("verifier", null);
         await this.write("redirect", null);
+        await this.write("discovery", null);
         this.redirectPort = null;
         this.expectedState = null;
         return;
@@ -361,7 +389,7 @@ export class ArgosOAuthClientProvider implements OAuthClientProvider {
         this.expectedState = null;
         return;
       case "discovery":
-        // Discovery metadata is not cached by this provider.
+        await this.write("discovery", null);
         return;
     }
   }

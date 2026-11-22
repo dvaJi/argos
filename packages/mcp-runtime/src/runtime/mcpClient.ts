@@ -2,13 +2,18 @@ import { Client, UnauthorizedError, InMemoryTransport, SSEClientTransport, Strea
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 import type { Transport, ElicitResult, CompleteRequest, CreateMessageRequest, CreateMessageResult } from "@modelcontextprotocol/client";
 import { ErrorCode, McpError } from "../protocol/errors";
-import { CallToolResultSchema, CreateTaskResultSchema, GetTaskResultSchema } from "@modelcontextprotocol/core";
+import {
+  CallToolResultSchema,
+  CancelTaskResultSchema,
+  CreateTaskResultSchema,
+  GetTaskResultSchema,
+} from "@modelcontextprotocol/core";
 import path from "path";
 import { pathToFileURL } from "node:url";
 import { terminateProcessTree, createMinimalProcessEnvironment } from "@argos/backend-core";
 import type { ChildProcess } from "node:child_process";
 import type { McpHostPorts } from "../host/ports";
-import { ArgosOAuthClientProvider } from "./oauthProvider";
+import { ArgosOAuthClientProvider, OAuthCallbackTimeoutError } from "./oauthProvider";
 
 const MCP_EVENTS = {
   CLIENT_LIST_UPDATED: "mcp:client-list-updated",
@@ -488,19 +493,19 @@ export class McpClient {
       // Set up notification handler
       this.registerNotificationHandlers();
 
-      // Register sampling request handler. v2 passes the handler the request's
-      // PARAMS directly (not the full request like 1.x).
-      this.client.setRequestHandler("sampling/createMessage", async (params, extra) => {
+      // Register sampling request handler. For spec methods the v2 SDK passes
+      // the full validated request ({ method, params }), not the params alone.
+      this.client.setRequestHandler("sampling/createMessage", async (request, extra) => {
         return this.handleSamplingCreateMessage(
-          params as unknown as CreateMessageRequest["params"],
+          request.params as unknown as CreateMessageRequest["params"],
           extra as unknown as RequestHandlerContext,
         );
       });
 
       // Register elicitation request handler (server asks the user a question)
       if (this.ports.services.handleElicitationRequest) {
-        this.client.setRequestHandler("elicitation/create", async (params, extra) => {
-          return this.handleElicitationCreate(params, extra as unknown as RequestHandlerContext);
+        this.client.setRequestHandler("elicitation/create", async (request, extra) => {
+          return this.handleElicitationCreate(request.params, extra as unknown as RequestHandlerContext);
         });
       }
 
@@ -572,6 +577,17 @@ export class McpClient {
             console.error(`[MCP] OAuth flow failed for server ${this.serverName}:`, authError);
             this.oauthRetryCount = 0;
             await this.oauthProvider.stopAuthorization();
+            if (authError instanceof OAuthCallbackTimeoutError) {
+              // The browser never returned. The usual cause is an error page at
+              // the authorization server (e.g. "invalid_client" after it dropped
+              // our dynamic registration), so re-register on the next attempt
+              // instead of failing the same way forever.
+              await this.oauthProvider.invalidateCredentials("client");
+              authError = new Error(
+                `Authorization for ${this.serverName} did not complete in the browser. ` +
+                  "If the page showed an error, retry: Argos will register again.",
+              );
+            }
             await this.cleanupResources();
             this.ports.events.broadcast(MCP_EVENTS.SERVER_STATUS_CHANGED, {
               name: this.serverName,
@@ -1355,7 +1371,7 @@ export class McpClient {
 
     const cancelTask = async (): Promise<void> => {
       try {
-        await request({ method: "tasks/cancel", params: { taskId } });
+        await request({ method: "tasks/cancel", params: { taskId } }, CancelTaskResultSchema);
       } catch (error) {
         console.warn(`[MCP] Failed to cancel task ${taskId} on ${this.serverName}:`, error);
       }

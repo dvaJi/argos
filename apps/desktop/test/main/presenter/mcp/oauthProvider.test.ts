@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { ArgosOAuthClientProvider, LoopbackCallbackServer } from "@argos/mcp-runtime/runtime/oauthProvider";
+import {
+  ArgosOAuthClientProvider,
+  LoopbackCallbackServer,
+  OAuthCallbackTimeoutError,
+} from "@argos/mcp-runtime/runtime/oauthProvider";
 
 describe("LoopbackCallbackServer", () => {
   it("captures the authorization callback and exposes the redirect URL", async () => {
@@ -136,6 +140,34 @@ describe("ArgosOAuthClientProvider redirect + callback", () => {
     await provider.prepare();
     await provider.saveClientInformation({ client_id: "old", redirect_uris: ["http://127.0.0.1:1/callback"] } as never);
     expect(await provider.clientInformation()).toBeUndefined();
+  });
+
+  it("persists discovery state and clears it on sign-out", async () => {
+    const services = memoryServices();
+    const provider = new ArgosOAuthClientProvider({ serverName: "remote-mcp", services });
+    const state = { authorizationServerUrl: "https://auth.example" } as never;
+
+    await provider.saveDiscoveryState(state);
+    expect(await provider.discoveryState()).toEqual(state);
+    await provider.invalidateCredentials("discovery");
+    expect(await provider.discoveryState()).toBeUndefined();
+
+    await provider.saveDiscoveryState(state);
+    await provider.invalidateCredentials("all");
+    expect(await provider.discoveryState()).toBeUndefined();
+  });
+
+  it("rejects with OAuthCallbackTimeoutError when the browser never returns", async () => {
+    const provider = new ArgosOAuthClientProvider({
+      serverName: "remote-mcp",
+      services: { ...memoryServices(), openExternal: async () => undefined },
+      timeoutMs: 100,
+    });
+    await provider.prepare();
+    await provider.redirectToAuthorization(new URL("https://auth.example/authorize"));
+
+    await expect(provider.waitForAuthorization()).rejects.toBeInstanceOf(OAuthCallbackTimeoutError);
+    await provider.stopAuthorization();
   });
 
   it("refuses to open a second browser flow while non-interactive", async () => {
