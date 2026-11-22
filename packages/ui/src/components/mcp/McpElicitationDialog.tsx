@@ -3,6 +3,8 @@ import { Input } from "#shadcn/components/ui/input";
 import { Label } from "#shadcn/components/ui/label";
 import { Checkbox } from "#shadcn/components/ui/checkbox";
 import { Icon } from "@iconify/react";
+import { multiChoiceOptions, singleChoiceOptions } from "#/lib/elicitationOptions";
+import { ElicitationChoices } from "./ElicitationChoices";
 import {
   type ElicitationPropertyView,
   mcpElicitationStore,
@@ -31,7 +33,23 @@ export default function McpElicitationDialog() {
   const renderField = (key: string, prop: ElicitationPropertyView) => {
     const label = prop.title?.trim() || key;
     const fieldId = `mcp-elicitation-field-${key}`;
-    const value = state.values[key] ?? "";
+    const choices = multiChoiceOptions(prop) ?? singleChoiceOptions(prop);
+    if (choices) {
+      return (
+        <ElicitationChoices
+          key={key}
+          label={label}
+          required={required.has(key)}
+          description={prop.description}
+          options={choices}
+          multiple={prop.type === "array"}
+          value={state.values[key]}
+          onChange={(next) => setValue(key, next)}
+        />
+      );
+    }
+    const raw = state.values[key];
+    const value = typeof raw === "string" ? raw : "";
     if (prop.type === "boolean") {
       return (
         <div key={key} className="flex items-center gap-2">

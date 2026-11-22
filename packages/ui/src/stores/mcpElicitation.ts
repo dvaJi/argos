@@ -1,4 +1,5 @@
 import { Store, useSelector } from "@tanstack/react-store";
+import type { ElicitationChoiceProperty } from "#/lib/elicitationOptions";
 import { useEffect } from "react";
 import type { McpElicitationDecision, McpElicitationRequestPayload } from "@argos/shared/presenter";
 import { createMcpClient } from "#api/McpClient";
@@ -7,13 +8,17 @@ const mcpClient = createMcpClient();
 
 type ElicitationFieldValue = string | number | boolean | string[];
 
-export type ElicitationPropertyView = {
+export type ElicitationPropertyView = ElicitationChoiceProperty & {
   type?: string;
   title?: string;
   description?: string;
-  enum?: string[];
-  items?: { type?: string; enum?: string[] };
 };
+
+/** A field's in-progress value: scalars as strings, multi-choice as a list. */
+export type ElicitationInputValue = string | string[];
+
+const hasInput = (value: ElicitationInputValue | undefined): boolean =>
+  Array.isArray(value) ? value.length > 0 : typeof value === "string" && value.trim().length > 0;
 
 type McpElicitationState = {
   /** The request currently shown in the dialog (head of the queue). */
@@ -21,7 +26,7 @@ type McpElicitationState = {
   /** Requests waiting behind the visible one, oldest first. */
   queue: McpElicitationRequestPayload[];
   /** Per-field values keyed by property name (scalars as strings until submit). */
-  values: Record<string, string>;
+  values: Record<string, ElicitationInputValue>;
   error: string | null;
 };
 
@@ -78,7 +83,7 @@ const removeRequest = (requestId: string) => {
   });
 };
 
-const setValue = (key: string, value: string) => {
+const setValue = (key: string, value: ElicitationInputValue) => {
   mcpElicitationStore.setState((prev) => ({ ...prev, values: { ...prev.values, [key]: value } }));
 };
 
@@ -93,6 +98,10 @@ const buildContent = (): Record<string, ElicitationFieldValue> => {
   const content: Record<string, ElicitationFieldValue> = {};
   for (const [key, prop] of Object.entries(properties)) {
     const raw = mcpElicitationStore.state.values[key];
+    if (Array.isArray(raw)) {
+      if (raw.length > 0) content[key] = raw;
+      continue;
+    }
     if (typeof raw !== "string" || !raw.trim()) continue;
     if (prop.type === "number" || prop.type === "integer") {
       const parsed = Number(raw);
@@ -120,8 +129,7 @@ const submitDecision = async (action: McpElicitationDecision["action"]) => {
   const request = mcpElicitationStore.state.request;
   if (!request) return;
   const missing = [...requiredFields(request)].filter((key) => {
-    const value = mcpElicitationStore.state.values[key];
-    return action === "accept" && (value === undefined || !value.trim());
+    return action === "accept" && !hasInput(mcpElicitationStore.state.values[key]);
   });
   if (missing.length > 0) {
     setError(`Required: ${missing.join(", ")}`);

@@ -1,4 +1,6 @@
 import { type FC, useState } from "react";
+import { type ElicitationChoiceProperty, multiChoiceOptions, singleChoiceOptions } from "#/lib/elicitationOptions";
+import { ElicitationChoices } from "#/components/mcp/ElicitationChoices";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
@@ -22,12 +24,10 @@ interface ChatToolInteractionOverlayProps {
   onRespond: (response: ToolInteractionResponse) => void;
 }
 
-type ElicitationPropertyView = {
+type ElicitationPropertyView = ElicitationChoiceProperty & {
   type?: string;
   title?: string;
   description?: string;
-  enum?: string[];
-  items?: { type?: string; enum?: string[] };
 };
 type ElicitationFormView = {
   mode?: string;
@@ -183,32 +183,21 @@ const ChatElicitationForm: FC<{
         </div>
       );
     }
-    if (prop.type === "array" && prop.items?.enum) {
-      const selected = Array.isArray(values[key]) ? (values[key] as string[]) : [];
-      const toggle = (option: string) => {
-        setValue(key, selected.includes(option) ? selected.filter((item) => item !== option) : [...selected, option]);
-      };
+    const choices = multiChoiceOptions(prop) ?? singleChoiceOptions(prop);
+    if (choices) {
+      const current = values[key];
       return (
-        <div key={key} className="space-y-1.5">
-          <Label htmlFor={fieldId} className="text-xs">
-            {label}
-          </Label>
-          <div className="flex flex-wrap gap-2">
-            {prop.items.enum.map((option) => (
-              <Button
-                key={option}
-                type="button"
-                disabled={processing}
-                variant={selected.includes(option) ? "default" : "outline"}
-                size="sm"
-                className="h-7 px-2.5 text-xs"
-                onClick={() => toggle(option)}
-              >
-                {option}
-              </Button>
-            ))}
-          </div>
-        </div>
+        <ElicitationChoices
+          key={key}
+          label={label}
+          required={required.has(key)}
+          description={description}
+          options={choices}
+          multiple={prop.type === "array"}
+          value={typeof current === "boolean" ? undefined : current}
+          disabled={processing}
+          onChange={(next) => setValue(key, next)}
+        />
       );
     }
     const inputType = prop.type === "number" || prop.type === "integer" ? "number" : "text";
