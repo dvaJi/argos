@@ -38,10 +38,10 @@ describe("mcp store add/update", () => {
     const { useMcpStore, loadConfig } = await import("./mcp");
 
     const storeRef: { current: ReturnType<typeof useMcpStore> | null } = { current: null };
-    const Probe = ({ capture }: { capture: typeof storeRef }) => {
+    const Probe = ({ onStore }: { onStore: (store: ReturnType<typeof useMcpStore>) => void }) => {
       const store = useMcpStore();
       useEffect(() => {
-        capture.current = store;
+        onStore(store);
       });
       return <div data-names={store.serverList.map((s) => `${s.name}:${s.command}`).join(",")} />;
     };
@@ -49,7 +49,15 @@ describe("mcp store add/update", () => {
     const container = document.createElement("div");
     document.body.appendChild(container);
     const root = createRoot(container);
-    await act(async () => root.render(<Probe capture={storeRef} />));
+    await act(async () =>
+      root.render(
+        <Probe
+          onStore={(store) => {
+            storeRef.current = store;
+          }}
+        />,
+      ),
+    );
     await act(async () => loadConfig());
     const names = () => container.querySelector("[data-names]")?.getAttribute("data-names");
     expect(names()).toBe("existing:a");

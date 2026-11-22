@@ -101,6 +101,7 @@ export default function AcpAuthElicitationCard({ agentId }: { agentId?: string }
   const respond = (action: "accept" | "decline" | "cancel") => {
     if (submitting) return;
     setSubmitting(true);
+    setError(null);
     const content: Record<string, string | number | boolean | string[]> = {};
     if (action === "accept") {
       for (const [key, prop] of Object.entries(properties)) {
@@ -128,7 +129,10 @@ export default function AcpAuthElicitationCard({ agentId }: { agentId?: string }
     }
     void providerClient
       .respondAcpAuthElicitation({ requestId: request.requestId, action, content })
-      .catch((respondError) => console.error("[AcpAuthElicitationCard] respond failed:", respondError))
+      .catch((respondError) => {
+        console.error("[AcpAuthElicitationCard] respond failed:", respondError);
+        setError(respondError instanceof Error ? respondError.message : String(respondError));
+      })
       .finally(() => setSubmitting(false));
   };
 
@@ -200,6 +204,8 @@ export default function AcpAuthElicitationCard({ agentId }: { agentId?: string }
           {missing.length > 0 && <p className="text-[11px] text-muted-foreground">Required: {missing.join(", ")}</p>}
         </div>
       )}
+
+      {error && <p className="mt-3 text-xs text-destructive">{error}</p>}
 
       <div className="mt-4 flex gap-2">
         <Button
