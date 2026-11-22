@@ -31,6 +31,7 @@ interface McpServersProps {
 export interface McpServersRef {
   openAddServerDialog: () => void;
 }
+const mcpClient = createMcpClient();
 const MCP_FILTERS = ["all", "running", "stopped"] as const;
 type McpFilter = (typeof MCP_FILTERS)[number];
 export const McpServers = forwardRef<McpServersRef, McpServersProps>(
@@ -59,7 +60,6 @@ export const McpServers = forwardRef<McpServersRef, McpServersProps>(
         client: { name: string; icon?: string };
       }>
     >([]);
-    const mcpClient = createMcpClient();
 
     useEffect(() => {
       if (!selectedDetailServerName) return;
@@ -77,7 +77,7 @@ export const McpServers = forwardRef<McpServersRef, McpServersProps>(
       return () => {
         cancelled = true;
       };
-    }, [selectedDetailServerName, mcpClient]);
+    }, [selectedDetailServerName]);
 
     const isOAuthServer = (serverName: string): boolean => mcpStore.config.mcpServers[serverName]?.oauth === true;
 

@@ -4,7 +4,7 @@ import { handleRouteDispatch, dispatchRoute, setRouteDispatcher } from "./transp
 import type { RouteDispatcher } from "./transport/http";
 import { authorize } from "./transport/auth";
 import type { AuthGateConfig, ExposureMode } from "@argos/shared-contracts/auth";
-import { sessionsStatusChangedEvent } from "@argos/shared-contracts";
+import { mcpConfigChangedEvent, sessionsStatusChangedEvent } from "@argos/shared-contracts";
 import { handlePair, handleListSessions, handleRevokeSession, handleIssuePairingToken } from "./transport/auth-routes";
 import { SessionAuthRepository } from "./host/session-auth-repository";
 import { BunPathResolver } from "./host/bun-paths";
@@ -660,6 +660,16 @@ async function initializeDaemon(options: StartDaemonOptions | undefined, early: 
     db,
   });
   const mcpRuntime = new DaemonMcpRuntime(configPresenter, mcpPorts);
+  // Config writes: drop the runtime's cached tool definitions and tell every
+  // window, so open settings pages and composers refresh without a reload.
+  configPresenter.onMcpConfigChanged(() => {
+    mcpPorts.events.broadcast("mcp:config-changed", undefined);
+    void Promise.all([configPresenter.getMcpServers(), configPresenter.getMcpEnabled()])
+      .then(([mcpServers, mcpEnabled]) =>
+        eventPublisher.publish(mcpConfigChangedEvent.name, { mcpServers, mcpEnabled, version: Date.now() }),
+      )
+      .catch((error) => logger.warn("[daemon] Failed to publish MCP config change:", error));
+  });
   const pluginRuntimeRegistry = new PluginRuntimeRegistry(mcpRuntime.serverManager);
   mcpPorts.services.pluginRuntime = pluginRuntimeRegistry;
   void toolchainWarmup

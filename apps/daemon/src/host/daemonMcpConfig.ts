@@ -13,6 +13,7 @@ import { createJsonStoreFactory } from "./jsonStoreFactory";
 export class DaemonMcpConfig {
   readonly mcpConfHelper: McpConfHelper;
   private readonly mcprouterManager: McpRouterManager;
+  private changeListener: (() => void) | null = null;
 
   constructor(configDir: string, configPresenter: DaemonConfigPresenter) {
     // The built-in knowledge server is hosted by the daemon's knowledge runtime
@@ -21,6 +22,7 @@ export class DaemonMcpConfig {
     // user-removed so the daemon ships with an empty MCP catalog by default.
     this.mcpConfHelper = new McpConfHelper(createJsonStoreFactory(configDir), {
       isBuiltinKnowledgeSupported: () => Promise.resolve(true),
+      onChange: () => this.changeListener?.(),
     });
     this.mcprouterManager = new McpRouterManager(configPresenter as never);
   }
@@ -42,6 +44,11 @@ export class DaemonMcpConfig {
     } catch (error) {
       console.warn("[daemon] Failed to restore MCP built-in defaults:", error);
     }
+  }
+
+  /** Called after every persisted MCP config write (servers or global toggle). */
+  onConfigChanged(listener: () => void): void {
+    this.changeListener = listener;
   }
 
   // ---- server CRUD ----

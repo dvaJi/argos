@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Store } from "@tanstack/store";
 import { useSelector } from "@tanstack/react-store";
 import { createMcpClient } from "#api/McpClient";
@@ -696,59 +697,83 @@ const readResource = async (resource: ResourceListEntry): Promise<Resource> => {
   }
 };
 
+// Runtime event subscriptions, shared by every mounted consumer (main layout,
+// settings window). Ref-counted so the listeners live while anyone needs them.
+let eventSubscriberCount = 0;
+let eventCleanups: Array<() => void> = [];
+
 const initEvents = () => {
-  mcpClient.onServerStarted(({ serverName }) => {
-    console.log(`MCP server started: ${serverName}`);
-    updateServerStatus(serverName).then(() => {
-      if (mcpStore.state.config.mcpEnabled) {
-        loadTools().catch((error) => {
-          console.error("Failed to refresh tools after server started:", error);
-        });
-      }
-    });
-  });
+  if (eventCleanups.length > 0) return;
+  eventCleanups.push(
+    mcpClient.onServerStarted(({ serverName }) => {
+      console.log(`MCP server started: ${serverName}`);
+      updateServerStatus(serverName).then(() => {
+        if (mcpStore.state.config.mcpEnabled) {
+          loadTools().catch((error) => {
+            console.error("Failed to refresh tools after server started:", error);
+          });
+        }
+      });
+    }),
+  );
 
-  mcpClient.onServerStopped(({ serverName }) => {
-    console.log(`MCP server stopped: ${serverName}`);
-    updateServerStatus(serverName).then(() => {
-      if (mcpStore.state.config.mcpEnabled) {
-        loadTools().catch((error) => {
-          console.error("Failed to refresh tools after server stopped:", error);
-        });
-      }
-    });
-  });
+  eventCleanups.push(
+    mcpClient.onServerStopped(({ serverName }) => {
+      console.log(`MCP server stopped: ${serverName}`);
+      updateServerStatus(serverName).then(() => {
+        if (mcpStore.state.config.mcpEnabled) {
+          loadTools().catch((error) => {
+            console.error("Failed to refresh tools after server stopped:", error);
+          });
+        }
+      });
+    }),
+  );
 
-  mcpClient.onConfigChanged((payload) => {
-    console.log("MCP config changed", payload);
-    syncConfigFromQuery(payload);
-    updateAllServerStatuses().catch((error) => {
-      console.error("Failed to update server statuses after config change:", error);
-    });
-  });
+  eventCleanups.push(
+    mcpClient.onConfigChanged((payload) => {
+      console.log("MCP config changed", payload);
+      syncConfigFromQuery(payload);
+      updateAllServerStatuses().catch((error) => {
+        console.error("Failed to update server statuses after config change:", error);
+      });
+    }),
+  );
 
-  mcpClient.onServerStatusChanged(({ serverName, isRunning }) => {
-    console.log(`MCP server ${serverName} status changed: ${isRunning}`);
-    mcpStore.setState((s) => ({
-      ...s,
-      serverStatuses: { ...s.serverStatuses, [serverName]: isRunning },
-    }));
-  });
-
-  mcpClient.onToolCallResult((result) => {
-    console.log(`MCP tool call result:`, result.functionName);
-    if (result && result.functionName) {
+  eventCleanups.push(
+    mcpClient.onServerStatusChanged(({ serverName, isRunning }) => {
+      console.log(`MCP server ${serverName} status changed: ${isRunning}`);
       mcpStore.setState((s) => ({
         ...s,
-        toolResults: { ...s.toolResults, [result.functionName as string]: result.content },
+        serverStatuses: { ...s.serverStatuses, [serverName]: isRunning },
       }));
-    }
-  });
+    }),
+  );
 
-  configClient.onCustomPromptsChanged(() => {
-    console.log("Custom prompts changed, reloading prompts list");
-    void loadPrompts();
-  });
+  eventCleanups.push(
+    mcpClient.onToolCallResult((result) => {
+      console.log(`MCP tool call result:`, result.functionName);
+      if (result && result.functionName) {
+        mcpStore.setState((s) => ({
+          ...s,
+          toolResults: { ...s.toolResults, [result.functionName as string]: result.content },
+        }));
+      }
+    }),
+  );
+
+  eventCleanups.push(
+    configClient.onCustomPromptsChanged(() => {
+      console.log("Custom prompts changed, reloading prompts list");
+      void loadPrompts();
+    }),
+  );
+};
+
+const cleanupEvents = () => {
+  const cleanups = eventCleanups;
+  eventCleanups = [];
+  for (const cleanup of cleanups) cleanup();
 };
 
 const initMcp = async () => {
@@ -854,6 +879,21 @@ export const getEnabledServerCount = () => getEnabledServers().length;
 const getToolCount = () => getVisibleTools().length;
 
 const getHasTools = () => getToolCount() > 0;
+
+/**
+ * Keeps the MCP store live: subscribes to server started/stopped/config events
+ * and loads the config. Mount wherever MCP state is shown.
+ */
+export function useInitMcp() {
+  useEffect(() => {
+    eventSubscriberCount += 1;
+    void initMcp().catch((error) => console.error("Failed to initialize MCP store:", error));
+    return () => {
+      eventSubscriberCount = Math.max(0, eventSubscriberCount - 1);
+      if (eventSubscriberCount === 0) cleanupEvents();
+    };
+  }, []);
+}
 
 export function useMcpStore() {
   const state = useSelector(mcpStore);
