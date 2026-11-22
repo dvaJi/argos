@@ -1164,7 +1164,18 @@ export function createDaemonDispatcher(
 
     if (route === mcpUpdateServerRoute.name) {
       const input = mcpUpdateServerRoute.input.parse(rawInput);
+      const wasRunning = mcpRuntime.isServerRunning(input.serverName);
       await configPresenter.updateMcpServer(input.serverName, input.config);
+      // A running client keeps the config it started with: restart it so the
+      // edit takes effect (desktop parity).
+      if (wasRunning) {
+        try {
+          await mcpRuntime.stopServer(input.serverName);
+          await mcpRuntime.startServer(input.serverName);
+        } catch (error) {
+          console.error(`[daemon] Failed to restart MCP server ${input.serverName} after update:`, error);
+        }
+      }
       return mcpUpdateServerRoute.output.parse({ updated: true });
     }
 

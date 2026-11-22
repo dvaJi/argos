@@ -129,6 +129,8 @@ export class McpClient {
   // connection) so host-side sampling/elicitation ids never collide.
   private requestIdScope = Math.random().toString(36).slice(2, 10);
   private connectInFlight: Promise<void> | null = null;
+  /** Bumped by disconnect(): an attempt from an older generation must not reconnect. */
+  private connectGeneration = 0;
   private connectionTimeout: NodeJS.Timeout | null = null;
   private npmRegistry: string | null = null;
   private uvRegistry: string | null = null;
@@ -219,6 +221,7 @@ export class McpClient {
   }
 
   private async connectOnce(): Promise<void> {
+    const generation = this.connectGeneration;
     if (this.isConnected && this.client) {
       console.info(`MCP server ${this.serverName} is already running`);
       return;
@@ -596,6 +599,12 @@ export class McpClient {
             throw authError instanceof Error ? authError : new Error(String(authError));
           }
           await this.cleanupResources();
+          if (generation !== this.connectGeneration) {
+            // Stopped while the browser flow was open: tokens are saved, but do
+            // not resurrect a client the server manager already dropped.
+            this.oauthRetryCount = 0;
+            throw new Error(`Connection to ${this.serverName} was stopped during authorization`);
+          }
           this.oauthRetryCount = 1;
           console.info(`[MCP] Authorization complete; reconnecting to ${this.serverName}`);
           this.oauthProvider.setInteractive(false);
@@ -631,6 +640,12 @@ export class McpClient {
 
   // Disconnect from the MCP server
   async disconnect(): Promise<void> {
+    this.connectGeneration += 1;
+    if (this.connectInFlight && this.oauthProvider) {
+      // A pending browser authorization would otherwise keep waiting and
+      // reconnect on a late callback; stopping it rejects the wait.
+      await this.oauthProvider.stopAuthorization().catch(() => undefined);
+    }
     if (!this.isConnected || !this.client) {
       return;
     }
@@ -1369,13 +1384,19 @@ export class McpClient {
     const deadline = Date.now() + TASK_POLL_TIMEOUT_MS;
     let terminal: { status?: string; statusMessage?: string } | null = null;
 
-    const cancelTask = async (): Promise<void> => {
-      try {
-        await request({ method: "tasks/cancel", params: { taskId } }, CancelTaskResultSchema);
-      } catch (error) {
-        console.warn(`[MCP] Failed to cancel task ${taskId} on ${this.serverName}:`, error);
-      }
+    let cancelSent: Promise<void> | null = null;
+    // Idempotent: STOP, the deadline and abort checks may all ask to cancel.
+    const cancelTask = (): Promise<void> => {
+      cancelSent ??= request({ method: "tasks/cancel", params: { taskId } }, CancelTaskResultSchema).then(
+        () => undefined,
+        (error: unknown) => console.warn(`[MCP] Failed to cancel task ${taskId} on ${this.serverName}:`, error),
+      );
+      return cancelSent;
     };
+    // One listener for the whole task lifetime: STOP cancels the server task
+    // even while tasks/get or tasks/result is in flight (or stalled).
+    const onAbort = () => void cancelTask();
+    signal?.addEventListener("abort", onAbort, { once: true });
     const throwIfAborted = async (): Promise<void> => {
       if (signal?.aborted) {
         await cancelTask();
@@ -1400,7 +1421,9 @@ export class McpClient {
       while (Date.now() < deadline) {
         await sleep(pollIntervalMs);
         await throwIfAborted();
-        const status = (await request({ method: "tasks/get", params: { taskId } }, GetTaskResultSchema)) as {
+        const status = (await request({ method: "tasks/get", params: { taskId } }, GetTaskResultSchema, {
+          signal,
+        })) as {
           status?: string;
           statusMessage?: string;
           pollInterval?: number;
@@ -1434,25 +1457,22 @@ export class McpClient {
         throw new Error(`Task ${taskId} was cancelled`);
       }
 
-      const onAbort = () => void cancelTask();
-      signal?.addEventListener("abort", onAbort, { once: true });
-      try {
-        const result = (await request({ method: "tasks/result", params: { taskId } }, CallToolResultSchema, {
-          timeout: Math.max(deadline - Date.now(), TASK_POLL_INTERVAL_MS),
-          signal,
-        })) as ToolCallResult;
-        // The polled status may have stopped at `input_required`; report the
-        // final state so progress indicators settle.
-        broadcast(result?.isError ? "failed" : "completed", null);
-        return result ?? null;
-      } finally {
-        signal?.removeEventListener("abort", onAbort);
-      }
+      const result = (await request({ method: "tasks/result", params: { taskId } }, CallToolResultSchema, {
+        timeout: Math.max(deadline - Date.now(), TASK_POLL_INTERVAL_MS),
+        signal,
+      })) as ToolCallResult;
+      // The polled status may have stopped at `input_required`; report the
+      // final state so progress indicators settle.
+      broadcast(result?.isError ? "failed" : "completed", null);
+      return result ?? null;
     } catch (error) {
       // Every exit path (abort, disconnect, deadline, tasks/get or
       // tasks/result errors) settles the progress indicator exactly once.
+      if (signal?.aborted) await cancelTask();
       broadcast(signal?.aborted ? "cancelled" : "failed", error instanceof Error ? error.message : null);
       throw error;
+    } finally {
+      signal?.removeEventListener("abort", onAbort);
     }
   }
 

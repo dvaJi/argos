@@ -623,7 +623,7 @@ const McpServerDetailSheet = ({
               </Button>
               <Button
                 variant="outline"
-                disabled={getResourcesCount(server.name) === 0}
+                disabled={getResourcesCount(server.name) === 0 && resourceTemplates.length === 0}
                 onClick={() => onViewResources(server.name)}
               >
                 <Icon icon="lucide:folder" className="size-4" />

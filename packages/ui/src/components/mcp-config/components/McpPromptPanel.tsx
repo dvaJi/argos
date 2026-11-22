@@ -336,7 +336,22 @@ function PromptRunCard({
   promptArgs,
 }: PromptRunCardProps) {
   const [inputMode, setInputMode] = useState<"fields" | "json">(promptArgs.length > 0 ? "fields" : "json");
-  const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
+  // The JSON `params` is the single source of truth; fields are a view of it,
+  // so JSON edits and Reset are reflected in the form (and vice versa).
+  const fieldValues = (() => {
+    try {
+      const parsed: unknown = JSON.parse(params);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+      return Object.fromEntries(
+        Object.entries(parsed as Record<string, unknown>).map(([key, value]) => [
+          key,
+          typeof value === "string" ? value : JSON.stringify(value),
+        ]),
+      );
+    } catch {
+      return {} as Record<string, string>;
+    }
+  })();
   const formatJson = (input: string): string => {
     try {
       return JSON.stringify(JSON.parse(input), null, 2);
@@ -346,10 +361,9 @@ function PromptRunCard({
   };
   /** Sync field edits into the JSON params so onRun always uses current values. */
   const handleFieldValuesChange = (values: Record<string, string>) => {
-    setFieldValues(values);
     const paramsObject: Record<string, string> = {};
     for (const [key, value] of Object.entries(values)) {
-      if (value.trim()) paramsObject[key] = value;
+      if (value !== "") paramsObject[key] = value;
     }
     onParamsChange(JSON.stringify(paramsObject, null, 2));
   };

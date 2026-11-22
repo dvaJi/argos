@@ -93,6 +93,8 @@ export function createDaemonMcpPorts(deps: {
       if (!pending) return false;
       pendingElicitations.delete(decision.requestId);
       pending.resolve(decision);
+      // Every window received the request; let the others dismiss their dialog.
+      deps.eventPublisher.publish("mcp.elicitation.decision", { decision, version: Date.now() });
       return true;
     },
     cancelRequest(requestId: string, reason?: string): boolean {
@@ -100,6 +102,7 @@ export function createDaemonMcpPorts(deps: {
       if (!pending) return false;
       pendingElicitations.delete(requestId);
       pending.reject(new Error(reason || "Elicitation cancelled"));
+      deps.eventPublisher.publish("mcp.elicitation.cancelled", { requestId });
       return true;
     },
   };
@@ -479,8 +482,8 @@ export function createDaemonMcpPorts(deps: {
         });
       },
       cancelElicitationRequest: async (requestId: string, reason?: string) => {
+        // Publishes the cancellation when the request was still pending.
         elicitationBridge.cancelRequest(requestId, reason);
-        deps.eventPublisher.publish("mcp.elicitation.cancelled", { requestId });
       },
       // OAuth flows (opt-in via the server config's `oauth: true`): open the
       // authorization URL in the system browser and persist tokens/client

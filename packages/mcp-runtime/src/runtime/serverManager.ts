@@ -1,5 +1,6 @@
 import type { IConfigPresenter, MCPServerConfig } from "@argos/shared/presenter";
 import { McpClient } from "./mcpClient";
+import { ArgosOAuthClientProvider } from "./oauthProvider";
 import axios from "axios";
 import type { McpHostPorts } from "../host/ports";
 
@@ -319,10 +320,15 @@ export class ServerManager {
   /** Best-effort OAuth sign-out for a server (invalidates stored credentials). */
   async invalidateCredentials(name: string, scope?: "all" | "client" | "tokens" | "verifier" | "state" | "discovery"): Promise<void> {
     const client = this.clients.get(name);
-    if (!client) {
-      throw new Error(`MCP client not found: ${name}`);
+    if (client) {
+      await client.invalidateCredentials(scope);
+      return;
     }
-    await client.invalidateCredentials(scope);
+    // Stopped or failed servers have no client, but their credentials are
+    // persisted per server name: clear them from storage directly.
+    await new ArgosOAuthClientProvider({ serverName: name, services: this.ports.services }).invalidateCredentials(
+      scope,
+    );
   }
 
   /**

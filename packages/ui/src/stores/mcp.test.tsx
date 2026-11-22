@@ -1,4 +1,4 @@
-import { act } from "react";
+import { act, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { describe, expect, it, vi } from "vitest";
 
@@ -37,28 +37,30 @@ describe("mcp store add/update", () => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
     const { useMcpStore, loadConfig } = await import("./mcp");
 
-    let latest: ReturnType<typeof useMcpStore> | null = null;
-    const Probe = () => {
+    const storeRef: { current: ReturnType<typeof useMcpStore> | null } = { current: null };
+    const Probe = ({ capture }: { capture: typeof storeRef }) => {
       const store = useMcpStore();
-      latest = store;
+      useEffect(() => {
+        capture.current = store;
+      });
       return <div data-names={store.serverList.map((s) => `${s.name}:${s.command}`).join(",")} />;
     };
 
     const container = document.createElement("div");
     document.body.appendChild(container);
     const root = createRoot(container);
-    await act(async () => root.render(<Probe />));
+    await act(async () => root.render(<Probe capture={storeRef} />));
     await act(async () => loadConfig());
     const names = () => container.querySelector("[data-names]")?.getAttribute("data-names");
     expect(names()).toBe("existing:a");
 
     await act(async () => {
-      await latest!.addServer("fresh", { type: "stdio", enabled: true, command: "b" } as never);
+      await storeRef.current!.addServer("fresh", { type: "stdio", enabled: true, command: "b" } as never);
     });
     expect(names()).toBe("existing:a,fresh:b");
 
     await act(async () => {
-      await latest!.updateServer("existing", { command: "c" } as never);
+      await storeRef.current!.updateServer("existing", { command: "c" } as never);
     });
     expect(names()).toBe("existing:c,fresh:b");
 

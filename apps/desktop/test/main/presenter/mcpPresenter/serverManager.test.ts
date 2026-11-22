@@ -115,4 +115,21 @@ describe("ServerManager plugin MCP errors", () => {
     expect(manager.getServerLastError("regular")).toBe("connect failed");
     expect(eventBusMocks.sendToRenderer).toHaveBeenCalledTimes(1);
   });
+
+  it("signs out of a stopped server from stored credentials (no live client)", async () => {
+    const files = new Map<string, unknown>([
+      ["mcp-oauth:remote:tokens", { access_token: "at" }],
+      ["mcp-oauth:remote:client", { client_id: "cid" }],
+    ]);
+    const ports = createMcpTestPorts({
+      readJsonFile: async (key: string) => files.get(key) ?? null,
+      writeJsonFile: async (key: string, value: unknown) => void files.set(key, value),
+    } as never);
+    const manager = new ServerManager(createConfigPresenter({}) as never, ports);
+
+    await manager.invalidateCredentials("remote", "tokens");
+
+    expect(files.get("mcp-oauth:remote:tokens")).toBeNull();
+    expect(files.get("mcp-oauth:remote:client")).toEqual({ client_id: "cid" });
+  });
 });

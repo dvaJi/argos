@@ -13,7 +13,7 @@ interface ResourceTemplateCompletionsProps {
 
 /**
  * Per-placeholder argument inputs for a resource template
- * (`ref/resource_template` completions): placeholders are parsed from the
+ * (`ref/resource` completions against the template URI): placeholders are parsed from the
  * RFC 6570-style URI template, each input fetches debounced server-side
  * completions while typing, and the composed URI preview shows the values
  * substituted in.
@@ -52,7 +52,7 @@ export const ResourceTemplateCompletions: FC<ResourceTemplateCompletionsProps> =
         debounceTimers.current.delete(timerKey);
         try {
           const result = await mcpClient.completeArgument(serverName, {
-            ref: { type: "ref/resource_template", uri: uriTemplate },
+            ref: { type: "ref/resource", uri: uriTemplate },
             argument: { name: argName, value: currentValue },
           });
           const completion = (result as { completion?: { values?: string[] } })?.completion;
