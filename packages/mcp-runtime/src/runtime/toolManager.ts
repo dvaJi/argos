@@ -4,6 +4,7 @@ import type { CompleteRequest } from "@modelcontextprotocol/client";
 const MCP_EVENTS = {
   CLIENT_LIST_UPDATED: "mcp:client-list-updated",
   CONFIG_CHANGED: "mcp:config-changed",
+  SERVER_STATUS_CHANGED: "mcp:server-status-changed",
   TOOL_CALL_RESULT: "mcp:tool-call-result",
 } as const;
 const NOTIFICATION_EVENTS = {
@@ -43,6 +44,7 @@ export class ToolManager {
   private readonly ports: McpHostPorts;
   private unsubClientList?: () => void;
   private unsubConfig?: () => void;
+  private unsubServerStatus?: () => void;
   private cachedToolDefinitions: MCPToolDefinition[] | null = null;
   private toolNameToTargetMap: Map<string, { client: McpClient; originalName: string }> | null = null;
   private catalogToolTargets: Map<string, { serverName: string; tool: PluginToolCatalogTool }> | null = null;
@@ -55,6 +57,28 @@ export class ToolManager {
     this.ports = ports;
     this.unsubClientList = ports.events.subscribe(MCP_EVENTS.CLIENT_LIST_UPDATED, this.handleServerListUpdate);
     this.unsubConfig = ports.events.subscribe(MCP_EVENTS.CONFIG_CHANGED, this.handleConfigChange);
+    // A client that drops and reconnects keeps its slot in ServerManager, so
+    // no client-list event fires; its connect/disconnect status must refresh
+    // the target map too.
+    this.unsubServerStatus = ports.events.subscribe(MCP_EVENTS.SERVER_STATUS_CHANGED, this.handleServerListUpdate);
+  }
+
+  /**
+   * Resolves a tool's target, recovering from a stale map: if the tool is
+   * missing (its server dropped while the map was rebuilt), reconnect dropped
+   * clients, rebuild, and look again.
+   */
+  private async resolveToolTarget(
+    finalName: string,
+    accessContext?: AgentToolAccessContext,
+  ): Promise<{ client: McpClient; originalName: string } | undefined> {
+    await this.getAllToolDefinitions(undefined, accessContext);
+    const found = this.toolNameToTargetMap?.get(finalName);
+    if (found || this.catalogToolTargets?.has(finalName)) return found;
+    if (!(await this.serverManager.reconnectDroppedClients())) return undefined;
+    this.handleServerListUpdate();
+    await this.getAllToolDefinitions(undefined, accessContext);
+    return this.toolNameToTargetMap?.get(finalName);
   }
 
   private handleServerListUpdate = (): void => {
@@ -586,14 +610,13 @@ export class ToolManager {
     const finalName = toolCall.function.name;
 
     // Ensure definitions and map are loaded/cached
-    await this.getAllToolDefinitions(undefined, options?.accessContext);
+    const targetInfo = await this.resolveToolTarget(finalName, options?.accessContext);
 
     if (!this.toolNameToTargetMap) {
       console.error("[ToolManager] Tool target map is not available for permission check.");
       return null;
     }
 
-    const targetInfo = this.toolNameToTargetMap.get(finalName);
     const catalogTarget = targetInfo ? undefined : this.catalogToolTargets?.get(finalName);
 
     if (!targetInfo && !catalogTarget) {
@@ -653,7 +676,7 @@ export class ToolManager {
       });
 
       // Ensure definitions and map are loaded/cached
-      await this.getAllToolDefinitions(undefined, options?.accessContext);
+      let targetInfo = await this.resolveToolTarget(finalName, options?.accessContext);
 
       if (!this.toolNameToTargetMap) {
         console.error("Tool target map is not available.");
@@ -663,8 +686,6 @@ export class ToolManager {
           isError: true,
         };
       }
-
-      let targetInfo = this.toolNameToTargetMap.get(finalName);
 
       if (!targetInfo) {
         const catalogTarget = this.catalogToolTargets?.get(finalName);
@@ -1094,6 +1115,7 @@ export class ToolManager {
   public destroy(): void {
     this.unsubClientList?.();
     this.unsubConfig?.();
+    this.unsubServerStatus?.();
   }
 
   private readStringArg(value: unknown): string | undefined {

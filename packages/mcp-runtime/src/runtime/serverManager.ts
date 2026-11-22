@@ -214,6 +214,23 @@ export class ServerManager {
     return clients;
   }
 
+  /**
+   * Reconnects clients that are still registered (never stopped) but lost
+   * their connection, e.g. after a session error cleared the transport.
+   * Returns true when at least one came back.
+   */
+  async reconnectDroppedClients(): Promise<boolean> {
+    const dropped = [...this.clients.entries()].filter(([name]) => !this.isServerRunning(name));
+    if (dropped.length === 0) return false;
+    const results = await Promise.allSettled(dropped.map(([, client]) => client.connect()));
+    results.forEach((result, index) => {
+      if (result.status === "rejected") {
+        console.warn(`[MCP] Reconnecting ${dropped[index][0]} failed:`, result.reason);
+      }
+    });
+    return results.some((result) => result.status === "fulfilled");
+  }
+
   async startServer(name: string, configOverride?: Partial<MCPServerConfig>): Promise<void> {
     // If server is already running, no need to start again
     if (this.clients.has(name)) {
