@@ -7,6 +7,8 @@ const MCP_EVENTS = {
   SERVER_STATUS_CHANGED: "mcp:server-status-changed",
   TOOL_CALL_RESULT: "mcp:tool-call-result",
 } as const;
+/** How long a tool-list rebuild waits for dropped servers to reconnect. */
+const RECONNECT_ON_REBUILD_MS = 3000;
 const NOTIFICATION_EVENTS = {
   SHOW_ERROR: "notification:show-error",
 } as const;
@@ -297,6 +299,10 @@ export class ToolManager {
     }
 
     console.info("Fetching/refreshing tool definitions and target map...");
+    // A server that dropped (e.g. its process restarted) stays registered but
+    // is not "running"; give it a short chance to come back so this rebuild
+    // (often a new agent turn) does not silently lose its tools.
+    await this.serverManager.reconnectDroppedClients?.({ waitMs: RECONNECT_ON_REBUILD_MS });
     const clients = await this.serverManager.getRunningClients();
     const results: MCPToolDefinition[] = [];
     // Initialize/clear the map before processing

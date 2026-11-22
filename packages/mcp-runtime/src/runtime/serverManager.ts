@@ -218,17 +218,33 @@ export class ServerManager {
    * Reconnects clients that are still registered (never stopped) but lost
    * their connection, e.g. after a session error cleared the transport.
    * Returns true when at least one came back.
+   *
+   * With `waitMs`, stops waiting after that long; slower reconnects finish in
+   * the background and announce themselves via the server-status event.
    */
-  async reconnectDroppedClients(): Promise<boolean> {
+  async reconnectDroppedClients(options?: { waitMs?: number }): Promise<boolean> {
     const dropped = [...this.clients.entries()].filter(([name]) => !this.isServerRunning(name));
     if (dropped.length === 0) return false;
-    const results = await Promise.allSettled(dropped.map(([, client]) => client.connect()));
-    results.forEach((result, index) => {
-      if (result.status === "rejected") {
-        console.warn(`[MCP] Reconnecting ${dropped[index][0]} failed:`, result.reason);
-      }
+    const attempts = dropped.map(([name, client]) =>
+      client.connect().then(
+        () => true,
+        (error: unknown) => {
+          console.warn(`[MCP] Reconnecting ${name} failed:`, error);
+          return false;
+        },
+      ),
+    );
+    const all = Promise.all(attempts).then((results) => results.some(Boolean));
+    if (options?.waitMs === undefined) return await all;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<boolean>((resolve) => {
+      timer = setTimeout(() => resolve(false), options.waitMs);
     });
-    return results.some((result) => result.status === "fulfilled");
+    try {
+      return await Promise.race([all, timeout]);
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   async startServer(name: string, configOverride?: Partial<MCPServerConfig>): Promise<void> {

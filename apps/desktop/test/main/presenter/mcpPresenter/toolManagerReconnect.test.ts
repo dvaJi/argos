@@ -16,11 +16,13 @@ function setup() {
   const emit = (channel: string) => listeners.get(channel)?.forEach((listener) => listener());
 
   let connected = true;
+  let serverUp = true;
   const client = {
     serverName: "testbed",
     serverConfig: {},
     isServerRunning: () => connected,
     connect: vi.fn(async () => {
+      if (!serverUp) throw new Error("ECONNREFUSED");
       connected = true;
     }),
     listTools: vi.fn(async () => [{ name: "echo", description: "Echo", inputSchema: { type: "object" } }]),
@@ -30,8 +32,10 @@ function setup() {
     getRunningClients: async () => (connected ? [client] : []),
     reconnectDroppedClients: vi.fn(async () => {
       if (connected) return false;
-      await client.connect();
-      return true;
+      return client.connect().then(
+        () => true,
+        () => false,
+      );
     }),
     clearServerLastError: () => {},
     setServerLastError: () => {},
@@ -46,8 +50,14 @@ function setup() {
     client,
     serverManager,
     emit,
-    drop: () => {
+    /** The server process dies: the client is dropped and cannot reconnect. */
+    kill: () => {
       connected = false;
+      serverUp = false;
+    },
+    /** The server process is back; the client is still dropped. */
+    revive: () => {
+      serverUp = true;
     },
   };
 }
@@ -55,28 +65,42 @@ function setup() {
 const echoCall = { id: "tc-1", type: "function", function: { name: "echo", arguments: '{"text":"hi"}' } } as never;
 
 describe("ToolManager after a server drops", () => {
-  it("reconnects a dropped server when its tool is missing from a rebuilt map", async () => {
-    const { manager, client, serverManager, emit, drop } = setup();
-    expect((await manager.getAllToolDefinitions()).map((tool) => tool.function.name)).toEqual(["echo"]);
+  const names = async (manager: ToolManager) =>
+    (await manager.getAllToolDefinitions()).map((tool) => tool.function.name);
 
-    // Session error drops the transport; another server's update rebuilds the map without it.
-    drop();
+  it("a rebuild brings a dropped server back once it is reachable", async () => {
+    const { manager, emit, kill, revive } = setup();
+    expect(await names(manager)).toEqual(["echo"]);
+
+    kill();
     emit("mcp:client-list-updated");
-    expect(await manager.getAllToolDefinitions()).toEqual([]);
+    expect(await names(manager)).toEqual([]); // still down: tools are gone for now
 
+    revive();
+    emit("mcp:client-list-updated");
+    expect(await names(manager)).toEqual(["echo"]); // the next rebuild reconnects it
+  });
+
+  it("a call to a tool missing from the map reconnects its server and retries", async () => {
+    const { manager, client, emit, kill, revive } = setup();
+    kill();
+    emit("mcp:client-list-updated");
+    expect(await names(manager)).toEqual([]);
+
+    revive(); // server is back, but the cached map still lacks echo
     const result = await manager.callTool(echoCall);
-    expect(serverManager.reconnectDroppedClients).toHaveBeenCalledTimes(1);
     expect(result.isError).toBeFalsy();
     expect(client.callTool).toHaveBeenCalledTimes(1);
   });
 
   it("refreshes the map when a server's status changes", async () => {
-    const { manager, emit, drop, client } = setup();
-    drop();
-    expect(await manager.getAllToolDefinitions()).toEqual([]);
+    const { manager, emit, kill, revive, client } = setup();
+    kill();
+    expect(await names(manager)).toEqual([]);
 
-    await client.connect(); // e.g. a lazy reconnect elsewhere broadcasts "running"
+    revive();
+    await client.connect(); // a lazy reconnect elsewhere broadcasts "running"
     emit("mcp:server-status-changed");
-    expect((await manager.getAllToolDefinitions()).map((tool) => tool.function.name)).toEqual(["echo"]);
+    expect(await names(manager)).toEqual(["echo"]);
   });
 });

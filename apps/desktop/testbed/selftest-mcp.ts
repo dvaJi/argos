@@ -16,27 +16,34 @@ const PORT = Number(process.env.TB_PORT ?? 4870);
 const oauth = process.argv.includes("--oauth");
 const stdio = process.argv.includes("--stdio");
 const srvLog: string[] = [];
-const srv = stdio
-  ? null
-  : spawn("bun", [SERVER, "--port", String(PORT), ...(oauth ? ["--oauth"] : [])], {
-      cwd: DESKTOP,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-srv?.stderr.on("data", (d) => {
-  const s = String(d);
-  srvLog.push(s);
-  if (process.env.VERBOSE) process.stdout.write("[srv] " + s);
-});
-if (srv)
+const startServer = async () => {
+  const proc = spawn("bun", [SERVER, "--port", String(PORT), ...(oauth ? ["--oauth"] : [])], {
+    cwd: DESKTOP,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  proc.stderr.on("data", (d) => {
+    const s = String(d);
+    srvLog.push(s);
+    if (process.env.VERBOSE) process.stdout.write("[srv] " + s);
+  });
   await new Promise<void>((res, rej) => {
     const t = setTimeout(() => rej(new Error("server did not start:\n" + srvLog.join(""))), 20000);
-    srv.stderr.on("data", (d) => {
+    proc.stderr.on("data", (d) => {
       if (String(d).includes("MCP server") && String(d).includes("listening")) {
         clearTimeout(t);
         res();
       }
     });
   });
+  return proc;
+};
+const killServer = async (proc: ReturnType<typeof spawn>) => {
+  const exited = new Promise((r) => proc.once("exit", r));
+  if (process.platform === "win32") spawn("taskkill", ["/PID", String(proc.pid), "/T", "/F"]);
+  else proc.kill();
+  await exited;
+};
+let srv = stdio ? null : await startServer();
 
 const files = new Map<string, unknown>();
 let browserOpens = 0;
@@ -286,16 +293,46 @@ try {
       );
       await client.connect();
     });
+  if (srv && !oauth)
+    await step("server restart", async () => {
+      // The server process dies and comes back: its old session is gone, so
+      // the next call hits a session error and must reconnect, not crash.
+      // A tool error empties the client's tool cache, so the next call's
+      // task-support probe (tools/list) is the request that hits the dead session.
+      await client.callTool("fail_tool", {});
+      await killServer(srv!);
+      srv = await startServer();
+      let r: any;
+      let err = "";
+      try {
+        r = await client.callTool("echo", { text: "again" });
+      } catch (e) {
+        err = String(e);
+      }
+      check(
+        "call after server restart reconnects transparently",
+        String(t(r)).includes("echo: again"),
+        err.slice(0, 160),
+      );
+
+      // Warm cache this time: tools/call itself hits the dead session.
+      await killServer(srv!);
+      srv = await startServer();
+      err = "";
+      try {
+        r = await client.callTool("echo", { text: "third" });
+      } catch (e) {
+        err = String(e);
+      }
+      check("tools/call on a lost session is retried once", String(t(r)).includes("echo: third"), err.slice(0, 160));
+    });
   await step("read", async () => {
     const r: any = await client.readResource("testbed://files/docs/guide/setup.md");
     check("read {+path} resource", JSON.stringify(r).includes("Contents of docs/guide/setup.md"));
   });
 } finally {
   await client.disconnect().catch(() => {});
-  if (srv) {
-    if (process.platform === "win32") spawn("taskkill", ["/PID", String(srv.pid), "/T", "/F"]);
-    else srv.kill();
-  }
+  if (srv) await killServer(srv).catch(() => {});
   console.log(process.exitCode ? "\nSome checks FAILED (re-run with VERBOSE=1 for logs)" : "\nAll checks passed");
   setTimeout(() => process.exit(), 300);
 }

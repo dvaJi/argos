@@ -1224,6 +1224,15 @@ export class McpClient {
     args: Record<string, unknown>,
     options?: { toolCallId?: string; signal?: AbortSignal },
   ): Promise<ToolCallResult> {
+    return this.callToolAttempt(toolName, args, options, false);
+  }
+
+  private async callToolAttempt(
+    toolName: string,
+    args: Record<string, unknown>,
+    options: { toolCallId?: string; signal?: AbortSignal } | undefined,
+    retriedAfterSessionError: boolean,
+  ): Promise<ToolCallResult> {
     try {
       if (!this.isConnected) {
         await this.connect();
@@ -1243,11 +1252,20 @@ export class McpClient {
         result = streamed;
         this.hasRestarted = false;
       } else {
+        // Probing task support may have hit a session error that dropped the
+        // connection; reconnect instead of calling through a null client.
+        if (!this.isConnected || !this.client) {
+          await this.connect();
+        }
+        const client = this.client;
+        if (!client) {
+          throw new Error(`MCP client ${this.serverName} not initialized`);
+        }
         // Call the tool
         const params = { name: toolName, arguments: args };
         result = (await (options?.signal
-          ? this.client.callTool(params, { signal: options.signal })
-          : this.client.callTool(params))) as ToolCallResult;
+          ? client.callTool(params, { signal: options.signal })
+          : client.callTool(params))) as ToolCallResult;
 
         // Reset restart flag on successful call
         this.hasRestarted = false;
@@ -1269,8 +1287,15 @@ export class McpClient {
       if (options?.signal?.aborted) {
         throw error;
       }
-      // Check and handle session errors
+      // Check and handle session errors (throws if they persist after a restart)
       await this.checkAndHandleSessionError(error);
+
+      // The server rejected the stale session before running the tool (e.g. it
+      // restarted), so one retry on a fresh connection is safe.
+      if (isSessionError(error) && !retriedAfterSessionError) {
+        console.info(`[MCP] Session for ${this.serverName} was lost; retrying ${toolName} on a new connection`);
+        return this.callToolAttempt(toolName, args, options, true);
+      }
 
       console.error(`Failed to call MCP tool ${toolName}:`, error);
       // Call failed, clear the tool cache

@@ -132,4 +132,19 @@ describe("ServerManager plugin MCP errors", () => {
     expect(files.get("mcp-oauth:remote:tokens")).toBeNull();
     expect(files.get("mcp-oauth:remote:client")).toEqual({ client_id: "cid" });
   });
+
+  it("reconnects dropped clients without waiting past waitMs on a hung server", async () => {
+    const manager = new ServerManager(
+      createConfigPresenter({ hung: { type: "http", enabled: true } }) as never,
+      testPorts,
+    );
+    await manager.startServer("hung");
+    clientMocks.isServerRunning.mockReturnValue(false); // transport dropped
+    clientMocks.connect.mockReturnValue(new Promise(() => {})); // never settles
+
+    const started = Date.now();
+    await expect(manager.reconnectDroppedClients({ waitMs: 20 })).resolves.toBe(false);
+    expect(Date.now() - started).toBeLessThan(1000);
+    expect(clientMocks.connect).toHaveBeenCalledTimes(2); // start + reconnect attempt
+  });
 });
