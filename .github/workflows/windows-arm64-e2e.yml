@@ -4,7 +4,6 @@ on:
   workflow_dispatch:
 
 env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
   TURBO_API: ${{ secrets.TURBO_API }}
   TURBO_TEAM: ${{ vars.TURBO_TEAM }}
   TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
@@ -18,14 +17,14 @@ jobs:
     runs-on: windows-11-arm
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
       - uses: ./.github/actions/setup-build
       - name: Restore Windows arm64 runtime cache
         id: runtime-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: runtime
           key: runtime-v2-win32-arm64-${{ hashFiles('package.json', 'scripts/**') }}
