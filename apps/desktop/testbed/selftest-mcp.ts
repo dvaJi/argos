@@ -325,6 +325,27 @@ try {
         err = String(e);
       }
       check("tools/call on a lost session is retried once", String(t(r)).includes("echo: third"), err.slice(0, 160));
+
+      // A task whose session is lost mid-run must not be started again: the
+      // first run may already have had side effects.
+      const running = client.callTool("long_task", { seconds: 30 }, { toolCallId: "tc-restart" }).then(
+        () => "resolved",
+        (e) => `rejected: ${String(e).slice(0, 80)}`,
+      );
+      await new Promise((res) => setTimeout(res, 1500));
+      await killServer(srv!);
+      srv = await startServer();
+      const afterRestart = srvLog.length;
+      const outcome = await running;
+      await new Promise((res) => setTimeout(res, 500));
+      const reissued = srvLog
+        .slice(afterRestart)
+        .some((line) => line.includes("<- tools/call") && line.includes("long_task"));
+      check(
+        "lost session mid-task does not start the task again",
+        !reissued && outcome.startsWith("rejected"),
+        outcome,
+      );
     });
   await step("read", async () => {
     const r: any = await client.readResource("testbed://files/docs/guide/setup.md");

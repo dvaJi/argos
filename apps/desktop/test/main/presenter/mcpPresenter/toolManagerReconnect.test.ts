@@ -30,7 +30,7 @@ function setup() {
   };
   const serverManager = {
     getRunningClients: async () => (connected ? [client] : []),
-    reconnectDroppedClients: vi.fn(async () => {
+    reconnectDroppedClients: vi.fn(async (_options?: { waitMs?: number; signal?: AbortSignal }) => {
       if (connected) return false;
       return client.connect().then(
         () => true,
@@ -102,5 +102,46 @@ describe("ToolManager after a server drops", () => {
     await client.connect(); // a lazy reconnect elsewhere broadcasts "running"
     emit("mcp:server-status-changed");
     expect(await names(manager)).toEqual(["echo"]);
+  });
+
+  it("a status event during a rebuild still leaves the listed tools callable", async () => {
+    const { manager, client, emit } = setup();
+    // A background reconnect reports its status while listTools is pending.
+    client.listTools.mockImplementationOnce(async () => {
+      emit("mcp:server-status-changed");
+      return [{ name: "echo", description: "Echo", inputSchema: { type: "object" } }];
+    });
+    expect(await names(manager)).toEqual(["echo"]);
+
+    const result = await manager.callTool(echoCall);
+    expect(result.isError).toBeFalsy();
+    expect(client.callTool).toHaveBeenCalledTimes(1);
+  });
+
+  it("STOP ends the wait for dropped servers on a missing tool", async () => {
+    const { manager, serverManager, emit, kill } = setup();
+    kill();
+    emit("mcp:client-list-updated");
+    // A server that never comes back (e.g. waiting on a browser login): only
+    // the wait limit or STOP ends the wait, like the real ServerManager.
+    serverManager.reconnectDroppedClients.mockImplementation(
+      (options?: { waitMs?: number; signal?: AbortSignal }) =>
+        new Promise<boolean>((resolve) => {
+          if (options?.signal?.aborted) return resolve(false);
+          options?.signal?.addEventListener("abort", () => resolve(false));
+          // The turn-start rebuild has no signal; keep its bound short here.
+          if (!options?.signal) setTimeout(() => resolve(false), 10);
+        }),
+    );
+    const controller = new AbortController();
+    const started = Date.now();
+    const pending = manager.callTool(echoCall, { signal: controller.signal });
+    setTimeout(() => controller.abort(), 50);
+    const result = await pending;
+    expect(Date.now() - started).toBeLessThan(2000);
+    expect(result.isError).toBe(true);
+    expect(serverManager.reconnectDroppedClients).toHaveBeenCalledWith(
+      expect.objectContaining({ signal: controller.signal, waitMs: expect.any(Number) }),
+    );
   });
 });

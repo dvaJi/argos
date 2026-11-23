@@ -1233,6 +1233,9 @@ export class McpClient {
     options: { toolCallId?: string; signal?: AbortSignal } | undefined,
     retriedAfterSessionError: boolean,
   ): Promise<ToolCallResult> {
+    // Set once the server accepted the call as a task: from then on the work
+    // may be running, so a lost session must not start it again.
+    const attempt = { taskCreated: false };
     try {
       if (!this.isConnected) {
         await this.connect();
@@ -1246,7 +1249,13 @@ export class McpClient {
       // tasks.requests.tools.call run the call as a task (progress polled via
       // tasks/get, final result via tasks/result), while plain servers yield
       // the direct result.
-      const streamed = await this.callToolWithTaskAugmentation(toolName, args, options?.toolCallId, options?.signal);
+      const streamed = await this.callToolWithTaskAugmentation(
+        toolName,
+        args,
+        options?.toolCallId,
+        options?.signal,
+        attempt,
+      );
       let result: ToolCallResult;
       if (streamed !== null) {
         result = streamed;
@@ -1292,7 +1301,7 @@ export class McpClient {
 
       // The server rejected the stale session before running the tool (e.g. it
       // restarted), so one retry on a fresh connection is safe.
-      if (isSessionError(error) && !retriedAfterSessionError) {
+      if (isSessionError(error) && !retriedAfterSessionError && !attempt.taskCreated) {
         console.info(`[MCP] Session for ${this.serverName} was lost; retrying ${toolName} on a new connection`);
         return this.callToolAttempt(toolName, args, options, true);
       }
@@ -1330,6 +1339,7 @@ export class McpClient {
     args: Record<string, unknown>,
     toolCallId?: string,
     signal?: AbortSignal,
+    attempt?: { taskCreated: boolean },
   ): Promise<ToolCallResult | null> {
     const client = this.client as unknown as {
       getServerCapabilities?: () => unknown;
@@ -1380,6 +1390,7 @@ export class McpClient {
       // Server answered with a direct result despite task creation params.
       return created as unknown as ToolCallResult;
     }
+    if (attempt) attempt.taskCreated = true;
 
     const TERMINAL = new Set(["completed", "failed", "cancelled"]);
     let settled = false;

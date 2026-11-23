@@ -222,7 +222,7 @@ export class ServerManager {
    * With `waitMs`, stops waiting after that long; slower reconnects finish in
    * the background and announce themselves via the server-status event.
    */
-  async reconnectDroppedClients(options?: { waitMs?: number }): Promise<boolean> {
+  async reconnectDroppedClients(options?: { waitMs?: number; signal?: AbortSignal }): Promise<boolean> {
     const dropped = [...this.clients.entries()].filter(([name]) => !this.isServerRunning(name));
     if (dropped.length === 0) return false;
     const attempts = dropped.map(([name, client]) =>
@@ -235,15 +235,21 @@ export class ServerManager {
       ),
     );
     const all = Promise.all(attempts).then((results) => results.some(Boolean));
-    if (options?.waitMs === undefined) return await all;
+    const signal = options?.signal;
+    if (options?.waitMs === undefined && !signal) return await all;
+    if (signal?.aborted) return false;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const timeout = new Promise<boolean>((resolve) => {
-      timer = setTimeout(() => resolve(false), options.waitMs);
+    let onAbort: (() => void) | undefined;
+    const stop = new Promise<boolean>((resolve) => {
+      if (options?.waitMs !== undefined) timer = setTimeout(() => resolve(false), options.waitMs);
+      onAbort = () => resolve(false);
+      signal?.addEventListener("abort", onAbort, { once: true });
     });
     try {
-      return await Promise.race([all, timeout]);
+      return await Promise.race([all, stop]);
     } finally {
       clearTimeout(timer);
+      if (onAbort) signal?.removeEventListener("abort", onAbort);
     }
   }
 

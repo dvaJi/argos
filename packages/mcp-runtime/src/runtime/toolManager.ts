@@ -9,6 +9,8 @@ const MCP_EVENTS = {
 } as const;
 /** How long a tool-list rebuild waits for dropped servers to reconnect. */
 const RECONNECT_ON_REBUILD_MS = 3000;
+/** How long a call to a missing tool waits for dropped servers to reconnect. */
+const RECONNECT_ON_MISS_MS = 10_000;
 const NOTIFICATION_EVENTS = {
   SHOW_ERROR: "notification:show-error",
 } as const;
@@ -49,6 +51,8 @@ export class ToolManager {
   private unsubServerStatus?: () => void;
   private cachedToolDefinitions: MCPToolDefinition[] | null = null;
   private toolNameToTargetMap: Map<string, { client: McpClient; originalName: string }> | null = null;
+  /** Bumped on every invalidation; a rebuild that raced one is not cached. */
+  private cacheGeneration = 0;
   private catalogToolTargets: Map<string, { serverName: string; tool: PluginToolCatalogTool }> | null = null;
   // Session-scoped permission cache: conversationId -> Set of "serverName:permissionType"
   private sessionPermissions = new Map<string, Set<string>>();
@@ -73,11 +77,15 @@ export class ToolManager {
   private async resolveToolTarget(
     finalName: string,
     accessContext?: AgentToolAccessContext,
+    signal?: AbortSignal,
   ): Promise<{ client: McpClient; originalName: string } | undefined> {
     await this.getAllToolDefinitions(undefined, accessContext);
     const found = this.toolNameToTargetMap?.get(finalName);
     if (found || this.catalogToolTargets?.has(finalName)) return found;
-    if (!(await this.serverManager.reconnectDroppedClients())) return undefined;
+    // Bounded and abortable: STOP must not sit behind an unrelated server's
+    // slow reconnect or browser login.
+    const reconnected = await this.serverManager.reconnectDroppedClients({ waitMs: RECONNECT_ON_MISS_MS, signal });
+    if (!reconnected || signal?.aborted) return undefined;
     this.handleServerListUpdate();
     await this.getAllToolDefinitions(undefined, accessContext);
     return this.toolNameToTargetMap?.get(finalName);
@@ -85,6 +93,7 @@ export class ToolManager {
 
   private handleServerListUpdate = (): void => {
     console.info("MCP client list updated, clearing tool definitions cache and target map.");
+    this.cacheGeneration += 1;
     this.cachedToolDefinitions = null;
     this.toolNameToTargetMap = null;
     this.catalogToolTargets = null;
@@ -92,6 +101,7 @@ export class ToolManager {
 
   private handleConfigChange = (): void => {
     console.info("MCP configuration changed, clearing cached data.");
+    this.cacheGeneration += 1;
     this.cachedToolDefinitions = null;
     this.toolNameToTargetMap = null;
     this.catalogToolTargets = null;
@@ -303,22 +313,21 @@ export class ToolManager {
     // is not "running"; give it a short chance to come back so this rebuild
     // (often a new agent turn) does not silently lose its tools.
     await this.serverManager.reconnectDroppedClients?.({ waitMs: RECONNECT_ON_REBUILD_MS });
+    // Status events from background reconnects may invalidate the cache while
+    // this rebuild awaits; build into a local map and publish it together
+    // with the definitions, caching them only if nothing changed meanwhile.
+    const generation = this.cacheGeneration;
     const clients = await this.serverManager.getRunningClients();
     const results: MCPToolDefinition[] = [];
-    // Initialize/clear the map before processing
-    if (this.toolNameToTargetMap) {
-      this.toolNameToTargetMap.clear(); // Clear existing map
-    } else {
-      this.toolNameToTargetMap = new Map(); // Initialize if null
-    }
+    const targetMap = new Map<string, { client: McpClient; originalName: string }>();
 
     if (!clients || clients.length === 0) {
       console.warn("No running MCP clients found.");
       const catalogOnlyResults: MCPToolDefinition[] = [];
       const catalogOnlyServerMap = new Map<string, string>();
-      this.toolNameToTargetMap = this.toolNameToTargetMap ?? new Map();
+      this.toolNameToTargetMap = targetMap;
       this.appendCatalogToolDefinitions(catalogOnlyResults, catalogOnlyServerMap);
-      this.cachedToolDefinitions = catalogOnlyResults;
+      this.cachedToolDefinitions = generation === this.cacheGeneration ? catalogOnlyResults : null;
       return await this.filterToolDefinitions(catalogOnlyResults, enabledTools, accessContext);
     }
 
@@ -431,9 +440,7 @@ export class ToolManager {
           });
 
           // Populate the target map
-          if (this.toolNameToTargetMap) {
-            this.toolNameToTargetMap.set(finalName, { client: client, originalName: originalName });
-          }
+          targetMap.set(finalName, { client: client, originalName: originalName });
         }
       } catch (error: unknown) {
         // Log error but continue building results from other clients
@@ -447,9 +454,10 @@ export class ToolManager {
       }
     }
 
-    // Cache results and return
+    // Publish the map and definitions together; cache only if still current.
+    this.toolNameToTargetMap = targetMap;
     this.appendCatalogToolDefinitions(results, toolNameToServerMap);
-    this.cachedToolDefinitions = results;
+    this.cachedToolDefinitions = generation === this.cacheGeneration ? results : null;
     console.info(`Cached ${results.length} final tool definitions and populated target map.`);
 
     return await this.filterToolDefinitions(results, enabledTools, accessContext);
@@ -618,11 +626,6 @@ export class ToolManager {
     // Ensure definitions and map are loaded/cached
     const targetInfo = await this.resolveToolTarget(finalName, options?.accessContext);
 
-    if (!this.toolNameToTargetMap) {
-      console.error("[ToolManager] Tool target map is not available for permission check.");
-      return null;
-    }
-
     const catalogTarget = targetInfo ? undefined : this.catalogToolTargets?.get(finalName);
 
     if (!targetInfo && !catalogTarget) {
@@ -682,16 +685,7 @@ export class ToolManager {
       });
 
       // Ensure definitions and map are loaded/cached
-      let targetInfo = await this.resolveToolTarget(finalName, options?.accessContext);
-
-      if (!this.toolNameToTargetMap) {
-        console.error("Tool target map is not available.");
-        return {
-          toolCallId: toolCall.id,
-          content: `Error: Internal error - tool information not available.`,
-          isError: true,
-        };
-      }
+      let targetInfo = await this.resolveToolTarget(finalName, options?.accessContext, options?.signal);
 
       if (!targetInfo) {
         const catalogTarget = this.catalogToolTargets?.get(finalName);
