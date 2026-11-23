@@ -37,8 +37,8 @@ export function initWorkspaceStore(): void {
   }));
 }
 
-function getActiveWorkspace(): WorkspaceEntry | undefined {
-  return workspaceStore.state.workspaces.find((w) => w.id === workspaceStore.state.activeWorkspaceId);
+function getActiveWorkspace(state = workspaceStore.state): WorkspaceEntry | undefined {
+  return state.workspaces.find((w) => w.id === state.activeWorkspaceId);
 }
 
 export function getWorkspaces(): WorkspaceEntry[] {
@@ -147,7 +147,7 @@ export function useWorkspaceStore() {
   return {
     ...state,
     connections: connState.connections,
-    activeWorkspace: getActiveWorkspace(),
+    activeWorkspace: getActiveWorkspace(state),
     getWorkspace: (id: string) => state.workspaces.find((w) => w.id === id),
     getConnection: (id: string) => connState.connections[id],
     addWorkspace,

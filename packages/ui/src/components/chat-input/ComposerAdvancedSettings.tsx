@@ -165,8 +165,8 @@ export default function ComposerAdvancedSettings() {
     sessions,
     bootstrapActiveSession,
   });
-  const enabledServers = getEnabledServers();
-  const enabledPluginServers = getEnabledPluginServers();
+  const enabledServers = getEnabledServers(mcpStore);
+  const enabledPluginServers = getEnabledPluginServers(mcpStore);
   const availableAgents = Array.isArray(agentStore.agents) ? agentStore.agents : [];
   const isArgosContext = (() => {
     if (activeSessionId !== null) {
@@ -234,7 +234,7 @@ export default function ComposerAdvancedSettings() {
   const isGroupItemEnabled = (item: ToolGroupItem) =>
     item.kind === "subagent" ? subagentEnabled : isToolEnabled(item.toolName);
   const isGroupItemPending = (item: ToolGroupItem) => (item.kind === "subagent" ? false : isToolPending(item.toolName));
-  const visibleTools = getVisibleTools();
+  const visibleTools = getVisibleTools(mcpStore);
   const getServerToolsCount = (serverName: string) =>
     visibleTools.filter((tool) => tool.server.name === serverName).length;
   const getPluginServerLabel = (server: { name: string; descriptions?: string }) =>

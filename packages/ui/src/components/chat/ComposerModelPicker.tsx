@@ -5,7 +5,7 @@ import { Input } from "#shadcn/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "#shadcn/components/ui/popover";
 import { useModelStore, getChatSelectableModelGroupsFrom } from "#/stores/modelStore";
 import { useProviderStore, getSortedProvidersFrom } from "#/stores/providerStore";
-import { useSessionStore, getActiveSession, getHasActiveSession } from "#/stores/ui/session";
+import { useSessionStore, useActiveSession } from "#/stores/ui/session";
 import { draftStore, useDraftStore } from "#/stores/ui/draft";
 import ModelIcon from "#/components/icons/ModelIcon";
 import { useThemeStore } from "#/stores/theme";
@@ -99,8 +99,7 @@ const ComposerModelPicker = () => {
   const [keyword, setKeyword] = useState("");
   const [railFilter, setRailFilter] = useState<RailFilter>("all");
   const favoriteKeys = useModelFavorites();
-  const hasActiveSession = getHasActiveSession();
-  const activeSession = getActiveSession();
+  const { hasActiveSession, activeSession } = useActiveSession();
   // Only rendered for Argos agents: ACP agents are picked in AgentSwitcher and
   // their models come from AcpComposerControls (see ComposerFooterBar).
   const displayText = (() => {

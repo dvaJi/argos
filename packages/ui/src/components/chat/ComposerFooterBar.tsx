@@ -4,7 +4,7 @@ import ComposerModePicker from "./ComposerModePicker";
 import ComposerAdvancedSettings from "../chat-input/ComposerAdvancedSettings";
 import AcpComposerControls from "./AcpComposerControls";
 import { Separator } from "#shadcn/components/ui/separator";
-import { useSessionStore, getActiveSession, getHasActiveSession } from "#/stores/ui/session";
+import { useActiveSession } from "#/stores/ui/session";
 import { usePreSessionAgentType } from "#/composables/chat/usePreSessionAgentType";
 
 interface ComposerFooterBarProps {
@@ -13,13 +13,9 @@ interface ComposerFooterBarProps {
 }
 
 const ComposerFooterBar = ({ acpDraftSessionId = null }: ComposerFooterBarProps) => {
-  // Subscribe so the bar re-renders when the active session / agent changes.
-  const sessionStoreState = useSessionStore();
-  void sessionStoreState;
   const preSessionAgentType = usePreSessionAgentType();
 
-  const hasActiveSession = getHasActiveSession();
-  const activeSession = getActiveSession();
+  const { hasActiveSession, activeSession } = useActiveSession();
   const isAcp = hasActiveSession ? activeSession?.providerId === "acp" : preSessionAgentType === "acp";
 
   return (

@@ -827,7 +827,11 @@ const setToolEnabled = async (toolName: string, enabled: boolean): Promise<void>
   await setEnabledToolNames(current.filter((name) => name !== toolName));
 };
 
-export const getVisibleTools = () => mcpStore.state.tools.filter((tool) => isVisibleServerName(tool.server.name));
+// Getters take the state so render code can pass its subscribed snapshot:
+// React Compiler caches zero-argument calls as constants.
+
+export const getVisibleTools = (state: McpState = mcpStore.state) =>
+  state.tools.filter((tool) => isVisibleServerName(tool.server.name));
 
 const getPluginTools = () => mcpStore.state.tools.filter((tool) => isPluginOwnedServerName(tool.server.name));
 
@@ -846,8 +850,8 @@ const getServerError = (serverName: string) => mcpStore.state.serverErrors[serve
 
 const getMcpEnabled = () => mcpStore.state.config.mcpEnabled;
 
-const getAllServerList = () => {
-  const { config, serverStatuses, serverLoadingStates, serverErrors } = mcpStore.state;
+const getAllServerList = (state: McpState = mcpStore.state) => {
+  const { config, serverStatuses, serverLoadingStates, serverErrors } = state;
   const servers = Object.entries(config.mcpServers ?? {}).map(([name, serverConfig]) => ({
     name,
     ...serverConfig,
@@ -865,14 +869,17 @@ const getAllServerList = () => {
   });
 };
 
-const getServerList = () => getAllServerList().filter((server) => !isPluginOwnedServerConfig(server));
+const getServerList = (state: McpState = mcpStore.state) =>
+  getAllServerList(state).filter((server) => !isPluginOwnedServerConfig(server));
 
-const getPluginServerList = () => getAllServerList().filter(isPluginOwnedServerConfig);
+const getPluginServerList = (state: McpState = mcpStore.state) =>
+  getAllServerList(state).filter(isPluginOwnedServerConfig);
 
-export const getEnabledServers = () =>
-  mcpStore.state.config.mcpEnabled ? getServerList().filter((server) => server.enabled) : [];
+export const getEnabledServers = (state: McpState = mcpStore.state) =>
+  state.config.mcpEnabled ? getServerList(state).filter((server) => server.enabled) : [];
 
-export const getEnabledPluginServers = () => getPluginServerList().filter((server) => server.enabled);
+export const getEnabledPluginServers = (state: McpState = mcpStore.state) =>
+  getPluginServerList(state).filter((server) => server.enabled);
 
 export const getEnabledServerCount = () => getEnabledServers().length;
 
@@ -899,7 +906,7 @@ export function useMcpStore() {
   const state = useSelector(mcpStore);
   return {
     ...state,
-    serverList: getAllServerList(),
+    serverList: getAllServerList(state),
     mcpEnabled: state.config.mcpEnabled,
     isPluginOwnedServerName,
     isVisibleServerName,

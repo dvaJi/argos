@@ -34,7 +34,6 @@ import { agentPlanStore } from "#/stores/ui/agentPlan";
 import { agentStore } from "#/stores/ui/agent";
 import { streamStateStore } from "#/stores/ui/stream";
 import {
-  isAtCapacity,
   queueItems as getQueueItems,
   queueInput,
   updateQueueInput,
@@ -42,7 +41,7 @@ import {
   deleteInput as deleteQueueInput,
   steerPendingInput,
   loadPendingInputs,
-  steerItems as getSteerItems,
+  usePendingInputLanes,
   clear as clearPendingInputStore,
 } from "#/stores/ui/pendingInput";
 import {
@@ -340,7 +339,9 @@ function ChatPage({ sessionId }: ChatPageProps) {
   const hasInputText = Boolean(message.trim());
   const hasAttachments = attachedFiles.length > 0;
   const hasDraftInput = hasInputText || hasAttachments;
+  const pendingLanes = usePendingInputLanes();
   const { isQueueSubmitDisabled, isInputSubmitDisabled } = computeChatSubmitFlags({
+    atCapacity: pendingLanes.atCapacity,
     isAcpWorkdirMissing,
     hasDraftInput,
     hasActivePendingInteraction: Boolean(activePendingInteraction),
@@ -680,6 +681,7 @@ function deriveChatPageViewState(input: {
 }
 /** Composer send/queue/steer availability (pure). */
 function computeChatSubmitFlags(input: {
+  atCapacity: boolean;
   isAcpWorkdirMissing: boolean;
   hasDraftInput: boolean;
   hasActivePendingInteraction: boolean;
@@ -688,6 +690,7 @@ function computeChatSubmitFlags(input: {
   isGenerating: boolean;
 }) {
   const {
+    atCapacity,
     isAcpWorkdirMissing,
     hasDraftInput,
     hasActivePendingInteraction,
@@ -696,13 +699,13 @@ function computeChatSubmitFlags(input: {
     isGenerating,
   } = input;
   const isQueueSubmitDisabled =
-    isAcpWorkdirMissing || !hasDraftInput || hasActivePendingInteraction || isHandlingInteraction || isAtCapacity();
+    isAcpWorkdirMissing || !hasDraftInput || hasActivePendingInteraction || isHandlingInteraction || atCapacity;
   const isInputSubmitDisabled =
     isAcpWorkdirMissing ||
     !isDaemonConnected ||
     hasActivePendingInteraction ||
     isHandlingInteraction ||
-    (isGenerating && isAtCapacity()) ||
+    (isGenerating && atCapacity) ||
     !hasDraftInput;
   return { isQueueSubmitDisabled, isInputSubmitDisabled };
 }
@@ -1561,14 +1564,15 @@ function ChatComposerDock(input: {
     onCommandSubmit,
     onSubmit,
   } = input;
+  const pendingLanes = usePendingInputLanes();
   return (
     <div className="chat-capture-hide sticky bottom-0 z-10 w-full px-6 pb-3 pt-3">
       <div className="mx-auto flex w-full max-w-5xl min-w-0 flex-col items-center">
         <div className="relative w-full">
           <PendingInputLane
-            steerItems={getSteerItems()}
-            queueItems={getQueueItems()}
-            disableSteerAction={isAtCapacity()}
+            steerItems={pendingLanes.steerItems}
+            queueItems={pendingLanes.queueItems}
+            disableSteerAction={pendingLanes.atCapacity}
             isGenerating={isGenerating}
             onDeleteQueue={onDeleteQueue}
             onDeleteSteer={onDeleteQueue}

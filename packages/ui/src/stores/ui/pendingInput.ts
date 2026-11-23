@@ -14,16 +14,21 @@ const pendingInputStore = new Store({
   error: null as string | null,
 });
 
-export const steerItems = () => pendingInputStore.state.items.filter((item) => item.mode === "steer");
+export const steerItems = (items = pendingInputStore.state.items) => items.filter((item) => item.mode === "steer");
 
-export const queueItems = () =>
-  pendingInputStore.state.items
-    .filter((item) => item.mode === "queue")
-    .sort((left, right) => (left.queueOrder ?? 0) - (right.queueOrder ?? 0));
+export const queueItems = (items = pendingInputStore.state.items) =>
+  items.filter((item) => item.mode === "queue").sort((left, right) => (left.queueOrder ?? 0) - (right.queueOrder ?? 0));
 
-const activeCount = () => queueItems().length;
+export const isAtCapacity = (items = pendingInputStore.state.items) => queueItems(items).length >= MAX_PENDING_INPUTS;
 
-export const isAtCapacity = () => activeCount() >= MAX_PENDING_INPUTS;
+/**
+ * Reactive steer/queue lanes for render. The zero-argument getters above are
+ * for handlers only: React Compiler caches such calls as constants.
+ */
+export function usePendingInputLanes() {
+  const items = useSelector(pendingInputStore, (state) => state.items);
+  return { steerItems: steerItems(items), queueItems: queueItems(items), atCapacity: isAtCapacity(items) };
+}
 
 export async function loadPendingInputs(sessionId: string): Promise<void> {
   const requestedId = sessionId;

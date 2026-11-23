@@ -8,7 +8,7 @@ import { Icon } from "@iconify/react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "#shadcn/components/ui/tooltip";
 import { createProviderClient } from "#api/ProviderClient";
 import { createSessionClient } from "#api/SessionClient";
-import { useSessionStore, getActiveSession, getHasActiveSession } from "#/stores/ui/session";
+import { useActiveSession } from "#/stores/ui/session";
 import { useModelStore, getChatSelectableModelGroups } from "#/stores/modelStore";
 import { useChatStatusBarAcpConfig } from "./composables/useChatStatusBarAcpConfig";
 import AcpAdvancedSettings from "./AcpAdvancedSettings";
@@ -26,14 +26,11 @@ const providerClient = createProviderClient();
  * surface; the status bar keeps only non-duplicated utilities.
  */
 const AcpComposerControls = ({ acpDraftSessionId = null }: { acpDraftSessionId?: string | null }) => {
-  // Subscribe so chips re-render when the active session / agent / project changes.
-  const sessionStoreState = useSessionStore();
   const agentState = useSelector(agentStore);
   const projectState = useSelector(projectStore);
   void projectState;
   const modelStore = useModelStore();
-  const hasActiveSession = getHasActiveSession();
-  const activeSession = getActiveSession();
+  const { hasActiveSession, activeSession } = useActiveSession();
   const isAcpActiveSession = hasActiveSession && activeSession?.providerId === "acp";
   // Pre-session: follow the effective agent (same resolution as AgentSwitcher)
   // and the bound draft session, so the agent's model/mode chips are editable
@@ -47,7 +44,6 @@ const AcpComposerControls = ({ acpDraftSessionId = null }: { acpDraftSessionId?:
     });
     return effective?.type === "acp" ? effective.agent.id : null;
   })();
-  void sessionStoreState;
   const isAcpContext = Boolean(isAcpActiveSession || preSessionAcpAgentId);
   const activeAcpAgentId = isAcpActiveSession ? activeSession?.modelId || null : preSessionAcpAgentId;
   const activeAcpSessionId = isAcpActiveSession

@@ -56,7 +56,7 @@ const ChatTopBar: FC<ChatTopBarProps> = ({
   }>({});
   const [renameValue, setRenameValue] = useState("");
   const renameInputRef = useRef<HTMLInputElement | null>(null);
-  const newConversationTargetAgentId = getNewConversationTargetAgentId();
+  const newConversationTargetAgentId = getNewConversationTargetAgentId(agentStore, sessionStore);
   const showCollapsedNewChatButton = sidebarStore.collapsed && Boolean(newConversationTargetAgentId);
   const projectName = project.split("/").pop() ?? project;
   const currentSession = sessionStore.sessions.find((session) => session.id === sessionId) ?? null;
