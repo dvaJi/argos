@@ -58,6 +58,14 @@ export interface McpHostServices {
   /** MCP server requests LLM sampling; host resolves via UI + provider. */
   handleSamplingRequest?(payload: unknown): Promise<unknown>;
   cancelSamplingRequest?(requestId: string, reason?: string): Promise<void>;
+  /** MCP server elicits structured input from the user; host resolves via UI. */
+  handleElicitationRequest?(payload: unknown): Promise<unknown>;
+  cancelElicitationRequest?(requestId: string, reason?: string): Promise<void>;
+  /** Open a URL in the user's system browser (OAuth authorization step). */
+  openExternal?(url: string): Promise<void>;
+  /** Small persisted JSON values for MCP client state (OAuth tokens etc.). */
+  readJsonFile?(key: string): Promise<unknown>;
+  writeJsonFile?(key: string, value: unknown): Promise<void>;
   generateCompletionStandalone?(...args: unknown[]): Promise<string>;
   getProviderModels?(providerId: string): unknown[];
   getCustomModels?(providerId: string): unknown[];

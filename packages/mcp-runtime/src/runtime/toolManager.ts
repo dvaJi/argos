@@ -1,10 +1,16 @@
 import type { McpHostPorts } from "../host/ports";
+import type { CompleteRequest } from "@modelcontextprotocol/client";
 
 const MCP_EVENTS = {
   CLIENT_LIST_UPDATED: "mcp:client-list-updated",
   CONFIG_CHANGED: "mcp:config-changed",
+  SERVER_STATUS_CHANGED: "mcp:server-status-changed",
   TOOL_CALL_RESULT: "mcp:tool-call-result",
 } as const;
+/** How long a tool-list rebuild waits for dropped servers to reconnect. */
+const RECONNECT_ON_REBUILD_MS = 3000;
+/** How long a call to a missing tool waits for dropped servers to reconnect. */
+const RECONNECT_ON_MISS_MS = 10_000;
 const NOTIFICATION_EVENTS = {
   SHOW_ERROR: "notification:show-error",
 } as const;
@@ -42,8 +48,11 @@ export class ToolManager {
   private readonly ports: McpHostPorts;
   private unsubClientList?: () => void;
   private unsubConfig?: () => void;
+  private unsubServerStatus?: () => void;
   private cachedToolDefinitions: MCPToolDefinition[] | null = null;
   private toolNameToTargetMap: Map<string, { client: McpClient; originalName: string }> | null = null;
+  /** Bumped on every invalidation; a rebuild that raced one is not cached. */
+  private cacheGeneration = 0;
   private catalogToolTargets: Map<string, { serverName: string; tool: PluginToolCatalogTool }> | null = null;
   // Session-scoped permission cache: conversationId -> Set of "serverName:permissionType"
   private sessionPermissions = new Map<string, Set<string>>();
@@ -54,10 +63,37 @@ export class ToolManager {
     this.ports = ports;
     this.unsubClientList = ports.events.subscribe(MCP_EVENTS.CLIENT_LIST_UPDATED, this.handleServerListUpdate);
     this.unsubConfig = ports.events.subscribe(MCP_EVENTS.CONFIG_CHANGED, this.handleConfigChange);
+    // A client that drops and reconnects keeps its slot in ServerManager, so
+    // no client-list event fires; its connect/disconnect status must refresh
+    // the target map too.
+    this.unsubServerStatus = ports.events.subscribe(MCP_EVENTS.SERVER_STATUS_CHANGED, this.handleServerListUpdate);
+  }
+
+  /**
+   * Resolves a tool's target, recovering from a stale map: if the tool is
+   * missing (its server dropped while the map was rebuilt), reconnect dropped
+   * clients, rebuild, and look again.
+   */
+  private async resolveToolTarget(
+    finalName: string,
+    accessContext?: AgentToolAccessContext,
+    signal?: AbortSignal,
+  ): Promise<{ client: McpClient; originalName: string } | undefined> {
+    await this.getAllToolDefinitions(undefined, accessContext);
+    const found = this.toolNameToTargetMap?.get(finalName);
+    if (found || this.catalogToolTargets?.has(finalName)) return found;
+    // Bounded and abortable: STOP must not sit behind an unrelated server's
+    // slow reconnect or browser login.
+    const reconnected = await this.serverManager.reconnectDroppedClients({ waitMs: RECONNECT_ON_MISS_MS, signal });
+    if (!reconnected || signal?.aborted) return undefined;
+    this.handleServerListUpdate();
+    await this.getAllToolDefinitions(undefined, accessContext);
+    return this.toolNameToTargetMap?.get(finalName);
   }
 
   private handleServerListUpdate = (): void => {
     console.info("MCP client list updated, clearing tool definitions cache and target map.");
+    this.cacheGeneration += 1;
     this.cachedToolDefinitions = null;
     this.toolNameToTargetMap = null;
     this.catalogToolTargets = null;
@@ -65,6 +101,7 @@ export class ToolManager {
 
   private handleConfigChange = (): void => {
     console.info("MCP configuration changed, clearing cached data.");
+    this.cacheGeneration += 1;
     this.cachedToolDefinitions = null;
     this.toolNameToTargetMap = null;
     this.catalogToolTargets = null;
@@ -272,22 +309,25 @@ export class ToolManager {
     }
 
     console.info("Fetching/refreshing tool definitions and target map...");
+    // A server that dropped (e.g. its process restarted) stays registered but
+    // is not "running"; give it a short chance to come back so this rebuild
+    // (often a new agent turn) does not silently lose its tools.
+    await this.serverManager.reconnectDroppedClients?.({ waitMs: RECONNECT_ON_REBUILD_MS });
+    // Status events from background reconnects may invalidate the cache while
+    // this rebuild awaits; build into a local map and publish it together
+    // with the definitions, caching them only if nothing changed meanwhile.
+    const generation = this.cacheGeneration;
     const clients = await this.serverManager.getRunningClients();
     const results: MCPToolDefinition[] = [];
-    // Initialize/clear the map before processing
-    if (this.toolNameToTargetMap) {
-      this.toolNameToTargetMap.clear(); // Clear existing map
-    } else {
-      this.toolNameToTargetMap = new Map(); // Initialize if null
-    }
+    const targetMap = new Map<string, { client: McpClient; originalName: string }>();
 
     if (!clients || clients.length === 0) {
       console.warn("No running MCP clients found.");
       const catalogOnlyResults: MCPToolDefinition[] = [];
       const catalogOnlyServerMap = new Map<string, string>();
-      this.toolNameToTargetMap = this.toolNameToTargetMap ?? new Map();
+      this.toolNameToTargetMap = targetMap;
       this.appendCatalogToolDefinitions(catalogOnlyResults, catalogOnlyServerMap);
-      this.cachedToolDefinitions = catalogOnlyResults;
+      this.cachedToolDefinitions = generation === this.cacheGeneration ? catalogOnlyResults : null;
       return await this.filterToolDefinitions(catalogOnlyResults, enabledTools, accessContext);
     }
 
@@ -400,9 +440,7 @@ export class ToolManager {
           });
 
           // Populate the target map
-          if (this.toolNameToTargetMap) {
-            this.toolNameToTargetMap.set(finalName, { client: client, originalName: originalName });
-          }
+          targetMap.set(finalName, { client: client, originalName: originalName });
         }
       } catch (error: unknown) {
         // Log error but continue building results from other clients
@@ -416,9 +454,10 @@ export class ToolManager {
       }
     }
 
-    // Cache results and return
+    // Publish the map and definitions together; cache only if still current.
+    this.toolNameToTargetMap = targetMap;
     this.appendCatalogToolDefinitions(results, toolNameToServerMap);
-    this.cachedToolDefinitions = results;
+    this.cachedToolDefinitions = generation === this.cacheGeneration ? results : null;
     console.info(`Cached ${results.length} final tool definitions and populated target map.`);
 
     return await this.filterToolDefinitions(results, enabledTools, accessContext);
@@ -585,14 +624,8 @@ export class ToolManager {
     const finalName = toolCall.function.name;
 
     // Ensure definitions and map are loaded/cached
-    await this.getAllToolDefinitions(undefined, options?.accessContext);
+    const targetInfo = await this.resolveToolTarget(finalName, options?.accessContext);
 
-    if (!this.toolNameToTargetMap) {
-      console.error("[ToolManager] Tool target map is not available for permission check.");
-      return null;
-    }
-
-    const targetInfo = this.toolNameToTargetMap.get(finalName);
     const catalogTarget = targetInfo ? undefined : this.catalogToolTargets?.get(finalName);
 
     if (!targetInfo && !catalogTarget) {
@@ -638,7 +671,7 @@ export class ToolManager {
 
   async callTool(
     toolCall: MCPToolCall,
-    options?: { accessContext?: AgentToolAccessContext },
+    options?: { accessContext?: AgentToolAccessContext; signal?: AbortSignal },
   ): Promise<MCPToolResponse> {
     try {
       const finalName = toolCall.function.name;
@@ -652,18 +685,7 @@ export class ToolManager {
       });
 
       // Ensure definitions and map are loaded/cached
-      await this.getAllToolDefinitions(undefined, options?.accessContext);
-
-      if (!this.toolNameToTargetMap) {
-        console.error("Tool target map is not available.");
-        return {
-          toolCallId: toolCall.id,
-          content: `Error: Internal error - tool information not available.`,
-          isError: true,
-        };
-      }
-
-      let targetInfo = this.toolNameToTargetMap.get(finalName);
+      let targetInfo = await this.resolveToolTarget(finalName, options?.accessContext, options?.signal);
 
       if (!targetInfo) {
         const catalogTarget = this.catalogToolTargets?.get(finalName);
@@ -834,8 +856,13 @@ export class ToolManager {
         };
       }
 
-      // Call the tool on the target client using the ORIGINAL name
-      const result = await targetClient.callTool(originalName, args || {});
+      // Call the tool on the target client using the ORIGINAL name. The LLM
+      // tool-call id is threaded through so task progress events can be
+      // correlated with the chat's tool_call blocks.
+      const result = await targetClient.callTool(originalName, args || {}, {
+        toolCallId: toolCall.id,
+        signal: options?.signal,
+      });
 
       // Format response
       let formattedContent: string | MCPContentItem[] = "";
@@ -912,6 +939,34 @@ export class ToolManager {
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.error("Failed to get prompt template:", errorMessage);
       throw new Error(`Failed to get prompt template: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * `completion/complete` against a specific server: argument suggestions for
+   * prompts / resource templates (server-provided; empty when unsupported).
+   */
+  async completeArgumentByClient(
+    clientName: string,
+    params: CompleteRequest["params"],
+  ): Promise<unknown> {
+    try {
+      const clients = await this.getRunningClients();
+
+      const client = clients.find((c) => c.serverName === clientName);
+      if (!client) {
+        throw new Error(`MCP client not found: ${clientName}`);
+      }
+
+      if (typeof client.completeArgument !== "function") {
+        throw new Error(`MCP client ${clientName} does not support argument completion`);
+      }
+
+      return await client.completeArgument(params);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error("Failed to complete argument:", errorMessage);
+      throw new Error(`Failed to complete argument: ${errorMessage}`);
     }
   }
 
@@ -1060,6 +1115,7 @@ export class ToolManager {
   public destroy(): void {
     this.unsubClientList?.();
     this.unsubConfig?.();
+    this.unsubServerStatus?.();
   }
 
   private readStringArg(value: unknown): string | undefined {

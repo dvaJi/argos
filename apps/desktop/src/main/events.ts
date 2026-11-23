@@ -149,6 +149,7 @@ export const MCP_EVENTS = {
   SERVER_STOPPED: "mcp:server-stopped",
   CONFIG_CHANGED: "mcp:config-changed",
   TOOL_CALL_RESULT: "mcp:tool-call-result",
+  TOOL_CALL_PROGRESS: "mcp:tool-call-progress",
   SERVER_STATUS_CHANGED: "mcp:server-status-changed",
   CLIENT_LIST_UPDATED: "mcp:client-list-updated",
   INITIALIZED: "mcp:initialized", // New: MCP initialization completed event

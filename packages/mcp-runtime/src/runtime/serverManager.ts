@@ -1,5 +1,6 @@
 import type { IConfigPresenter, MCPServerConfig } from "@argos/shared/presenter";
 import { McpClient } from "./mcpClient";
+import { ArgosOAuthClientProvider } from "./oauthProvider";
 import axios from "axios";
 import type { McpHostPorts } from "../host/ports";
 
@@ -213,6 +214,45 @@ export class ServerManager {
     return clients;
   }
 
+  /**
+   * Reconnects clients that are still registered (never stopped) but lost
+   * their connection, e.g. after a session error cleared the transport.
+   * Returns true when at least one came back.
+   *
+   * With `waitMs`, stops waiting after that long; slower reconnects finish in
+   * the background and announce themselves via the server-status event.
+   */
+  async reconnectDroppedClients(options?: { waitMs?: number; signal?: AbortSignal }): Promise<boolean> {
+    const dropped = [...this.clients.entries()].filter(([name]) => !this.isServerRunning(name));
+    if (dropped.length === 0) return false;
+    const attempts = dropped.map(([name, client]) =>
+      client.connect().then(
+        () => true,
+        (error: unknown) => {
+          console.warn(`[MCP] Reconnecting ${name} failed:`, error);
+          return false;
+        },
+      ),
+    );
+    const all = Promise.all(attempts).then((results) => results.some(Boolean));
+    const signal = options?.signal;
+    if (options?.waitMs === undefined && !signal) return await all;
+    if (signal?.aborted) return false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let onAbort: (() => void) | undefined;
+    const stop = new Promise<boolean>((resolve) => {
+      if (options?.waitMs !== undefined) timer = setTimeout(() => resolve(false), options.waitMs);
+      onAbort = () => resolve(false);
+      signal?.addEventListener("abort", onAbort, { once: true });
+    });
+    try {
+      return await Promise.race([all, stop]);
+    } finally {
+      clearTimeout(timer);
+      if (onAbort) signal?.removeEventListener("abort", onAbort);
+    }
+  }
+
   async startServer(name: string, configOverride?: Partial<MCPServerConfig>): Promise<void> {
     // If server is already running, no need to start again
     if (this.clients.has(name)) {
@@ -314,6 +354,20 @@ export class ServerManager {
       return false;
     }
     return client.isServerRunning();
+  }
+
+  /** Best-effort OAuth sign-out for a server (invalidates stored credentials). */
+  async invalidateCredentials(name: string, scope?: "all" | "client" | "tokens" | "verifier" | "state" | "discovery"): Promise<void> {
+    const client = this.clients.get(name);
+    if (client) {
+      await client.invalidateCredentials(scope);
+      return;
+    }
+    // Stopped or failed servers have no client, but their credentials are
+    // persisted per server name: clear them from storage directly.
+    await new ArgosOAuthClientProvider({ serverName: name, services: this.ports.services }).invalidateCredentials(
+      scope,
+    );
   }
 
   /**

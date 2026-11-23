@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+import { Server } from "@argos/mcp-runtime";
+import { CallToolRequestSchema, ListToolsRequestSchema } from "@argos/mcp-runtime";
 import { ConversationSearchServer } from "@argos/mcp-runtime";
 
 const serverInstances = vi.hoisted(() => [] as Array<{ handlers: Map<unknown, Function> }>);
@@ -10,7 +10,7 @@ const mockSearchMessages = vi.hoisted(() => vi.fn<(...args: any[]) => any>());
 const mockGetConversationHistory = vi.hoisted(() => vi.fn<(...args: any[]) => any>());
 const mockGetConversationStats = vi.hoisted(() => vi.fn<(...args: any[]) => any>());
 
-vi.mock("@modelcontextprotocol/sdk/server/index.js", () => ({
+vi.mock("@modelcontextprotocol/server", () => ({
   Server: vi.fn<(...args: any[]) => any>(),
 }));
 
@@ -25,8 +25,8 @@ describe("ConversationSearchServer", () => {
       const instance = {
         handlers: new Map<unknown, Function>(),
         connect: vi.fn<(...args: any[]) => any>(),
-        setRequestHandler: vi.fn<(...args: any[]) => any>((schema: unknown, handler: Function) => {
-          instance.handlers.set(schema, handler);
+        setRequestHandler: vi.fn<(...args: any[]) => any>((method: unknown, _schemas: unknown, handler: Function) => {
+          instance.handlers.set(method, handler);
         }),
       };
       serverInstances.push(instance);
@@ -94,7 +94,7 @@ describe("ConversationSearchServer", () => {
       activeConversations: [],
     });
 
-    const listHandler = serverInstances[0].handlers.get(ListToolsRequestSchema);
+    const listHandler = serverInstances[0].handlers.get("tools/list");
     const toolsResult = await listHandler?.();
     expect(toolsResult.tools.map((tool: { name: string }) => tool.name)).toEqual([
       "search_conversations",
@@ -103,37 +103,29 @@ describe("ConversationSearchServer", () => {
       "get_conversation_stats",
     ]);
 
-    const callHandler = serverInstances[0].handlers.get(CallToolRequestSchema);
+    const callHandler = serverInstances[0].handlers.get("tools/call");
     const searchResult = await callHandler?.({
-      params: {
-        name: "search_conversations",
-        arguments: { query: "daemon" },
-      },
+      name: "search_conversations",
+      arguments: { query: "daemon" },
     });
     expect(searchResult.content[0].text).toContain("Release planning");
     expect(mockSearchConversations).toHaveBeenCalledWith("daemon", 10, 0);
 
     const messagesResult = await callHandler?.({
-      params: {
-        name: "search_messages",
-        arguments: { query: "daemon" },
-      },
+      name: "search_messages",
+      arguments: { query: "daemon" },
     });
     expect(messagesResult.content[0].text).toContain("daemon compatibility");
 
     const historyResult = await callHandler?.({
-      params: {
-        name: "get_conversation_history",
-        arguments: { conversationId: "session-1" },
-      },
+      name: "get_conversation_history",
+      arguments: { conversationId: "session-1" },
     });
     expect(historyResult.content[0].text).toContain('"role": "user"');
 
     const statsResult = await callHandler?.({
-      params: {
-        name: "get_conversation_stats",
-        arguments: { days: 7 },
-      },
+      name: "get_conversation_stats",
+      arguments: { days: 7 },
     });
     expect(statsResult.content[0].text).toContain('"period": "7 days"');
     expect(statsResult.content[0].text).toContain('"conversations": 2');

@@ -47,6 +47,22 @@ describe("AcpCapabilities", () => {
       });
       expect(buildClientCapabilities({ enableTerminal: false, enableTerminalAuth: true }).auth).toBeUndefined();
     });
+
+    it("advertises handled live-update capabilities and nothing unhandled", () => {
+      const caps = buildClientCapabilities();
+
+      expect(caps.plan).toEqual({});
+      expect(caps.session).toEqual({
+        compaction: {},
+        notices: {},
+        promptSuggestions: {},
+        cursors: {},
+      });
+      // Elicitation supports form dialogs and the URL card (open browser +
+      // mark complete, auto-accepted on the agent's elicitation/complete).
+      expect(caps.elicitation).toEqual({ form: {}, url: {} });
+      expect(caps.subagents).toEqual({});
+    });
   });
 
   describe("buildCapabilitySnapshot", () => {
@@ -70,6 +86,9 @@ describe("AcpCapabilities", () => {
             list: {},
             resume: {},
             close: {},
+            delete: {},
+            archive: {},
+            status: {},
           },
         },
       });
@@ -84,6 +103,10 @@ describe("AcpCapabilities", () => {
         sessionResume: true,
         sessionClose: true,
         sessionFork: false,
+        sessionDelete: true,
+        sessionArchive: true,
+        sessionStatus: true,
+        sessionTitle: false,
         authLogout: false,
       });
     });

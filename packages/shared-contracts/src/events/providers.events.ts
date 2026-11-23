@@ -37,5 +37,43 @@ export const acpAuthChangedEvent = defineEventContract({
     output: zod.string().nullable().optional(),
     exitCode: zod.number().nullable().optional(),
     error: zod.string().nullable().optional(),
+    authStatus: zod
+      .object({
+        state: zod.string(),
+        accounts: zod
+          .array(
+            zod.object({
+              label: zod.string(),
+              description: zod.string().nullable().optional(),
+              active: zod.boolean().nullable().optional(),
+              name: zod.string().nullable().optional(),
+              email: zod.string().nullable().optional(),
+            }),
+          )
+          .optional(),
+      })
+      .optional(),
+  }),
+});
+
+export const acpAuthElicitationEvent = defineEventContract({
+  name: "providers.acpAuth.elicitation",
+  payload: zod.object({
+    requestId: zod.string(),
+    agentId: zod.string(),
+    workdir: zod.string().nullable().optional(),
+    mode: zod.string(),
+    message: zod.string(),
+    requestedSchema: zod.unknown().optional(),
+    url: zod.string().nullable().optional(),
+    elicitationId: zod.string().nullable().optional(),
+    toolCallId: zod.string().nullable().optional(),
+  }),
+});
+
+export const acpAuthElicitationResolvedEvent = defineEventContract({
+  name: "providers.acpAuth.elicitationResolved",
+  payload: zod.object({
+    requestId: zod.string(),
   }),
 });

@@ -171,6 +171,9 @@ import {
   sessionsDeleteMessageRoute,
   sessionsEditUserMessageRoute,
   sessionsForkRoute,
+  sessionsGetAcpCursorsRoute,
+  sessionsGetAcpSessionStatusRoute,
+  sessionsForkAcpCursorRoute,
   sessionsSearchHistoryRoute,
   sessionsGetSearchResultsRoute,
   sessionsListMessageTracesRoute,
@@ -233,9 +236,14 @@ import {
   mcpListPromptsRoute,
   mcpGetPromptRoute,
   mcpListResourcesRoute,
+  mcpListResourceTemplatesRoute,
+  mcpCompleteArgumentRoute,
+  mcpInvalidateOAuthCredentialsRoute,
   mcpReadResourceRoute,
   mcpSubmitSamplingDecisionRoute,
   mcpCancelSamplingRequestRoute,
+  mcpCancelElicitationRoute,
+  mcpSubmitElicitationDecisionRoute,
   skillsListMetadataRoute,
   skillsGetDirectoryRoute,
   skillsInstallFromFolderRoute,
@@ -316,6 +324,7 @@ import {
   providersImportScanRoute,
   providersImportApplyRoute,
   providersStartAcpAuthRoute,
+  providersRespondAcpAuthElicitationRoute,
   providersWriteAcpAuthInputRoute,
   providersCancelAcpAuthRoute,
   modelsListRuntimeRoute,
@@ -351,12 +360,22 @@ type DaemonAcpSessionExecutionPort = {
   getAcpSessionModes?(conversationId: string): Promise<unknown>;
   setAcpSessionMode?(conversationId: string, modeId: string): Promise<void>;
   resolveAgentPermission?(requestId: string, granted: boolean): Promise<void>;
+  getAcpSessionCursors?(conversationId: string): Promise<unknown>;
+  forkAcpSessionAtCursor?(conversationId: string, cursorId?: string): Promise<unknown>;
+  pushAcpSessionTitle?(conversationId: string, title: string): Promise<void>;
+  archiveAcpSession?(conversationId: string, archived: boolean): Promise<void>;
+  getAcpSessionStatus?(conversationId: string): Promise<string | null>;
   startAcpAuth?(input: { agentId: string; workdir?: string; methodId: string }): Promise<{
     mode: "agent" | "terminal";
     runId: string | null;
   }>;
   writeAcpAuthInput?(agentId: string, runId: string, data: string): Promise<void>;
   cancelAcpAuth?(agentId: string): Promise<void>;
+  respondAcpAuthElicitation?(
+    requestId: string,
+    action: "accept" | "decline" | "cancel",
+    content?: Record<string, string | number | boolean | string[]>,
+  ): Promise<boolean>;
 };
 
 type DaemonTranslatePort = {
@@ -824,6 +843,14 @@ export function createDaemonDispatcher(
     getPrompt(p: unknown, a?: Record<string, unknown>): Promise<unknown>;
     listResources(): Promise<unknown[]>;
     readResource(r: unknown): Promise<unknown>;
+    listResourceTemplates(): Promise<unknown[]>;
+    completeArgument(serverName: string, params: unknown): Promise<unknown>;
+    invalidateOAuthCredentials(
+      serverName: string,
+      scope?: "all" | "client" | "tokens" | "verifier" | "state" | "discovery",
+    ): Promise<void>;
+    resolveElicitationDecision(decision: unknown): boolean;
+    cancelElicitation(requestId: string, reason?: string): boolean;
   },
   skillRuntime: {
     presenter: {
@@ -1137,7 +1164,18 @@ export function createDaemonDispatcher(
 
     if (route === mcpUpdateServerRoute.name) {
       const input = mcpUpdateServerRoute.input.parse(rawInput);
+      const wasRunning = mcpRuntime.isServerRunning(input.serverName);
       await configPresenter.updateMcpServer(input.serverName, input.config);
+      // A running client keeps the config it started with: restart it so the
+      // edit takes effect (desktop parity).
+      if (wasRunning) {
+        try {
+          await mcpRuntime.stopServer(input.serverName);
+          await mcpRuntime.startServer(input.serverName);
+        } catch (error) {
+          console.error(`[daemon] Failed to restart MCP server ${input.serverName} after update:`, error);
+        }
+      }
       return mcpUpdateServerRoute.output.parse({ updated: true });
     }
 
@@ -1292,6 +1330,23 @@ export function createDaemonDispatcher(
       return mcpListResourcesRoute.output.parse({ resources: await mcpRuntime.listResources() });
     }
 
+    if (route === mcpListResourceTemplatesRoute.name) {
+      mcpListResourceTemplatesRoute.input.parse(rawInput);
+      return mcpListResourceTemplatesRoute.output.parse({ templates: await mcpRuntime.listResourceTemplates() });
+    }
+
+    if (route === mcpCompleteArgumentRoute.name) {
+      const input = mcpCompleteArgumentRoute.input.parse(rawInput);
+      const completion = await mcpRuntime.completeArgument(input.serverName, input.params);
+      return mcpCompleteArgumentRoute.output.parse({ completion });
+    }
+
+    if (route === mcpInvalidateOAuthCredentialsRoute.name) {
+      const input = mcpInvalidateOAuthCredentialsRoute.input.parse(rawInput);
+      await mcpRuntime.invalidateOAuthCredentials(input.serverName, input.scope);
+      return mcpInvalidateOAuthCredentialsRoute.output.parse({ invalidated: true });
+    }
+
     if (route === mcpReadResourceRoute.name) {
       const input = mcpReadResourceRoute.input.parse(rawInput);
       return mcpReadResourceRoute.output.parse({ resource: await mcpRuntime.readResource(input.resource) });
@@ -1307,6 +1362,18 @@ export function createDaemonDispatcher(
     if (route === mcpCancelSamplingRequestRoute.name) {
       mcpCancelSamplingRequestRoute.input.parse(rawInput);
       return mcpCancelSamplingRequestRoute.output.parse({ cancelled: true });
+    }
+
+    if (route === mcpSubmitElicitationDecisionRoute.name) {
+      const input = mcpSubmitElicitationDecisionRoute.input.parse(rawInput);
+      const handled = mcpRuntime.resolveElicitationDecision(input.decision);
+      return mcpSubmitElicitationDecisionRoute.output.parse({ handled });
+    }
+
+    if (route === mcpCancelElicitationRoute.name) {
+      const input = mcpCancelElicitationRoute.input.parse(rawInput);
+      const cancelled = mcpRuntime.cancelElicitation(input.requestId, input.reason);
+      return mcpCancelElicitationRoute.output.parse({ cancelled });
     }
 
     // === Skills routes ===
@@ -2983,6 +3050,27 @@ export function createDaemonDispatcher(
       return sessionsForkRoute.output.parse({ session });
     }
 
+    if (route === sessionsGetAcpCursorsRoute.name) {
+      const input = sessionsGetAcpCursorsRoute.input.parse(rawInput);
+      const cursors = (await acpSessionExecutionPort?.getAcpSessionCursors?.(input.conversationId)) ?? [];
+      return sessionsGetAcpCursorsRoute.output.parse({ cursors });
+    }
+
+    if (route === sessionsGetAcpSessionStatusRoute.name) {
+      const input = sessionsGetAcpSessionStatusRoute.input.parse(rawInput);
+      const status = (await acpSessionExecutionPort?.getAcpSessionStatus?.(input.conversationId)) ?? null;
+      return sessionsGetAcpSessionStatusRoute.output.parse({ status });
+    }
+
+    if (route === sessionsForkAcpCursorRoute.name) {
+      const input = sessionsForkAcpCursorRoute.input.parse(rawInput);
+      if (!acpSessionExecutionPort?.forkAcpSessionAtCursor) {
+        throw new Error("ACP session execution port is not available");
+      }
+      const session = await acpSessionExecutionPort.forkAcpSessionAtCursor(input.conversationId, input.cursorId);
+      return sessionsForkAcpCursorRoute.output.parse({ session });
+    }
+
     if (route === sessionsSearchHistoryRoute.name) {
       const input = sessionsSearchHistoryRoute.input.parse(rawInput);
       const normalizedQuery = normalizeSearchText(input.query);
@@ -3290,6 +3378,9 @@ export function createDaemonDispatcher(
     if (route === sessionsRenameRoute.name) {
       const input = sessionsRenameRoute.input.parse(rawInput);
       await (runtime as any).sessionRepository.rename(input.sessionId, input.title);
+      // Best-effort: mirror the title into the agent's own transcript.
+      // Fire-and-forget so a slow or unresponsive agent never delays the rename.
+      void acpSessionExecutionPort?.pushAcpSessionTitle?.(input.sessionId, input.title)?.catch(() => undefined);
       return sessionsRenameRoute.output.parse({ updated: true });
     }
 
@@ -3302,6 +3393,8 @@ export function createDaemonDispatcher(
     if (route === sessionsSetArchivedRoute.name) {
       const input = sessionsSetArchivedRoute.input.parse(rawInput);
       await (runtime as any).sessionRepository.setArchived(input.sessionId, input.archived);
+      // Best-effort: mirror the archive state into the agent (capability-gated).
+      await acpSessionExecutionPort?.archiveAcpSession?.(input.sessionId, input.archived).catch(() => undefined);
       return sessionsSetArchivedRoute.output.parse({ updated: true });
     }
 
@@ -3444,6 +3537,19 @@ export function createDaemonDispatcher(
       }
       const result = await acpSessionExecutionPort.startAcpAuth(input);
       return providersStartAcpAuthRoute.output.parse(result);
+    }
+
+    if (route === providersRespondAcpAuthElicitationRoute.name) {
+      const input = providersRespondAcpAuthElicitationRoute.input.parse(rawInput);
+      if (!acpSessionExecutionPort?.respondAcpAuthElicitation) {
+        return providersRespondAcpAuthElicitationRoute.output.parse({ handled: false });
+      }
+      const handled = await acpSessionExecutionPort.respondAcpAuthElicitation(
+        input.requestId,
+        input.action,
+        input.content,
+      );
+      return providersRespondAcpAuthElicitationRoute.output.parse({ handled });
     }
 
     if (route === providersWriteAcpAuthInputRoute.name) {

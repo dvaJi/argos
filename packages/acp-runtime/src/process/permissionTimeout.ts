@@ -37,3 +37,35 @@ export async function resolvePermissionWithTimeout(
     }
   }
 }
+
+/**
+ * Race an elicitation resolver against a timeout. If the resolver does not
+ * settle within `timeoutMs`, resolve with a cancelled action (the user never
+ * answered) and invoke `onTimeout` for cleanup. A non-positive `timeoutMs`
+ * disables the timeout.
+ */
+export async function resolveElicitationWithTimeout(
+  resolver: () => Promise<schema.CreateElicitationResponse>,
+  timeoutMs: number,
+  onTimeout?: () => void,
+): Promise<schema.CreateElicitationResponse> {
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    return resolver();
+  }
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<schema.CreateElicitationResponse>((resolve) => {
+    timer = setTimeout(() => {
+      onTimeout?.();
+      resolve({ action: "cancel" });
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([resolver(), timeoutPromise]);
+  } finally {
+    if (timer) {
+      clearTimeout(timer);
+    }
+  }
+}

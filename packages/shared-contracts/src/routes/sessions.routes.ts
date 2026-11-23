@@ -302,6 +302,45 @@ export const sessionsForkRoute = defineRouteContract({
   }),
 });
 
+export const acpCursorSchema = zod.object({
+  cursorId: zod.string(),
+  forkable: zod.boolean(),
+  anchorType: zod.string(),
+  anchorId: zod.string().optional(),
+  position: zod.string().optional(),
+});
+
+export const sessionsGetAcpCursorsRoute = defineRouteContract({
+  name: "sessions.getAcpCursors",
+  input: zod.object({
+    conversationId: EntityIdSchema,
+  }),
+  output: zod.object({
+    cursors: zod.array(acpCursorSchema),
+  }),
+});
+
+export const sessionsGetAcpSessionStatusRoute = defineRouteContract({
+  name: "sessions.getAcpSessionStatus",
+  input: zod.object({
+    conversationId: EntityIdSchema,
+  }),
+  output: zod.object({
+    status: zod.string().nullable(),
+  }),
+});
+
+export const sessionsForkAcpCursorRoute = defineRouteContract({
+  name: "sessions.forkAcpCursor",
+  input: zod.object({
+    conversationId: EntityIdSchema,
+    cursorId: zod.string().optional(),
+  }),
+  output: zod.object({
+    session: SessionWithStateSchema,
+  }),
+});
+
 export const sessionsSearchHistoryRoute = defineRouteContract({
   name: "sessions.searchHistory",
   input: zod.object({

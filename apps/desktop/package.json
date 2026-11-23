@@ -41,6 +41,9 @@
     "@electron-toolkit/utils": "^4.0.0",
     "@jxa/run": "^1.4.0",
     "@modelcontextprotocol/sdk": "catalog:",
+    "@modelcontextprotocol/core": "catalog:",
+    "@modelcontextprotocol/client": "catalog:",
+    "@modelcontextprotocol/server": "catalog:",
     "ai": "catalog:",
     "axios": "^1.21.1",
     "chokidar": "^6.0.0",
@@ -68,7 +71,7 @@
     "xml2js": "^0.6.2"
   },
   "devDependencies": {
-    "@agentclientprotocol/sdk": "^2.5.0",
+    "@agentclientprotocol/sdk": "^2.8.0",
     "@electron-toolkit/tsconfig": "^2.0.0",
     "@playwright/test": "catalog:",
     "@types/node": "catalog:",

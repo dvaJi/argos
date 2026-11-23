@@ -1,7 +1,8 @@
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+import { Server } from "@modelcontextprotocol/server";
+
 import zod from "zod";
-import { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
+import type { Transport } from "@modelcontextprotocol/client";
+import { ToolsCallParamsSchema, ToolsListParamsSchema } from "../protocol/v2-schemas";
 import axios from "axios";
 
 // Schema definitions
@@ -121,7 +122,7 @@ export class RagflowKnowledgeServer {
   // Set up request handlers
   private setupRequestHandlers(): void {
     // Register the tools-list handler
-    this.server.setRequestHandler(ListToolsRequestSchema, async () => {
+    this.server.setRequestHandler("tools/list", { params: ToolsListParamsSchema }, async () => {
       const tools = this.configs
         .filter((conf) => conf.enabled)
         .map((config, index) => {
@@ -141,8 +142,8 @@ export class RagflowKnowledgeServer {
     });
 
     // Register the tool-call handler
-    this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
-      const { name, arguments: parameters } = request.params;
+    this.server.setRequestHandler("tools/call", { params: ToolsCallParamsSchema }, async (requestParams) => {
+      const { name, arguments: parameters } = requestParams;
 
       // Check whether this is a RAGFlow knowledge-base search tool
       if (name.startsWith("ragflow_knowledge_search")) {

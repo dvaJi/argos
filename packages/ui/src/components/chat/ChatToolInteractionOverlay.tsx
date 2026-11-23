@@ -1,12 +1,18 @@
-import { type FC } from "react";
+import { type FC, useState } from "react";
+import { type ElicitationChoiceProperty, multiChoiceOptions, singleChoiceOptions } from "#/lib/elicitationOptions";
+import { ElicitationChoices } from "#/components/mcp/ElicitationChoices";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
+import { Input } from "#shadcn/components/ui/input";
+import { Label } from "#shadcn/components/ui/label";
+import { Checkbox } from "#shadcn/components/ui/checkbox";
+import { openRuntimeExternal } from "#api/runtime";
 import type { ToolInteractionResponse } from "@argos/shared/types/agent-interface";
 import type { DisplayAssistantMessageBlock } from "#/components/chat/messageListItems";
 type PendingInteractionView = {
   messageId: string;
   toolCallId: string;
-  actionType: "question_request" | "tool_call_permission";
+  actionType: "question_request" | "tool_call_permission" | "elicitation_request";
   toolName: string;
   toolArgs: string;
   block: DisplayAssistantMessageBlock;
@@ -17,6 +23,243 @@ interface ChatToolInteractionOverlayProps {
   embedded?: boolean;
   onRespond: (response: ToolInteractionResponse) => void;
 }
+
+type ElicitationPropertyView = ElicitationChoiceProperty & {
+  type?: string;
+  title?: string;
+  description?: string;
+};
+type ElicitationFormView = {
+  mode?: string;
+  message?: string;
+  title?: string | null;
+  description?: string | null;
+  properties?: Record<string, ElicitationPropertyView>;
+  required?: string[];
+  toolCallId?: string | null;
+  url?: string;
+  elicitationId?: string;
+};
+
+const parseElicitationPayload = (raw: unknown): ElicitationFormView | null => {
+  if (typeof raw !== "string" || !raw.trim()) return null;
+  try {
+    const parsed = JSON.parse(raw) as ElicitationFormView;
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
+type ElicitationFieldValue = string | boolean | string[];
+
+/** URL-mode elicitation: direct the user to the agent's URL and wait for completion. */
+const ChatUrlElicitationCard: FC<{
+  payload: ElicitationFormView;
+  processing: boolean;
+  onRespond: (response: ToolInteractionResponse) => void;
+}> = ({ payload, processing, onRespond }) => {
+  const url = typeof payload.url === "string" ? payload.url : "";
+  return (
+    <div className="mt-3 space-y-2">
+      {url && (
+        <button
+          type="button"
+          disabled={processing}
+          className="w-full rounded-md border bg-muted/50 px-3 py-2 text-left text-xs break-all transition-colors hover:bg-muted disabled:opacity-50"
+          title={url}
+          onClick={() => void openRuntimeExternal(url)}
+        >
+          <span className="flex items-center gap-1.5">
+            <Icon icon="lucide:external-link" className="h-3.5 w-3.5 shrink-0" />
+            {url}
+          </span>
+        </button>
+      )}
+      <div className="flex gap-2">
+        <Button
+          disabled={processing}
+          variant="outline"
+          size="sm"
+          className="h-8 flex-1 text-xs"
+          onClick={() => onRespond({ kind: "elicitation", action: "cancel" })}
+        >
+          Cancel
+        </Button>
+        <Button
+          disabled={processing}
+          variant="outline"
+          size="sm"
+          className="h-8 flex-1 text-xs"
+          onClick={() => onRespond({ kind: "elicitation", action: "decline" })}
+        >
+          Decline
+        </Button>
+        <Button
+          disabled={processing}
+          size="sm"
+          className="h-8 flex-1 text-xs"
+          onClick={() => onRespond({ kind: "elicitation", action: "accept" })}
+        >
+          Mark complete
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+const ChatElicitationForm: FC<{
+  payload: ElicitationFormView;
+  processing: boolean;
+  onRespond: (response: ToolInteractionResponse) => void;
+}> = ({ payload, processing, onRespond }) => {
+  const properties = payload.properties ?? {};
+  const required = new Set(payload.required ?? []);
+  const [values, setValues] = useState<Record<string, ElicitationFieldValue>>({});
+
+  const isAnswered = (key: string, prop: ElicitationPropertyView): boolean => {
+    const value = values[key];
+    if (prop.type === "boolean") return typeof value === "boolean";
+    if (typeof value !== "string") return Array.isArray(value) && value.length > 0;
+    return value.trim().length > 0;
+  };
+  const missingRequired = Object.keys(properties).filter(
+    (key) => required.has(key) && !isAnswered(key, properties[key]),
+  );
+  const canSubmit = missingRequired.length === 0;
+
+  const setValue = (key: string, value: ElicitationFieldValue) => {
+    setValues((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const buildContent = (): Record<string, string | number | boolean | string[]> => {
+    const content: Record<string, string | number | boolean | string[]> = {};
+    for (const [key, prop] of Object.entries(properties)) {
+      const value = values[key];
+      if (value === undefined) continue;
+      if (prop.type === "boolean") {
+        content[key] = value === true;
+        continue;
+      }
+      if (Array.isArray(value)) {
+        if (value.length > 0) content[key] = value;
+        continue;
+      }
+      if (typeof value !== "string" || !value.trim()) continue;
+      if (prop.type === "number" || prop.type === "integer") {
+        const parsed = Number(value);
+        if (Number.isFinite(parsed)) content[key] = prop.type === "integer" ? Math.trunc(parsed) : parsed;
+        continue;
+      }
+      if (prop.type === "array") {
+        const list = value
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean);
+        if (list.length > 0) content[key] = list;
+        continue;
+      }
+      content[key] = value;
+    }
+    return content;
+  };
+
+  const renderField = (key: string, prop: ElicitationPropertyView) => {
+    const label = prop.title?.trim() || key;
+    const fieldId = `elicitation-field-${key}`;
+    const description = prop.description?.trim();
+    if (prop.type === "boolean") {
+      return (
+        <div key={key} className="flex items-center gap-2">
+          <Checkbox
+            id={fieldId}
+            disabled={processing}
+            checked={values[key] === true}
+            onCheckedChange={(checked) => setValue(key, checked === true)}
+          />
+          <Label htmlFor={fieldId} className="text-xs">
+            {label}
+          </Label>
+        </div>
+      );
+    }
+    const choices = multiChoiceOptions(prop) ?? singleChoiceOptions(prop);
+    if (choices) {
+      const current = values[key];
+      return (
+        <ElicitationChoices
+          key={key}
+          label={label}
+          required={required.has(key)}
+          description={description}
+          options={choices}
+          multiple={prop.type === "array"}
+          value={typeof current === "boolean" ? undefined : current}
+          disabled={processing}
+          onChange={(next) => setValue(key, next)}
+        />
+      );
+    }
+    const inputType = prop.type === "number" || prop.type === "integer" ? "number" : "text";
+    const rawValue = typeof values[key] === "string" ? (values[key] as string) : "";
+    return (
+      <div key={key} className="space-y-1.5">
+        <Label htmlFor={fieldId} className="text-xs">
+          {label}
+          {required.has(key) && <span className="ml-1 text-muted-foreground">*</span>}
+        </Label>
+        <Input
+          id={fieldId}
+          type={inputType}
+          disabled={processing}
+          value={rawValue}
+          onChange={(event) => setValue(key, event.target.value)}
+          className="h-8 text-xs"
+          placeholder={prop.type === "array" ? "Comma-separated values" : undefined}
+        />
+        {description && <p className="text-[11px] text-muted-foreground">{description}</p>}
+      </div>
+    );
+  };
+
+  return (
+    <div className="mt-3 space-y-3">
+      {Object.entries(properties).map(([key, prop]) => renderField(key, prop))}
+      {missingRequired.length > 0 && (
+        <p className="text-[11px] text-muted-foreground">Required: {missingRequired.join(", ")}</p>
+      )}
+      <div className="flex gap-2">
+        <Button
+          disabled={processing}
+          variant="outline"
+          size="sm"
+          className="h-8 flex-1 text-xs"
+          onClick={() => onRespond({ kind: "elicitation", action: "decline" })}
+        >
+          Decline
+        </Button>
+        <Button
+          disabled={processing}
+          variant="outline"
+          size="sm"
+          className="h-8 flex-1 text-xs"
+          onClick={() => onRespond({ kind: "elicitation", action: "cancel" })}
+        >
+          Cancel
+        </Button>
+        <Button
+          disabled={processing || !canSubmit}
+          size="sm"
+          className="h-8 flex-1 text-xs"
+          onClick={() => onRespond({ kind: "elicitation", action: "accept", content: buildContent() })}
+        >
+          Submit
+        </Button>
+      </div>
+    </div>
+  );
+};
+
 const ChatToolInteractionOverlay: FC<ChatToolInteractionOverlayProps> = ({
   interaction,
   processing = false,
@@ -25,8 +268,14 @@ const ChatToolInteractionOverlay: FC<ChatToolInteractionOverlayProps> = ({
 }) => {
   const isQuestion = interaction.actionType === "question_request";
   const isPermission = interaction.actionType === "tool_call_permission";
+  const isElicitation = interaction.actionType === "elicitation_request";
+  const elicitation = isElicitation ? parseElicitationPayload(interaction.block.extra?.elicitationPayload) : null;
   const isSkillDraft = interaction.block.extra?.skillDraftAction === "confirm";
-  const headerIcon = isQuestion ? "lucide:message-circle-question" : "lucide:shield";
+  const headerIcon = isQuestion
+    ? "lucide:message-circle-question"
+    : isElicitation
+      ? "lucide:text-cursor-input"
+      : "lucide:shield";
   const headerText = (() => {
     if (isQuestion) {
       const raw = interaction.block.extra?.questionHeader;
@@ -34,6 +283,11 @@ const ChatToolInteractionOverlay: FC<ChatToolInteractionOverlayProps> = ({
         return raw.includes(".") ? raw : raw;
       }
       return "Question";
+    }
+    if (isElicitation) {
+      const title = elicitation?.title?.trim();
+      if (title) return title;
+      return "Agent needs input";
     }
     return "Permission Request";
   })();
@@ -43,6 +297,13 @@ const ChatToolInteractionOverlay: FC<ChatToolInteractionOverlayProps> = ({
       if (typeof raw === "string" && raw.trim()) {
         return raw;
       }
+      return interaction.block.content || "";
+    }
+    if (isElicitation) {
+      const message = elicitation?.message?.trim();
+      if (message) return message;
+      const description = elicitation?.description?.trim();
+      if (description) return description;
       return interaction.block.content || "";
     }
     return interaction.block.content || "";
@@ -159,7 +420,13 @@ const ChatToolInteractionOverlay: FC<ChatToolInteractionOverlayProps> = ({
         </div>
       )}
 
-      {isQuestion ? (
+      {isElicitation && elicitation ? (
+        elicitation.mode === "url" ? (
+          <ChatUrlElicitationCard payload={elicitation} processing={processing} onRespond={onRespond} />
+        ) : (
+          <ChatElicitationForm payload={elicitation} processing={processing} onRespond={onRespond} />
+        )
+      ) : isQuestion ? (
         <div className="mt-4 flex flex-wrap gap-2">
           {questionOptions.map((option) => (
             <Button
@@ -188,7 +455,7 @@ const ChatToolInteractionOverlay: FC<ChatToolInteractionOverlayProps> = ({
             </Button>
           )}
         </div>
-      ) : (
+      ) : isPermission ? (
         <div className="mt-4 flex gap-2">
           <Button
             disabled={processing}
@@ -203,7 +470,7 @@ const ChatToolInteractionOverlay: FC<ChatToolInteractionOverlayProps> = ({
             Allow
           </Button>
         </div>
-      )}
+      ) : null}
     </div>
   );
 };

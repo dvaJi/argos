@@ -102,6 +102,7 @@ const MCP_EVENTS = {
   SERVER_STOPPED: "mcp:server-stopped",
   CONFIG_CHANGED: "mcp:config-changed",
   TOOL_CALL_RESULT: "mcp:tool-call-result",
+  TOOL_CALL_PROGRESS: "mcp:tool-call-progress",
   SERVER_STATUS_CHANGED: "mcp:server-status-changed",
   SAMPLING_REQUEST: "mcp:sampling-request",
   SAMPLING_DECISION: "mcp:sampling-decision",

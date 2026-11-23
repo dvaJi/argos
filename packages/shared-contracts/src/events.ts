@@ -7,6 +7,7 @@ import {
 } from "./events/browser.events";
 import {
   chatPlanUpdatedEvent,
+  chatPromptSuggestionsUpdatedEvent,
   chatStreamCompletedEvent,
   chatStreamFailedEvent,
   chatStreamUpdatedEvent,
@@ -30,10 +31,14 @@ import {
   mcpSamplingCancelledEvent,
   mcpSamplingDecisionEvent,
   mcpSamplingRequestEvent,
+  mcpElicitationRequestEvent,
+  mcpElicitationDecisionEvent,
+  mcpElicitationCancelledEvent,
   mcpServerStartedEvent,
   mcpServerStatusChangedEvent,
   mcpServerStoppedEvent,
   mcpToolCallResultEvent,
+  mcpToolCallProgressEvent,
 } from "./events/mcp.events";
 import { knowledgeFileProgressEvent, knowledgeFileUpdatedEvent } from "./events/knowledge.events";
 import {
@@ -43,7 +48,13 @@ import {
   modelBatchStatusChangedEvent,
 } from "./events/models.events";
 import { providersOllamaPullProgressEvent } from "./events/misc.providers.events";
-import { acpAuthChangedEvent, acpAuthRequiredEvent, providersChangedEvent } from "./events/providers.events";
+import {
+  acpAuthChangedEvent,
+  acpAuthElicitationEvent,
+  acpAuthElicitationResolvedEvent,
+  acpAuthRequiredEvent,
+  providersChangedEvent,
+} from "./events/providers.events";
 import { settingsChangedEvent } from "./events/settings.events";
 import { startupWorkloadChangedEvent } from "./events/startup.events";
 import {
@@ -132,6 +143,8 @@ export const ARGOS_EVENT_CATALOG = {
   [providersChangedEvent.name]: providersChangedEvent,
   [acpAuthRequiredEvent.name]: acpAuthRequiredEvent,
   [acpAuthChangedEvent.name]: acpAuthChangedEvent,
+  [acpAuthElicitationEvent.name]: acpAuthElicitationEvent,
+  [acpAuthElicitationResolvedEvent.name]: acpAuthElicitationResolvedEvent,
   [providersOllamaPullProgressEvent.name]: providersOllamaPullProgressEvent,
   [modelsChangedEvent.name]: modelsChangedEvent,
   [modelsStatusChangedEvent.name]: modelsStatusChangedEvent,
@@ -141,6 +154,7 @@ export const ARGOS_EVENT_CATALOG = {
   [chatStreamCompletedEvent.name]: chatStreamCompletedEvent,
   [chatStreamFailedEvent.name]: chatStreamFailedEvent,
   [chatPlanUpdatedEvent.name]: chatPlanUpdatedEvent,
+  [chatPromptSuggestionsUpdatedEvent.name]: chatPromptSuggestionsUpdatedEvent,
   [skillsCatalogChangedEvent.name]: skillsCatalogChangedEvent,
   [skillsSessionChangedEvent.name]: skillsSessionChangedEvent,
   [terminalOutputEvent.name]: terminalOutputEvent,
@@ -150,9 +164,13 @@ export const ARGOS_EVENT_CATALOG = {
   [mcpConfigChangedEvent.name]: mcpConfigChangedEvent,
   [mcpServerStatusChangedEvent.name]: mcpServerStatusChangedEvent,
   [mcpToolCallResultEvent.name]: mcpToolCallResultEvent,
+  [mcpToolCallProgressEvent.name]: mcpToolCallProgressEvent,
   [mcpSamplingRequestEvent.name]: mcpSamplingRequestEvent,
   [mcpSamplingDecisionEvent.name]: mcpSamplingDecisionEvent,
   [mcpSamplingCancelledEvent.name]: mcpSamplingCancelledEvent,
+  [mcpElicitationRequestEvent.name]: mcpElicitationRequestEvent,
+  [mcpElicitationDecisionEvent.name]: mcpElicitationDecisionEvent,
+  [mcpElicitationCancelledEvent.name]: mcpElicitationCancelledEvent,
   [knowledgeFileUpdatedEvent.name]: knowledgeFileUpdatedEvent,
   [knowledgeFileProgressEvent.name]: knowledgeFileProgressEvent,
   [syncBackupStartedEvent.name]: syncBackupStartedEvent,

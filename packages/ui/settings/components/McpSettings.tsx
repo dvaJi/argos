@@ -18,7 +18,7 @@ import { McpServers, type McpServersRef } from "#/components/mcp-config/componen
 import { useGuidedOnboardingStep } from "#/composables/useGuidedOnboardingStep";
 import { createWindowClient } from "#api/WindowClient";
 import { createMcpClient } from "#api/McpClient";
-import { useMcpStore } from "#/stores/mcp";
+import { useInitMcp, useMcpStore } from "#/stores/mcp";
 import { useLanguageStore } from "#/stores/language";
 import { useToast } from "#/components/use-toast";
 import { continueGuidedOnboardingFromSettings } from "../lib/guidedOnboardingSettings";
@@ -218,6 +218,7 @@ const useNpmRegistrySettings = (deps: {
   };
 };
 export default function McpSettings() {
+  useInitMcp();
   const languageStore = useLanguageStore();
   const mcpStore = useMcpStore();
   const { toast } = useToast();

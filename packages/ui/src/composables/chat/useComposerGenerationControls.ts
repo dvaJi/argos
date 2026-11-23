@@ -3,7 +3,7 @@ import { Store } from "@tanstack/store";
 import { useSelector } from "@tanstack/react-store";
 import { createModelClient } from "#api/ModelClient";
 import { createSessionClient } from "#api/SessionClient";
-import { useSessionStore, getActiveSession, getHasActiveSession } from "#/stores/ui/session";
+import { useActiveSession } from "#/stores/ui/session";
 import { draftStore, useDraftStore } from "#/stores/ui/draft";
 import { findChatSelectableModel, useModelStore } from "#/stores/modelStore";
 import { isReasoningEffort } from "@argos/shared/types/model-db";
@@ -98,15 +98,12 @@ const resolveDefaultEffort = (efforts: ReasoningEffort[], portraitEffort?: Reaso
 };
 
 export function useComposerReasoning() {
-  const sessionState = useSessionStore();
-  void sessionState;
   const draftState = useDraftStore();
   // Subscribed so the meta `reasoning` fallback re-evaluates once models load.
   const modelState = useModelStore();
   void modelState;
   const controls = useSelector(sessionControlsStore, (s) => s.bySession);
-  const hasActiveSession = getHasActiveSession();
-  const activeSession = getActiveSession();
+  const { hasActiveSession, activeSession } = useActiveSession();
   const sessionId = hasActiveSession ? activeSession?.id : undefined;
   const providerId = hasActiveSession ? activeSession?.providerId : draftState.providerId;
   const modelId = hasActiveSession ? activeSession?.modelId : draftState.modelId;
@@ -256,12 +253,9 @@ export const isPermissionOptionActive = (mode: PermissionMode, option: Permissio
   !option.disabled && option.value === mode;
 
 export function useComposerPermissionMode() {
-  const sessionState = useSessionStore();
-  void sessionState;
   const draftState = useDraftStore();
   const controls = useSelector(sessionControlsStore, (s) => s.bySession);
-  const hasActiveSession = getHasActiveSession();
-  const activeSession = getActiveSession();
+  const { hasActiveSession, activeSession } = useActiveSession();
   const sessionId = hasActiveSession ? activeSession?.id : undefined;
 
   useEffect(() => {

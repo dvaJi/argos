@@ -4,7 +4,7 @@ import { handleRouteDispatch, dispatchRoute, setRouteDispatcher } from "./transp
 import type { RouteDispatcher } from "./transport/http";
 import { authorize } from "./transport/auth";
 import type { AuthGateConfig, ExposureMode } from "@argos/shared-contracts/auth";
-import { sessionsStatusChangedEvent } from "@argos/shared-contracts";
+import { mcpConfigChangedEvent, sessionsStatusChangedEvent } from "@argos/shared-contracts";
 import { handlePair, handleListSessions, handleRevokeSession, handleIssuePairingToken } from "./transport/auth-routes";
 import { SessionAuthRepository } from "./host/session-auth-repository";
 import { BunPathResolver } from "./host/bun-paths";
@@ -74,6 +74,12 @@ type DaemonProviderExecutionPort = Required<
     | "getAcpSessionModes"
     | "setAcpSessionMode"
     | "resolveAgentPermission"
+    | "getAcpSessionCursors"
+    | "forkAcpSessionAtCursor"
+    | "pushAcpSessionTitle"
+    | "archiveAcpSession"
+    | "getAcpSessionStatus"
+    | "respondAcpAuthElicitation"
   >
 >;
 
@@ -475,7 +481,7 @@ async function initializeDaemon(options: StartDaemonOptions | undefined, early: 
           ? [...orchestration, ...memoryRuntime.toolDefinitions()]
           : orchestration;
       },
-      callTool: async (request) => {
+      callTool: async (request, options) => {
         if (orchestrationRuntime.handles((request as any).function?.name)) {
           return orchestrationRuntime.call(request as any);
         }
@@ -491,7 +497,7 @@ async function initializeDaemon(options: StartDaemonOptions | undefined, early: 
           }
           return memoryRuntime.callMemoryTool(request as any, session.agentId);
         }
-        return mcpRuntime.callApprovedTool(request);
+        return mcpRuntime.callApprovedTool(request, options);
       },
     },
     agentWorkspaceDir,
@@ -595,6 +601,24 @@ async function initializeDaemon(options: StartDaemonOptions | undefined, early: 
     async resolveAgentPermission(requestId, granted) {
       return acpProviderExecutionPort.resolveAgentPermission(requestId, granted);
     },
+    async getAcpSessionCursors(conversationId) {
+      return acpProviderExecutionPort.getAcpSessionCursors(conversationId);
+    },
+    async forkAcpSessionAtCursor(conversationId, cursorId) {
+      return acpProviderExecutionPort.forkAcpSessionAtCursor(conversationId, cursorId);
+    },
+    async pushAcpSessionTitle(conversationId, title) {
+      return acpProviderExecutionPort.pushAcpSessionTitle(conversationId, title);
+    },
+    async archiveAcpSession(conversationId, archived) {
+      return acpProviderExecutionPort.archiveAcpSession(conversationId, archived);
+    },
+    async getAcpSessionStatus(conversationId) {
+      return acpProviderExecutionPort.getAcpSessionStatus(conversationId);
+    },
+    async respondAcpAuthElicitation(requestId, action, content) {
+      return acpProviderExecutionPort.respondAcpAuthElicitation(requestId, action, content);
+    },
   };
 
   orchestrationRuntime.setSessionActions({
@@ -636,6 +660,16 @@ async function initializeDaemon(options: StartDaemonOptions | undefined, early: 
     db,
   });
   const mcpRuntime = new DaemonMcpRuntime(configPresenter, mcpPorts);
+  // Config writes: drop the runtime's cached tool definitions and tell every
+  // window, so open settings pages and composers refresh without a reload.
+  configPresenter.onMcpConfigChanged(() => {
+    mcpPorts.events.broadcast("mcp:config-changed", undefined);
+    void Promise.all([configPresenter.getMcpServers(), configPresenter.getMcpEnabled()])
+      .then(([mcpServers, mcpEnabled]) =>
+        eventPublisher.publish(mcpConfigChangedEvent.name, { mcpServers, mcpEnabled, version: Date.now() }),
+      )
+      .catch((error) => logger.warn("[daemon] Failed to publish MCP config change:", error));
+  });
   const pluginRuntimeRegistry = new PluginRuntimeRegistry(mcpRuntime.serverManager);
   mcpPorts.services.pluginRuntime = pluginRuntimeRegistry;
   void toolchainWarmup

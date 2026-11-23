@@ -83,6 +83,7 @@ type McpServerFormState = {
   type: MCPServerTypeOption;
   baseUrl: string;
   customHeaders: string;
+  oauth: boolean;
   autoApproveAll: boolean;
   autoApproveRead: boolean;
   autoApproveWrite: boolean;
@@ -102,6 +103,7 @@ type McpServerFormAction =
   | { type: "SET_TYPE"; value: MCPServerTypeOption }
   | { type: "SET_BASE_URL"; value: string }
   | { type: "SET_CUSTOM_HEADERS"; value: string }
+  | { type: "SET_OAUTH"; value: boolean }
   | { type: "SET_CURRENT_STEP"; value: "simple" | "detailed" }
   | { type: "SET_AUTO_APPROVE_ALL"; value: boolean }
   | { type: "SET_AUTO_APPROVE_READ"; value: boolean }
@@ -145,6 +147,7 @@ const createInitialMcpServerFormState = (
     type: (initialConfig?.type as MCPServerTypeOption | undefined) || "stdio",
     baseUrl: initialConfig?.baseUrl || "",
     customHeaders: initialConfig?.customHeaders ? formatJsonHeaders(initialConfig.customHeaders) : "",
+    oauth: initialConfig?.oauth === true,
     autoApproveAll: initialConfig?.autoApprove?.includes("all") || false,
     autoApproveRead:
       initialConfig?.autoApprove?.includes("read") || initialConfig?.autoApprove?.includes("all") || false,
@@ -173,6 +176,8 @@ const mcpServerFormReducer = (state: McpServerFormState, action: McpServerFormAc
       return { ...state, baseUrl: action.value };
     case "SET_CUSTOM_HEADERS":
       return { ...state, customHeaders: action.value };
+    case "SET_OAUTH":
+      return { ...state, oauth: action.value };
     case "SET_CURRENT_STEP":
       return { ...state, currentStep: action.value };
     case "SET_AUTO_APPROVE_ALL":
@@ -416,6 +421,7 @@ const McpServerForm: FC<McpServerFormProps> = ({
         env: {},
         baseUrl: form.baseUrl.trim(),
         customHeaders: parsedCustomHeaders,
+        oauth: form.oauth,
       };
     } else {
       const normalizedArgs = isBuildInFileSystem
@@ -889,7 +895,7 @@ const McpServerExtraFields = ({
       <div className="space-y-2">
         <Label className="text-xs text-muted-foreground" htmlFor="server-custom-headers">
           Custom Headers
-        </Label>
+        </Label>{" "}
         <div className="relative">
           <Textarea
             id="server-custom-headers"
@@ -927,6 +933,18 @@ const McpServerExtraFields = ({
         {!customHeadersFocused && form.customHeaders.trim() && (
           <p className="text-xs text-muted-foreground">Click to edit and view full content</p>
         )}
+        <div className="flex items-center gap-2 pt-1">
+          <Checkbox
+            id="server-oauth"
+            checked={form.oauth}
+            disabled={isFieldReadOnly}
+            onCheckedChange={(checked) => dispatchForm({ type: "SET_OAUTH", value: checked === true })}
+          />
+          <label htmlFor="server-oauth" className="text-sm font-medium leading-none peer-disabled:opacity-70">
+            OAuth (browser sign-in)
+          </label>
+          <span className="text-xs text-muted-foreground">On 401, run discovery + PKCE in the system browser</span>
+        </div>
       </div>
     )}
   </>

@@ -115,4 +115,36 @@ describe("ServerManager plugin MCP errors", () => {
     expect(manager.getServerLastError("regular")).toBe("connect failed");
     expect(eventBusMocks.sendToRenderer).toHaveBeenCalledTimes(1);
   });
+
+  it("signs out of a stopped server from stored credentials (no live client)", async () => {
+    const files = new Map<string, unknown>([
+      ["mcp-oauth:remote:tokens", { access_token: "at" }],
+      ["mcp-oauth:remote:client", { client_id: "cid" }],
+    ]);
+    const ports = createMcpTestPorts({
+      readJsonFile: async (key: string) => files.get(key) ?? null,
+      writeJsonFile: async (key: string, value: unknown) => void files.set(key, value),
+    } as never);
+    const manager = new ServerManager(createConfigPresenter({}) as never, ports);
+
+    await manager.invalidateCredentials("remote", "tokens");
+
+    expect(files.get("mcp-oauth:remote:tokens")).toBeNull();
+    expect(files.get("mcp-oauth:remote:client")).toEqual({ client_id: "cid" });
+  });
+
+  it("reconnects dropped clients without waiting past waitMs on a hung server", async () => {
+    const manager = new ServerManager(
+      createConfigPresenter({ hung: { type: "http", enabled: true } }) as never,
+      testPorts,
+    );
+    await manager.startServer("hung");
+    clientMocks.isServerRunning.mockReturnValue(false); // transport dropped
+    clientMocks.connect.mockReturnValue(new Promise(() => {})); // never settles
+
+    const started = Date.now();
+    await expect(manager.reconnectDroppedClients({ waitMs: 20 })).resolves.toBe(false);
+    expect(Date.now() - started).toBeLessThan(1000);
+    expect(clientMocks.connect).toHaveBeenCalledTimes(2); // start + reconnect attempt
+  });
 });

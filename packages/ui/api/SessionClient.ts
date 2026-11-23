@@ -22,6 +22,9 @@ import {
   sessionsEnsureAcpDraftRoute,
   sessionsExportRoute,
   sessionsForkRoute,
+  sessionsGetAcpCursorsRoute,
+  sessionsGetAcpSessionStatusRoute,
+  sessionsForkAcpCursorRoute,
   sessionsGetAcpSessionCommandsRoute,
   sessionsGetAcpSessionConfigOptionsRoute,
   sessionsGetActiveRoute,
@@ -223,6 +226,28 @@ export function createSessionClient(bridge: ArgosBridge = getArgosBridge()) {
       sourceSessionId,
       targetMessageId,
       newTitle,
+    });
+    return result.session;
+  }
+
+  async function getAcpCursors(conversationId: string) {
+    const result = await bridge.invoke(sessionsGetAcpCursorsRoute.name, {
+      conversationId,
+    });
+    return result.cursors;
+  }
+
+  async function getAcpSessionStatus(conversationId: string) {
+    const result = await bridge.invoke(sessionsGetAcpSessionStatusRoute.name, {
+      conversationId,
+    });
+    return result.status;
+  }
+
+  async function forkAcpCursor(conversationId: string, cursorId?: string) {
+    const result = await bridge.invoke(sessionsForkAcpCursorRoute.name, {
+      conversationId,
+      cursorId,
     });
     return result.session;
   }
@@ -505,6 +530,8 @@ export function createSessionClient(bridge: ArgosBridge = getArgosBridge()) {
     deleteMessage,
     editUserMessage,
     forkSession,
+    getAcpCursors,
+    forkAcpCursor,
     searchHistory,
     getSearchResults,
     listMessageTraces,
@@ -515,6 +542,7 @@ export function createSessionClient(bridge: ArgosBridge = getArgosBridge()) {
     renameSession,
     toggleSessionPinned,
     setSessionArchived,
+    getAcpSessionStatus,
     clearSessionMessages,
     compactSession,
     exportSession,

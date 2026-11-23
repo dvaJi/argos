@@ -94,6 +94,28 @@ export class AcpSessionPersistence {
     });
   }
 
+  /**
+   * Upsert the session row while keeping metadata written earlier (e.g.
+   * remembered config options). Shares the merge lock so it orders after
+   * pending {@link mergeMetadata} calls.
+   */
+  async saveSessionDataMergingMetadata(
+    conversationId: string,
+    agentId: string,
+    sessionId: string | null,
+    workdir: string | null,
+    status: AgentSessionLifecycleStatus,
+    metadata: Record<string, unknown>,
+  ): Promise<void> {
+    await this.withKeyLock(this.metadataMergeLocks, `${conversationId}::${agentId}`, async () => {
+      const existing = await this.getSessionData(conversationId, agentId);
+      await this.saveSessionData(conversationId, agentId, sessionId, workdir, status, {
+        ...existing?.metadata,
+        ...metadata,
+      });
+    });
+  }
+
   async syncRemoteSessions(input: AcpRemoteSessionSyncInput): Promise<AcpRemoteSessionSyncResult> {
     const now = new Date().toISOString();
     const result: AcpRemoteSessionSyncResult = {

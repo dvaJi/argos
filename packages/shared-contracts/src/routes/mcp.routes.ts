@@ -5,6 +5,7 @@ import type {
   MCPToolDefinition,
   MCPToolResponse,
   McpClient,
+  McpElicitationDecision,
   McpSamplingDecision,
   PromptListEntry,
   Resource,
@@ -21,6 +22,7 @@ const ResourceSchema = zod.custom<Resource>();
 const MCPToolCallSchema = zod.custom<MCPToolCall>();
 const MCPToolResponseSchema = zod.custom<MCPToolResponse>();
 const McpSamplingDecisionSchema = zod.custom<McpSamplingDecision>();
+const McpElicitationDecisionSchema = zod.custom<McpElicitationDecision>();
 const NpmRegistryStatusSchema = zod.custom<{
   currentRegistry: string | null;
   isFromCache: boolean;
@@ -76,6 +78,47 @@ export const mcpListResourcesRoute = defineRouteContract({
   input: zod.object({}),
   output: zod.object({
     resources: zod.array(ResourceListEntrySchema),
+  }),
+});
+
+const ResourceTemplateEntrySchema = zod.object({
+  client: zod.object({
+    name: zod.string(),
+    icon: zod.string().optional(),
+  }),
+  uriTemplate: zod.string(),
+  name: zod.string().optional(),
+  description: zod.string().optional(),
+  mimeType: zod.string().optional(),
+});
+
+export const mcpListResourceTemplatesRoute = defineRouteContract({
+  name: "mcp.listResourceTemplates",
+  input: zod.object({}),
+  output: zod.object({
+    templates: zod.array(ResourceTemplateEntrySchema),
+  }),
+});
+
+export const mcpCompleteArgumentRoute = defineRouteContract({
+  name: "mcp.completeArgument",
+  input: zod.object({
+    serverName: zod.string(),
+    params: zod.unknown(),
+  }),
+  output: zod.object({
+    completion: zod.unknown(),
+  }),
+});
+
+export const mcpInvalidateOAuthCredentialsRoute = defineRouteContract({
+  name: "mcp.invalidateOAuthCredentials",
+  input: zod.object({
+    serverName: zod.string(),
+    scope: zod.enum(["all", "client", "tokens", "verifier", "state", "discovery"]).optional(),
+  }),
+  output: zod.object({
+    invalidated: zod.literal(true),
   }),
 });
 
@@ -201,6 +244,27 @@ export const mcpSubmitSamplingDecisionRoute = defineRouteContract({
   }),
   output: zod.object({
     submitted: zod.literal(true),
+  }),
+});
+
+export const mcpSubmitElicitationDecisionRoute = defineRouteContract({
+  name: "mcp.submitElicitationDecision",
+  input: zod.object({
+    decision: McpElicitationDecisionSchema,
+  }),
+  output: zod.object({
+    handled: zod.boolean(),
+  }),
+});
+
+export const mcpCancelElicitationRoute = defineRouteContract({
+  name: "mcp.cancelElicitation",
+  input: zod.object({
+    requestId: zod.string(),
+    reason: zod.string().optional(),
+  }),
+  output: zod.object({
+    cancelled: zod.boolean(),
   }),
 });
 

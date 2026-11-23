@@ -4,10 +4,14 @@ import {
   mcpSamplingCancelledEvent,
   mcpSamplingDecisionEvent,
   mcpSamplingRequestEvent,
+  mcpElicitationRequestEvent,
+  mcpElicitationCancelledEvent,
+  mcpElicitationDecisionEvent,
   mcpServerStartedEvent,
   mcpServerStatusChangedEvent,
   mcpServerStoppedEvent,
   mcpToolCallResultEvent,
+  mcpToolCallProgressEvent,
 } from "@argos/shared-contracts/events";
 import {
   mcpAddServerRoute,
@@ -26,6 +30,9 @@ import {
   mcpListMcpRouterServersRoute,
   mcpListPromptsRoute,
   mcpListResourcesRoute,
+  mcpListResourceTemplatesRoute,
+  mcpCompleteArgumentRoute,
+  mcpInvalidateOAuthCredentialsRoute,
   mcpListToolDefinitionsRoute,
   mcpReadResourceRoute,
   mcpRefreshNpmRegistryRoute,
@@ -38,12 +45,15 @@ import {
   mcpStartServerRoute,
   mcpStopServerRoute,
   mcpSubmitSamplingDecisionRoute,
+  mcpSubmitElicitationDecisionRoute,
+  mcpCancelElicitationRoute,
   mcpUpdateMcpRouterServersAuthRoute,
   mcpUpdateServerRoute,
 } from "@argos/shared-contracts/routes";
 import type {
   MCPServerConfig,
   MCPToolCall,
+  McpElicitationDecision,
   McpSamplingDecision,
   PromptListEntry,
   ResourceListEntry,
@@ -83,6 +93,22 @@ export function createMcpClient(bridge: ArgosBridge = getArgosBridge()) {
     return result.resources;
   }
 
+  async function getAllResourceTemplates() {
+    const result = await bridge.invoke(mcpListResourceTemplatesRoute.name, {});
+    return result.templates;
+  }
+
+  async function completeArgument(serverName: string, params: unknown) {
+    const result = await bridge.invoke(mcpCompleteArgumentRoute.name, { serverName, params });
+    return result.completion;
+  }
+
+  async function invalidateOAuthCredentials(
+    serverName: string,
+    scope?: "all" | "client" | "tokens" | "verifier" | "state" | "discovery",
+  ) {
+    await bridge.invoke(mcpInvalidateOAuthCredentialsRoute.name, { serverName, scope });
+  }
   async function callTool(request: MCPToolCall) {
     return await bridge.invoke(mcpCallToolRoute.name, { request });
   }
@@ -142,6 +168,16 @@ export function createMcpClient(bridge: ArgosBridge = getArgosBridge()) {
 
   async function cancelSamplingRequest(requestId: string, reason?: string) {
     await bridge.invoke(mcpCancelSamplingRequestRoute.name, { requestId, reason });
+  }
+
+  async function submitElicitationDecision(decision: McpElicitationDecision) {
+    const result = await bridge.invoke(mcpSubmitElicitationDecisionRoute.name, { decision });
+    return result.handled;
+  }
+
+  async function cancelElicitation(requestId: string, reason?: string) {
+    const result = await bridge.invoke(mcpCancelElicitationRoute.name, { requestId, reason });
+    return result.cancelled;
   }
 
   async function getNpmRegistryStatus() {
@@ -224,6 +260,19 @@ export function createMcpClient(bridge: ArgosBridge = getArgosBridge()) {
     return bridge.on(mcpToolCallResultEvent.name, listener);
   }
 
+  function onToolCallProgress(
+    listener: (payload: {
+      serverName: string;
+      toolName: string;
+      toolCallId: string | null;
+      taskId: string | null;
+      status: string | null;
+      statusMessage: string | null;
+    }) => void,
+  ) {
+    return bridge.on(mcpToolCallProgressEvent.name, listener);
+  }
+
   function onSamplingRequest(listener: (payload: { request: unknown; version: number }) => void) {
     return bridge.on(mcpSamplingRequestEvent.name, (payload) => {
       listener(payload as { request: unknown; version: number });
@@ -232,6 +281,24 @@ export function createMcpClient(bridge: ArgosBridge = getArgosBridge()) {
 
   function onSamplingDecision(listener: (payload: { decision: unknown; version: number }) => void) {
     return bridge.on(mcpSamplingDecisionEvent.name, (payload) => {
+      listener(payload as { decision: unknown; version: number });
+    });
+  }
+
+  function onElicitationRequest(listener: (payload: { request: unknown; version: number }) => void) {
+    return bridge.on(mcpElicitationRequestEvent.name, (payload) => {
+      listener(payload as { request: unknown; version: number });
+    });
+  }
+
+  function onElicitationCancelled(listener: (payload: { requestId: string }) => void) {
+    return bridge.on(mcpElicitationCancelledEvent.name, (payload) => {
+      listener(payload as { requestId: string });
+    });
+  }
+
+  function onElicitationDecision(listener: (payload: { decision: unknown; version: number }) => void) {
+    return bridge.on(mcpElicitationDecisionEvent.name, (payload) => {
       listener(payload as { decision: unknown; version: number });
     });
   }
@@ -247,6 +314,9 @@ export function createMcpClient(bridge: ArgosBridge = getArgosBridge()) {
     getAllToolDefinitions,
     getAllPrompts,
     getAllResources,
+    getAllResourceTemplates,
+    completeArgument,
+    invalidateOAuthCredentials,
     callTool,
     addMcpServer,
     updateMcpServer,
@@ -276,9 +346,15 @@ export function createMcpClient(bridge: ArgosBridge = getArgosBridge()) {
     onConfigChanged,
     onServerStatusChanged,
     onToolCallResult,
+    onToolCallProgress,
     onSamplingRequest,
     onSamplingDecision,
     onSamplingCancelled,
+    onElicitationRequest,
+    onElicitationCancelled,
+    onElicitationDecision,
+    submitElicitationDecision,
+    cancelElicitation,
   };
 }
 

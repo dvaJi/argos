@@ -47,8 +47,8 @@ export const getFontSizeClass = (fontSizeLevel?: number) =>
 
 export const getFormattedFontFamily = () => buildFontStack(uiSettingsStore.state.fontFamily, DEFAULT_TEXT_FONT_STACK);
 
-export const getFormattedCodeFontFamily = () =>
-  buildFontStack(uiSettingsStore.state.codeFontFamily, DEFAULT_CODE_FONT_STACK);
+export const getFormattedCodeFontFamily = (codeFontFamily = uiSettingsStore.state.codeFontFamily) =>
+  buildFontStack(codeFontFamily, DEFAULT_CODE_FONT_STACK);
 
 const applySettingsValues = (values: Partial<SettingsSnapshotValues>) => {
   const patch: Partial<typeof uiSettingsStore.state> = {};

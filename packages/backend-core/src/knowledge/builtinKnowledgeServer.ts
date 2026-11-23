@@ -1,6 +1,6 @@
 import zod from "zod";
 import type { BuiltinKnowledgeConfig, MCPTextContent, QueryResult } from "@argos/shared/presenter";
-import { CallToolRequestSchema, ListToolsRequestSchema, Server, type Transport } from "../../../mcp-runtime/src/index";
+import { ToolsCallParamsSchema, ToolsListParamsSchema, Server, type Transport } from "../../../mcp-runtime/src/index";
 
 const BuiltinKnowledgeSearchArgsSchema = zod.object({
   query: zod.string().describe("Search query content (required)"),
@@ -35,7 +35,7 @@ export class BuiltinKnowledgeServer {
   }
 
   private setupRequestHandlers(): void {
-    this.server.setRequestHandler(ListToolsRequestSchema, async () => {
+    this.server.setRequestHandler("tools/list", { params: ToolsListParamsSchema }, async () => {
       const enabledConfigs = this.getEnabledConfigs();
       const tools = enabledConfigs.map((config, index) => {
         const suffix = enabledConfigs.length > 1 ? `_${index + 1}` : "";
@@ -51,8 +51,8 @@ export class BuiltinKnowledgeServer {
       });
       return { tools };
     });
-    this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
-      const { name, arguments: parameters } = request.params;
+    this.server.setRequestHandler("tools/call", { params: ToolsCallParamsSchema }, async (requestParams) => {
+      const { name, arguments: parameters } = requestParams;
       if (name.startsWith("builtin_knowledge_search")) {
         try {
           const enabledConfigs = this.getEnabledConfigs();

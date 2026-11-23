@@ -2,10 +2,11 @@
 // Main code adapted from https://github.com/pinkpixel-dev/deep-research-mcp
 // Search engine replaced with Bocha; page content extraction logic rewritten.
 // Uses a reflection-based incremental iterative research mode.
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+import { Server } from "@modelcontextprotocol/server";
+
 import zod from "zod";
-import { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
+import type { Transport } from "@modelcontextprotocol/client";
+import { ToolsCallParamsSchema, ToolsListParamsSchema } from "../protocol/v2-schemas";
 import axios from "axios";
 import { nanoid } from "nanoid";
 
@@ -291,7 +292,7 @@ export class DeepResearchServer {
   // Set up the server request handlers, defining tool list and tool call logic
   private setupRequestHandlers(): void {
     // Define the list of available tools
-    this.server.setRequestHandler(ListToolsRequestSchema, async () => {
+    this.server.setRequestHandler("tools/list", { params: ToolsListParamsSchema }, async () => {
       return {
         tools: [
           {
@@ -347,9 +348,9 @@ export class DeepResearchServer {
     });
 
     // Handle tool call requests
-    this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
+    this.server.setRequestHandler("tools/call", { params: ToolsCallParamsSchema }, async (requestParams) => {
       try {
-        const { name, arguments: args } = request.params;
+        const { name, arguments: args } = requestParams;
 
         switch (name) {
           case "start_deep_research":

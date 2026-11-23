@@ -18,6 +18,7 @@ import { uiSettingsStore } from "../stores/uiSettingsStore";
 import TranslatePopup from "../components/popup/TranslatePopup";
 import MessageDialog from "../components/ui/MessageDialog";
 import McpSamplingDialog from "../components/mcp/McpSamplingDialog";
+import McpElicitationDialog from "../components/mcp/McpElicitationDialog";
 import { AddRemoteMachineDialog } from "../components/workspace/WorkspaceSelectorDialogs";
 import { initAppStores, retryHydrateStores, useMcpInstallDeeplinkHandler } from "../lib/storeInitializer";
 import { ensureIconsLoaded } from "../lib/iconLoader";
@@ -626,6 +627,7 @@ function MainLayout() {
       </div>
       <MessageDialog />
       <McpSamplingDialog />
+      <McpElicitationDialog />
       <AddRemoteMachineDialog />
       <SelectedTextContextMenu />
       <TranslatePopup />

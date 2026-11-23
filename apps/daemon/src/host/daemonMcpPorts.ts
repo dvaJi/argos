@@ -1,5 +1,6 @@
 import { homedir } from "node:os";
 import { delimiter } from "node:path";
+import { spawn } from "node:child_process";
 import { createJsonStoreFactory } from "./jsonStoreFactory";
 import {
   ArtifactsServer,
@@ -15,11 +16,39 @@ import {
 } from "@argos/mcp-runtime";
 import { BuiltinKnowledgeServer } from "@argos/backend-core";
 import type { IEventPublisher } from "@argos/backend-core";
+import type { McpElicitationDecision, McpElicitationRequestPayload } from "@argos/shared/presenter";
 import type { DaemonConfigPresenter } from "./daemonConfigPresenter";
 import type { ToolchainService } from "./toolchains/service";
 import type { PluginToolPolicyDecision } from "@argos/shared/types/plugin";
 
 /** Knowledge capabilities exposed by the daemon knowledge runtime. */
+type SamplingProvider = {
+  id: string;
+  enable: boolean;
+  apiKey: string;
+  baseUrl: string;
+  apiType: string;
+  models?: Array<{ id: string; enabled?: boolean }>;
+  customModels?: Array<{ id: string; enabled?: boolean }>;
+  enabledModels?: string[];
+  disabledModels?: string[];
+};
+
+/**
+ * Model id for an auto-approved sampling request. `models`/`customModels`
+ * hold model records, not ids; pick the first usable one with the same
+ * enabled/disabled rules as the model list.
+ */
+export function pickSamplingModelId(provider: SamplingProvider): string | null {
+  const disabled = new Set(provider.disabledModels ?? []);
+  const explicit = (provider.enabledModels ?? []).find((id) => typeof id === "string" && id && !disabled.has(id));
+  if (explicit) return explicit;
+  const model = [...(provider.models ?? []), ...(provider.customModels ?? [])].find(
+    (entry) => typeof entry?.id === "string" && entry.id && !disabled.has(entry.id) && entry.enabled !== false,
+  );
+  return model?.id ?? null;
+}
+
 export interface DaemonKnowledgePort {
   similarityQuery(id: string, key: string): Promise<import("@argos/shared/presenter").QueryResult[]>;
 }
@@ -75,8 +104,39 @@ export function createDaemonMcpPorts(deps: {
       }>
     >;
   };
-}): McpHostPorts {
+}): McpHostPorts & { elicitationBridge: DaemonElicitationBridge } {
+  /**
+   * Interactive MCP elicitations: the renderer answers via
+   * `mcp.submitElicitationDecision` / `mcp.cancelElicitation` (dispatcher),
+   * which land on the bridge below.
+   */
+  const pendingElicitations = new Map<
+    string,
+    { resolve: (decision: McpElicitationDecision) => void; reject: (error: Error) => void }
+  >();
+  const elicitationBridge: DaemonElicitationBridge = {
+    resolveDecision(decision: McpElicitationDecision): boolean {
+      const pending = pendingElicitations.get(decision.requestId);
+      if (!pending) return false;
+      pendingElicitations.delete(decision.requestId);
+      pending.resolve(decision);
+      // Every window received the request; let the others dismiss their dialog.
+      deps.eventPublisher.publish("mcp.elicitation.decision", { decision, version: Date.now() });
+      return true;
+    },
+    cancelRequest(requestId: string, reason?: string): boolean {
+      const pending = pendingElicitations.get(requestId);
+      if (!pending) return false;
+      pendingElicitations.delete(requestId);
+      pending.reject(new Error(reason || "Elicitation cancelled"));
+      deps.eventPublisher.publish("mcp.elicitation.cancelled", { requestId });
+      return true;
+    },
+  };
   const subscribers = new Map<string, Set<(payload: unknown) => void>>();
+  const oauthStore = createJsonStoreFactory(deps.configDir)<Record<string, unknown>>({
+    name: "mcp-oauth",
+  });
   const toolPolicyStore = createJsonStoreFactory(deps.configDir)<ToolPolicyStoreShape>({
     name: "plugin-tool-policies",
     defaults: {
@@ -413,35 +473,76 @@ export function createDaemonMcpPorts(deps: {
       handleSamplingRequest: async (payload: unknown) => {
         const req = payload as { requestId: string };
         const providers = (
-          deps.configPresenter as unknown as {
-            getProviders: () => Array<{
-              id: string;
-              enable: boolean;
-              apiKey: string;
-              baseUrl: string;
-              apiType: string;
-              models?: string[];
-              enabledModels?: string[];
-              customModels?: Array<{ id: string }>;
-            }>;
-          }
+          deps.configPresenter as unknown as { getProviders: () => SamplingProvider[] }
         ).getProviders();
-        const provider = providers.find((p) => p.enable && p.apiKey && p.baseUrl && p.apiType !== "anthropic");
+        const usable = providers.filter((p) => p.enable && p.apiKey && p.baseUrl && p.apiType !== "anthropic");
+        const provider = usable.find((p) => pickSamplingModelId(p) !== null);
         if (!provider) {
           throw new Error(
-            "No enabled OpenAI-compatible provider with API key for MCP sampling. " +
-              "Configure a provider with an API key and baseUrl, or use an OpenAI-compatible proxy for Anthropic.",
+            usable.length > 0
+              ? "No enabled model on the OpenAI-compatible providers configured for MCP sampling."
+              : "No enabled OpenAI-compatible provider with API key for MCP sampling. " +
+                  "Configure a provider with an API key and baseUrl, or use an OpenAI-compatible proxy for Anthropic.",
           );
         }
-        const modelId =
-          provider.enabledModels?.[0] ?? provider.models?.[0] ?? provider.customModels?.[0]?.id ?? "gpt-4o-mini";
+        const modelId = pickSamplingModelId(provider)!;
         return { requestId: req.requestId, approved: true, providerId: provider.id, modelId };
       },
       cancelSamplingRequest: async () => {},
+      // MCP servers ask the user structured questions: broadcast and wait for
+      // the renderer's decision via the elicitation bridge.
+      handleElicitationRequest: async (payload: unknown) => {
+        const request = payload as McpElicitationRequestPayload;
+        deps.eventPublisher.publish("mcp.elicitation.request", { request, version: Date.now() });
+        return await new Promise<McpElicitationDecision>((resolve, reject) => {
+          // The MCP runtime bounds the wait (timeout → cancelElicitationRequest).
+          pendingElicitations.set(request.requestId, { resolve, reject });
+        });
+      },
+      cancelElicitationRequest: async (requestId: string, reason?: string) => {
+        // Publishes the cancellation when the request was still pending.
+        elicitationBridge.cancelRequest(requestId, reason);
+      },
+      // OAuth flows (opt-in via the server config's `oauth: true`): open the
+      // authorization URL in the system browser and persist tokens/client
+      // state under the daemon config dir.
+      openExternal: async (url: string) => {
+        // Only hand real web URLs to the OS opener.
+        let parsed: URL;
+        try {
+          parsed = new URL(url);
+        } catch {
+          console.warn(`[MCP] Refusing to open an invalid URL: ${url}`);
+          return;
+        }
+        if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+          console.warn(`[MCP] Refusing to open a non-http(s) URL: ${parsed.protocol}`);
+          return;
+        }
+        // Windows: `cmd /c start` would parse "&" in the query string as a
+        // command separator; rundll32's URL handler takes the URL verbatim.
+        const command = process.platform === "win32" ? "rundll32" : process.platform === "darwin" ? "open" : "xdg-open";
+        const args = process.platform === "win32" ? ["url.dll,FileProtocolHandler", parsed.href] : [parsed.href];
+        await new Promise<void>((resolve) => {
+          const child = spawn(command, args, { detached: true, stdio: "ignore" });
+          child.on("error", (error) => {
+            console.warn(`[MCP] Failed to open ${url} in the system browser:`, error);
+            resolve();
+          });
+          child.on("close", () => resolve());
+        });
+      },
+      readJsonFile: async (key: string) => (oauthStore.get(key) ?? null) as unknown,
+      writeJsonFile: async (key: string, value: unknown) => {
+        oauthStore.set(key, value);
+      },
       generateCompletionStandalone: async (...args: unknown[]) => {
         const providerId = args[0] as string;
         const messages = args[1] as Array<{ role: string; content: string }>;
-        const modelId = args[2] as string;
+        const modelId = args[2];
+        if (typeof modelId !== "string" || !modelId) {
+          throw new Error(`MCP sampling needs a model id string, got ${typeof modelId}`);
+        }
         const systemPrompt = args[3] as string | undefined;
         const maxTokens = args[4] as number | undefined;
 
@@ -499,5 +600,11 @@ export function createDaemonMcpPorts(deps: {
         }
       },
     },
-  };
+    elicitationBridge,
+  } as McpHostPorts & { elicitationBridge: DaemonElicitationBridge };
+}
+
+export interface DaemonElicitationBridge {
+  resolveDecision(decision: McpElicitationDecision): boolean;
+  cancelRequest(requestId: string, reason?: string): boolean;
 }

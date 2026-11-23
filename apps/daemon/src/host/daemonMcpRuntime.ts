@@ -11,11 +11,29 @@ export class DaemonMcpRuntime {
   readonly serverManager: ServerManager;
   readonly toolManager: ToolManager;
   private readonly configPresenter: DaemonConfigPresenter;
+  private readonly ports: McpHostPorts;
 
   constructor(configPresenter: DaemonConfigPresenter, ports: McpHostPorts) {
     this.configPresenter = configPresenter;
+    this.ports = ports;
     this.serverManager = new ServerManager(configPresenter as never, ports);
     this.toolManager = new ToolManager(configPresenter as never, this.serverManager, ports);
+  }
+
+  /** Resolve a pending MCP elicitation with the renderer's decision. */
+  resolveElicitationDecision(decision: unknown): boolean {
+    const bridge = (this.ports as { elicitationBridge?: { resolveDecision(d: unknown): boolean } }).elicitationBridge;
+    return bridge?.resolveDecision(decision) ?? false;
+  }
+
+  /** Cancel a pending MCP elicitation (renderer dismissed it). */
+  cancelElicitation(requestId: string, reason?: string): boolean {
+    const bridge = (
+      this.ports as {
+        elicitationBridge?: { cancelRequest(id: string, reason?: string): boolean };
+      }
+    ).elicitationBridge;
+    return bridge?.cancelRequest(requestId, reason) ?? false;
   }
 
   async startServer(serverName: string) {
@@ -161,7 +179,7 @@ export class DaemonMcpRuntime {
   }
 
   /** Execute after the Pi/Argos permission gate has approved this call. */
-  async callApprovedTool(request: unknown) {
+  async callApprovedTool(request: unknown, options?: { signal?: AbortSignal }) {
     const toolCall = request as Parameters<ToolManager["callTool"]>[0];
     const permission = await this.toolManager.preCheckToolPermission(toolCall);
     if (permission) {
@@ -172,7 +190,7 @@ export class DaemonMcpRuntime {
         toolCall.conversationId,
       );
     }
-    const result = await this.toolManager.callTool(toolCall);
+    const result = await this.toolManager.callTool(toolCall, options?.signal ? { signal: options.signal } : undefined);
     // ProviderExecutionPort.callTool is typed Promise<MCPToolResponse>, so keep
     // the call id at the top level; the mcp.callTool route strips it via Zod.
     return {
@@ -254,6 +272,47 @@ export class DaemonMcpRuntime {
       }
     }
     return resources;
+  }
+
+  async listResourceTemplates() {
+    const enabled = await this.configPresenter.getMcpEnabled();
+    const servers = await this.configPresenter.getMcpServers();
+    const clients = (await this.toolManager.getRunningClients()).filter(
+      (client) => enabled || Boolean(servers[client.serverName]?.ownerPluginId || servers[client.serverName]?.sourceId),
+    );
+
+    // Query servers concurrently: one slow server must not serialize the rest.
+    const perClient = await Promise.all(
+      clients.map(async (client) => {
+        if (typeof client.listResourceTemplates !== "function") return [];
+        const clientTemplates = await client.listResourceTemplates().catch(() => []);
+        return (clientTemplates ?? []).map((template) => ({
+          ...template,
+          client: {
+            name: client.serverName,
+            icon: client.serverConfig["icons"] as string,
+          },
+        }));
+      }),
+    );
+    const templates: Array<Record<string, unknown> & { client: { name: string; icon: string } }> = perClient.flat();
+    return templates;
+  }
+
+  async completeArgument(serverName: string, params: unknown) {
+    const enabled = await this.configPresenter.getMcpEnabled();
+    const servers = await this.configPresenter.getMcpServers();
+    if (!enabled && !(servers[serverName]?.ownerPluginId || servers[serverName]?.sourceId)) {
+      throw new Error("MCP functionality is disabled");
+    }
+    return (await this.toolManager.completeArgumentByClient(serverName, params as never)) as unknown;
+  }
+
+  async invalidateOAuthCredentials(
+    serverName: string,
+    scope?: "all" | "client" | "tokens" | "verifier" | "state" | "discovery",
+  ) {
+    await this.serverManager.invalidateCredentials(serverName, scope);
   }
 
   async readResource(resource: unknown) {

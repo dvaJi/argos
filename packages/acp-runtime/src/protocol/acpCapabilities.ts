@@ -12,6 +12,10 @@ export interface AcpCapabilitySupport {
   sessionResume: boolean;
   sessionClose: boolean;
   sessionFork: boolean;
+  sessionDelete: boolean;
+  sessionArchive: boolean;
+  sessionStatus: boolean;
+  sessionTitle: boolean;
   authLogout: boolean;
 }
 
@@ -44,6 +48,10 @@ export function buildCapabilitySnapshot(initializeResult: schema.InitializeRespo
       sessionResume: Boolean(sessionCapabilities?.resume),
       sessionClose: Boolean(sessionCapabilities?.close),
       sessionFork: Boolean(sessionCapabilities?.fork),
+      sessionDelete: Boolean(sessionCapabilities?.delete),
+      sessionArchive: Boolean(sessionCapabilities?.archive),
+      sessionStatus: Boolean(sessionCapabilities?.status),
+      sessionTitle: Boolean(sessionCapabilities?.title),
       authLogout: Boolean(agentCapabilities?.auth?.logout),
     },
   };
@@ -74,6 +82,28 @@ export function buildClientCapabilities(options: AcpCapabilityOptions = {}): sch
       terminal: true,
     };
   }
+
+  // Argos handles the unstable `plan_update` / `plan_removed` session updates
+  // (see AcpContentMapper), so it can receive them from supporting agents.
+  caps.plan = {};
+
+  // Handled live-update contracts: ID-addressed compaction updates and
+  // user-facing notices, plus session-scoped elicitation in form AND URL
+  // modes (dialogs render in chat like permission requests), prompt
+  // suggestions (composer chips), subagent sessions (virtual tool calls),
+  // and session cursors (fork affordance). No unadvertised surfaces remain
+  // on the v1 entry.
+  caps.session = {
+    compaction: {},
+    notices: {},
+    promptSuggestions: {},
+    cursors: {},
+  };
+
+  // Child-session activity renders as virtual tool calls (see AcpContentMapper).
+  caps.subagents = {};
+
+  caps.elicitation = { form: {}, url: {} };
 
   return caps;
 }

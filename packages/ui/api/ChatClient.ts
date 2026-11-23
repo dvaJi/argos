@@ -1,6 +1,7 @@
 import type { ArgosBridge } from "@argos/shared-contracts/bridge";
 import {
   chatPlanUpdatedEvent,
+  chatPromptSuggestionsUpdatedEvent,
   chatStreamCompletedEvent,
   chatStreamFailedEvent,
   chatStreamUpdatedEvent,
@@ -67,6 +68,12 @@ export function createChatClient(bridge: ArgosBridge = getArgosBridge()) {
     return bridge.on(chatPlanUpdatedEvent.name, listener);
   }
 
+  function onPromptSuggestionsUpdated(
+    listener: (payload: ArgosEventPayload<"chat.promptSuggestions.updated">) => void,
+  ) {
+    return bridge.on(chatPromptSuggestionsUpdatedEvent.name, listener);
+  }
+
   return {
     sendMessage,
     steerActiveTurn,
@@ -76,6 +83,7 @@ export function createChatClient(bridge: ArgosBridge = getArgosBridge()) {
     onStreamCompleted,
     onStreamFailed,
     onPlanUpdated,
+    onPromptSuggestionsUpdated,
   };
 }
 

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { methods as acpMethods } from "@agentclientprotocol/sdk/unstable";
 import type * as schema from "@agentclientprotocol/sdk/unstable";
 import type { IEventPublisher } from "@argos/backend-core";
-import type { AcpProcessManager } from "@argos/acp-runtime/process/acpProcessManager";
+import type { AcpProcessManager, AcpProcessHandle } from "@argos/acp-runtime/process/acpProcessManager";
 import type { AcpAgentConfig } from "@argos/shared/presenter";
 
 /**
@@ -84,8 +84,79 @@ interface ActiveRun {
 export class DaemonAcpAuthRuntime {
   private readonly activeByAgent = new Map<string, ActiveRun>();
   private readonly runsById = new Map<string, ActiveRun>();
+  /**
+   * Pending request-scoped elicitations, keyed by `<connection>:<JSON-RPC id>`
+   * so two agent connections reusing the same raw id cannot collide.
+   */
+  private readonly pendingAuthElicitations = new Map<
+    string,
+    { agentId: string; resolve: (response: schema.CreateElicitationResponse) => void }
+  >();
+  private authElicitationSequence = 0;
 
   constructor(private readonly deps: AcpAuthRuntimeDeps) {}
+
+  /**
+   * While an auth flow runs, request-scoped elicitations (no session scope)
+   * route here: broadcast to the renderer and await its decision.
+   */
+  private registerAuthElicitationHandler(agentId: string, workdir?: string): () => void {
+    void this.deps.getProcessManager().then((processManager) => {
+      processManager.setAuthElicitationHandler(agentId, async (params, jsonRpcRequestId, connectionKey) => {
+        const rawId = jsonRpcRequestId != null ? String(jsonRpcRequestId) : `auto${++this.authElicitationSequence}`;
+        const requestId = `${connectionKey ?? agentId}:${rawId}`;
+        const payload: Record<string, unknown> = {
+          requestId,
+          agentId,
+          workdir: workdir ?? null,
+          mode: (params as { mode?: unknown }).mode ?? "form",
+          message: typeof params.message === "string" ? params.message : "",
+          toolCallId: null,
+        };
+        if (params.mode === "url") {
+          const urlView = params as { url?: unknown; elicitationId?: unknown };
+          payload.url = typeof urlView.url === "string" ? urlView.url : "";
+          payload.elicitationId = typeof urlView.elicitationId === "string" ? urlView.elicitationId : null;
+        } else {
+          const schemaView = params as { requestedSchema?: unknown };
+          payload.requestedSchema = schemaView.requestedSchema ?? {};
+        }
+        this.deps.eventPublisher.publish("providers.acpAuth.elicitation", payload);
+        return await new Promise<schema.CreateElicitationResponse>((resolve) => {
+          this.pendingAuthElicitations.set(requestId, { agentId, resolve });
+        });
+      });
+    });
+    return () => {
+      // Flow finished: drop the slot and cancel any unanswered elicitations.
+      void this.deps.getProcessManager().then((processManager) => {
+        processManager.setAuthElicitationHandler(agentId, null);
+      });
+      for (const [requestId, pending] of this.pendingAuthElicitations) {
+        if (pending.agentId !== agentId) continue;
+        this.pendingAuthElicitations.delete(requestId);
+        pending.resolve({ action: "cancel" });
+      }
+    };
+  }
+
+  /** Resolve a pending auth-phase elicitation with the renderer's decision. */
+  respondAcpAuthElicitation(
+    requestId: string,
+    action: "accept" | "decline" | "cancel",
+    content?: Record<string, string | number | boolean | string[]>,
+  ): boolean {
+    const pending = this.pendingAuthElicitations.get(requestId);
+    if (!pending) return false;
+    this.pendingAuthElicitations.delete(requestId);
+    if (action === "accept") {
+      pending.resolve({ action: "accept", content: content ?? null });
+    } else {
+      pending.resolve({ action });
+    }
+    this.deps.eventPublisher.publish("providers.acpAuth.elicitationResolved", { requestId });
+    return true;
+  }
 
   isActive(agentId: string): boolean {
     return this.activeByAgent.get(agentId)?.state === "running";
@@ -177,6 +248,16 @@ export class DaemonAcpAuthRuntime {
     output?: string | null;
     exitCode?: number | null;
     error?: string | null;
+    authStatus?: {
+      state: string;
+      accounts: Array<{
+        label: string;
+        description?: string | null;
+        active?: boolean | null;
+        name?: string | null;
+        email?: string | null;
+      }>;
+    };
   }): void {
     this.deps.eventPublisher.publish("providers.acpAuth.changed", {
       agentId: payload.run.agentId,
@@ -187,6 +268,8 @@ export class DaemonAcpAuthRuntime {
       output: payload.output ?? null,
       exitCode: payload.exitCode ?? null,
       error: payload.error ?? null,
+      // The contract allows the field to be omitted, not null.
+      ...(payload.authStatus ? { authStatus: payload.authStatus } : {}),
     });
   }
 
@@ -206,12 +289,20 @@ export class DaemonAcpAuthRuntime {
     this.publish({ run, state: "running" });
 
     void (async () => {
+      let clearAuthElicitation: (() => void) | null = null;
       try {
         const processManager = await this.deps.getProcessManager();
         const handle = await processManager.getConnection(
           { id: input.agentId, name: input.agentId } as AcpAgentConfig,
           input.workdir,
         );
+        clearAuthElicitation = this.registerAuthElicitationHandler(input.agentId, input.workdir);
+        // Fire-and-forget: publish configured accounts so the sign-in dialog
+        // can show them in the method-select state. Must not block the
+        // authenticate call.
+        void this.fetchAuthStatus(handle).then((status) => {
+          if (status) this.publish({ run, state: "running", authStatus: status });
+        });
         const authenticate = handle.connection.agent.request(acpMethods.agent.authenticate, {
           methodId: method.id,
         } as schema.AuthenticateRequest);
@@ -220,7 +311,8 @@ export class DaemonAcpAuthRuntime {
         });
         await Promise.race([authenticate, timeout, run.abortPromise!]);
         run.state = "ready";
-        this.publish({ run, state: "ready" });
+        const authStatus = await this.fetchAuthStatus(handle);
+        this.publish({ run, state: "ready", authStatus: authStatus ?? undefined });
       } catch (error) {
         const cancelled = run.abort?.signal.aborted === true;
         run.state = cancelled ? "cancelled" : "error";
@@ -229,9 +321,59 @@ export class DaemonAcpAuthRuntime {
           state: run.state,
           error: cancelled ? "Authentication cancelled" : error instanceof Error ? error.message : String(error),
         });
+      } finally {
+        clearAuthElicitation?.();
       }
     })();
     return { mode: "agent", runId: null };
+  }
+
+  /**
+   * Best-effort `auth/status` query: returns the agent's auth state plus its
+   * configured accounts (label/description/active) for display.
+   */
+  private async fetchAuthStatus(handle: AcpProcessHandle): Promise<{
+    state: string;
+    accounts: Array<{
+      label: string;
+      description?: string | null;
+      active?: boolean | null;
+      name?: string | null;
+      email?: string | null;
+    }>;
+  } | null> {
+    try {
+      const response = (await handle.connection.agent.request(acpMethods.agent.auth.status, {})) as {
+        state?: unknown;
+        accounts?: unknown;
+      };
+      const state = typeof response.state === "string" ? response.state : "unknown";
+      const accounts = Array.isArray(response.accounts)
+        ? response.accounts
+            .map((account) => {
+              const view = account as {
+                label?: unknown;
+                description?: unknown;
+                active?: unknown;
+                name?: unknown;
+                email?: unknown;
+              };
+              if (typeof view.label !== "string" || !view.label.trim()) return null;
+              return {
+                label: view.label.trim(),
+                description: typeof view.description === "string" && view.description.trim() ? view.description : null,
+                active: view.active === true ? true : null,
+                name: typeof view.name === "string" && view.name.trim() ? view.name : null,
+                email: typeof view.email === "string" && view.email.trim() ? view.email : null,
+              };
+            })
+            .filter((account): account is NonNullable<typeof account> => account !== null)
+        : [];
+      return { state, accounts };
+    } catch (error) {
+      console.warn("[ACP] auth/status query failed:", error);
+      return null;
+    }
   }
 
   private async startTerminalFlow(

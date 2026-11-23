@@ -399,7 +399,7 @@ export interface AssistantMessageBlock {
   };
   tool_call?: ToolCallBlockData;
   extra?: AssistantMessageExtra;
-  action_type?: "tool_call_permission" | "question_request" | "rate_limit";
+  action_type?: "tool_call_permission" | "question_request" | "rate_limit" | "elicitation_request";
   file_changes?: {
     files: TurnFileChange[];
   };
@@ -761,6 +761,11 @@ export type ToolInteractionResponse =
     }
   | {
       kind: "question_other";
+    }
+  | {
+      kind: "elicitation";
+      action: "accept" | "decline" | "cancel";
+      content?: Record<string, string | number | boolean | string[]>;
     };
 
 export interface ToolInteractionResult {

@@ -40,7 +40,11 @@ import {
 } from "../protocol/acpConfigState";
 import type { AcpHostPorts } from "../host/ports";
 import { AcpDebugLog } from "../config/acpDebugLog";
-import { DEFAULT_PERMISSION_RESOLVER_TIMEOUT_MS, resolvePermissionWithTimeout } from "./permissionTimeout";
+import {
+  DEFAULT_PERMISSION_RESOLVER_TIMEOUT_MS,
+  resolveElicitationWithTimeout,
+  resolvePermissionWithTimeout,
+} from "./permissionTimeout";
 
 /**
  * Handlers Argos implements for agent-to-client ACP requests. Replaces the SDK's `Client`
@@ -48,6 +52,11 @@ import { DEFAULT_PERMISSION_RESOLVER_TIMEOUT_MS, resolvePermissionWithTimeout } 
  */
 type AcpClientHandlers = {
   requestPermission(params: schema.RequestPermissionRequest): Promise<schema.RequestPermissionResponse>;
+  elicitationCreate(
+    params: schema.CreateElicitationRequest,
+    jsonRpcRequestId?: string | number,
+  ): Promise<schema.CreateElicitationResponse>;
+  elicitationComplete(params: schema.CompleteElicitationNotification): Promise<void>;
   sessionUpdate(notification: schema.SessionNotification): Promise<void>;
   readTextFile(params: schema.ReadTextFileRequest): Promise<schema.ReadTextFileResponse>;
   writeTextFile(params: schema.WriteTextFileRequest): Promise<schema.WriteTextFileResponse>;
@@ -114,6 +123,23 @@ export type PermissionResolver = (
   request: schema.RequestPermissionRequest,
 ) => Promise<schema.RequestPermissionResponse>;
 
+export type ElicitationResolver = (
+  request: schema.CreateElicitationRequest,
+) => Promise<schema.CreateElicitationResponse>;
+
+export type AuthElicitationHandler = (
+  params: schema.CreateElicitationRequest,
+  jsonRpcRequestId?: string | number,
+  /** Unique per agent connection; scope pending ids with it. */
+  connectionKey?: string,
+) => Promise<schema.CreateElicitationResponse>;
+
+/** Identity of the agent connection a request arrived on. */
+interface ClientConnectionScope {
+  agentId?: string;
+  key: string;
+}
+
 interface SessionListenerEntry {
   agentId: string;
   handlers: Set<SessionNotificationHandler>;
@@ -143,6 +169,13 @@ function isElectron(): boolean {
 interface PermissionResolverEntry {
   agentId: string;
   resolver: PermissionResolver;
+}
+
+interface ElicitationResolverEntry {
+  agentId: string;
+  resolver: ElicitationResolver;
+  /** Notified when the agent reports a URL-based elicitation completed. */
+  onComplete?: (elicitationId: string) => void;
 }
 
 interface BufferedSessionUpdate {
@@ -234,6 +267,24 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
   private readonly sessionListeners = new Map<string, SessionListenerEntry>();
   private readonly bufferedSessionUpdates = new Map<string, BufferedSessionUpdate[]>();
   private readonly permissionResolvers = new Map<string, PermissionResolverEntry>();
+  private readonly elicitationResolvers = new Map<string, ElicitationResolverEntry>();
+  /** In-flight URL-mode elicitations that the agent may complete via `elicitation/complete`. */
+  private readonly pendingUrlAccepts = new Map<
+    string,
+    { sessionId: string; resolve: (response: schema.CreateElicitationResponse) => void }
+  >();
+  /**
+   * Slots for elicitations with no session scope (auth/config phases), one per
+   * agent. The auth runtime registers a handler while that agent's flow is
+   * active; without it, request-scoped elicitations from that agent are declined.
+   */
+  private readonly authElicitationHandlers = new Map<string, AuthElicitationHandler>();
+  private connectionSequence = 0;
+
+  setAuthElicitationHandler(agentId: string, handler: AuthElicitationHandler | null): void {
+    if (handler) this.authElicitationHandlers.set(agentId, handler);
+    else this.authElicitationHandlers.delete(agentId);
+  }
   private permissionResolverTimeoutMs = DEFAULT_PERMISSION_RESOLVER_TIMEOUT_MS;
   private readonly ports: AcpHostPorts;
   private terminalManager!: AcpTerminalManager;
@@ -611,6 +662,7 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
     this.boundHandles.clear();
     this.sessionListeners.clear();
     this.permissionResolvers.clear();
+    this.elicitationResolvers.clear();
     this.pendingHandles.clear();
     this.sessionWorkdirs.clear();
     this.sessionConversations.clear();
@@ -754,9 +806,29 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
     };
   }
 
+  registerElicitationResolver(
+    agentId: string,
+    sessionId: string,
+    resolver: ElicitationResolver,
+    onComplete?: (elicitationId: string) => void,
+  ): () => void {
+    if (this.elicitationResolvers.has(sessionId)) {
+      console.warn(`[ACP] Overwriting existing elicitation resolver for session "${sessionId}" (agent ${agentId})`);
+    }
+    this.elicitationResolvers.set(sessionId, { agentId, resolver, onComplete });
+
+    return () => {
+      const entry = this.elicitationResolvers.get(sessionId);
+      if (entry && entry.resolver === resolver) {
+        this.elicitationResolvers.delete(sessionId);
+      }
+    };
+  }
+
   clearSession(sessionId: string): void {
     this.sessionListeners.delete(sessionId);
     this.permissionResolvers.delete(sessionId);
+    this.elicitationResolvers.delete(sessionId);
     this.sessionWorkdirs.delete(sessionId);
     this.sessionConversations.delete(sessionId);
     this.fsHandlers.delete(sessionId);
@@ -797,7 +869,7 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
     const child = await this.spawnAgentProcess(agent, workdir, launchSpec);
     const stderrChunks: string[] = [];
     const stream = this.createAgentStream(agent.id, child);
-    const connection = this.createClientApp().connect(stream);
+    const connection = this.createClientApp(agent.id).connect(stream);
     const handleSeed: Partial<AcpProcessHandle> = {};
     let readyHandle: AcpProcessHandle | null = null;
 
@@ -1577,10 +1649,22 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
     });
   }
 
-  private createClientApp(): ClientApp {
-    const client = this.createClientProxy();
+  private createClientApp(agentId?: string): ClientApp {
+    const client = this.createClientProxy({ agentId, key: `${agentId ?? "agent"}#${++this.connectionSequence}` });
+    const broadcastAuthStatus = (payload: unknown) => {
+      if (!agentId) return;
+      this.ports.events.broadcast("acp.auth.status_update", { agentId, ...(payload as Record<string, unknown>) });
+    };
     return createAcpClientApp({ name: "Argos" })
       .onRequest(acpMethods.client.session.requestPermission, (ctx) => client.requestPermission(ctx.params))
+      .onRequest(acpMethods.client.elicitation.create, (ctx) => {
+        const rawRequestId = ctx.requestId as string | number | null | undefined;
+        const jsonRpcRequestId =
+          typeof rawRequestId === "string" || typeof rawRequestId === "number" ? rawRequestId : undefined;
+        return client.elicitationCreate(ctx.params, jsonRpcRequestId);
+      })
+      .onNotification(acpMethods.client.elicitation.complete, (ctx) => client.elicitationComplete(ctx.params))
+      .onNotification(acpMethods.client.auth.statusUpdate, (ctx) => broadcastAuthStatus(ctx.params))
       .onNotification(acpMethods.client.session.update, (ctx) => {
         client.sessionUpdate(ctx.params);
       })
@@ -1593,9 +1677,23 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
       .onRequest(acpMethods.client.terminal.release, (ctx) => client.releaseTerminal(ctx.params));
   }
 
-  private createClientProxy(): AcpClientHandlers {
+  private createClientProxy(connection: ClientConnectionScope): AcpClientHandlers {
     return {
       requestPermission: async (params) => this.dispatchPermissionRequest(params),
+      elicitationCreate: async (params, jsonRpcRequestId) =>
+        this.dispatchElicitationRequest(params, jsonRpcRequestId, connection),
+      elicitationComplete: async (params) => {
+        // Only the connection that issued the URL request may complete it.
+        const agentElicitationId = params.elicitationId;
+        const pendingKey = agentElicitationId ? `${connection.key}:${agentElicitationId}` : undefined;
+        const pending = pendingKey ? this.pendingUrlAccepts.get(pendingKey) : undefined;
+        if (pending && pendingKey) {
+          this.pendingUrlAccepts.delete(pendingKey);
+          pending.resolve({ action: "accept" });
+        }
+        const resolverEntry = pending ? this.elicitationResolvers.get(pending.sessionId) : undefined;
+        resolverEntry?.onComplete?.(agentElicitationId);
+      },
       sessionUpdate: async (notification) => {
         this.dispatchSessionUpdate(notification);
       },
@@ -1751,6 +1849,142 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
     }
   }
 
+  /**
+   * Handle an agent `elicitation/create` request.
+   *
+   * Session-scoped form and URL requests are forwarded to the UI through the
+   * session's elicitation resolver (mirroring permission requests). URL-mode
+   * elicitations can also complete out-of-band: the agent sends an
+   * `elicitation/complete` notification, which races the user's answer.
+   * Request-scoped elicitations (auth/config phases, before any session)
+   * route through the auth-elicitation slot when an auth flow is active; the
+   * unknown custom modes are still declined.
+   */
+  private async dispatchElicitationRequest(
+    params: schema.CreateElicitationRequest,
+    jsonRpcRequestId: string | number | undefined,
+    connection: ClientConnectionScope,
+  ): Promise<schema.CreateElicitationResponse> {
+    const rawSessionId = (params as { sessionId?: unknown }).sessionId;
+    const sessionId = typeof rawSessionId === "string" ? rawSessionId : undefined;
+    if (!sessionId) {
+      return this.dispatchAuthElicitation(params, jsonRpcRequestId, connection);
+    }
+    if (params.mode !== "form" && params.mode !== "url") {
+      console.warn(`[ACP] Elicitation mode "${params.mode}" is not supported, declining (session "${sessionId}")`);
+      return { action: "decline" };
+    }
+
+    const entry = this.elicitationResolvers.get(sessionId);
+    if (!entry) {
+      console.warn(`[ACP] Missing elicitation resolver for session "${sessionId}", declining`);
+      return { action: "decline" };
+    }
+
+    if (params.mode === "url") {
+      return this.dispatchUrlElicitation(params, sessionId, entry, connection);
+    }
+
+    try {
+      this.debugLog.append(entry.agentId, {
+        kind: "permission",
+        action: "elicitation/create",
+        sessionId,
+        payload: params,
+      });
+      return await resolveElicitationWithTimeout(
+        () => entry.resolver(params),
+        this.permissionResolverTimeoutMs,
+        () => {
+          console.warn(
+            `[ACP] Elicitation resolver timed out for session "${sessionId}" after ${this.permissionResolverTimeoutMs}ms, returning cancelled`,
+          );
+          this.debugLog.append(entry.agentId, {
+            kind: "permission",
+            action: "elicitation/create.timeout",
+            sessionId,
+            payload: { timeoutMs: this.permissionResolverTimeoutMs },
+          });
+        },
+      );
+    } catch (error) {
+      console.error("[ACP] Elicitation resolver failed:", error);
+      return { action: "decline" };
+    }
+  }
+
+  /**
+   * Request-scoped elicitations (auth/config phases, no session): route to the
+   * auth-elicitation slot when an auth flow is active, else decline.
+   */
+  private async dispatchAuthElicitation(
+    params: schema.CreateElicitationRequest,
+    jsonRpcRequestId: string | number | undefined,
+    connection: ClientConnectionScope,
+  ): Promise<schema.CreateElicitationResponse> {
+    const handler = connection.agentId ? this.authElicitationHandlers.get(connection.agentId) : undefined;
+    if (!handler) {
+      console.warn("[ACP] Request-scoped elicitation declined: no auth flow is active for this agent");
+      return { action: "decline" };
+    }
+    try {
+      return await resolveElicitationWithTimeout(
+        () => handler(params, jsonRpcRequestId, connection.key),
+        this.permissionResolverTimeoutMs,
+        () => console.warn("[ACP] Auth-phase elicitation timed out, returning cancelled"),
+      );
+    } catch (error) {
+      console.error("[ACP] Auth-phase elicitation resolver failed:", error);
+      return { action: "decline" };
+    }
+  }
+
+  /**
+   * URL-mode elicitations race the user's answer against the agent's
+   * `elicitation/complete` notification: whichever arrives first resolves the
+   * request as accepted.
+   */
+  private async dispatchUrlElicitation(
+    params: schema.CreateElicitationRequest,
+    sessionId: string,
+    entry: ElicitationResolverEntry,
+    connection: ClientConnectionScope,
+  ): Promise<schema.CreateElicitationResponse> {
+    const rawElicitationId = (params as { elicitationId?: unknown }).elicitationId;
+    const agentElicitationId = typeof rawElicitationId === "string" ? rawElicitationId : undefined;
+    let resolveAccept: ((response: schema.CreateElicitationResponse) => void) | undefined;
+    const acceptedOnComplete = new Promise<schema.CreateElicitationResponse>((resolve) => {
+      resolveAccept = resolve;
+    });
+    const pendingKey = agentElicitationId ? `${connection.key}:${agentElicitationId}` : undefined;
+    if (pendingKey && resolveAccept) {
+      this.pendingUrlAccepts.set(pendingKey, { sessionId, resolve: resolveAccept });
+    }
+
+    try {
+      this.debugLog.append(entry.agentId, {
+        kind: "permission",
+        action: "elicitation/create.url",
+        sessionId,
+        payload: params,
+      });
+      return await Promise.race([
+        resolveElicitationWithTimeout(
+          () => entry.resolver(params),
+          this.permissionResolverTimeoutMs,
+          () => {
+            console.warn(`[ACP] URL elicitation timed out for session "${sessionId}", returning cancelled`);
+          },
+        ),
+        acceptedOnComplete,
+      ]);
+    } finally {
+      if (pendingKey) {
+        this.pendingUrlAccepts.delete(pendingKey);
+      }
+    }
+  }
+
   private notifyModesReady(handle: AcpProcessHandle, conversationId?: string): void {
     if (!handle.availableModes || handle.availableModes.length === 0) return;
 
@@ -1887,6 +2121,12 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
     for (const [sessionId, entry] of this.permissionResolvers.entries()) {
       if (entry.agentId === agentId) {
         this.permissionResolvers.delete(sessionId);
+      }
+    }
+
+    for (const [sessionId, entry] of this.elicitationResolvers.entries()) {
+      if (entry.agentId === agentId) {
+        this.elicitationResolvers.delete(sessionId);
       }
     }
 

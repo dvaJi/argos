@@ -547,9 +547,12 @@ export class McpPresenter implements IMCPPresenter {
 
   async callTool(
     request: MCPToolCall,
-    options?: { accessContext?: AgentToolAccessContext },
+    options?: { accessContext?: AgentToolAccessContext; signal?: AbortSignal },
   ): Promise<{ content: string; rawData: MCPToolResponse }> {
-    const toolCallResult = await this.toolManager.callTool(request, { accessContext: options?.accessContext });
+    const toolCallResult = await this.toolManager.callTool(request, {
+      accessContext: options?.accessContext,
+      signal: options?.signal,
+    });
     const imagePreviews = await extractToolCallImagePreviews({
       toolName: request.function.name,
       toolArgs: request.function.arguments,

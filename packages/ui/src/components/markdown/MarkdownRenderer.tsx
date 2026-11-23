@@ -110,7 +110,7 @@ export function MarkdownRenderer({
     };
     return promise;
   };
-  const codeFontFamily = getFormattedCodeFontFamily();
+  const codeFontFamily = getFormattedCodeFontFamily(uiSettingsStore.codeFontFamily);
   const [debouncedContent, setDebouncedContent] = useState(content);
   const contentRevisionRef = useRef(0);
   const fastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);

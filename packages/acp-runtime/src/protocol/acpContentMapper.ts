@@ -25,6 +25,10 @@ export interface MappedContent {
     description: string;
     input?: { hint: string } | null;
   }>;
+  /** Prompt suggestions predicted by the agent (optional), most likely first */
+  promptSuggestions?: string[];
+  /** Session cursors announced by the agent (optional); forkable ones can seed `session/fork` */
+  cursors?: AcpCursorEntry[];
   /** Unified ACP session config state */
   configState?: AcpConfigState;
   /** ACP session metadata update */
@@ -53,10 +57,59 @@ interface ToolCallState {
   rawContents?: schema.ToolCallContent[];
 }
 
+/** Per-compaction tracking state (id-addressed compaction contract) */
+interface CompactionState {
+  status?: schema.CompactionStatus;
+  /** Whether summary chunks were streamed for this compaction already */
+  summaryStreamed: boolean;
+}
+
+/** Child-session metadata reported through `subagent_update` (patch semantics) */
+interface SubagentSessionEntry {
+  title?: string;
+  description?: string;
+}
+
+/** A session cursor announced by the agent via `cursor_update` */
+export interface AcpCursorEntry {
+  cursorId: string;
+  forkable: boolean;
+  anchorType: string;
+  anchorId?: string;
+  position?: string;
+}
+
 const now = () => Date.now();
 
 export class AcpContentMapper {
   private readonly toolCallStates = new Map<string, ToolCallState>();
+  /** Keyed by `${sessionId}:${compactionId}`: agents may reuse ids across sessions. */
+  private readonly compactionStates = new Map<string, CompactionState>();
+  private readonly subagentSessions = new Map<string, SubagentSessionEntry>();
+  private readonly messageOwners = new Map<string, string>();
+  private readonly messageStreamed = new Set<string>();
+  private readonly sessionCursors = new Map<string, Map<string, AcpCursorEntry>>();
+
+  /**
+   * Forget every per-session cache (cursors, tool-call state, subagent and
+   * message-owner bookkeeping) for an agent session that is going away, so
+   * the long-lived mapper does not grow and a reused id starts clean.
+   */
+  forgetSession(sessionId: string): void {
+    this.sessionCursors.delete(sessionId);
+    const prefix = `${sessionId}:`;
+    for (const store of [this.toolCallStates, this.subagentSessions, this.messageOwners, this.compactionStates] as Map<
+      string,
+      unknown
+    >[]) {
+      for (const key of store.keys()) {
+        if (key.startsWith(prefix)) store.delete(key);
+      }
+    }
+    for (const key of this.messageStreamed) {
+      if (key.startsWith(prefix)) this.messageStreamed.delete(key);
+    }
+  }
 
   map(notification: schema.SessionNotification): MappedContent {
     const { update, sessionId } = notification;
@@ -78,6 +131,24 @@ export class AcpContentMapper {
       case "plan":
         console.info("[ACP] Plan update received:", JSON.stringify(update));
         this.handlePlanUpdate(update, payload);
+        break;
+      case "plan_update":
+        this.handlePlanUpdateContent(update.plan, payload);
+        break;
+      case "plan_removed":
+        this.pushPlanEntries([], payload);
+        break;
+      case "notice":
+        this.handleNotice(update, payload);
+        break;
+      case "compaction_update":
+        this.handleCompactionUpdate(sessionId, update, payload);
+        break;
+      case "compaction_summary_chunk":
+        this.handleCompactionSummaryChunk(sessionId, update, payload);
+        break;
+      case "prompt_suggestions_update":
+        this.handlePromptSuggestionsUpdate(update, payload);
         break;
       case "current_mode_update":
         console.info("[ACP] Mode update received:", update);
@@ -101,6 +172,22 @@ export class AcpContentMapper {
         break;
       case "user_message_chunk":
         // ignore echo
+        break;
+      case "cursor_update": {
+        const cursors = this.handleCursorUpdate(update, sessionId);
+        if (cursors) {
+          payload.cursors = cursors;
+        }
+        break;
+      }
+      case "subagent_update":
+        this.handleSubagentUpdate(update, payload, sessionId);
+        break;
+      case "session_message":
+        this.handleSessionMessage(update, payload, sessionId);
+        break;
+      case "session_message_chunk":
+        this.handleSessionMessageChunk(update, payload, sessionId);
         break;
       default:
         // Handle any unrecognized session update types
@@ -239,28 +326,314 @@ export class AcpContentMapper {
     }
   }
 
-  private handlePlanUpdate(
-    update: Extract<schema.SessionNotification["update"], { sessionUpdate: "plan" }>,
-    payload: MappedContent,
-  ) {
-    const entries = update.entries || [];
-    if (!entries.length) return;
-
-    // Store structured plan entries
-    const planEntries: PlanEntry[] = entries.map((entry) => ({
+  private mapPlanEntries(entries: schema.PlanEntry[] | null | undefined): PlanEntry[] {
+    return (entries ?? []).map((entry) => ({
       content: entry.content,
       priority: entry.priority ?? null,
       status: entry.status ?? null,
     }));
-    payload.planEntries = planEntries;
+  }
+
+  private pushPlanEntries(entries: PlanEntry[], payload: MappedContent) {
+    payload.planEntries = entries;
 
     // Create dedicated plan block
     payload.events.push(createStreamEvent.reasoning("")); // Empty event for plan
     payload.blocks.push(
       this.createBlock("plan", "", {
-        extra: { plan_entries: planEntries },
+        extra: { plan_entries: entries },
       }),
     );
+  }
+
+  private handlePlanUpdate(
+    update: Extract<schema.SessionNotification["update"], { sessionUpdate: "plan" }>,
+    payload: MappedContent,
+  ) {
+    const entries = this.mapPlanEntries(update.entries);
+    if (!entries.length) return;
+    this.pushPlanEntries(entries, payload);
+  }
+
+  private handlePlanUpdateContent(plan: schema.PlanUpdateContent, payload: MappedContent) {
+    if (plan.type === "items") {
+      // `entries` is a complete replacement of that plan's entries
+      this.pushPlanEntries(this.mapPlanEntries(plan.entries), payload);
+      return;
+    }
+    // Markdown plan document; `path` points at the file holding the plan
+    const text = plan.path ? `${plan.content}\n\n(${plan.path})` : plan.content;
+    if (text.trim()) {
+      this.emitAsText(text, "text", payload);
+    }
+  }
+
+  private handleNotice(
+    update: Extract<schema.SessionNotification["update"], { sessionUpdate: "notice" }>,
+    payload: MappedContent,
+  ) {
+    const title = typeof update.title === "string" ? update.title.trim() : "";
+    if (!title) return;
+    const description = typeof update.description === "string" ? update.description.trim() : "";
+    const prefix = update.severity === "error" ? "Error" : update.severity === "warning" ? "Warning" : undefined;
+    const text = `${prefix ? `${prefix}: ` : ""}${title}${description ? ` — ${description}` : ""}`;
+    this.emitAsText(text, "text", payload);
+  }
+
+  private handleCompactionUpdate(
+    sessionId: string,
+    update: Extract<schema.SessionNotification["update"], { sessionUpdate: "compaction_update" }>,
+    payload: MappedContent,
+  ) {
+    const state = this.compactionStates.get(`${sessionId}:${update.compactionId}`) ?? { summaryStreamed: false };
+
+    if (update.status && update.status !== state.status) {
+      state.status = update.status;
+      const suffix = update.status === "failed" && update.error ? `: ${update.error}` : "";
+      this.emitAsText(`Context compaction ${update.status}${suffix}`, "text", payload);
+    }
+
+    // `summary` has replacement semantics; if summary chunks were streamed
+    // earlier they already rendered the content, so don't duplicate it here.
+    if (Array.isArray(update.summary) && update.summary.length && !state.summaryStreamed) {
+      const summaryText = this.contentBlocksToText(update.summary);
+      if (summaryText) {
+        this.emitAsText(summaryText, "text", payload);
+      }
+    }
+
+    this.compactionStates.set(`${sessionId}:${update.compactionId}`, state);
+  }
+
+  private handleCompactionSummaryChunk(
+    sessionId: string,
+    update: Extract<schema.SessionNotification["update"], { sessionUpdate: "compaction_summary_chunk" }>,
+    payload: MappedContent,
+  ) {
+    const state = this.compactionStates.get(`${sessionId}:${update.compactionId}`) ?? { summaryStreamed: false };
+    state.summaryStreamed = true;
+    this.compactionStates.set(`${sessionId}:${update.compactionId}`, state);
+    this.pushContent(update.content, "text", payload);
+  }
+
+  private handlePromptSuggestionsUpdate(
+    update: Extract<schema.SessionNotification["update"], { sessionUpdate: "prompt_suggestions_update" }>,
+    payload: MappedContent,
+  ) {
+    const suggestions = (update.suggestions ?? [])
+      .map((suggestion) =>
+        suggestion.prompt
+          .filter((block): block is Extract<schema.ContentBlock, { type: "text" }> => block.type === "text")
+          .map((block) => block.text)
+          .join(" ")
+          .replace(/\s+/g, " ")
+          .trim(),
+      )
+      .filter(Boolean);
+    payload.promptSuggestions = suggestions;
+  }
+
+  private contentBlocksToText(blocks: schema.ContentBlock[]): string {
+    return blocks
+      .map((block) => (block.type === "text" ? block.text : ""))
+      .filter(Boolean)
+      .join("\n")
+      .trim();
+  }
+
+  /**
+   * Track agent-announced session cursors. `capabilities` has patch semantics
+   * (omitted = unchanged, `null` = clears, object = replaces); the anchor is
+   * required on the first update and later omissions keep it. Emits the full
+   * cursor list for the session on every update.
+   */
+  private handleCursorUpdate(
+    update: Extract<schema.SessionNotification["update"], { sessionUpdate: "cursor_update" }>,
+    sessionId: string,
+  ) {
+    const cursorId = update.cursorId;
+    if (!cursorId) return;
+    let cursors = this.sessionCursors.get(sessionId);
+    if (!cursors) {
+      cursors = new Map();
+      this.sessionCursors.set(sessionId, cursors);
+    }
+    const entry: AcpCursorEntry = cursors.get(cursorId) ?? {
+      cursorId,
+      forkable: false,
+      anchorType: "unknown",
+    };
+
+    const anchor = update.anchor as
+      | { type?: unknown; position?: unknown; messageId?: unknown; toolCallId?: unknown; compactionId?: unknown }
+      | null
+      | undefined;
+    if (anchor) {
+      entry.anchorType = typeof anchor.type === "string" ? anchor.type : "unknown";
+      const anchorId =
+        typeof anchor.messageId === "string"
+          ? anchor.messageId
+          : typeof anchor.toolCallId === "string"
+            ? anchor.toolCallId
+            : typeof anchor.compactionId === "string"
+              ? anchor.compactionId
+              : undefined;
+      if (anchorId) entry.anchorId = anchorId;
+      if (typeof anchor.position === "string") entry.position = anchor.position;
+    }
+
+    if (update.capabilities !== undefined) {
+      entry.forkable = update.capabilities?.fork != null;
+    }
+    cursors.set(cursorId, entry);
+
+    return [...cursors.values()];
+  }
+
+  private subagentSessionKey(parentSessionId: string, childSessionId: string): string {
+    return `${parentSessionId}:${childSessionId}`;
+  }
+
+  private messageOwnerKey(parentSessionId: string, messageId: string): string {
+    return `${parentSessionId}:${messageId}`;
+  }
+
+  private subagentDisplayName(parentSessionId: string, childSessionId: string): string {
+    const entry = this.subagentSessions.get(this.subagentSessionKey(parentSessionId, childSessionId));
+    return entry?.title?.trim() || entry?.description?.trim() || "Subagent";
+  }
+
+  /**
+   * Resolve which child session owns a session-directed message: the stored
+   * mapping from a previous `session_message`, else the sender when it is not
+   * the parent session, else the recipient when it is not the parent.
+   */
+  private resolveMessageChild(
+    parentSessionId: string,
+    messageId: string,
+    senderSessionId?: string | null,
+    recipientSessionId?: string | null,
+  ): string | undefined {
+    const stored = this.messageOwners.get(this.messageOwnerKey(parentSessionId, messageId));
+    if (stored && stored !== parentSessionId) return stored;
+    if (senderSessionId && senderSessionId !== parentSessionId) return senderSessionId;
+    if (recipientSessionId && recipientSessionId !== parentSessionId) return recipientSessionId;
+    return undefined;
+  }
+
+  private getSubagentToolCallState(parentSessionId: string, childSessionId: string): ToolCallState {
+    return this.getOrCreateToolCallState(
+      parentSessionId,
+      childSessionId,
+      this.subagentDisplayName(parentSessionId, childSessionId),
+    );
+  }
+
+  /**
+   * Child-session association and work-state snapshots. Rendered as a virtual
+   * tool call per child so nested agent activity reuses the regular tool-call
+   * blocks: `running` keeps it open, `idle` completes it, an `error` fails it.
+   */
+  private handleSubagentUpdate(
+    update: Extract<schema.SessionNotification["update"], { sessionUpdate: "subagent_update" }>,
+    payload: MappedContent,
+    sessionId: string,
+  ) {
+    const childSessionId = update.sessionId;
+    if (!childSessionId) return;
+    const key = this.subagentSessionKey(sessionId, childSessionId);
+    const entry = this.subagentSessions.get(key) ?? {};
+    if (update.title !== undefined) entry.title = update.title ?? undefined;
+    if (update.description !== undefined) entry.description = update.description ?? undefined;
+    this.subagentSessions.set(key, entry);
+
+    const state = update.state ?? undefined;
+    if (!state) return; // omitted = unchanged; null = clear activity (nothing to render)
+
+    const stateView = state as { state?: unknown; error?: unknown };
+    const stateName = typeof stateView.state === "string" ? stateView.state : undefined;
+    const callState = this.getSubagentToolCallState(sessionId, childSessionId);
+    this.emitToolCallStartIfNeeded(callState, payload);
+
+    const hasError = stateView.error !== undefined && stateView.error !== null;
+    if (stateName === "idle" || hasError) {
+      callState.status = hasError ? "failed" : "completed";
+      this.emitToolCallEnd(callState, payload, hasError);
+      return;
+    }
+    if (stateName === "running") {
+      callState.status = "in_progress";
+    }
+    // requires_action / unknown / custom states: leave the call open.
+  }
+
+  private handleSessionMessage(
+    update: Extract<schema.SessionNotification["update"], { sessionUpdate: "session_message" }>,
+    payload: MappedContent,
+    sessionId: string,
+  ) {
+    const messageId = update.messageId;
+    if (!messageId) return;
+    const ownerKey = this.messageOwnerKey(sessionId, messageId);
+    const childSessionId = this.resolveMessageChild(
+      sessionId,
+      messageId,
+      update.senderSessionId,
+      update.recipientSessionId,
+    );
+    // Remember the resolved child (never the parent itself) so later chunks
+    // and updates for this messageId attribute to the same subagent.
+    if (childSessionId) {
+      this.messageOwners.set(ownerKey, childSessionId);
+    }
+    if (!childSessionId) return;
+
+    const content = Array.isArray(update.content) ? update.content : [];
+    if (!content.length) return; // null/[] clears the content; nothing to render
+    if (this.messageStreamed.has(ownerKey)) return; // chunks already streamed this message
+    this.messageStreamed.add(ownerKey);
+
+    const text = this.contentBlocksToText(content);
+    if (!text) {
+      console.debug("[ACP] Skipping non-text subagent session message content");
+      return;
+    }
+    const callState = this.getSubagentToolCallState(sessionId, childSessionId);
+    this.emitToolCallStartIfNeeded(callState, payload);
+    this.emitToolCallChunk(callState, text, payload, false);
+  }
+
+  private handleSessionMessageChunk(
+    update: Extract<schema.SessionNotification["update"], { sessionUpdate: "session_message_chunk" }>,
+    payload: MappedContent,
+    sessionId: string,
+  ) {
+    const messageId = update.messageId;
+    if (!messageId) return;
+    let childSessionId = this.resolveMessageChild(sessionId, messageId);
+    if (!childSessionId) {
+      // Chunks carry no sender field. When the parent has exactly one child
+      // session the owner is unambiguous; otherwise skip (the agent must
+      // register the message via session_message first).
+      const childKeyPrefix = `${sessionId}:`;
+      const children = [...this.subagentSessions.keys()].filter((key) => key.startsWith(childKeyPrefix));
+      if (children.length === 1) {
+        childSessionId = children[0].slice(childKeyPrefix.length);
+      }
+    }
+    if (!childSessionId) {
+      console.debug("[ACP] Ignoring session message chunk without a known owner (messageId:", messageId, ")");
+      return;
+    }
+    this.messageStreamed.add(this.messageOwnerKey(sessionId, messageId));
+    const text = update.content?.type === "text" ? update.content.text : "";
+    if (!text) {
+      console.debug("[ACP] Skipping non-text session message chunk");
+      return;
+    }
+    const callState = this.getSubagentToolCallState(sessionId, childSessionId);
+    this.emitToolCallStartIfNeeded(callState, payload);
+    this.emitToolCallChunk(callState, text, payload, false);
   }
 
   private handleModeUpdate(

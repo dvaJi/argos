@@ -1,5 +1,6 @@
 import { type FC, useState, useEffect, useCallback } from "react";
 import { Icon } from "@iconify/react";
+import { PromptArgumentFields } from "./PromptArgumentFields";
 import { Button } from "#shadcn/components/ui/button";
 import { Badge } from "#shadcn/components/ui/badge";
 import { ScrollArea } from "#shadcn/components/ui/scroll-area";
@@ -191,6 +192,7 @@ const McpPromptPanel: FC<McpPromptPanelProps> = ({ serverName, open, onOpenChang
                       />
 
                       <PromptRunCard
+                        key={selectedPromptObj.name}
                         params={promptParams}
                         jsonError={jsonPromptError}
                         loading={promptLoading}
@@ -199,6 +201,9 @@ const McpPromptPanel: FC<McpPromptPanelProps> = ({ serverName, open, onOpenChang
                         onValidateJson={validatePromptJson}
                         onFormat={formatPromptParams}
                         onRun={() => callPrompt(selectedPromptObj as PromptListEntry)}
+                        serverName={serverName || ""}
+                        promptName={selectedPromptObj.name}
+                        promptArgs={promptArgsDescription}
                       />
 
                       {promptResult && <McpJsonViewer content={promptResult} title="Result" readonly />}
@@ -311,6 +316,9 @@ interface PromptRunCardProps {
   onValidateJson: (input: string) => boolean;
   onFormat: () => void;
   onRun: () => void;
+  serverName: string;
+  promptName: string;
+  promptArgs: Array<{ name: string; description: string; required: boolean }>;
 }
 
 /** JSON parameter editor with reset/format actions and the execute button. */
@@ -323,7 +331,27 @@ function PromptRunCard({
   onValidateJson,
   onFormat,
   onRun,
+  serverName,
+  promptName,
+  promptArgs,
 }: PromptRunCardProps) {
+  const [inputMode, setInputMode] = useState<"fields" | "json">(promptArgs.length > 0 ? "fields" : "json");
+  // The JSON `params` is the single source of truth; fields are a view of it,
+  // so JSON edits and Reset are reflected in the form (and vice versa).
+  const fieldValues = (() => {
+    try {
+      const parsed: unknown = JSON.parse(params);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+      return Object.fromEntries(
+        Object.entries(parsed as Record<string, unknown>).map(([key, value]) => [
+          key,
+          typeof value === "string" ? value : JSON.stringify(value),
+        ]),
+      );
+    } catch {
+      return {} as Record<string, string>;
+    }
+  })();
   const formatJson = (input: string): string => {
     try {
       return JSON.stringify(JSON.parse(input), null, 2);
@@ -331,40 +359,86 @@ function PromptRunCard({
       return input;
     }
   };
+  /** Sync field edits into the JSON params so onRun always uses current values. */
+  const handleFieldValuesChange = (values: Record<string, string>) => {
+    const paramsObject: Record<string, string> = {};
+    for (const [key, value] of Object.entries(values)) {
+      if (value !== "") paramsObject[key] = value;
+    }
+    onParamsChange(JSON.stringify(paramsObject, null, 2));
+  };
+  const missingRequired =
+    inputMode === "fields" ? promptArgs.filter((a) => a.required && !fieldValues[a.name]?.trim()) : [];
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium text-foreground">Input</h3>
         <div className="flex space-x-2">
+          {promptArgs.length > 0 && (
+            <div className="flex rounded-md border border-input overflow-hidden">
+              <Button
+                variant={inputMode === "fields" ? "secondary" : "ghost"}
+                size="sm"
+                className="h-6 text-xs px-2 rounded-none"
+                onClick={() => setInputMode("fields")}
+              >
+                Fields
+              </Button>
+              <Button
+                variant={inputMode === "json" ? "secondary" : "ghost"}
+                size="sm"
+                className="h-6 text-xs px-2 rounded-none"
+                onClick={() => setInputMode("json")}
+              >
+                JSON
+              </Button>
+            </div>
+          )}
           <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={() => onParamsChange(defaultParams)}>
             <Icon icon="lucide:refresh-cw" className="mr-1 h-3 w-3" /> Reset
           </Button>
-          <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={onFormat}>
-            <Icon icon="lucide:align-left" className="mr-1 h-3 w-3" /> Format
-          </Button>
+          {inputMode === "json" && (
+            <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={onFormat}>
+              <Icon icon="lucide:align-left" className="mr-1 h-3 w-3" /> Format
+            </Button>
+          )}
         </div>
       </div>
 
-      <div className="relative">
-        <textarea
-          value={params}
-          onChange={(e) => {
-            onParamsChange(e.target.value);
-            onValidateJson(e.target.value);
-          }}
-          onBlur={() => onParamsChange(formatJson(params))}
-          aria-label="Prompt parameters (JSON)"
-          className={[
-            "flex h-32 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-            jsonError ? "border-destructive" : "",
-          ].join(" ")}
-          placeholder="{}"
+      {inputMode === "fields" && promptArgs.length > 0 ? (
+        <PromptArgumentFields
+          serverName={serverName}
+          promptName={promptName}
+          args={promptArgs}
+          disabled={loading}
+          values={fieldValues}
+          onValuesChange={handleFieldValuesChange}
         />
-        {jsonError && <div className="absolute right-3 top-3 text-xs text-destructive">Invalid JSON</div>}
-      </div>
-      <p className="text-xs text-muted-foreground">Enter parameters as JSON</p>
+      ) : (
+        <div className="relative">
+          <textarea
+            value={params}
+            onChange={(e) => {
+              onParamsChange(e.target.value);
+              onValidateJson(e.target.value);
+            }}
+            onBlur={() => onParamsChange(formatJson(params))}
+            aria-label="Prompt parameters (JSON)"
+            className={[
+              "flex h-32 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+              jsonError ? "border-destructive" : "",
+            ].join(" ")}
+            placeholder="{}"
+          />
+          {jsonError && <div className="absolute right-3 top-3 text-xs text-destructive">Invalid JSON</div>}
+        </div>
+      )}
 
-      <Button className="w-full" disabled={loading || jsonError} onClick={onRun}>
+      {inputMode === "fields" && missingRequired.length > 0 && (
+        <p className="text-[11px] text-muted-foreground">Required: {missingRequired.map((a) => a.name).join(", ")}</p>
+      )}
+
+      <Button className="w-full" disabled={loading || missingRequired.length > 0} onClick={onRun}>
         {loading ? (
           <Icon icon="lucide:loader" className="mr-2 h-4 w-4 animate-spin" />
         ) : (
@@ -375,4 +449,5 @@ function PromptRunCard({
     </div>
   );
 }
+
 export default McpPromptPanel;

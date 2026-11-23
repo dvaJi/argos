@@ -1703,6 +1703,8 @@ export interface MCPServerConfig {
   disable?: boolean;
   baseUrl?: string;
   customHeaders?: Record<string, string>;
+  /** Opt-in OAuth for remote servers (SSE/HTTP): on 401 run discovery+PKCE with the system browser. */
+  oauth?: boolean;
   customNpmRegistry?: string;
   /** Environment inheritance for stdio spawns; "minimal" passes only essential vars. */
   inheritEnv?: "legacy" | "minimal";
@@ -1807,6 +1809,8 @@ export type McpSamplingMessage = import("../core/mcp").McpSamplingMessage;
 export type McpSamplingRequestPayload = import("../core/mcp").McpSamplingRequestPayload;
 export type McpSamplingDecision = import("../core/mcp").McpSamplingDecision;
 export type McpSamplingModelPreferences = import("../core/mcp").McpSamplingModelPreferences;
+export type McpElicitationRequestPayload = import("../core/mcp").McpElicitationRequestPayload;
+export type McpElicitationDecision = import("../core/mcp").McpElicitationDecision;
 
 /** Content item type */
 export type MCPContentItem = MCPTextContent | MCPImageContent | MCPResourceContent;

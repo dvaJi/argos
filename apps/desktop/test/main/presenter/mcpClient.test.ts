@@ -1,13 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { McpClient } from "@argos/mcp-runtime";
+import { McpClient, ELICITATION_TIMEOUT_MS } from "@argos/mcp-runtime";
 import { RuntimeHelper } from "../../../src/main/lib/runtimeHelper";
 import path from "path";
+import { pathToFileURL } from "node:url";
 import fs from "fs";
-import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { ErrorCode, McpError } from "@argos/mcp-runtime";
+import { Client, SSEClientTransport, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
+import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 import type { McpHostPorts } from "@argos/mcp-runtime";
 import { getInMemoryServer } from "../../../src/main/presenter/mcpPresenter/inMemoryServers/builder";
 
@@ -51,6 +50,8 @@ vi.mock("../../../src/main/eventbus", () => ({
 const presenterMocks = vi.hoisted(() => ({
   handleSamplingRequest: vi.fn<(...args: any[]) => any>(),
   cancelSamplingRequest: vi.fn<(...args: any[]) => any>(),
+  handleElicitationRequest: vi.fn<(...args: any[]) => any>(),
+  cancelElicitationRequest: vi.fn<(...args: any[]) => any>(),
   executeWithRateLimit: vi.fn<(...args: any[]) => any>(),
   generateCompletionStandalone: vi.fn<(...args: any[]) => any>(),
   getProviderModels: vi.fn<(...args: any[]) => any>(),
@@ -67,6 +68,8 @@ vi.mock("../../../src/main/presenter", () => ({
     mcpPresenter: {
       handleSamplingRequest: presenterMocks.handleSamplingRequest,
       cancelSamplingRequest: presenterMocks.cancelSamplingRequest,
+      handleElicitationRequest: presenterMocks.handleElicitationRequest,
+      cancelElicitationRequest: presenterMocks.cancelElicitationRequest,
     },
     llmproviderPresenter: {
       executeWithRateLimit: presenterMocks.executeWithRateLimit,
@@ -77,6 +80,8 @@ vi.mock("../../../src/main/presenter", () => ({
 
 const mockHandleSamplingRequest = presenterMocks.handleSamplingRequest;
 const mockCancelSamplingRequest = presenterMocks.cancelSamplingRequest;
+const mockHandleElicitationRequest = presenterMocks.handleElicitationRequest;
+const mockCancelElicitationRequest = presenterMocks.cancelElicitationRequest;
 const mockGenerateCompletionStandalone = presenterMocks.generateCompletionStandalone;
 const mockGetProviderModels = presenterMocks.getProviderModels;
 const mockGetCustomModels = presenterMocks.getCustomModels;
@@ -92,24 +97,50 @@ vi.mock("../../../src/main/presenter/mcpPresenter/inMemoryServers/builder", () =
   getInMemoryServer: vi.fn<(...args: any[]) => any>(),
 }));
 
-// Mock MCP SDK modules
-vi.mock("@modelcontextprotocol/sdk/client/index.js", () => ({
-  Client: vi.fn<(...args: any[]) => any>().mockImplementation(function () {
-    return {
-      connect: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
-      callTool: vi.fn<(...args: any[]) => any>(),
-      listTools: vi.fn<(...args: any[]) => any>(),
-      listPrompts: vi.fn<(...args: any[]) => any>(),
-      getPrompt: vi.fn<(...args: any[]) => any>(),
-      listResources: vi.fn<(...args: any[]) => any>(),
-      readResource: vi.fn<(...args: any[]) => any>(),
-      setNotificationHandler: vi.fn<(...args: any[]) => any>(),
-      setRequestHandler: vi.fn<(...args: any[]) => any>(),
-    };
-  }),
-}));
+// Mock MCP SDK modules (v2 — the runtime imports from @modelcontextprotocol/client)
+vi.mock("@modelcontextprotocol/client", () => {
+  class MockProtocolError extends Error {
+    readonly code: number;
+    constructor(code: number, message: string) {
+      super(message);
+      this.code = code;
+    }
+  }
+  return {
+    Client: vi.fn<(...args: any[]) => any>().mockImplementation(function () {
+      return {
+        connect: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+        callTool: vi.fn<(...args: any[]) => any>(),
+        listTools: vi.fn<(...args: any[]) => any>(),
+        listPrompts: vi.fn<(...args: any[]) => any>(),
+        getPrompt: vi.fn<(...args: any[]) => any>(),
+        listResources: vi.fn<(...args: any[]) => any>(),
+        readResource: vi.fn<(...args: any[]) => any>(),
+        setNotificationHandler: vi.fn<(...args: any[]) => any>(),
+        setRequestHandler: vi.fn<(...args: any[]) => any>(),
+      };
+    }),
+    SSEClientTransport: vi.fn<(...args: any[]) => any>(),
+    StreamableHTTPClientTransport: vi.fn<(...args: any[]) => any>(),
+    InMemoryTransport: {
+      createLinkedPair: vi.fn<(...args: any[]) => any>(() => [
+        vi.fn<(...args: any[]) => any>(),
+        vi.fn<(...args: any[]) => any>(),
+      ]),
+    },
+    ProtocolError: MockProtocolError,
+    UnauthorizedError: class MockUnauthorizedError extends Error {},
+    ProtocolErrorCode: {
+      ParseError: -32700,
+      InvalidRequest: -32600,
+      MethodNotFound: -32601,
+      InvalidParams: -32602,
+      InternalError: -32603,
+    },
+  };
+});
 
-vi.mock("@modelcontextprotocol/sdk/client/stdio.js", () => ({
+vi.mock("@modelcontextprotocol/client/stdio", () => ({
   StdioClientTransport: vi.fn<(...args: any[]) => any>().mockImplementation(function () {
     return {
       stderr: {
@@ -118,23 +149,6 @@ vi.mock("@modelcontextprotocol/sdk/client/stdio.js", () => ({
       close: vi.fn<(...args: any[]) => any>(),
     };
   }),
-}));
-
-vi.mock("@modelcontextprotocol/sdk/client/sse.js", () => ({
-  SSEClientTransport: vi.fn<(...args: any[]) => any>(),
-}));
-
-vi.mock("@modelcontextprotocol/sdk/inMemory.js", () => ({
-  InMemoryTransport: {
-    createLinkedPair: vi.fn<(...args: any[]) => any>(() => [
-      vi.fn<(...args: any[]) => any>(),
-      vi.fn<(...args: any[]) => any>(),
-    ]),
-  },
-}));
-
-vi.mock("@modelcontextprotocol/sdk/client/streamableHttp.js", () => ({
-  StreamableHTTPClientTransport: vi.fn<(...args: any[]) => any>(),
 }));
 
 const testPorts: McpHostPorts = {
@@ -160,6 +174,8 @@ const testPorts: McpHostPorts = {
     getInMemoryServer: (name, args, env) => getInMemoryServer(name, args, env) as never,
     handleSamplingRequest: (payload) => presenterMocks.handleSamplingRequest(payload) as Promise<unknown>,
     cancelSamplingRequest: (id, reason) => presenterMocks.cancelSamplingRequest(id, reason),
+    handleElicitationRequest: (payload) => presenterMocks.handleElicitationRequest(payload) as Promise<unknown>,
+    cancelElicitationRequest: (id, reason) => presenterMocks.cancelElicitationRequest(id, reason),
     generateCompletionStandalone: (...args) => presenterMocks.generateCompletionStandalone(...args) as Promise<string>,
     getProviderModels: (id) => presenterMocks.getProviderModels(id),
     getCustomModels: (id) => presenterMocks.getCustomModels(id),
@@ -183,6 +199,8 @@ describe("McpClient Runtime Command Processing Tests", () => {
 
     mockHandleSamplingRequest.mockReset();
     mockCancelSamplingRequest.mockReset();
+    mockHandleElicitationRequest.mockReset();
+    mockCancelElicitationRequest.mockReset();
     mockGenerateCompletionStandalone.mockReset();
     mockGetProviderModels.mockReset();
     mockGetCustomModels.mockReset();
@@ -306,6 +324,47 @@ describe("McpClient Runtime Command Processing Tests", () => {
       // Should replace with runtime uvx path
       expect(processedCommand.command).toContain("uvx");
       expect(processedCommand.args).toEqual(["osm-mcp-server"]);
+    });
+  });
+
+  describe("Registered server-request handlers", () => {
+    // Regression: v2 passes spec-method handlers the full request
+    // ({ method, params }); treating it as params dropped the message, form
+    // schema and sampling messages.
+    it("forwards request.params of elicitation/create and sampling/createMessage", async () => {
+      vi.mocked<(...args: any[]) => any>(StreamableHTTPClientTransport).mockImplementation(function () {
+        return { close: vi.fn<(...args: any[]) => any>() } as any;
+      });
+      const client = new McpClient("remote", { type: "http", baseUrl: "https://mcp.example.test/mcp" }, testPorts);
+      await client.connect().catch(() => {});
+      const sdkClient = vi.mocked(Client).mock.results.at(-1)?.value as { setRequestHandler: ReturnType<typeof vi.fn> };
+      const handlerFor = (method: string) =>
+        sdkClient.setRequestHandler.mock.calls.find(([name]) => name === method)?.[1] as (
+          request: unknown,
+          extra: unknown,
+        ) => Promise<unknown>;
+
+      mockHandleElicitationRequest.mockResolvedValue({ action: "decline" });
+      const schema = { type: "object", properties: { ok: { type: "boolean" } } };
+      await handlerFor("elicitation/create")(
+        { method: "elicitation/create", params: { message: "Deploy?", requestedSchema: schema } },
+        { mcpReq: { id: 7 } },
+      );
+      expect(mockHandleElicitationRequest).toHaveBeenCalledWith(
+        expect.objectContaining({ message: "Deploy?", requestedSchema: schema }),
+      );
+
+      mockHandleSamplingRequest.mockResolvedValue({ requestId: "x", approved: false });
+      await handlerFor("sampling/createMessage")(
+        {
+          method: "sampling/createMessage",
+          params: { messages: [{ role: "user", content: { type: "text", text: "hi" } }], maxTokens: 10 },
+        },
+        { mcpReq: { id: 8 } },
+      ).catch(() => {});
+      expect(mockHandleSamplingRequest).toHaveBeenCalledWith(
+        expect.objectContaining({ messages: [expect.objectContaining({ text: "hi" })] }),
+      );
     });
   });
 
@@ -700,21 +759,19 @@ describe("McpClient Runtime Command Processing Tests", () => {
       mockGetProviderModels.mockReturnValue([{ id: "model-42", name: "Model Forty Two" }]);
       mockGetCustomModels.mockReturnValue([]);
 
-      const request = {
-        params: {
-          maxTokens: 256,
-          systemPrompt: "System context",
-          messages: [{ role: "user", content: { type: "text", text: "Explain this change." } }],
-        },
+      const params = {
+        maxTokens: 256,
+        systemPrompt: "System context",
+        messages: [{ role: "user", content: { type: "text", text: "Explain this change." } }],
       };
 
-      const result = await (client as any).handleSamplingCreateMessage(request, {
-        requestId: "rpc-001",
+      const result = await (client as any).handleSamplingCreateMessage(params, {
+        mcpReq: { id: "rpc-001" },
       });
 
       expect(mockHandleSamplingRequest).toHaveBeenCalledWith(
         expect.objectContaining({
-          requestId: "rpc-001",
+          requestId: expect.stringMatching(/^code-reviewer:[^:]+:rpc-001$/),
           serverName: "code-reviewer",
         }),
       );
@@ -748,15 +805,13 @@ describe("McpClient Runtime Command Processing Tests", () => {
         testPorts,
       );
 
-      const request = {
-        params: {
-          messages: [{ role: "user", content: { type: "text", text: "hello" } }],
-        },
+      const params = {
+        messages: [{ role: "user", content: { type: "text", text: "hello" } }],
       };
 
       let caughtError: unknown;
       try {
-        await (client as any).handleSamplingCreateMessage(request, { requestId: "rpc-002" });
+        await (client as any).handleSamplingCreateMessage(params, { mcpReq: { id: "rpc-002" } });
       } catch (error) {
         caughtError = error;
       }
@@ -766,6 +821,358 @@ describe("McpClient Runtime Command Processing Tests", () => {
       expect(caughtError).toHaveProperty("code", ErrorCode.InvalidRequest);
 
       expect(mockGenerateCompletionStandalone).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("Elicitation support", () => {
+    it("passes the elicitation payload to the host and maps an accepted decision", async () => {
+      const client = new McpClient("code-reviewer", { type: "stdio" }, testPorts);
+
+      mockHandleElicitationRequest.mockResolvedValue({
+        action: "accept",
+        content: { confirm: true },
+      });
+
+      const params = {
+        message: "Proceed with the deployment?",
+        requestedSchema: {
+          type: "object",
+          properties: { confirm: { type: "boolean", title: "Confirm" } },
+          required: ["confirm"],
+        },
+      };
+
+      const result = await (client as any).handleElicitationCreate(params, { mcpReq: { id: "rpc-el-1" } });
+
+      expect(mockHandleElicitationRequest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          requestId: expect.stringMatching(/^code-reviewer:[^:]+:rpc-el-1$/),
+          serverName: "code-reviewer",
+          message: "Proceed with the deployment?",
+          requestedSchema: params.requestedSchema,
+        }),
+      );
+      expect(result).toEqual({ action: "accept", content: { confirm: true } });
+    });
+
+    it("declines when the host has no elicitation support", async () => {
+      const portsWithoutElicitation = {
+        ...testPorts,
+        services: { ...testPorts.services, handleElicitationRequest: undefined },
+      } as typeof testPorts;
+      const client = new McpClient("code-reviewer", { type: "stdio" }, portsWithoutElicitation);
+
+      const result = await (client as any).handleElicitationCreate(
+        { message: "Proceed?" },
+        { mcpReq: { id: "rpc-el-2" } },
+      );
+
+      expect(result).toEqual({ action: "decline" });
+      expect(mockHandleElicitationRequest).not.toHaveBeenCalled();
+    });
+
+    it("maps host rejections to a decline response", async () => {
+      const client = new McpClient("code-reviewer", { type: "stdio" }, testPorts);
+
+      mockHandleElicitationRequest.mockRejectedValue(new Error("user dismissed the overlay"));
+
+      const result = await (client as any).handleElicitationCreate(
+        { message: "Proceed?" },
+        { mcpReq: { id: "rpc-el-3" } },
+      );
+
+      expect(result).toEqual({ action: "decline" });
+    });
+
+    it("times out an unanswered elicitation as cancel and dismisses it on the host", async () => {
+      vi.useFakeTimers();
+      try {
+        const client = new McpClient("code-reviewer", { type: "stdio" }, testPorts);
+        mockHandleElicitationRequest.mockReturnValue(new Promise(() => undefined));
+        presenterMocks.cancelElicitationRequest.mockResolvedValue(undefined);
+
+        const pending = (client as any).handleElicitationCreate(
+          { message: "Proceed?" },
+          { mcpReq: { id: "rpc-el-t" } },
+        );
+        await vi.advanceTimersByTimeAsync(ELICITATION_TIMEOUT_MS + 1);
+
+        await expect(pending).resolves.toEqual({ action: "cancel" });
+        expect(presenterMocks.cancelElicitationRequest).toHaveBeenCalledWith(
+          expect.stringMatching(/:rpc-el-t$/),
+          expect.any(String),
+        );
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("normalizes unknown decision actions to cancel", async () => {
+      const client = new McpClient("code-reviewer", { type: "stdio" }, testPorts);
+
+      mockHandleElicitationRequest.mockResolvedValue({ action: "banana" });
+
+      const result = await (client as any).handleElicitationCreate(
+        { message: "Proceed?" },
+        { mcpReq: { id: "rpc-el-4" } },
+      );
+
+      expect(result).toEqual({ action: "cancel" });
+    });
+  });
+
+  describe("Connection lifecycle", () => {
+    it("shares one in-flight connect between concurrent callers", async () => {
+      const client = new McpClient("remote", { type: "http", baseUrl: "http://127.0.0.1:1/mcp" }, testPorts);
+      let release!: () => void;
+      const connectOnce = vi.fn(() => new Promise<void>((resolve) => (release = resolve)));
+      (client as any).connectOnce = connectOnce;
+
+      const first = client.connect();
+      const second = client.connect();
+      release();
+      await Promise.all([first, second]);
+
+      expect(connectOnce).toHaveBeenCalledTimes(1);
+      // A later connect starts a fresh attempt.
+      const third = client.connect();
+      release();
+      await third;
+      expect(connectOnce).toHaveBeenCalledTimes(2);
+    });
+
+    it("namespaces host-side request ids by server and connection", () => {
+      const client = new McpClient("srv-a", { type: "stdio" }, testPorts);
+      const other = new McpClient("srv-b", { type: "stdio" }, testPorts);
+      const a = (client as any).resolveSamplingRequestId({ mcpReq: { id: 0 } });
+      const b = (other as any).resolveSamplingRequestId({ mcpReq: { id: 0 } });
+
+      expect(a).toMatch(/^srv-a:[^:]+:0$/);
+      expect(b).toMatch(/^srv-b:[^:]+:0$/);
+      expect(a).not.toBe(b);
+    });
+  });
+
+  describe("Task-augmented tool calls (v2 task augmentation)", () => {
+    function createTaskAwareClient(overrides?: {
+      capabilities?: unknown;
+      createResult?: unknown;
+      taskStatus?: unknown;
+      taskResult?: unknown;
+      taskSupport?: string;
+    }) {
+      const client = new McpClient("long-runner", { type: "stdio" }, testPorts);
+      const calls: Array<{ method: string; params: Record<string, unknown> }> = [];
+      const mockClient = {
+        getServerCapabilities: vi.fn(() => overrides?.capabilities ?? { tasks: { requests: { tools: { call: {} } } } }),
+        listTools: vi.fn(async () => ({
+          tools: ["deploy", "ping"].map((name) => ({
+            name,
+            inputSchema: { type: "object" },
+            ...(overrides?.taskSupport === "none"
+              ? {}
+              : { execution: { taskSupport: overrides?.taskSupport ?? "optional" } }),
+          })),
+        })),
+        callTool: vi.fn(async () => overrides?.createResult ?? { content: [], isError: false }),
+        // A real SDK method: it must be invoked with `this` bound to the client.
+        request: vi.fn(async function (this: unknown, request: { method: string; params: Record<string, unknown> }) {
+          if (this !== mockClient) throw new TypeError("request() called without its client receiver");
+          calls.push({ method: request.method, params: request.params });
+          if (request.method === "tools/call") {
+            return overrides?.createResult ?? { task: { taskId: "t1", status: "working", pollInterval: 1 } };
+          }
+          if (request.method === "tasks/get") {
+            return overrides?.taskStatus ?? { taskId: "t1", status: "completed" };
+          }
+          if (request.method === "tasks/result") {
+            return overrides?.taskResult ?? { content: [{ type: "text", text: "Task finished" }], isError: false };
+          }
+          return {};
+        }),
+      };
+      (client as any).client = mockClient;
+      (client as any).isConnected = true;
+      return { client, mockClient, calls };
+    }
+
+    it("runs tools through task augmentation and maps the final result", async () => {
+      const { client, mockClient } = createTaskAwareClient();
+
+      const result = await client.callTool("deploy", { env: "prod" });
+
+      expect(result).toEqual({ content: [{ type: "text", text: "Task finished" }], isError: false });
+      expect(mockClient.callTool).not.toHaveBeenCalled();
+      expect(mockClient.request.mock.calls[0][0]).toEqual({
+        method: "tools/call",
+        params: { name: "deploy", arguments: { env: "prod" }, task: {} },
+      });
+      const methods = mockClient.request.mock.calls.map(([req]: [{ method: string }]) => req.method);
+      expect(methods).toContain("tasks/get");
+      expect(methods).toContain("tasks/result");
+    });
+
+    it("broadcasts progress events correlated with the LLM tool-call id", async () => {
+      const { client } = createTaskAwareClient();
+
+      const broadcasts: Array<{ channel: string; payload: Record<string, unknown> }> = [];
+      const ports = (client as any).ports;
+      const originalBroadcast = ports.events.broadcast;
+      ports.events.broadcast = (channel: string, payload: unknown) => {
+        broadcasts.push({ channel, payload: payload as Record<string, unknown> });
+        originalBroadcast(channel, payload);
+      };
+
+      await client.callTool("deploy", {}, { toolCallId: "chat_tc_42" });
+
+      const progressEvents = broadcasts.filter((b) => b.channel === "mcp:tool-call-progress");
+      expect(progressEvents.length).toBeGreaterThanOrEqual(2);
+      expect(progressEvents[0].payload).toMatchObject({
+        serverName: "long-runner",
+        toolName: "deploy",
+        toolCallId: "chat_tc_42",
+        taskId: "t1",
+        status: "working",
+      });
+      const completedEvent = progressEvents.find((e) => e.payload.status === "completed");
+      expect(completedEvent).toBeDefined();
+    });
+
+    it("throws when the task ends in failure", async () => {
+      const { client } = createTaskAwareClient({
+        taskStatus: { taskId: "t2", status: "failed", statusMessage: "deploy failed" },
+        taskResult: { content: [], isError: true },
+      });
+
+      let caughtError: unknown;
+      try {
+        await client.callTool("deploy", {});
+      } catch (error) {
+        caughtError = error;
+      }
+      expect((caughtError as Error).message).toBe("deploy failed");
+    });
+
+    it("stops polling on input_required and blocks on tasks/result", async () => {
+      const { client, calls } = createTaskAwareClient({
+        taskStatus: { taskId: "t1", status: "input_required" },
+      });
+
+      const result = await client.callTool("deploy", {});
+
+      expect(result).toEqual({ content: [{ type: "text", text: "Task finished" }], isError: false });
+      expect(calls.filter((c) => c.method === "tasks/get")).toHaveLength(1);
+      expect(calls.map((c) => c.method)).toContain("tasks/result");
+    });
+
+    it("sends tasks/cancel and rejects when the caller aborts", async () => {
+      const { client, calls } = createTaskAwareClient({
+        taskStatus: { taskId: "t1", status: "working" },
+      });
+      const controller = new AbortController();
+
+      const pending = client.callTool("deploy", {}, { signal: controller.signal });
+      setTimeout(() => controller.abort(), 20);
+
+      await expect(pending).rejects.toThrow("cancelled");
+      expect(calls.map((c) => c.method)).toContain("tasks/cancel");
+      expect(calls.map((c) => c.method)).not.toContain("tasks/result");
+    });
+
+    it("settles the progress indicator when tasks/get fails mid-poll", async () => {
+      const { client, mockClient } = createTaskAwareClient();
+      const original = mockClient.request.getMockImplementation()!;
+      mockClient.request.mockImplementation(async function (this: unknown, req: { method: string }) {
+        if (req.method === "tasks/get") throw new Error("server went away");
+        return original.call(this, req as never);
+      });
+      const statuses: unknown[] = [];
+      const ports = (client as any).ports;
+      const originalBroadcast = ports.events.broadcast;
+      ports.events.broadcast = (channel: string, payload: { status?: unknown }) => {
+        if (channel === "mcp:tool-call-progress") statuses.push(payload.status);
+        originalBroadcast(channel, payload);
+      };
+
+      await expect(client.callTool("deploy", {}, { toolCallId: "tc-1" })).rejects.toThrow("server went away");
+      ports.events.broadcast = originalBroadcast;
+
+      expect(statuses).toEqual(["working", "failed"]);
+    });
+
+    it("keeps the tool cache when the caller aborts", async () => {
+      const { client } = createTaskAwareClient({ taskStatus: { taskId: "t1", status: "working" } });
+      await client.listTools();
+      const cached = (client as any).cachedTools;
+      const controller = new AbortController();
+      const pending = client.callTool("deploy", {}, { signal: controller.signal });
+      setTimeout(() => controller.abort(), 20);
+
+      await expect(pending).rejects.toThrow("cancelled");
+      expect((client as any).cachedTools).toBe(cached);
+    });
+
+    it("passes the abort signal to plain tool calls", async () => {
+      const { client, mockClient } = createTaskAwareClient({
+        capabilities: {},
+        createResult: { content: [{ type: "text", text: "ok" }], isError: false },
+      });
+      const controller = new AbortController();
+
+      await client.callTool("ping", {}, { signal: controller.signal });
+
+      expect(mockClient.callTool).toHaveBeenCalledWith({ name: "ping", arguments: {} }, { signal: controller.signal });
+    });
+
+    it.each(["none", "forbidden"])(
+      "uses the plain request for tools that do not opt into tasks (taskSupport: %s)",
+      async (taskSupport) => {
+        const { client, mockClient } = createTaskAwareClient({
+          taskSupport,
+          createResult: { content: [{ type: "text", text: "plain" }], isError: false },
+        });
+
+        const result = await client.callTool("ping", {});
+
+        expect(mockClient.request).not.toHaveBeenCalled();
+        expect(mockClient.callTool).toHaveBeenCalledWith({ name: "ping", arguments: {} });
+        expect(result).toEqual({ content: [{ type: "text", text: "plain" }], isError: false });
+      },
+    );
+
+    it("falls back to the plain request when the server does not advertise tasks", async () => {
+      const { client, mockClient } = createTaskAwareClient({
+        capabilities: {},
+        createResult: { content: [{ type: "text", text: "Task finished" }], isError: false },
+      });
+
+      const result = await client.callTool("ping", {});
+
+      expect(mockClient.request).not.toHaveBeenCalled();
+      expect(mockClient.callTool).toHaveBeenCalledWith({ name: "ping", arguments: {} });
+      expect(result).toEqual({ content: [{ type: "text", text: "Task finished" }], isError: false });
+    });
+  });
+
+  describe("Roots support", () => {
+    it("exposes the server cwd as a file:// root", () => {
+      const client = new McpClient(
+        "workspace-server",
+        { type: "stdio", command: "node", cwd: "/repo/workspace" },
+        testPorts,
+      );
+
+      const result = (client as any).handleListRoots();
+
+      expect(result.roots).toEqual([{ uri: pathToFileURL("/repo/workspace").href, name: "workspace" }]);
+    });
+
+    it("returns no roots when the server has no cwd", () => {
+      const client = new McpClient("remote-server", { type: "sse", baseUrl: "https://example.com/mcp" }, testPorts);
+
+      const result = (client as any).handleListRoots();
+
+      expect(result.roots).toEqual([]);
     });
   });
 });

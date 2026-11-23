@@ -1,29 +1,25 @@
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { type Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
+import { Client, UnauthorizedError, InMemoryTransport, SSEClientTransport, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
+import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
+import type { Transport, ElicitResult, CompleteRequest, CreateMessageRequest, CreateMessageResult } from "@modelcontextprotocol/client";
+import { ErrorCode, McpError } from "../protocol/errors";
 import {
-  ToolListChangedNotificationSchema,
-  PromptListChangedNotificationSchema,
-  ResourceListChangedNotificationSchema,
-  ResourceUpdatedNotificationSchema,
-  LoggingMessageNotificationSchema,
-  CreateMessageRequestSchema,
-  ErrorCode,
-  McpError,
-} from "@modelcontextprotocol/sdk/types.js";
-import type { CreateMessageRequest, CreateMessageResult } from "@modelcontextprotocol/sdk/types.js";
+  CallToolResultSchema,
+  CancelTaskResultSchema,
+  CreateTaskResultSchema,
+  GetTaskResultSchema,
+} from "@modelcontextprotocol/core";
 import path from "path";
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { pathToFileURL } from "node:url";
 import { terminateProcessTree, createMinimalProcessEnvironment } from "@argos/backend-core";
 import type { ChildProcess } from "node:child_process";
 import type { McpHostPorts } from "../host/ports";
+import { ArgosOAuthClientProvider, OAuthCallbackTimeoutError } from "./oauthProvider";
 
 const MCP_EVENTS = {
   CLIENT_LIST_UPDATED: "mcp:client-list-updated",
   SERVER_STATUS_CHANGED: "mcp:server-status-changed",
   TOOL_CALL_RESULT: "mcp:tool-call-result",
+  TOOL_CALL_PROGRESS: "mcp:tool-call-progress",
   SAMPLING_REQUEST: "mcp:sampling-request",
 } as const;
 
@@ -41,6 +37,17 @@ import type {
 
 const ALLOWED_SAMPLING_IMAGE_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
 
+// `client.callTool()` validates against CallToolResult and rejects a task
+// handle, so task-augmented calls go through `request()` with a schema that
+// accepts either shape (task handle first, then a direct result).
+const TaskOrToolResultSchema = CreateTaskResultSchema.or(CallToolResultSchema);
+/** Delay between `tasks/get` polls when the server doesn't specify one. */
+const TASK_POLL_INTERVAL_MS = 500;
+/** Upper bound for waiting on a task-augmented tool call. */
+const TASK_POLL_TIMEOUT_MS = 10 * 60_000;
+/** Upper bound for an unanswered elicitation before it resolves as "cancel". */
+export const ELICITATION_TIMEOUT_MS = 10 * 60_000;
+
 // StdioClientTransport keeps the spawned agent child process on a private
 // `_process` field. We access it to terminate the whole process tree on
 // shutdown so stdio MCP servers do not outlive the app.
@@ -57,9 +64,10 @@ interface SessionError extends Error {
   isSessionExpired?: boolean;
 }
 
+/** v2 handler context: the request id lives under `mcpReq.id`. */
 interface RequestHandlerContext {
   signal?: AbortSignal;
-  requestId?: string | number;
+  mcpReq?: { id?: string | number; method?: string };
   [key: string]: unknown;
 }
 
@@ -115,6 +123,14 @@ export class McpClient {
   public serverName: string;
   public serverConfig: Record<string, unknown>;
   private isConnected: boolean = false;
+  private oauthProvider: ArgosOAuthClientProvider | null = null;
+  private oauthRetryCount = 0;
+  // Scopes server-issued JSON-RPC ids (which restart at 0 per server and per
+  // connection) so host-side sampling/elicitation ids never collide.
+  private requestIdScope = Math.random().toString(36).slice(2, 10);
+  private connectInFlight: Promise<void> | null = null;
+  /** Bumped by disconnect(): an attempt from an older generation must not reconnect. */
+  private connectGeneration = 0;
   private connectionTimeout: NodeJS.Timeout | null = null;
   private npmRegistry: string | null = null;
   private uvRegistry: string | null = null;
@@ -171,22 +187,62 @@ export class McpClient {
     this.ports.runtime.setUvRuntimePath(value);
   }
 
+  private getOAuthProvider(): ArgosOAuthClientProvider {
+    if (!this.oauthProvider) {
+      this.oauthProvider = new ArgosOAuthClientProvider({
+        serverName: this.serverName,
+        services: this.ports.services,
+      });
+    }
+    return this.oauthProvider;
+  }
+
+  /** Best-effort sign-out: invalidate stored OAuth credentials (all or scoped). */
+  async invalidateCredentials(scope?: "all" | "client" | "tokens" | "verifier" | "state" | "discovery"): Promise<void> {
+    if (!this.oauthProvider) {
+      this.oauthProvider = this.getOAuthProvider();
+    }
+    await this.oauthProvider.invalidateCredentials(scope);
+  }
+
   // Connect to MCP server
   async connect(): Promise<void> {
+    // Single-flight: concurrent callers (e.g. a reconnect click while the
+    // OAuth browser flow is pending) share one attempt instead of racing and
+    // tearing down each other's transport.
+    if (this.connectInFlight) {
+      return this.connectInFlight;
+    }
+    const attempt = this.connectOnce().finally(() => {
+      if (this.connectInFlight === attempt) this.connectInFlight = null;
+    });
+    this.connectInFlight = attempt;
+    return attempt;
+  }
+
+  private async connectOnce(): Promise<void> {
+    const generation = this.connectGeneration;
     if (this.isConnected && this.client) {
       console.info(`MCP server ${this.serverName} is already running`);
       return;
     }
+    // A new connection restarts the server-side id sequence.
+    this.requestIdScope = Math.random().toString(36).slice(2, 10);
 
     try {
       console.info(`Starting MCP server ${this.serverName}...`, this.serverConfig);
 
       // A static Authorization header (e.g. "Bearer <token>") is sent as-is with every request.
-      // Do not wrap it in an SDK authProvider: on a 401 the SDK would start a full OAuth flow
-      // against it, which needs a complete OAuthClientProvider (clientInformation(), etc.).
+      // Opt-in OAuth (`oauth: true` on the server config) wraps the flow in a
+      // full OAuthClientProvider instead: on 401 the SDK runs discovery + PKCE,
+      // opens the browser via the host, and the loopback callback completes it.
       const customHeaders = this.serverConfig.customHeaders
         ? { ...(this.serverConfig.customHeaders as Record<string, string>) }
         : {};
+      const authProvider = this.serverConfig.oauth === true ? this.getOAuthProvider() : undefined;
+      // Pin the loopback redirect URI before the SDK reads clientMetadata /
+      // redirectUrl for registration and the authorization request.
+      await authProvider?.prepare();
 
       if (this.serverConfig.type === "inmemory") {
         const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
@@ -410,10 +466,12 @@ export class McpClient {
       } else if (this.serverConfig.baseUrl && this.serverConfig.type === "sse") {
         this.transport = new SSEClientTransport(new URL(this.serverConfig.baseUrl as string), {
           requestInit: { headers: customHeaders },
+          authProvider,
         });
       } else if (this.serverConfig.baseUrl && this.serverConfig.type === "http") {
         this.transport = new StreamableHTTPClientTransport(new URL(this.serverConfig.baseUrl as string), {
           requestInit: { headers: customHeaders },
+          authProvider,
         });
       } else {
         throw new Error(`Unsupported transport type: ${this.serverConfig.type}`);
@@ -425,6 +483,12 @@ export class McpClient {
         {
           capabilities: {
             sampling: {},
+            // Only advertise elicitation when the host can actually ask the user.
+            ...(this.ports.services.handleElicitationRequest ? { elicitation: {} } : {}),
+            roots: { listChanged: false },
+            experimental: {
+              tasks: { list: {}, cancel: {} },
+            },
           },
         },
       );
@@ -432,9 +496,25 @@ export class McpClient {
       // Set up notification handler
       this.registerNotificationHandlers();
 
-      // Register sampling request handler
-      this.client.setRequestHandler(CreateMessageRequestSchema, async (request, extra) => {
-        return this.handleSamplingCreateMessage(request, extra);
+      // Register sampling request handler. For spec methods the v2 SDK passes
+      // the full validated request ({ method, params }), not the params alone.
+      this.client.setRequestHandler("sampling/createMessage", async (request, extra) => {
+        return this.handleSamplingCreateMessage(
+          request.params as unknown as CreateMessageRequest["params"],
+          extra as unknown as RequestHandlerContext,
+        );
+      });
+
+      // Register elicitation request handler (server asks the user a question)
+      if (this.ports.services.handleElicitationRequest) {
+        this.client.setRequestHandler("elicitation/create", async (request, extra) => {
+          return this.handleElicitationCreate(request.params, extra as unknown as RequestHandlerContext);
+        });
+      }
+
+      // Register roots handler (server asks which directories Argos exposes)
+      this.client.setRequestHandler("roots/list", async () => {
+        return this.handleListRoots();
       });
 
       // Set connection timeout
@@ -459,6 +539,7 @@ export class McpClient {
           }
 
           this.isConnected = true;
+          this.oauthRetryCount = 0;
           console.info(`MCP server ${this.serverName} connected successfully`);
 
           // Emit server status change event
@@ -475,6 +556,67 @@ export class McpClient {
       // Wait for connection to complete or time out
       await Promise.race([connectPromise, timeoutPromise]);
     } catch (error) {
+      // OAuth: on 401 the SDK ran the provider up to the redirect step. Wait
+      // for the browser round-trip, exchange the code via the transport's
+      // finishAuth, then retry the connect once with the stored tokens.
+      if (this.oauthProvider && error instanceof UnauthorizedError) {
+        if (this.oauthRetryCount >= 1) {
+          // Still unauthorized right after a completed authorization: give up
+          // for this attempt instead of looping through the browser again.
+          this.oauthRetryCount = 0;
+          await this.oauthProvider.stopAuthorization();
+        } else {
+          console.info(`[MCP] Server ${this.serverName} requires authorization; waiting for the browser flow`);
+          const authTransport = this.transport as StreamableHTTPClientTransport | SSEClientTransport | null;
+          try {
+            const callbackUrl = await this.oauthProvider.waitForAuthorization();
+            await this.oauthProvider.stopAuthorization();
+            const params = this.oauthProvider.validateCallback(callbackUrl);
+            if (!authTransport || typeof authTransport.finishAuth !== "function") {
+              throw new Error("Transport does not support completing the OAuth flow");
+            }
+            await authTransport.finishAuth(params);
+          } catch (authError) {
+            console.error(`[MCP] OAuth flow failed for server ${this.serverName}:`, authError);
+            this.oauthRetryCount = 0;
+            await this.oauthProvider.stopAuthorization();
+            if (authError instanceof OAuthCallbackTimeoutError) {
+              // The browser never returned. The usual cause is an error page at
+              // the authorization server (e.g. "invalid_client" after it dropped
+              // our dynamic registration), so re-register on the next attempt
+              // instead of failing the same way forever.
+              await this.oauthProvider.invalidateCredentials("client");
+              authError = new Error(
+                `Authorization for ${this.serverName} did not complete in the browser. ` +
+                  "If the page showed an error, retry: Argos will register again.",
+              );
+            }
+            await this.cleanupResources();
+            this.ports.events.broadcast(MCP_EVENTS.SERVER_STATUS_CHANGED, {
+              name: this.serverName,
+              status: "stopped",
+            });
+            throw authError instanceof Error ? authError : new Error(String(authError));
+          }
+          await this.cleanupResources();
+          if (generation !== this.connectGeneration) {
+            // Stopped while the browser flow was open: tokens are saved, but do
+            // not resurrect a client the server manager already dropped.
+            this.oauthRetryCount = 0;
+            throw new Error(`Connection to ${this.serverName} was stopped during authorization`);
+          }
+          this.oauthRetryCount = 1;
+          console.info(`[MCP] Authorization complete; reconnecting to ${this.serverName}`);
+          this.oauthProvider.setInteractive(false);
+          try {
+            return await this.connectOnce();
+          } finally {
+            this.oauthProvider.setInteractive(true);
+          }
+        }
+      }
+      this.oauthRetryCount = 0;
+
       // Clear timeout
       if (this.connectionTimeout) {
         clearTimeout(this.connectionTimeout);
@@ -498,6 +640,12 @@ export class McpClient {
 
   // Disconnect from the MCP server
   async disconnect(): Promise<void> {
+    this.connectGeneration += 1;
+    if (this.connectInFlight && this.oauthProvider) {
+      // A pending browser authorization would otherwise keep waiting and
+      // reconnect on a late callback; stopping it rejects the wait.
+      await this.oauthProvider.stopAuthorization().catch(() => undefined);
+    }
     if (!this.isConnected || !this.client) {
       return;
     }
@@ -565,7 +713,7 @@ export class McpClient {
     }
 
     // Tool list changed notification - clear tool cache and actively refresh
-    this.client.setNotificationHandler(ToolListChangedNotificationSchema, async () => {
+    this.client.setNotificationHandler("notifications/tools/list_changed", async () => {
       console.info(`[MCP] Tools list changed for server: ${this.serverName}`);
       this.cachedTools = null;
       // Actively refresh tool list
@@ -577,7 +725,7 @@ export class McpClient {
     });
 
     // Prompt list changed notification - clear prompt cache and actively refresh
-    this.client.setNotificationHandler(PromptListChangedNotificationSchema, async () => {
+    this.client.setNotificationHandler("notifications/prompts/list_changed", async () => {
       console.info(`[MCP] Prompts list changed for server: ${this.serverName}`);
       this.cachedPrompts = null;
       // Actively refresh prompt list
@@ -589,7 +737,7 @@ export class McpClient {
     });
 
     // Resource list changed notification - clear resource cache and actively refresh
-    this.client.setNotificationHandler(ResourceListChangedNotificationSchema, async () => {
+    this.client.setNotificationHandler("notifications/resources/list_changed", async () => {
       console.info(`[MCP] Resources list changed for server: ${this.serverName}`);
       this.cachedResources = null;
       // Actively refresh resource list
@@ -601,7 +749,7 @@ export class McpClient {
     });
 
     // Resource updated notification - clear resource cache and actively refresh
-    this.client.setNotificationHandler(ResourceUpdatedNotificationSchema, async (params) => {
+    this.client.setNotificationHandler("notifications/resources/updated", async (params) => {
       console.info(`[MCP] Resource updated for server: ${this.serverName}`, params);
       this.cachedResources = null;
       // Actively refresh resource list
@@ -613,18 +761,18 @@ export class McpClient {
     });
 
     // Logging message notification - just log the message
-    this.client.setNotificationHandler(LoggingMessageNotificationSchema, async (params) => {
+    this.client.setNotificationHandler("notifications/message", async (params) => {
       console.info(`[MCP] Log message from server ${this.serverName}:`, params);
     });
   }
 
   private async handleSamplingCreateMessage(
-    request: CreateMessageRequest,
+    params: CreateMessageRequest["params"],
     extra: RequestHandlerContext,
   ): Promise<CreateMessageResult> {
-    const params = request.params ?? {};
+    const safeParams = params ?? {};
     const requestId = this.resolveSamplingRequestId(extra);
-    const { payload, chatMessages } = this.prepareSamplingContext(requestId, params);
+    const { payload, chatMessages } = this.prepareSamplingContext(requestId, safeParams);
 
     const decisionPromise = this.ports.services.handleSamplingRequest!(payload) as Promise<McpSamplingDecision>;
     const signal = extra?.signal as AbortSignal | undefined;
@@ -679,7 +827,7 @@ export class McpClient {
         chatMessages,
         decision.modelId,
         undefined,
-        params.maxTokens,
+        safeParams.maxTokens,
       );
     } catch (error) {
       console.error(`[MCP] Sampling request failed for server ${this.serverName}:`, error);
@@ -701,12 +849,117 @@ export class McpClient {
     return result;
   }
 
-  private resolveSamplingRequestId(extra: RequestHandlerContext): string {
-    const rawId = extra?.requestId;
-    if (typeof rawId === "string" || typeof rawId === "number") {
-      return String(rawId);
+  /**
+   * MCP elicitation: the server asks the user a structured question (form
+   * schema) or for confirmation. The host surfaces it interactively and
+   * answers with `{ action: "accept"|"decline"|"cancel", content? }`.
+   */
+  private async handleElicitationCreate(rawParams: unknown, extra: RequestHandlerContext): Promise<ElicitResult> {
+    const services = this.ports.services;
+    if (!services.handleElicitationRequest) {
+      console.warn(`[MCP] Server ${this.serverName} requested elicitation but the host has no support; declining`);
+      return { action: "decline" };
     }
 
+    const params = ((rawParams ?? {}) as {
+      message?: unknown;
+      requestedSchema?: unknown;
+    });
+    const requestId = this.resolveSamplingRequestId(extra);
+    const payload = {
+      requestId,
+      serverName: this.serverName,
+      message: typeof params.message === "string" ? params.message : "",
+      requestedSchema: params.requestedSchema ?? {},
+    };
+
+    const decisionPromise = services.handleElicitationRequest(payload) as Promise<{
+      action?: unknown;
+      content?: unknown;
+    }>;
+    const signal = extra?.signal as AbortSignal | undefined;
+
+    const cancelOnHost = (reason: string) => {
+      void services.cancelElicitationRequest?.(payload.requestId, reason).catch((error) => {
+        console.warn(`[MCP] Failed to cancel elicitation request ${payload.requestId}:`, error);
+      });
+    };
+
+    try {
+      // Bounded wait on every host: the server's request is aborted by the
+      // server (signal) or, if the user never answers, times out as "cancel"
+      // so the tool call that triggered it cannot hang forever.
+      const decision = await new Promise<{ action?: unknown; content?: unknown }>((resolve, reject) => {
+        let settled = false;
+        const finish = (fn: () => void) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          signal?.removeEventListener("abort", onAbort);
+          fn();
+        };
+        const onAbort = () =>
+          finish(() => {
+            cancelOnHost("cancelled by server");
+            reject(new McpError(ErrorCode.RequestTimeout, "Elicitation cancelled"));
+          });
+        const timer = setTimeout(
+          () =>
+            finish(() => {
+              console.warn(`[MCP] Elicitation ${payload.requestId} from ${this.serverName} timed out; cancelling`);
+              cancelOnHost("timed out waiting for the user");
+              resolve({ action: "cancel" });
+            }),
+          ELICITATION_TIMEOUT_MS,
+        );
+        (timer as { unref?: () => void }).unref?.();
+
+        if (signal?.aborted) {
+          onAbort();
+          return;
+        }
+        signal?.addEventListener("abort", onAbort, { once: true });
+        decisionPromise.then(
+          (value) => finish(() => resolve(value)),
+          (error) => finish(() => reject(error)),
+        );
+      });
+
+      const action = typeof decision.action === "string" ? decision.action : "cancel";
+      if (action !== "accept" && action !== "decline" && action !== "cancel") {
+        return { action: "cancel" };
+      }
+      const result: Record<string, unknown> = { action };
+      if (action === "accept" && decision.content && typeof decision.content === "object") {
+        result.content = decision.content;
+      }
+      return result as ElicitResult;
+    } catch (error) {
+      if (error instanceof McpError) throw error;
+      console.warn(`[MCP] Elicitation failed for server ${this.serverName}, declining:`, error);
+      return { action: "decline" };
+    }
+  }
+
+  /**
+   * MCP roots: expose the server's own working directory as the single
+   * filesystem root Argos grants it (stdio servers only; remote servers
+   * have no cwd). Callers must treat an empty list as "no roots".
+   */
+  private handleListRoots(): { roots: Array<{ uri: string; name: string }> } {
+    const cwd = typeof this.serverConfig.cwd === "string" ? this.serverConfig.cwd.trim() : "";
+    if (!cwd) {
+      return { roots: [] };
+    }
+    const uri = pathToFileURL(cwd).href;
+    return { roots: [{ uri, name: path.basename(cwd) || cwd }] };
+  }
+
+  private resolveSamplingRequestId(extra: RequestHandlerContext): string {
+    const rawId = extra?.mcpReq?.id;
+    if (typeof rawId === "string" || typeof rawId === "number") {
+      return `${this.serverName}:${this.requestIdScope}:${String(rawId)}`;
+    }
     return `${this.serverName}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   }
 
@@ -966,7 +1219,23 @@ export class McpClient {
   }
 
   // Call MCP tool
-  async callTool(toolName: string, args: Record<string, unknown>): Promise<ToolCallResult> {
+  async callTool(
+    toolName: string,
+    args: Record<string, unknown>,
+    options?: { toolCallId?: string; signal?: AbortSignal },
+  ): Promise<ToolCallResult> {
+    return this.callToolAttempt(toolName, args, options, false);
+  }
+
+  private async callToolAttempt(
+    toolName: string,
+    args: Record<string, unknown>,
+    options: { toolCallId?: string; signal?: AbortSignal } | undefined,
+    retriedAfterSessionError: boolean,
+  ): Promise<ToolCallResult> {
+    // Set once the server accepted the call as a task: from then on the work
+    // may be running, so a lost session must not start it again.
+    const attempt = { taskCreated: false };
     try {
       if (!this.isConnected) {
         await this.connect();
@@ -976,14 +1245,40 @@ export class McpClient {
         throw new Error(`MCP client ${this.serverName} not initialized`);
       }
 
-      // Call the tool
-      const result = (await this.client.callTool({
-        name: toolName,
-        arguments: args,
-      })) as ToolCallResult;
+      // Prefer v2-native task augmentation: servers that advertise
+      // tasks.requests.tools.call run the call as a task (progress polled via
+      // tasks/get, final result via tasks/result), while plain servers yield
+      // the direct result.
+      const streamed = await this.callToolWithTaskAugmentation(
+        toolName,
+        args,
+        options?.toolCallId,
+        options?.signal,
+        attempt,
+      );
+      let result: ToolCallResult;
+      if (streamed !== null) {
+        result = streamed;
+        this.hasRestarted = false;
+      } else {
+        // Probing task support may have hit a session error that dropped the
+        // connection; reconnect instead of calling through a null client.
+        if (!this.isConnected || !this.client) {
+          await this.connect();
+        }
+        const client = this.client;
+        if (!client) {
+          throw new Error(`MCP client ${this.serverName} not initialized`);
+        }
+        // Call the tool
+        const params = { name: toolName, arguments: args };
+        result = (await (options?.signal
+          ? client.callTool(params, { signal: options.signal })
+          : client.callTool(params))) as ToolCallResult;
 
-      // Reset restart flag on successful call
-      this.hasRestarted = false;
+        // Reset restart flag on successful call
+        this.hasRestarted = false;
+      }
 
       // Check result
       if (result.isError) {
@@ -997,13 +1292,223 @@ export class McpClient {
       }
       return result;
     } catch (error) {
-      // Check and handle session errors
+      // A user STOP is not a server failure: keep the tool cache and session.
+      if (options?.signal?.aborted) {
+        throw error;
+      }
+      // Check and handle session errors (throws if they persist after a restart)
       await this.checkAndHandleSessionError(error);
+
+      // The server rejected the stale session before running the tool (e.g. it
+      // restarted), so one retry on a fresh connection is safe.
+      if (isSessionError(error) && !retriedAfterSessionError && !attempt.taskCreated) {
+        console.info(`[MCP] Session for ${this.serverName} was lost; retrying ${toolName} on a new connection`);
+        return this.callToolAttempt(toolName, args, options, true);
+      }
 
       console.error(`Failed to call MCP tool ${toolName}:`, error);
       // Call failed, clear the tool cache
       this.cachedTools = null;
       throw error;
+    }
+  }
+
+  /** Resolve a tool's declared `execution.taskSupport` from the (cached) tool list. */
+  private async getToolTaskSupport(toolName: string): Promise<string | undefined> {
+    try {
+      const tools = await this.listTools();
+      const tool = tools.find((entry) => entry.name === toolName) as
+        { execution?: { taskSupport?: unknown } } | undefined;
+      const taskSupport = tool?.execution?.taskSupport;
+      return typeof taskSupport === "string" ? taskSupport : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
+   * Run a tool call with v2-native task augmentation (SEP-1686): when the
+   * server advertises `tasks.requests.tools.call`, the call is sent with
+   * task-creation params, the task is polled via `tasks/get` (broadcasting
+   * `mcp:tool-call-progress` per poll), and the final result is fetched via
+   * `tasks/result`. Returns null when the server does not support tasks so
+   * callers fall back to the plain request.
+   */
+  private async callToolWithTaskAugmentation(
+    toolName: string,
+    args: Record<string, unknown>,
+    toolCallId?: string,
+    signal?: AbortSignal,
+    attempt?: { taskCreated: boolean },
+  ): Promise<ToolCallResult | null> {
+    const client = this.client as unknown as {
+      getServerCapabilities?: () => unknown;
+      request?: (
+        request: { method: string; params?: unknown },
+        resultSchema?: unknown,
+        options?: unknown,
+      ) => Promise<unknown>;
+      callTool?: (params: Record<string, unknown>) => Promise<unknown>;
+    };
+    if (!client?.getServerCapabilities || !client.request || !client.callTool) {
+      return null;
+    }
+
+    const capabilities = client.getServerCapabilities() as
+      | { tasks?: { requests?: { tools?: { call?: unknown } } } }
+      | undefined;
+    if (!capabilities?.tasks?.requests?.tools?.call) {
+      return null;
+    }
+    // The server capability alone is not enough: each tool declares
+    // `execution.taskSupport` (default "forbidden"), and task params must not
+    // be sent to tools that do not opt in.
+    const taskSupport = await this.getToolTaskSupport(toolName);
+    if (taskSupport !== "optional" && taskSupport !== "required") {
+      return null;
+    }
+
+    const created = (await client.request(
+      {
+        method: "tools/call",
+        params: { name: toolName, arguments: args, task: {} },
+      },
+      TaskOrToolResultSchema,
+      signal ? { signal } : undefined,
+    )) as {
+      task?: {
+        taskId?: unknown;
+        status?: unknown;
+        statusMessage?: unknown;
+        pollInterval?: unknown;
+      };
+      content?: unknown;
+      isError?: unknown;
+    };
+    const taskId = typeof created?.task?.taskId === "string" ? created.task.taskId : null;
+    if (!taskId) {
+      // Server answered with a direct result despite task creation params.
+      return created as unknown as ToolCallResult;
+    }
+    if (attempt) attempt.taskCreated = true;
+
+    const TERMINAL = new Set(["completed", "failed", "cancelled"]);
+    let settled = false;
+    const broadcast = (status: string | null, statusMessage: string | null) => {
+      if (settled) return;
+      if (status && TERMINAL.has(status)) settled = true;
+      this.ports.events.broadcast(MCP_EVENTS.TOOL_CALL_PROGRESS, {
+        serverName: this.serverName,
+        toolName,
+        toolCallId: toolCallId ?? null,
+        taskId,
+        status,
+        statusMessage,
+      });
+    };
+
+    broadcast(
+      typeof created.task?.status === "string" ? created.task.status : "working",
+      typeof created.task?.statusMessage === "string" ? created.task.statusMessage : null,
+    );
+
+    const request = client.request.bind(client);
+    let pollIntervalMs =
+      typeof created.task?.pollInterval === "number" && created.task.pollInterval > 0
+        ? created.task.pollInterval
+        : TASK_POLL_INTERVAL_MS;
+    const deadline = Date.now() + TASK_POLL_TIMEOUT_MS;
+    let terminal: { status?: string; statusMessage?: string } | null = null;
+
+    let cancelSent: Promise<void> | null = null;
+    // Idempotent: STOP, the deadline and abort checks may all ask to cancel.
+    const cancelTask = (): Promise<void> => {
+      cancelSent ??= request({ method: "tasks/cancel", params: { taskId } }, CancelTaskResultSchema).then(
+        () => undefined,
+        (error: unknown) => console.warn(`[MCP] Failed to cancel task ${taskId} on ${this.serverName}:`, error),
+      );
+      return cancelSent;
+    };
+    // One listener for the whole task lifetime: STOP cancels the server task
+    // even while tasks/get or tasks/result is in flight (or stalled).
+    const onAbort = () => void cancelTask();
+    signal?.addEventListener("abort", onAbort, { once: true });
+    const throwIfAborted = async (): Promise<void> => {
+      if (signal?.aborted) {
+        await cancelTask();
+        throw new Error(`Task ${taskId} was cancelled`);
+      }
+      if (this.client !== (client as unknown)) {
+        throw new Error(`MCP server ${this.serverName} disconnected while task ${taskId} was running`);
+      }
+    };
+    const sleep = (ms: number) =>
+      new Promise<void>((resolve) => {
+        const timer = setTimeout(done, ms);
+        function done() {
+          clearTimeout(timer);
+          signal?.removeEventListener("abort", done);
+          resolve();
+        }
+        signal?.addEventListener("abort", done, { once: true });
+      });
+
+    try {
+      while (Date.now() < deadline) {
+        await sleep(pollIntervalMs);
+        await throwIfAborted();
+        const status = (await request({ method: "tasks/get", params: { taskId } }, GetTaskResultSchema, {
+          signal,
+        })) as {
+          status?: string;
+          statusMessage?: string;
+          pollInterval?: number;
+        };
+        broadcast(status?.status ?? null, status?.statusMessage ?? null);
+        // `input_required`: the server has a pending request (e.g. an
+        // elicitation) that it only delivers while `tasks/result` is open, so
+        // stop polling and block on the result (SEP-1686).
+        if (
+          status?.status === "completed" ||
+          status?.status === "failed" ||
+          status?.status === "cancelled" ||
+          status?.status === "input_required"
+        ) {
+          terminal = status;
+          break;
+        }
+        if (typeof status?.pollInterval === "number" && status.pollInterval > 0) {
+          pollIntervalMs = status.pollInterval;
+        }
+      }
+
+      if (!terminal) {
+        await cancelTask();
+        throw new Error(`Task ${taskId} did not reach a terminal state within ${TASK_POLL_TIMEOUT_MS}ms`);
+      }
+      if (terminal.status === "failed") {
+        throw new Error(terminal.statusMessage || `Task ${taskId} failed`);
+      }
+      if (terminal.status === "cancelled") {
+        throw new Error(`Task ${taskId} was cancelled`);
+      }
+
+      const result = (await request({ method: "tasks/result", params: { taskId } }, CallToolResultSchema, {
+        timeout: Math.max(deadline - Date.now(), TASK_POLL_INTERVAL_MS),
+        signal,
+      })) as ToolCallResult;
+      // The polled status may have stopped at `input_required`; report the
+      // final state so progress indicators settle.
+      broadcast(result?.isError ? "failed" : "completed", null);
+      return result ?? null;
+    } catch (error) {
+      // Every exit path (abort, disconnect, deadline, tasks/get or
+      // tasks/result errors) settles the progress indicator exactly once.
+      if (signal?.aborted) await cancelTask();
+      broadcast(signal?.aborted ? "cancelled" : "failed", error instanceof Error ? error.message : null);
+      throw error;
+    } finally {
+      signal?.removeEventListener("abort", onAbort);
     }
   }
 
@@ -1136,7 +1641,10 @@ export class McpClient {
           id: name,
           name: name, // Get name from request parameters
           description: response.description || "",
-          messages: response.messages as Array<{ role: string; content: { text: string } }>,
+          messages: response.messages as Array<{
+            role: string;
+            content: { text: string };
+          }>,
         };
       }
       throw new Error("Invalid get prompt response format");
@@ -1202,6 +1710,66 @@ export class McpClient {
         // Other errors occurred; do not clear cache (keep null) for retry next time
         throw error;
       }
+    }
+  }
+
+  /**
+   * Best-effort `resources/templates/list` probe: servers without template
+   * support are treated as "no templates", mirroring the other optional
+   * capability probes.
+   */
+  async listResourceTemplates(): Promise<Array<{ uriTemplate: string; name?: string; description?: string; mimeType?: string }>> {
+    try {
+      if (!this.isConnected) {
+        await this.connect();
+      }
+      if (!this.client || typeof this.client.listResourceTemplates !== "function") {
+        return [];
+      }
+      const response = await this.client.listResourceTemplates();
+      const list = (response as { resourceTemplates?: unknown }).resourceTemplates;
+      if (!Array.isArray(list)) {
+        return [];
+      }
+      return list.map((template) => {
+        const view = template as Record<string, unknown>;
+        return {
+          uriTemplate: typeof view.uriTemplate === "string" ? view.uriTemplate : "unknown",
+          name: typeof view.name === "string" ? view.name : undefined,
+          description: typeof view.description === "string" ? view.description : undefined,
+          mimeType: typeof view.mimeType === "string" ? view.mimeType : undefined,
+        };
+      });
+    } catch (error) {
+      await this.checkAndHandleSessionError(error);
+      if (isUnsupportedCapabilityError(error)) {
+        return [];
+      }
+      console.warn(`[MCP] Failed to list resource templates for server ${this.serverName}:`, error);
+      return [];
+    }
+  }
+
+  /**
+   * `completion/complete`: ask the server for argument completions for a
+   * prompt or resource-template argument. Servers without completion support
+   * return an empty value list.
+   */
+  async completeArgument(params: CompleteRequest["params"]): Promise<unknown> {
+    try {
+      if (!this.isConnected) {
+        await this.connect();
+      }
+      if (!this.client || typeof this.client.complete !== "function") {
+        return { completion: { values: [], total: 0, hasMore: false } };
+      }
+      return await this.client.complete(params);
+    } catch (error) {
+      await this.checkAndHandleSessionError(error);
+      if (isUnsupportedCapabilityError(error)) {
+        return { completion: { values: [], total: 0, hasMore: false } };
+      }
+      throw error;
     }
   }
 

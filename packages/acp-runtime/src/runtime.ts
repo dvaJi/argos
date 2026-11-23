@@ -3,7 +3,7 @@ import { methods as acpMethods } from "@agentclientprotocol/sdk/unstable";
 import type * as schema from "@agentclientprotocol/sdk/unstable";
 import { AcpProcessManager } from "./process/acpProcessManager";
 import { AcpSessionManager } from "./session/acpSessionManager";
-import type { PermissionResolver } from "./process/acpProcessManager";
+import type { ElicitationResolver, PermissionResolver } from "./process/acpProcessManager";
 import { AcpSessionPersistence } from "./session/acpSessionPersistence";
 import { AcpPromptController } from "./session/acpPromptController";
 import type { AcpAgentConfig } from "@argos/shared/presenter";
@@ -27,6 +27,8 @@ export interface AcpRuntime {
     prompt: SendMessageInput;
     workdir?: string;
     onPermission?: PermissionResolver;
+    onElicitation?: ElicitationResolver;
+    onElicitationComplete?: (elicitationId: string) => void;
   }): AsyncGenerator<schema.SessionNotification, void, unknown>;
 }
 
@@ -100,6 +102,8 @@ export function createAcpRuntime(deps: {
         {
           onSessionUpdate: () => {},
           onPermission: args.onPermission ?? (async () => ({ outcome: { outcome: "cancelled" } })),
+          onElicitation: args.onElicitation ?? (async () => ({ action: "decline" })),
+          onElicitationComplete: args.onElicitationComplete,
         },
         args.workdir,
       );

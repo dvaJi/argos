@@ -603,6 +603,35 @@ export class BunSessionRepository implements SessionRepository {
     return session;
   }
 
+  /**
+   * Create a regular (non-draft) conversation for an agent-side `session/fork`.
+   * No local messages are copied: the forked history lives in the agent-side
+   * session the caller binds via the ACP session persistence.
+   */
+  async createForkedAcpSession(input: {
+    agentId: string;
+    projectDir: string;
+    title: string;
+    sourceSessionId: string;
+  }): Promise<SessionWithState> {
+    return await this.insertSession({
+      agentId: input.agentId.trim(),
+      title: input.title,
+      projectDir: input.projectDir.trim(),
+      permissionMode: "default",
+      isPinned: false,
+      isDraft: false,
+      sessionKind: "regular",
+      parentSessionId: input.sourceSessionId,
+      subagentEnabled: false,
+      providerId: "acp",
+      modelId: input.agentId.trim(),
+      message: null,
+      generationSettings: null,
+      disabledAgentTools: [],
+    });
+  }
+
   async listPendingInputs(sessionId: string): Promise<PendingSessionInputRecord[]> {
     return this.listPendingRows(sessionId)
       .filter((row) => row.state !== "claimed")

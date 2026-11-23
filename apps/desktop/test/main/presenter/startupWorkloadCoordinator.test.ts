@@ -214,4 +214,41 @@ describe("StartupWorkloadCoordinator", () => {
       }),
     );
   });
+
+  it("gives each task its own result when different tasks share a visible row", async () => {
+    const { StartupWorkloadCoordinator } = await import("#/presenter/startupWorkloadCoordinator");
+    const coordinator = new StartupWorkloadCoordinator();
+    coordinator.createRun("settings");
+    const servers = createDeferred<{ servers: Record<string, unknown> }>();
+    const shared = {
+      target: "settings",
+      phase: "deferred",
+      resource: "io",
+      labelKey: "startup.settings.mcp.runtime",
+      visibleId: "settings.mcp.runtime",
+    } as const;
+
+    // Same shape as the MCP settings page's parallel getServers + getEnabled.
+    const serversTask = coordinator.scheduleTask({
+      ...shared,
+      id: "settings.mcp.runtime:mcp.getServers",
+      run: () => servers.promise,
+    });
+    const enabledTask = coordinator.scheduleTask({
+      ...shared,
+      id: "settings.mcp.runtime:mcp.getEnabled",
+      run: async () => ({ enabled: true }),
+    });
+
+    await expect(enabledTask).resolves.toEqual({ enabled: true });
+    servers.resolve({ servers: { a: {} } });
+    await expect(serversTask).resolves.toEqual({ servers: { a: {} } });
+
+    // Identical work is still joined.
+    const secondRun = vi.fn(async () => 2);
+    const first = coordinator.scheduleTask({ ...shared, id: "dup", run: async () => 1 });
+    const second = coordinator.scheduleTask({ ...shared, id: "dup", run: secondRun });
+    await expect(Promise.all([first, second])).resolves.toEqual([1, 1]);
+    expect(secondRun).not.toHaveBeenCalled();
+  });
 });

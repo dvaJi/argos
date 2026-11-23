@@ -158,12 +158,13 @@ export class StartupWorkloadCoordinator {
       return existing.promise as Promise<T>;
     }
 
+    // Several routes may share one visible progress row (e.g. every settings
+    // MCP read). Identical work was already joined via the dedupe key above, so
+    // a different task here must run on its own: handing it the in-flight
+    // task's promise would answer one route with another route's result.
     if (options.visibleId) {
       const previous = runState.visibleTasks.get(options.visibleId);
-      if (previous && (previous.state === "pending" || previous.state === "running")) {
-        return previous.promise as Promise<T>;
-      }
-      if (previous) {
+      if (previous && previous.state !== "pending" && previous.state !== "running") {
         runState.visibleTasks.delete(options.visibleId);
         runState.tasks.delete(previous);
       }
@@ -354,7 +355,13 @@ export class StartupWorkloadCoordinator {
     if (!task.visibleId) {
       runState.tasks.delete(task);
     } else {
-      runState.visibleTasks.set(task.visibleId, task);
+      const current = runState.visibleTasks.get(task.visibleId);
+      if (current && current !== task && (current.state === "pending" || current.state === "running")) {
+        // A newer task now owns this progress row; keep it visible.
+        runState.tasks.delete(task);
+      } else {
+        runState.visibleTasks.set(task.visibleId, task);
+      }
     }
 
     this.publishSnapshot(task.target);

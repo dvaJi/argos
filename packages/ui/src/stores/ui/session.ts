@@ -307,8 +307,13 @@ const removeSessions = (sessionIds: string[]): void => {
   }
 };
 
-export const getActiveSession = (): UIActiveSessionSummary | undefined => {
-  const s = sessionStore.state;
+/**
+ * Pure resolver over a state snapshot. Components must not call the
+ * zero-argument getters below during render: React Compiler treats them as
+ * constant and caches the first result (the composer then stayed on the
+ * previous session's provider). Use `useActiveSession()` instead.
+ */
+export const resolveActiveSession = (s: typeof sessionStore.state): UIActiveSessionSummary | undefined => {
   const sessionId = s.activeSessionId;
   if (!sessionId) {
     return undefined;
@@ -324,6 +329,9 @@ export const getActiveSession = (): UIActiveSessionSummary | undefined => {
 
   return lightweightSession ? createFallbackActiveSession(lightweightSession) : undefined;
 };
+
+/** Non-reactive read for event handlers and stores (not for render). */
+export const getActiveSession = (): UIActiveSessionSummary | undefined => resolveActiveSession(sessionStore.state);
 
 export const getHasActiveSession = (): boolean => sessionStore.state.activeSessionId !== null;
 
@@ -345,20 +353,22 @@ export function clearSessionContextForMachineSwitch(): void {
   goToNewThread();
 }
 
-export const getNewConversationTargetAgentId = (): string | null => {
-  const selectedId =
-    typeof agentStore.state.selectedAgentId === "string" ? agentStore.state.selectedAgentId.trim() : "";
+export const getNewConversationTargetAgentId = (
+  agentState: typeof agentStore.state = agentStore.state,
+  sessionState: typeof sessionStore.state = sessionStore.state,
+): string | null => {
+  const selectedId = typeof agentState.selectedAgentId === "string" ? agentState.selectedAgentId.trim() : "";
   if (selectedId) {
     return selectedId;
   }
 
-  const activeSession = getActiveSession();
+  const activeSession = resolveActiveSession(sessionState);
   const activeAgentId = typeof activeSession?.agentId === "string" ? activeSession.agentId.trim() : "";
   if (activeAgentId) {
     return activeAgentId;
   }
 
-  const agents = enabledAgents();
+  const agents = agentState.agents.filter((agent) => agent.enabled);
   const fallbackId = typeof agents[0]?.id === "string" ? agents[0].id.trim() : "";
   return fallbackId || null;
 };
@@ -1035,6 +1045,18 @@ function cleanupSessionStore(): void {
 }
 
 void ensureGroupModeLoaded();
+
+/**
+ * Reactive active-session read for render: derived from the subscribed state,
+ * so memoization keys on it and session switches re-resolve.
+ */
+export function useActiveSession(): {
+  hasActiveSession: boolean;
+  activeSession: UIActiveSessionSummary | undefined;
+} {
+  const state = useSelector(sessionStore);
+  return { hasActiveSession: state.activeSessionId !== null, activeSession: resolveActiveSession(state) };
+}
 
 export function useSessionStore() {
   const state = useSelector(sessionStore);

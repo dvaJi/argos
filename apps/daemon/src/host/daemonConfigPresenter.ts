@@ -1184,6 +1184,10 @@ export class DaemonConfigPresenter {
     return this.mcpConfig.initializeHeadlessDefaults();
   }
 
+  onMcpConfigChanged(listener: () => void): void {
+    this.mcpConfig.onConfigChanged(listener);
+  }
+
   async getMcpServers(): Promise<any> {
     return this.mcpConfig.getMcpServers();
   }

@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from "#shadcn/components/ui/dialog";
 import { createProviderClient } from "#api/ProviderClient";
+import AcpAuthElicitationCard, { useClaimAcpAuthElicitations } from "#/components/chat/AcpAuthElicitationCard";
 import type { AcpAgentDiagnostics } from "@argos/shared/presenter";
 
 const providerClient = createProviderClient();
@@ -50,6 +51,17 @@ export default function AcpAuthDialog({
   );
   const [error, setError] = useState<string | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
+  // Prompts the agent sends during sign-in render here, not behind the modal.
+  useClaimAcpAuthElicitations(agentId, open);
+  const [accounts, setAccounts] = useState<
+    Array<{
+      label: string;
+      description?: string | null;
+      active?: boolean | null;
+      name?: string | null;
+      email?: string | null;
+    }>
+  >([]);
   const terminalRef = useRef<HTMLDivElement | null>(null);
   const xtermRef = useRef<Terminal | null>(null);
   const pendingOutputRef = useRef<string[]>([]);
@@ -90,6 +102,9 @@ export default function AcpAuthDialog({
         } else {
           pendingOutputRef.current.push(payload.output);
         }
+      }
+      if (payload.authStatus?.accounts) {
+        setAccounts(payload.authStatus.accounts);
       }
       if (payload.state === "ready") {
         setFlowState("ready");
@@ -183,6 +198,31 @@ export default function AcpAuthDialog({
 
         {flowState === "select" ? (
           <div className="flex flex-col gap-2">
+            {accounts.length > 0 && (
+              <div className="space-y-1.5">
+                <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Configured accounts</div>
+                {accounts.map((account) => (
+                  <div
+                    key={account.label}
+                    className="flex items-center justify-between gap-2 rounded-md border bg-background/50 px-2.5 py-1.5"
+                  >
+                    <div className="min-w-0">
+                      <div className="truncate text-xs font-medium">{account.label}</div>
+                      {(account.description || account.name || account.email) && (
+                        <div className="truncate text-[11px] text-muted-foreground">
+                          {[account.description, account.name, account.email].filter(Boolean).join(" · ")}
+                        </div>
+                      )}
+                    </div>
+                    {account.active && (
+                      <Badge variant="outline" className="shrink-0 text-[10px]">
+                        active
+                      </Badge>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
             {methods.length === 0 && !loading ? (
               <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
                 The agent did not advertise any authentication methods. Check the agent's connection status in ACP
@@ -252,6 +292,8 @@ export default function AcpAuthDialog({
           </div>
         ) : null}
 
+        {open ? <AcpAuthElicitationCard agentId={agentId} /> : null}
+
         {flowState === "running" && activeMethod?.mode === "terminal" ? (
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -266,9 +308,36 @@ export default function AcpAuthDialog({
         ) : null}
 
         {flowState === "ready" ? (
-          <div className="flex items-center gap-2 rounded-lg border border-green-600/30 bg-green-600/10 px-3 py-2 text-sm text-green-700 dark:text-green-400">
-            <Icon icon="lucide:check-circle-2" className="size-4" />
-            Authenticated. You can retry the conversation now.
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 rounded-lg border border-green-600/30 bg-green-600/10 px-3 py-2 text-sm text-green-700 dark:text-green-400">
+              <Icon icon="lucide:check-circle-2" className="size-4" />
+              Authenticated. You can retry the conversation now.
+            </div>
+            {accounts.length > 0 && (
+              <div className="space-y-1.5">
+                <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Configured accounts</div>
+                {accounts.map((account) => (
+                  <div
+                    key={account.label}
+                    className="flex items-center justify-between gap-2 rounded-md border bg-background/50 px-2.5 py-1.5"
+                  >
+                    <div className="min-w-0">
+                      <div className="truncate text-xs font-medium">{account.label}</div>
+                      {(account.description || account.name || account.email) && (
+                        <div className="truncate text-[11px] text-muted-foreground">
+                          {[account.description, account.name, account.email].filter(Boolean).join(" · ")}
+                        </div>
+                      )}
+                    </div>
+                    {account.active && (
+                      <Badge variant="outline" className="shrink-0 text-[10px]">
+                        active
+                      </Badge>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         ) : null}
 

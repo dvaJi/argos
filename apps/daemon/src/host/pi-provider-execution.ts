@@ -150,6 +150,8 @@ function stringifyResult(value: unknown): string {
 export class PiProviderExecutionPort implements ProviderExecutionPort {
   private readonly workers = new Map<string, PiWorkerHandle>();
   private readonly interactions = new Map<string, PendingInteraction>();
+  /** In-flight MCP tool calls per session, aborted on STOP or worker exit. */
+  private readonly inflightMcpCalls = new Map<string, Set<AbortController>>();
   private readonly controlWaiters = new Map<string, { resolve: () => void; reject: (error: Error) => void }>();
   private readonly utilityPort: LlmUtilityExecution;
   /** Invoked after a turn completes successfully (used to drain pending inputs). */
@@ -171,7 +173,7 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
     private readonly eventPublisher: IEventPublisher,
     private readonly mcp: {
       listTools(sessionId: string): Promise<MCPToolDefinition[]>;
-      callTool(request: MCPToolCall): Promise<MCPToolResponse>;
+      callTool(request: MCPToolCall, options?: { signal?: AbortSignal }): Promise<MCPToolResponse>;
     },
     /** Argos-owned scratch workspace used when a session has no project dir. */
     private readonly agentWorkspaceDir: string,
@@ -302,7 +304,16 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
     this.send(worker.process, { type: "followUp", id: randomUUID(), text });
   }
 
+  /** Abort every MCP tool call still running for a session. */
+  private abortInflightMcpCalls(sessionId: string): void {
+    const inflight = this.inflightMcpCalls.get(sessionId);
+    if (!inflight) return;
+    this.inflightMcpCalls.delete(sessionId);
+    for (const controller of inflight) controller.abort();
+  }
+
   async cancelGeneration(sessionId: string): Promise<void> {
+    this.abortInflightMcpCalls(sessionId);
     const worker = this.workers.get(sessionId);
     if (!worker?.turn) return;
     // STOP must not auto-send queued work: suppress the pending-input drain
@@ -390,6 +401,7 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
       return existing;
     }
     if (existing) {
+      this.abortInflightMcpCalls(sessionId);
       this.send(existing.process, { type: "dispose" });
       this.workers.delete(sessionId);
     }
@@ -416,11 +428,17 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
       }
     });
     child.stderr.on("data", (chunk) => console.error(`[pi:${sessionId}] ${String(chunk).trimEnd()}`));
+    // EPIPE when the worker dies mid-write must not become an uncaught exception.
+    child.stdin.on("error", (error) => console.warn(`[pi:${sessionId}] worker stdin error:`, error.message));
     child.once("exit", (code, signal) => {
       const error = new Error(`Pi worker exited (${code ?? signal ?? "unknown"}).`);
       rejectReady(error);
       handle.turn?.reject(error);
-      this.workers.delete(sessionId);
+      // Nothing is left to receive the results of this worker's MCP calls.
+      if (this.workers.get(sessionId) === handle) {
+        this.abortInflightMcpCalls(sessionId);
+        this.workers.delete(sessionId);
+      }
     });
     child.once("error", (error) => {
       rejectReady(error);
@@ -548,13 +566,25 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
       return;
     }
     if (event.type === "mcpRequest") {
+      // Track the in-flight call so STOP (cancelGeneration) can abort it:
+      // task-augmented MCP calls then send tasks/cancel instead of running on.
+      const controller = new AbortController();
+      let inflight = this.inflightMcpCalls.get(sessionId);
+      if (!inflight) {
+        inflight = new Set();
+        this.inflightMcpCalls.set(sessionId, inflight);
+      }
+      inflight.add(controller);
       try {
-        const response = await this.mcp.callTool({
-          id: event.toolCallId,
-          type: "function",
-          function: { name: event.toolName, arguments: JSON.stringify(event.input) },
-          conversationId: sessionId,
-        });
+        const response = await this.mcp.callTool(
+          {
+            id: event.toolCallId,
+            type: "function",
+            function: { name: event.toolName, arguments: JSON.stringify(event.input) },
+            conversationId: sessionId,
+          },
+          { signal: controller.signal },
+        );
         this.send(worker.process, { type: "mcpResponse", id: event.id, response });
       } catch (error) {
         this.send(worker.process, {
@@ -562,6 +592,11 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
           id: event.id,
           error: error instanceof Error ? error.message : String(error),
         });
+      } finally {
+        inflight.delete(controller);
+        if (inflight.size === 0 && this.inflightMcpCalls.get(sessionId) === inflight) {
+          this.inflightMcpCalls.delete(sessionId);
+        }
       }
       return;
     }
@@ -907,6 +942,8 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
   }
 
   private send(worker: ChildProcessWithoutNullStreams, command: PiWorkerCommand): void {
+    // A crashed/exited worker has a destroyed stdin; writing would emit EPIPE.
+    if (worker.stdin.destroyed || worker.stdin.writableEnded) return;
     worker.stdin.write(`${JSON.stringify(command)}\n`);
   }
 }
