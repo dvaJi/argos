@@ -13,10 +13,11 @@ runs:
     - name: Setup Bun
       uses: oven-sh/setup-bun@v2
       with:
-        bun-version: "1.4.4"
+        # Single source of truth: the "packageManager" field (bun@x.y.z).
+        bun-version-file: package.json
 
     - name: Restore Bun install cache
-      uses: actions/cache@v4
+      uses: actions/cache@v6
       with:
         path: ~/.bun/install/cache
         key: bun-install-${{ runner.os }}-${{ hashFiles('bun.lock') }}
@@ -24,7 +25,7 @@ runs:
           bun-install-${{ runner.os }}-
 
     - name: Restore Turbo local-cache fallback
-      uses: actions/cache@v4
+      uses: actions/cache@v6
       with:
         path: .turbo
         key: turbo-v2-${{ hashFiles('bun.lock', 'turbo.json', 'apps/*/turbo.json', 'packages/*/turbo.json') }}
@@ -33,7 +34,7 @@ runs:
         enableCrossOsArchive: true
 
     - name: Restore Electron downloads
-      uses: actions/cache@v4
+      uses: actions/cache@v6
       with:
         path: |
           ~/.cache/electron
@@ -48,11 +49,7 @@ runs:
 
     - name: Install dependencies
       shell: bash
-      run: |
-        if [ "${{ inputs.include-landing }}" = "true" ]; then
-          bun install --frozen-lockfile
-        else
-          # Excluding @argos/landing is not directly supported by bun install --filter for exclusions.
-          # Install everything; workerd platform failures are handled gracefully in CI build steps.
-          bun install --frozen-lockfile
-        fi
+      # TODO(include-landing): bun install has no exclusion filter, so the full
+      # workspace is always installed; workerd platform failures are tolerated
+      # by the CI build steps. The input is kept for callers' forward compat.
+      run: bun install --frozen-lockfile
