@@ -11,6 +11,13 @@ type ScheduledTaskSessionCreator = {
     modelId?: string;
     systemPrompt?: string;
   }): Promise<{ sessionId: string | null }>;
+  sendToExistingSession?(input: {
+    sessionId: string;
+    message: string;
+    providerId?: string;
+    modelId?: string;
+    systemPrompt?: string;
+  }): Promise<void>;
 };
 
 class DaemonScheduledTasksNotificationPresenter {
@@ -60,8 +67,17 @@ export class DaemonScheduledTasks {
         if (!session?.id) {
           return { sessionId: null };
         }
-        await deps.providerExecutionPort.sendMessage(session.id, input.message);
+        await deps.providerExecutionPort.sendMessage(session.id, {
+          text: input.message,
+          provenance: { trust: "owner", runKind: "schedule" },
+        });
         return { sessionId: session.id };
+      },
+      async sendToExistingSession(input) {
+        await deps.providerExecutionPort.sendMessage(input.sessionId, {
+          text: input.message,
+          provenance: { trust: "owner", runKind: "schedule" },
+        });
       },
     };
 

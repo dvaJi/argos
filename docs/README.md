@@ -65,6 +65,7 @@ docs/
 │   ├── electron-vite-to-vite-plugin-electron/ ← active: build toolchain migration
 │   ├── extract-ui/              ← active: @argos/ui extraction from desktop
 │   ├── memory-subsystem/        ← active: agentic memory / recall subsystem
+│   ├── pine-borrowings/         ← active: Pine feature portfolio + implementation blueprints
 │   └── tape-subsystem/          ← active: tape manifest integrity and lineage
 ├── archives/                    ← completed or stale SDD goal folders
 ├── features/                    ← active feature goals only

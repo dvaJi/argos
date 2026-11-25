@@ -18,6 +18,16 @@ import type { BunSessionRepository } from "./bun-session-repository";
 import { usageDateKey } from "./bun-session-repository";
 import type { DaemonConfigPresenter } from "./daemonConfigPresenter";
 import { LlmUtilityExecution } from "./llmUtilityExecution";
+import { PLAN_TOOL_DEFINITION } from "./planTool";
+import { MANUAL_TOOL_DEFINITION } from "./manualTool";
+import {
+  FILE_TOOLS_GUIDANCE,
+  PLAN_MODE_BUILTIN_TOOLS,
+  PLAN_MODE_OVER_NOTE,
+  PLAN_MODE_PROMPT,
+  READ_ONLY_BUILTIN_TOOLS,
+} from "./readOnlyCommand";
+import type { TurnSnapshotService } from "./turnSnapshotService";
 import { resolveModelCost as sharedResolveModelCost } from "./modelCost";
 import { PiAgentProfileManager } from "./piAgentProfileManager";
 import type { PiWorkerCommand, PiWorkerEvent, PiWorkerInit, PiWorkerProvider } from "./piWorkerProtocol";
@@ -39,6 +49,7 @@ interface ActiveTurn {
   commandId: string;
   requestId: string;
   messageId: string;
+  userMessageId?: string;
   blocks: AssistantMessageBlock[];
   resolve: () => void;
   reject: (error: Error) => void;
@@ -56,6 +67,9 @@ interface PiWorkerHandle {
   ready: Promise<void>;
   turn?: ActiveTurn;
   sessionFile?: string;
+  cwd: string;
+  planMode: boolean;
+  restricted: boolean;
   /** Resolved at build time; avoids a per-usage-event DB read. */
   modelId?: string;
   lastUsage?: { input: number; output: number; cacheRead: number; cacheWrite: number; total: number; cost: number };
@@ -150,6 +164,8 @@ function stringifyResult(value: unknown): string {
 export class PiProviderExecutionPort implements ProviderExecutionPort {
   private readonly workers = new Map<string, PiWorkerHandle>();
   private readonly interactions = new Map<string, PendingInteraction>();
+  /** Whether each session's last prompt ran in plan mode (to say when it ends). */
+  private readonly planModeTold = new Map<string, boolean>();
   /** In-flight MCP tool calls per session, aborted on STOP or worker exit. */
   private readonly inflightMcpCalls = new Map<string, Set<AbortController>>();
   private readonly controlWaiters = new Map<string, { resolve: () => void; reject: (error: Error) => void }>();
@@ -177,6 +193,7 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
     },
     /** Argos-owned scratch workspace used when a session has no project dir. */
     private readonly agentWorkspaceDir: string,
+    private readonly turnSnapshots?: TurnSnapshotService,
   ) {
     this.utilityPort = new LlmUtilityExecution(configPresenter);
   }
@@ -188,7 +205,11 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
     if (!text) throw new Error("Message text is required.");
 
     const requestId = randomUUID();
-    await this.sessionRepository.addMessage(sessionId, "user", JSON.stringify({ text, files: [] }));
+    const userMessageId = await this.sessionRepository.addMessage(
+      sessionId,
+      "user",
+      JSON.stringify({ text, files: (typeof content === "string" ? undefined : content.files) ?? [] }),
+    );
     const messageId = await this.sessionRepository.addMessage(sessionId, "assistant", JSON.stringify([]));
     const worker = await this.getWorker(sessionId);
     if (worker.turn) throw new Error(`Session ${sessionId} already has an active Pi turn.`);
@@ -202,6 +223,7 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
         commandId: requestId,
         requestId,
         messageId,
+        userMessageId,
         blocks: [],
         resolve,
         reject,
@@ -210,8 +232,18 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
       };
       worker.turn = activeTurn;
     });
+    if (this.turnSnapshots && userMessageId) {
+      await this.turnSnapshots
+        .beginTurn({ sessionId, userMessageId, workspace: worker.cwd, userText: text })
+        .catch((error) => console.warn(`[undo:${sessionId.slice(0, 8)}] snapshot start failed`, error));
+    }
     await this.markGenerating(sessionId);
-    this.send(worker.process, { type: "prompt", id: requestId, text });
+    // The plan-mode note lives in the system prompt; once the user leaves plan
+    // mode the model must also be told so, or it keeps planning (from Pine).
+    const leftPlanMode = this.planModeTold.get(sessionId) === true && !worker.planMode;
+    this.planModeTold.set(sessionId, worker.planMode);
+    const promptText = leftPlanMode ? `${PLAN_MODE_OVER_NOTE}\n\n${text}` : text;
+    this.send(worker.process, { type: "prompt", id: requestId, text: promptText });
     // Turn lifecycle logs make a silent/stuck turn distinguishable from a slow
     // one (docs/issues/stream-diagnostics-logging).
     console.log(`[pi:${sessionId.slice(0, 8)}] turn start request=${requestId.slice(0, 8)}`);
@@ -236,6 +268,11 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
         } catch {
           // Best-effort; the failed event below is the source of truth for the UI.
         }
+        if (this.turnSnapshots && activeTurn.userMessageId) {
+          await this.turnSnapshots
+            .endTurn({ sessionId, userMessageId: activeTurn.userMessageId })
+            .catch(() => undefined);
+        }
         this.eventPublisher.publish("chat.stream.failed", {
           requestId,
           sessionId,
@@ -247,7 +284,7 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
       }
     })();
 
-    return { requestId, messageId };
+    return { requestId, messageId, userMessageId };
   }
 
   private async markGenerating(sessionId: string): Promise<void> {
@@ -319,6 +356,7 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
     // STOP must not auto-send queued work: suppress the pending-input drain
     // that the settle hook would otherwise fire for this session.
     this.drainSuppressedSessions.add(sessionId);
+    this.clearInteractionsForWorker(sessionId, worker, "Stopped before this request was answered.");
     this.send(worker.process, { type: "abort", id: worker.turn.commandId });
   }
 
@@ -333,15 +371,20 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
 
   async respondToolInteraction(
     sessionId: string,
-    _messageId: string,
+    messageId: string,
     toolCallId: string,
     response: ToolInteractionResponse,
   ): Promise<ToolInteractionResult> {
     const pending = this.interactions.get(toolCallId);
-    if (!pending) return { handledInline: false };
+    const worker = this.workers.get(sessionId);
+    if (!pending || !worker?.turn || pending.worker !== worker.process) {
+      if (pending) this.interactions.delete(toolCallId);
+      await this.expireStaleInteraction(sessionId, messageId, toolCallId);
+      return { handledInline: true };
+    }
     this.interactions.delete(toolCallId);
-    const turn = this.workers.get(sessionId)?.turn;
-    const block = turn?.blocks.find((item) => item.id === pending.blockId);
+    const turn = worker.turn;
+    const block = findInteractionBlock(turn.blocks, pending.blockId);
     if (pending.kind === "permission") {
       const granted = response.kind === "permission" && response.granted;
       if (block) block.status = granted ? "granted" : "denied";
@@ -358,8 +401,61 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
       this.send(pending.worker, { type: "uiResponse", id: pending.workerRequestId, value });
       if (block) block.status = value === undefined ? "denied" : "success";
     }
-    if (turn) this.publishSnapshot(sessionId, turn);
+    this.publishSnapshot(sessionId, turn);
     return { resumed: true, handledInline: true };
+  }
+
+  /**
+   * A permission prompt can outlive its worker (restart, stop, timeout). The
+   * renderer still shows it; answering it must clear the block instead of
+   * silently doing nothing. Prefer the in-memory turn, else patch the persisted
+   * assistant message and publish a non-settled snapshot for the UI.
+   */
+  private async expireStaleInteraction(sessionId: string, messageId: string, toolCallId: string): Promise<void> {
+    const turn = this.workers.get(sessionId)?.turn;
+    if (turn) {
+      const block = turn.blocks.find(
+        (item) => item.type === "action" && (item.id ?? item.tool_call?.id) === toolCallId && item.status === "pending",
+      );
+      if (block) {
+        block.status = "denied";
+        block.content = `${block.content ?? ""}\nThis request expired before it was answered.`.trim();
+        this.publishSnapshot(sessionId, turn);
+        return;
+      }
+    }
+
+    let messages: Awaited<ReturnType<BunSessionRepository["listMessages"]>>;
+    try {
+      messages = await this.sessionRepository.listMessages(sessionId);
+    } catch {
+      return;
+    }
+    const message = messages.find((item) => item.id === messageId);
+    if (!message) return;
+    let blocks: AssistantMessageBlock[];
+    try {
+      const parsed = JSON.parse(message.content) as AssistantMessageBlock[];
+      if (!Array.isArray(parsed)) return;
+      blocks = parsed;
+    } catch {
+      return;
+    }
+    const block = blocks.find(
+      (item) => item.type === "action" && (item.id ?? item.tool_call?.id) === toolCallId && item.status === "pending",
+    );
+    if (!block) return;
+    block.status = "denied";
+    block.content = `${block.content ?? ""}\nThis request expired before it was answered.`.trim();
+    await this.sessionRepository.updateAssistantContent(messageId, blocks);
+    this.eventPublisher.publish("chat.stream.updated", {
+      kind: "snapshot",
+      requestId: messageId,
+      sessionId,
+      messageId,
+      updatedAt: Date.now(),
+      blocks,
+    });
   }
 
   testConnection(providerId: string, modelId?: string) {
@@ -375,10 +471,33 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
   }
 
   async dispose(): Promise<void> {
-    for (const worker of this.workers.values()) {
+    for (const [sessionId, worker] of this.workers) {
+      this.clearInteractionsForWorker(sessionId, worker, "Argos shut down before this request was answered.");
       this.send(worker.process, { type: "dispose" });
     }
     this.workers.clear();
+  }
+
+  /**
+   * A pending permission/question belongs to one worker process. When that
+   * process is replaced or stopped, answering it would write to a dead pipe and
+   * leave the overlay stuck forever. Mark its blocks denied and publish a
+   * snapshot so every client drops the stale prompt.
+   */
+  private clearInteractionsForWorker(sessionId: string, worker: PiWorkerHandle, reason: string): void {
+    const turn = worker.turn;
+    let changed = false;
+    for (const [id, pending] of this.interactions) {
+      if (pending.worker !== worker.process) continue;
+      this.interactions.delete(id);
+      const block = turn ? findInteractionBlock(turn.blocks, pending.blockId) : undefined;
+      if (block) {
+        block.status = "denied";
+        block.content = `${block.content ?? ""}\n${reason}`.trim();
+        changed = true;
+      }
+    }
+    if (changed && turn) this.publishSnapshot(sessionId, turn);
   }
 
   private async getWorker(sessionId: string): Promise<PiWorkerHandle> {
@@ -391,6 +510,10 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
       enablePowershellTool: config.enablePowershellTool === true,
       projectTrusted: config.projectTrusted,
       permissionMode: config.permissionMode,
+      planMode: config.planMode === true,
+      restricted: config.restricted === true,
+      manualApproval: config.manualApproval === true,
+      allowedTools: config.allowedTools,
       profileFingerprint: config.profileFingerprint,
       tools: config.tools.map((tool) => tool.function.name),
       orchestrationTools: config.orchestrationTools.map((tool) => tool.function.name),
@@ -402,6 +525,7 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
     }
     if (existing) {
       this.abortInflightMcpCalls(sessionId);
+      this.clearInteractionsForWorker(sessionId, existing, "The Pi worker restarted before this request was answered.");
       this.send(existing.process, { type: "dispose" });
       this.workers.delete(sessionId);
     }
@@ -418,7 +542,15 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
       resolveReady = resolve;
       rejectReady = reject;
     });
-    const handle: PiWorkerHandle = { process: child, signature, ready, modelId: config.provider.model.id };
+    const handle: PiWorkerHandle = {
+      process: child,
+      signature,
+      ready,
+      modelId: config.provider.model.id,
+      cwd: config.cwd,
+      planMode: config.planMode === true,
+      restricted: config.restricted === true,
+    };
     this.workers.set(sessionId, handle);
     readline.createInterface({ input: child.stdout, crlfDelay: Infinity }).on("line", (line) => {
       try {
@@ -433,6 +565,7 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
     child.once("exit", (code, signal) => {
       const error = new Error(`Pi worker exited (${code ?? signal ?? "unknown"}).`);
       rejectReady(error);
+      this.clearInteractionsForWorker(sessionId, handle, "The Pi worker exited before this request was answered.");
       handle.turn?.reject(error);
       // Nothing is left to receive the results of this worker's MCP calls.
       if (this.workers.get(sessionId) === handle) {
@@ -442,6 +575,7 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
     });
     child.once("error", (error) => {
       rejectReady(error);
+      this.clearInteractionsForWorker(sessionId, handle, "The Pi worker failed before this request was answered.");
       handle.turn?.reject(error);
     });
     this.send(child, config);
@@ -459,7 +593,10 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
     const agent = await this.configPresenter.resolveArgosAgentConfig(session.agentId);
     const profileDir = this.profiles.ensureProfile(session.agentId);
     const settings = this.profiles.readSettings(session.agentId);
-    const availableTools = await this.mcp.listTools(sessionId);
+    const planMode = await this.sessionRepository.getPlanMode(sessionId);
+    const restricted = await this.sessionRepository.getRestricted(sessionId);
+    const fullProfile = !planMode && !restricted;
+    const availableTools = fullProfile ? await this.mcp.listTools(sessionId) : [];
     const trustedProjects = Array.isArray(settings.trustedProjects) ? settings.trustedProjects : [];
     const projectDir = session.projectDir?.trim() || null;
     const defaultProjectPath = agent?.defaultProjectPath?.trim() || null;
@@ -489,16 +626,39 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
       agentDir: profileDir,
       sessionDir: this.profiles.getSessionDir(session.agentId),
       sessionFile: this.sessionRepository.getPiSessionFile(sessionId),
-      systemPrompt: [agent?.systemPrompt, scratchGuidance].filter(Boolean).join("\n\n") || undefined,
+      // Only the agent's own prompt replaces pi's base prompt (identity). Argos
+      // guidance is appended, so pi's tool list and tool rules ("use edit for
+      // targeted changes", "use write for new files") are kept.
+      systemPrompt: agent?.systemPrompt?.trim() || undefined,
+      appendSystemPrompt:
+        [scratchGuidance, fullProfile ? FILE_TOOLS_GUIDANCE : undefined, planMode ? PLAN_MODE_PROMPT : undefined]
+          .filter(Boolean)
+          .join("\n\n") || undefined,
       provider: workerProvider(this.configPresenter, provider, session.modelId),
       thinkingLevel: (await this.sessionRepository.getGenerationSettings(sessionId))?.reasoningEffort,
       disabledTools: await this.sessionRepository.getDisabledAgentTools(sessionId),
       enablePowershellTool:
         process.platform === "win32" && this.configPresenter.getSetting<boolean>("pi_enable_powershell_tool") === true,
-      tools: availableTools.filter((tool) => tool.server.name !== "argos-orchestration"),
-      orchestrationTools: availableTools.filter((tool) => tool.server.name === "argos-orchestration"),
+      tools: [
+        ...availableTools.filter((tool) => tool.server.name !== "argos-orchestration"),
+        ...(planMode ? [PLAN_TOOL_DEFINITION] : []),
+        ...(restricted ? [] : [MANUAL_TOOL_DEFINITION]),
+      ],
+      orchestrationTools: fullProfile
+        ? availableTools.filter((tool) => tool.server.name === "argos-orchestration")
+        : [],
       projectTrusted,
-      permissionMode: await this.sessionRepository.getPermissionMode(sessionId),
+      permissionMode: fullProfile ? await this.sessionRepository.getPermissionMode(sessionId) : "default",
+      planMode,
+      restricted,
+      manualApproval: fullProfile ? await this.sessionRepository.getManualApproval(sessionId) : false,
+      // Plan keeps bash (the worker lets only read-only commands run);
+      // restricted runs get the read built-ins and never a shell.
+      allowedTools: fullProfile
+        ? undefined
+        : planMode && !restricted
+          ? [...PLAN_MODE_BUILTIN_TOOLS]
+          : [...READ_ONLY_BUILTIN_TOOLS],
       profileFingerprint: JSON.stringify(settings),
     };
   }
@@ -601,6 +761,10 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
       return;
     }
     if (event.type === "permissionRequest" || event.type === "uiRequest") {
+      if (event.type === "permissionRequest" && (worker.planMode || worker.restricted)) {
+        this.send(worker.process, { type: "permissionResponse", id: event.id, granted: false });
+        return;
+      }
       if (event.type === "permissionRequest" && (await this.tryAutoApprovePermission(sessionId, worker, event))) {
         return;
       }
@@ -707,6 +871,17 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
       }
     } else if (event.type === "settled") {
       for (const block of turn.blocks) if (block.status === "loading") block.status = "success";
+      // A prompt still pending when the turn ends can never be answered; never
+      // persist it as pending or the overlay (and composer) stays locked.
+      for (const block of turn.blocks) {
+        if (block.type === "action" && block.status === "pending") {
+          block.status = "denied";
+          block.content = `${block.content ?? ""}\nThe turn ended before this request was answered.`.trim();
+        }
+      }
+      for (const [id, pending] of this.interactions) {
+        if (pending.worker === worker.process) this.interactions.delete(id);
+      }
       // If thinking never emitted thinkingEnd (e.g. the run ended mid-thought),
       // close the window with the assistant message timestamp from the worker.
       if (turn.thinkingStart !== undefined) {
@@ -720,6 +895,11 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
         turn.thinkingStart = undefined;
       }
       worker.turn = undefined;
+      if (this.turnSnapshots && turn.userMessageId) {
+        await this.turnSnapshots
+          .endTurn({ sessionId, userMessageId: turn.userMessageId })
+          .catch((error) => console.warn(`[undo:${sessionId.slice(0, 8)}] snapshot end failed`, error));
+      }
       try {
         await this.sessionRepository.finalizeAssistantMessage(
           turn.messageId,
@@ -877,7 +1057,12 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
       id: blockId,
       type: "action",
       action_type: event.type === "permissionRequest" ? "tool_call_permission" : "question_request",
-      content: event.type === "permissionRequest" ? `Pi requests permission to run ${toolName}.` : event.title,
+      content:
+        event.type === "permissionRequest"
+          ? event.reason
+            ? `Pi requests permission to run ${toolName}: it ${event.reason}.`
+            : `Pi requests permission to run ${toolName}.`
+          : event.title,
       status: "pending",
       timestamp: Date.now(),
       tool_call: { id: blockId, name: toolName, params: JSON.stringify(params ?? {}) },
@@ -946,4 +1131,13 @@ export class PiProviderExecutionPort implements ProviderExecutionPort {
     if (worker.stdin.destroyed || worker.stdin.writableEnded) return;
     worker.stdin.write(`${JSON.stringify(command)}\n`);
   }
+}
+
+/**
+ * Pi emits tool_execution_start before the permission hook, so the tool_call
+ * block and its permission/question action share one toolCallId. Interaction
+ * lookups must target the action block, not the tool_call sibling.
+ */
+function findInteractionBlock(blocks: AssistantMessageBlock[], blockId: string): AssistantMessageBlock | undefined {
+  return blocks.find((item) => item.type === "action" && item.id === blockId);
 }

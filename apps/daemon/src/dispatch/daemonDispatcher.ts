@@ -34,6 +34,8 @@ import { diagnoseDaemonSchema, repairDaemonSchema } from "../host/daemonSchemaDi
 import { settleSessionForOwnershipChange, type SettleSessionHost } from "../host/sessionSettlement";
 import type { ToolchainService } from "../host/toolchains/service";
 import { getPiToolDefinitions } from "../host/piToolCatalog";
+import { formatPlanForPrompt, planInputSchema } from "../host/planTool";
+import type { TriggerRecord, TriggerUpsertInput } from "@argos/shared/triggers";
 import { aggregateUsageStats, resolveBuiltinModelPrice } from "../host/usageStatsAggregator";
 import { resolveModelCost } from "../host/modelCost";
 import type { UsageStatRecord, UsageWindow } from "../host/bun-session-repository";
@@ -311,8 +313,19 @@ import {
   upgradeGetStatusRoute,
   windowGetCurrentStateRoute,
   sessionsGetPermissionModeRoute,
+  sessionsGetAgentModeRoute,
+  sessionsSetAgentModeRoute,
+  sessionsGetPlanRoute,
+  sessionsApprovePlanRoute,
+  sessionsUndoRoute,
+  sessionsRedoRoute,
+  sessionsUndoStateRoute,
   sessionsSetPermissionModeRoute,
   sessionsSetAcpSessionConfigOptionRoute,
+  triggersListRoute,
+  triggersUpsertRoute,
+  triggersRemoveRoute,
+  triggersToggleRoute,
   providersListModelsRoute,
   providersGetRateLimitStatusRoute,
   providersGetProviderDbRoute,
@@ -880,11 +893,11 @@ export function createDaemonDispatcher(
     };
   },
   scheduledTasks: {
-    list(): { version: 1; tasks: unknown[] };
-    upsert(input: unknown): { task: unknown; settings: { version: 1; tasks: unknown[] } };
-    delete(id: string): { settings: { version: 1; tasks: unknown[] } };
-    toggle(id: string, enabled: boolean): { task: unknown; settings: { version: 1; tasks: unknown[] } };
-    fireNow(id: string): Promise<{ task: unknown; settings: { version: 1; tasks: unknown[] } }>;
+    list(): { version: 2; tasks: unknown[] };
+    upsert(input: unknown): { task: unknown; settings: { version: 2; tasks: unknown[] } };
+    delete(id: string): { settings: { version: 2; tasks: unknown[] } };
+    toggle(id: string, enabled: boolean): { task: unknown; settings: { version: 2; tasks: unknown[] } };
+    fireNow(id: string): Promise<{ task: unknown; settings: { version: 2; tasks: unknown[] } }>;
   },
   syncRuntime: {
     getBackupStatus(): Promise<{ autoSyncEnabled: boolean; lastBackupTimestamp: number | null }>;
@@ -1010,6 +1023,45 @@ export function createDaemonDispatcher(
   knowledgeRuntime?: DaemonKnowledgeRuntimePort,
   terminalRuntime?: DaemonTerminalRuntime,
   toolchains?: ToolchainService,
+  triggerRuntime?: {
+    list(): TriggerRecord[];
+    upsert(input: TriggerUpsertInput): TriggerRecord;
+    remove(id: string): boolean;
+    toggle(id: string, enabled: boolean): TriggerRecord;
+  },
+  turnSnapshots?: {
+    state(sessionId: string): {
+      available: boolean;
+      canRedo: boolean;
+      userMessageId: string | null;
+      note: string | null;
+    };
+    undo(
+      sessionId: string,
+      userMessageId?: string,
+    ): Promise<{
+      userMessageId: string;
+      inputText: string;
+      restored: string[];
+      deleted: string[];
+      skipped: string[];
+      note: string | null;
+    }>;
+    redo(
+      sessionId: string,
+      userMessageId: string,
+    ): Promise<{
+      userMessageId: string;
+      inputText: string;
+      restored: string[];
+      deleted: string[];
+      skipped: string[];
+      note: string | null;
+    }>;
+    recordUndo(sessionId: string, userMessageId: string, messages: unknown[]): void;
+    getUndoMessages(sessionId: string, userMessageId: string): unknown[] | null;
+    clearUndo(sessionId: string, userMessageId: string): void;
+  },
 ): RouteDispatcher {
   const settingsHandler = new SettingsRouteHandler(createSettingsRouteAdapter(configPresenter));
   const runtime: {
@@ -1546,18 +1598,59 @@ export function createDaemonDispatcher(
       return syncPullFromCloudRoute.output.parse({ result: await syncRuntime.pullFromCloud() });
     }
 
+    // === Triggers ===
+    if (
+      route === triggersListRoute.name ||
+      route === triggersUpsertRoute.name ||
+      route === triggersRemoveRoute.name ||
+      route === triggersToggleRoute.name
+    ) {
+      if (!triggerRuntime) throw new Error("Triggers are not available in this runtime.");
+    }
+    if (route === triggersListRoute.name) {
+      triggersListRoute.input.parse(rawInput);
+      return triggersListRoute.output.parse({ triggers: triggerRuntime!.list() });
+    }
+    if (route === triggersUpsertRoute.name) {
+      const input = triggersUpsertRoute.input.parse(rawInput);
+      return triggersUpsertRoute.output.parse({ trigger: triggerRuntime!.upsert(input) });
+    }
+    if (route === triggersRemoveRoute.name) {
+      const input = triggersRemoveRoute.input.parse(rawInput);
+      return triggersRemoveRoute.output.parse({ removed: triggerRuntime!.remove(input.id) });
+    }
+    if (route === triggersToggleRoute.name) {
+      const input = triggersToggleRoute.input.parse(rawInput);
+      return triggersToggleRoute.output.parse({ trigger: triggerRuntime!.toggle(input.id, input.enabled) });
+    }
+
     // === Scheduled tasks ===
     type ScheduledTask = {
       id: string;
       name: string;
       enabled: boolean;
-      trigger: {
-        kind: "once" | "daily" | "weekly";
-        firesAt?: number;
-        hour?: number;
-        minute?: number;
-        dayOfWeek?: number;
-      };
+      trigger:
+        | {
+            kind: "once";
+            firesAt: number;
+          }
+        | {
+            kind: "daily";
+            hour: number;
+            minute: number;
+          }
+        | {
+            kind: "weekly";
+            dayOfWeek: number;
+            hour: number;
+            minute: number;
+          }
+        | {
+            kind: "cron";
+            expression: string;
+            timezone: string;
+            misfire: "skip" | "run-once";
+          };
       action:
         | {
             kind: "notify";
@@ -1573,11 +1666,12 @@ export function createDaemonDispatcher(
             providerId?: string;
             modelId?: string;
             systemPrompt?: string;
+            target?: { kind: "new-session" } | { kind: "session"; sessionId: string };
           };
       createdAt: number;
       lastFiredAt: number | null;
     };
-    type ScheduledTasksSettings = { version: 1; tasks: ScheduledTask[] };
+    type ScheduledTasksSettings = { version: 2; tasks: ScheduledTask[] };
     const readScheduledTasks = (): ScheduledTasksSettings => {
       if (scheduledTasks) {
         return scheduledTasks.list() as ScheduledTasksSettings;
@@ -1585,7 +1679,7 @@ export function createDaemonDispatcher(
       const stored = daemonSettings.getSetting("scheduledTasks") as
         | { version?: number; tasks?: ScheduledTask[] }
         | undefined;
-      return { version: 1 as const, tasks: Array.isArray(stored?.tasks) ? stored.tasks : [] };
+      return { version: 2 as const, tasks: Array.isArray(stored?.tasks) ? stored.tasks : [] };
     };
     const writeScheduledTasks = (settings: ScheduledTasksSettings) => {
       daemonSettings.setSetting("scheduledTasks", settings);
@@ -3481,6 +3575,98 @@ export function createDaemonDispatcher(
       const input = sessionsGetPermissionModeRoute.input.parse(rawInput);
       const mode = await (runtime as any).sessionRepository.getPermissionMode(input.sessionId);
       return sessionsGetPermissionModeRoute.output.parse({ mode });
+    }
+
+    if (route === sessionsGetAgentModeRoute.name) {
+      const input = sessionsGetAgentModeRoute.input.parse(rawInput);
+      const repo = (runtime as any).sessionRepository;
+      const [planMode, restricted, manualApproval, permissionMode] = await Promise.all([
+        repo.getPlanMode(input.sessionId),
+        repo.getRestricted(input.sessionId),
+        repo.getManualApproval(input.sessionId),
+        repo.getPermissionMode(input.sessionId),
+      ]);
+      return sessionsGetAgentModeRoute.output.parse({ planMode, restricted, manualApproval, permissionMode });
+    }
+
+    if (route === sessionsSetAgentModeRoute.name) {
+      const input = sessionsSetAgentModeRoute.input.parse(rawInput);
+      const active = runtime.providerExecutionPort?.getActiveGeneration?.(input.sessionId);
+      if (active) {
+        throw new Error("Stop the current turn before changing mode. The running turn keeps its original tools.");
+      }
+      const repo = (runtime as any).sessionRepository;
+      if (input.planMode !== undefined) await repo.setPlanMode(input.sessionId, input.planMode);
+      if (input.manualApproval !== undefined) await repo.setManualApproval(input.sessionId, input.manualApproval);
+      if (input.permissionMode !== undefined) await repo.setPermissionMode(input.sessionId, input.permissionMode);
+      return sessionsSetAgentModeRoute.output.parse({ updated: true });
+    }
+
+    if (route === sessionsUndoStateRoute.name) {
+      if (!turnSnapshots) throw new Error("Undo is not available in this runtime.");
+      const input = sessionsUndoStateRoute.input.parse(rawInput);
+      return sessionsUndoStateRoute.output.parse(turnSnapshots.state(input.sessionId));
+    }
+
+    if (route === sessionsUndoRoute.name) {
+      if (!turnSnapshots) throw new Error("Undo is not available in this runtime.");
+      const input = sessionsUndoRoute.input.parse(rawInput);
+      const repo = (runtime as any).sessionRepository;
+      try {
+        await runtime.providerExecutionPort?.cancelGeneration?.(input.sessionId);
+      } catch {
+        // The turn may already have settled; undo can still restore its files.
+      }
+      const result = await turnSnapshots.undo(input.sessionId, input.userMessageId);
+      const removed = await repo.truncateMessagesFrom(input.sessionId, result.userMessageId);
+      turnSnapshots.recordUndo(input.sessionId, result.userMessageId, removed);
+      return sessionsUndoRoute.output.parse(result);
+    }
+
+    if (route === sessionsRedoRoute.name) {
+      if (!turnSnapshots) throw new Error("Redo is not available in this runtime.");
+      const input = sessionsRedoRoute.input.parse(rawInput);
+      const repo = (runtime as any).sessionRepository;
+      const messages = turnSnapshots.getUndoMessages(input.sessionId, input.userMessageId);
+      if (!messages) throw new Error("There is nothing to redo for this message.");
+      const result = await turnSnapshots.redo(input.sessionId, input.userMessageId);
+      await repo.restoreMessages(input.sessionId, messages);
+      turnSnapshots.clearUndo(input.sessionId, input.userMessageId);
+      return sessionsRedoRoute.output.parse(result);
+    }
+
+    if (route === sessionsGetPlanRoute.name) {
+      const input = sessionsGetPlanRoute.input.parse(rawInput);
+      const raw = await (runtime as any).sessionRepository.getPlanJson(input.sessionId);
+      let plan: unknown = null;
+      if (raw) {
+        try {
+          plan = JSON.parse(raw);
+        } catch {
+          plan = null;
+        }
+      }
+      return sessionsGetPlanRoute.output.parse({ plan });
+    }
+
+    if (route === sessionsApprovePlanRoute.name) {
+      const input = sessionsApprovePlanRoute.input.parse(rawInput);
+      const repo = (runtime as any).sessionRepository;
+      const raw = await repo.getPlanJson(input.sessionId);
+      if (!raw) throw new Error("There is no plan to approve for this session.");
+      const stored = JSON.parse(raw) as Record<string, unknown>;
+      const plan = planInputSchema.parse(stored);
+      // Keep the plan visible after approval (the UI shows it as "Approved").
+      await repo.setPlanJson(input.sessionId, JSON.stringify({ ...stored, approvedAt: new Date().toISOString() }));
+      await repo.setPlanMode(input.sessionId, false);
+      await repo.setPermissionMode(input.sessionId, input.mode === "bypass" ? "full_access" : "default");
+      await repo.setManualApproval(input.sessionId, input.mode === "manual");
+      if (!runtime.providerExecutionPort) throw new Error("Chat runtime is not available.");
+      await runtime.providerExecutionPort.sendMessage(input.sessionId, {
+        text: `Execute the approved plan. Ask before deviating. Make file changes with the edit and write tools.\n\n${formatPlanForPrompt(plan)}`,
+        provenance: { trust: "owner", runKind: "user" },
+      });
+      return sessionsApprovePlanRoute.output.parse({ accepted: true });
     }
 
     if (route === sessionsGetAgentsRoute.name) {

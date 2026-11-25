@@ -80,4 +80,21 @@ describe("React Compiler store reads", () => {
     }
     expect([...new Set(violations)]).toEqual([]);
   }, 120_000);
+
+  it("recomputes pending tool interactions on every stream snapshot", async () => {
+    // Streaming snapshots mutate the message cache without a messageStore
+    // setState; if the memo only keys on messageStore, a live permission
+    // prompt stays hidden until the user switches sessions.
+    const { transform } = await import("oxc-transform-react");
+    const file = path.join(SRC, "pages", "ChatPage.tsx");
+    const result = await transform(file, readFileSync(file, "utf8"), {
+      jsx: { runtime: "automatic" },
+      reactCompiler: {},
+    });
+    const code = result.code ?? "";
+    const call = code.indexOf("collectPendingInteractions(sessionId");
+    expect(call).toBeGreaterThan(-1);
+    const guard = code.slice(code.lastIndexOf("if (", call), call);
+    expect(guard).toContain("streamState.streamRevision");
+  }, 60_000);
 });

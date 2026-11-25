@@ -34,6 +34,13 @@ import {
   sessionsGetLightweightByIdsRoute,
   sessionsGetGenerationSettingsRoute,
   sessionsGetPermissionModeRoute,
+  sessionsGetAgentModeRoute,
+  sessionsSetAgentModeRoute,
+  sessionsGetPlanRoute,
+  sessionsApprovePlanRoute,
+  sessionsUndoRoute,
+  sessionsRedoRoute,
+  sessionsUndoStateRoute,
   sessionsGetSearchResultsRoute,
   sessionsPrepareAcpSessionRoute,
   sessionsListLightweightRoute,
@@ -383,6 +390,38 @@ export function createSessionClient(bridge: ArgosBridge = getArgosBridge()) {
     await bridge.invoke(sessionsSetPermissionModeRoute.name, { sessionId, mode });
   }
 
+  async function getAgentMode(sessionId: string) {
+    return await bridge.invoke(sessionsGetAgentModeRoute.name, { sessionId });
+  }
+
+  async function setAgentMode(
+    sessionId: string,
+    input: { planMode?: boolean; manualApproval?: boolean; permissionMode?: "default" | "full_access" },
+  ) {
+    await bridge.invoke(sessionsSetAgentModeRoute.name, { sessionId, ...input });
+  }
+
+  async function getPlan(sessionId: string) {
+    const result = await bridge.invoke(sessionsGetPlanRoute.name, { sessionId });
+    return result.plan;
+  }
+
+  async function approvePlan(sessionId: string, mode: "manual" | "auto" | "bypass" = "auto") {
+    await bridge.invoke(sessionsApprovePlanRoute.name, { sessionId, mode });
+  }
+
+  async function getUndoState(sessionId: string) {
+    return await bridge.invoke(sessionsUndoStateRoute.name, { sessionId });
+  }
+
+  async function undo(sessionId: string, userMessageId?: string) {
+    return await bridge.invoke(sessionsUndoRoute.name, { sessionId, userMessageId });
+  }
+
+  async function redo(sessionId: string, userMessageId: string) {
+    return await bridge.invoke(sessionsRedoRoute.name, { sessionId, userMessageId });
+  }
+
   async function setSessionSubagentEnabled(sessionId: string, enabled: boolean) {
     const result = await bridge.invoke(sessionsSetSubagentEnabledRoute.name, {
       sessionId,
@@ -556,6 +595,13 @@ export function createSessionClient(bridge: ArgosBridge = getArgosBridge()) {
     setAcpSessionConfigOption,
     getPermissionMode,
     setPermissionMode,
+    getAgentMode,
+    setAgentMode,
+    getPlan,
+    approvePlan,
+    getUndoState,
+    undo,
+    redo,
     setSessionSubagentEnabled,
     setSessionModel,
     setSessionProjectDir,

@@ -448,6 +448,9 @@ function useThreadSubmission(input: ThreadSubmissionInput) {
         providerId,
         modelId,
         permissionMode: draftState.permissionMode,
+        // Plan mode is Pi-only (the mode picker is hidden for ACP agents).
+        planMode: isAcp ? undefined : draftState.planMode,
+        manualApproval: isAcp ? undefined : draftState.manualApproval,
         disabledAgentTools: isAcp ? undefined : [...draftState.disabledAgentTools],
         subagentEnabled: isAcp ? false : draftState.subagentEnabled,
         generationSettings: getToGenerationSettings?.() ?? {},

@@ -1,4 +1,6 @@
 import readline from "node:readline";
+import os from "node:os";
+import { decideToolCall } from "./readOnlyCommand";
 import {
   createAgentSession,
   createPowerShellTool,
@@ -79,14 +81,26 @@ function createHostExtension(config: PiWorkerInit): InlineExtension {
   return {
     name: "argos-host",
     factory: (pi) => {
+      // Plan / Manual / Auto / Bypass after Pine (see decideToolCall).
+      const policy = {
+        planMode: config.planMode === true,
+        restricted: config.restricted === true,
+        permissionMode: config.permissionMode,
+        manualApproval: config.manualApproval === true,
+        cwd: config.cwd,
+        home: os.homedir(),
+      };
       pi.on("tool_call", async (event) => {
-        if (config.permissionMode === "full_access") return;
+        const decision = decideToolCall(policy, event.toolName, event.input);
+        if (decision.action === "allow") return;
+        if (decision.action === "block") return { block: true, reason: decision.reason };
         const granted = await request<boolean>({
           type: "permissionRequest",
           id: crypto.randomUUID(),
           toolCallId: event.toolCallId,
           toolName: event.toolName,
           input: event.input,
+          ...(decision.reason ? { reason: decision.reason } : {}),
         });
         if (!granted) return { block: true, reason: "Denied by the user", terminate: true };
       });
@@ -291,9 +305,10 @@ async function initialize(config: PiWorkerInit): Promise<void> {
     agentDir: config.agentDir,
     settingsManager,
     systemPromptOverride: () => config.systemPrompt,
+    appendSystemPromptOverride: (base) => (config.appendSystemPrompt ? [...base, config.appendSystemPrompt] : base),
     extensionFactories: [
       createHostExtension(config),
-      ...(config.orchestrationTools.length
+      ...(config.orchestrationTools.length && !config.planMode && !config.restricted
         ? [
             createArgosOrchestratorExtension({
               tools: config.orchestrationTools,
@@ -334,16 +349,27 @@ async function initialize(config: PiWorkerInit): Promise<void> {
   // The PowerShell tool is opt-in (Windows only): register it as an additional
   // SDK tool instead of narrowing pi's own tool selection
   // (docs/features/pi-0843-adoptions).
+  // Plan mode keeps the shells; the tool_call hook lets only read-only commands run.
   const powershellTools =
-    config.enablePowershellTool && process.platform === "win32" ? [createPowerShellTool(config.cwd)] : [];
+    !config.restricted && config.enablePowershellTool && process.platform === "win32"
+      ? [createPowerShellTool(config.cwd)]
+      : [];
+  const customTools = [...createMcpTools(config), ...powershellTools];
+  // pi's `tools` allowlist filters custom tools too. The host already chose the
+  // custom tools for this mode (submit_plan, manual_search, ...), so they must
+  // be on the allowlist or plan mode loses submit_plan.
+  const allowedTools = config.allowedTools
+    ? [...new Set([...config.allowedTools, ...customTools.map((tool) => tool.name)])]
+    : undefined;
   const created = await createAgentSession({
     cwd: config.cwd,
     agentDir: config.agentDir,
     modelRuntime,
     model,
     thinkingLevel: config.thinkingLevel as any,
+    ...(allowedTools ? { tools: allowedTools } : {}),
     excludeTools: config.disabledTools,
-    customTools: [...createMcpTools(config), ...powershellTools],
+    customTools,
     resourceLoader: loader,
     sessionManager,
     settingsManager,

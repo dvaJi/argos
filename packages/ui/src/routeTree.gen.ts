@@ -38,6 +38,7 @@ import { Route as SettingsServerRouteImport } from './routes/settings/server'
 import { Route as SettingsShortcutRouteImport } from './routes/settings/shortcut'
 import { Route as SettingsSkillsRouteImport } from './routes/settings/skills'
 import { Route as SettingsToolchainsRouteImport } from './routes/settings/toolchains'
+import { Route as SettingsTriggersRouteImport } from './routes/settings/triggers'
 import { Route as SettingsProviderIndexRouteImport } from './routes/settings/provider/index'
 import { Route as SettingsProviderProviderIdRouteImport } from './routes/settings/provider/$providerId'
 
@@ -186,6 +187,11 @@ const SettingsToolchainsRoute = SettingsToolchainsRouteImport.update({
   path: '/toolchains',
   getParentRoute: () => SettingsRoute,
 } as any)
+const SettingsTriggersRoute = SettingsTriggersRouteImport.update({
+  id: '/triggers',
+  path: '/triggers',
+  getParentRoute: () => SettingsRoute,
+} as any)
 const SettingsProviderIndexRoute = SettingsProviderIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -226,6 +232,7 @@ export interface FileRoutesByFullPath {
   '/settings/shortcut': typeof SettingsShortcutRoute
   '/settings/skills': typeof SettingsSkillsRoute
   '/settings/toolchains': typeof SettingsToolchainsRoute
+  '/settings/triggers': typeof SettingsTriggersRoute
   '/settings/': typeof SettingsIndexRoute
   '/settings/provider/$providerId': typeof SettingsProviderProviderIdRoute
   '/settings/provider/': typeof SettingsProviderIndexRoute
@@ -255,6 +262,7 @@ export interface FileRoutesByTo {
   '/settings/shortcut': typeof SettingsShortcutRoute
   '/settings/skills': typeof SettingsSkillsRoute
   '/settings/toolchains': typeof SettingsToolchainsRoute
+  '/settings/triggers': typeof SettingsTriggersRoute
   '/': typeof MainIndexRoute
   '/settings': typeof SettingsIndexRoute
   '/settings/provider/$providerId': typeof SettingsProviderProviderIdRoute
@@ -289,6 +297,7 @@ export interface FileRoutesById {
   '/settings/shortcut': typeof SettingsShortcutRoute
   '/settings/skills': typeof SettingsSkillsRoute
   '/settings/toolchains': typeof SettingsToolchainsRoute
+  '/settings/triggers': typeof SettingsTriggersRoute
   '/_main/': typeof MainIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/settings/provider/$providerId': typeof SettingsProviderProviderIdRoute
@@ -324,6 +333,7 @@ export interface FileRouteTypes {
     | '/settings/shortcut'
     | '/settings/skills'
     | '/settings/toolchains'
+    | '/settings/triggers'
     | '/settings/'
     | '/settings/provider/$providerId'
     | '/settings/provider/'
@@ -353,6 +363,7 @@ export interface FileRouteTypes {
     | '/settings/shortcut'
     | '/settings/skills'
     | '/settings/toolchains'
+    | '/settings/triggers'
     | '/'
     | '/settings'
     | '/settings/provider/$providerId'
@@ -386,6 +397,7 @@ export interface FileRouteTypes {
     | '/settings/shortcut'
     | '/settings/skills'
     | '/settings/toolchains'
+    | '/settings/triggers'
     | '/_main/'
     | '/settings/'
     | '/settings/provider/$providerId'
@@ -604,6 +616,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsToolchainsRouteImport
       parentRoute: typeof SettingsRoute
     }
+    '/settings/triggers': {
+      id: '/settings/triggers'
+      path: '/triggers'
+      fullPath: '/settings/triggers'
+      preLoaderRoute: typeof SettingsTriggersRouteImport
+      parentRoute: typeof SettingsRoute
+    }
     '/settings/provider/': {
       id: '/settings/provider/'
       path: '/'
@@ -670,6 +689,7 @@ interface SettingsRouteChildren {
   SettingsShortcutRoute: typeof SettingsShortcutRoute
   SettingsSkillsRoute: typeof SettingsSkillsRoute
   SettingsToolchainsRoute: typeof SettingsToolchainsRoute
+  SettingsTriggersRoute: typeof SettingsTriggersRoute
   SettingsIndexRoute: typeof SettingsIndexRoute
 }
 
@@ -695,6 +715,7 @@ const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsShortcutRoute: SettingsShortcutRoute,
   SettingsSkillsRoute: SettingsSkillsRoute,
   SettingsToolchainsRoute: SettingsToolchainsRoute,
+  SettingsTriggersRoute: SettingsTriggersRoute,
   SettingsIndexRoute: SettingsIndexRoute,
 }
 

@@ -15,6 +15,9 @@ interface MessageListProps {
   isGenerating?: boolean;
   traceMessageIds?: string[];
   isReadOnly?: boolean;
+  /** The user message whose turn can be undone (the latest), if any. */
+  undoMessageId?: string | null;
+  onUndo?: (messageId: string) => void;
   onRetry: (messageId: string) => void;
   onDelete: (messageId: string) => void;
   onFork: (messageId: string) => void;
@@ -31,6 +34,8 @@ const MessageList: FC<MessageListProps> = ({
   isGenerating = false,
   traceMessageIds = [],
   isReadOnly = false,
+  undoMessageId = null,
+  onUndo,
   onRetry,
   onDelete,
   onFork,
@@ -94,6 +99,8 @@ const MessageList: FC<MessageListProps> = ({
             showTrace={traceMessageIdSet.has(item.id)}
             isCapturing={isCapturing}
             isReadOnly={isReadOnly}
+            canUndo={item.id === undoMessageId}
+            onUndo={onUndo}
             onRetry={onRetry}
             onDelete={onDelete}
             onFork={onFork}

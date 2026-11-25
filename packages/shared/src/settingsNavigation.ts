@@ -15,6 +15,7 @@ export interface SettingsNavigationItem {
     | "settings-server"
     | "settings-notifications-hooks"
     | "settings-scheduled-tasks"
+    | "settings-triggers"
     | "settings-plugins"
     | "settings-skills"
     | "settings-prompt"
@@ -219,6 +220,15 @@ export const SETTINGS_NAVIGATION_ITEMS: SettingsNavigationItem[] = [
     keywords: ["schedule", "scheduled", "reminder", "timer", "cron"],
   },
   {
+    routeName: "settings-triggers",
+    path: "/triggers",
+    titleKey: "routes.settings-triggers",
+    icon: "lucide:webhook",
+    position: 5.65,
+    groupKey: "tools",
+    keywords: ["trigger", "webhook", "folder", "watch", "event"],
+  },
+  {
     routeName: "settings-plugins",
     path: "/plugins",
     titleKey: "routes.settings-plugins",
@@ -368,6 +378,7 @@ const TITLE_MAP: Record<string, string> = {
   "routes.settings-remote": "Remote",
   "routes.settings-notifications-hooks": "Hooks",
   "routes.settings-scheduled-tasks": "Scheduled Tasks",
+  "routes.settings-triggers": "Triggers",
   "routes.settings-plugins": "Plugins",
   "routes.settings-skills": "Skills",
   "routes.settings-prompt": "Prompts",

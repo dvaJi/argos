@@ -3,9 +3,9 @@
 // with the renderer through the routes defined in
 // `src/shared/contracts/routes/scheduledTasks.routes.ts`.
 
-export const SCHEDULED_TASKS_VERSION = 1 as const;
+export const SCHEDULED_TASKS_VERSION = 2 as const;
 
-export const SCHEDULED_TASK_TRIGGER_KINDS = ["once", "daily", "weekly"] as const;
+export const SCHEDULED_TASK_TRIGGER_KINDS = ["once", "daily", "weekly", "cron"] as const;
 export type ScheduledTaskTriggerKind = (typeof SCHEDULED_TASK_TRIGGER_KINDS)[number];
 
 export const SCHEDULED_TASK_ACTION_KINDS = ["notify", "prompt"] as const;
@@ -16,7 +16,17 @@ export const SCHEDULED_TASK_DEFAULT_AGENT_ID = "argos";
 export type ScheduledTaskTrigger =
   | { kind: "once"; firesAt: number }
   | { kind: "daily"; hour: number; minute: number }
-  | { kind: "weekly"; dayOfWeek: number; hour: number; minute: number };
+  | { kind: "weekly"; dayOfWeek: number; hour: number; minute: number }
+  | {
+      kind: "cron";
+      expression: string;
+      timezone: string;
+      misfire: "skip" | "run-once";
+    };
+
+export type ScheduledTaskPromptTarget =
+  | { kind: "new-session" }
+  | { kind: "session"; sessionId: string };
 
 export type ScheduledTaskAction =
   | {
@@ -33,6 +43,7 @@ export type ScheduledTaskAction =
       providerId?: string;
       modelId?: string;
       systemPrompt?: string;
+      target?: ScheduledTaskPromptTarget;
     };
 
 export interface ScheduledTask {

@@ -12,7 +12,7 @@ import {
   scheduledTaskTriggerSchema,
   type scheduledTasksUpsertInputSchema,
 } from "@argos/shared-contracts/routes/scheduledTasks.routes";
-import { computeNextFireAt, shouldBackfillOneShot } from "./normalize";
+import { computeNextFireAt, shouldBackfillCron, shouldBackfillOneShot } from "./normalize";
 
 const MAX_TIMEOUT_MS = 12 * 60 * 60 * 1000;
 const RECENT_DRIFT_TOLERANCE_MS = 60 * 1000;
@@ -27,6 +27,13 @@ export interface SessionCreator {
     modelId?: string;
     systemPrompt?: string;
   }): Promise<{ sessionId: string | null }>;
+  sendToExistingSession?(input: {
+    sessionId: string;
+    message: string;
+    providerId?: string;
+    modelId?: string;
+    systemPrompt?: string;
+  }): Promise<void>;
 }
 
 export interface NotificationPort {
@@ -175,7 +182,7 @@ export class ScheduledTasksService {
       if (!task.enabled) {
         continue;
       }
-      if (shouldBackfillOneShot(task, now)) {
+      if (shouldBackfillOneShot(task, now) || shouldBackfillCron(task, now)) {
         void this.fireAndPersist(task);
         continue;
       }
@@ -320,13 +327,26 @@ export class ScheduledTasksService {
     }
 
     try {
-      await this.sessionCreator.createSessionForTask({
-        agentId: action.agentId ?? SCHEDULED_TASK_DEFAULT_AGENT_ID,
-        message: action.message,
-        providerId: action.providerId,
-        modelId: action.modelId,
-        systemPrompt: action.systemPrompt,
-      });
+      if (action.target?.kind === "session") {
+        if (!this.sessionCreator.sendToExistingSession) {
+          throw new Error("This runtime cannot target an existing session.");
+        }
+        await this.sessionCreator.sendToExistingSession({
+          sessionId: action.target.sessionId,
+          message: action.message,
+          providerId: action.providerId,
+          modelId: action.modelId,
+          systemPrompt: action.systemPrompt,
+        });
+      } else {
+        await this.sessionCreator.createSessionForTask({
+          agentId: action.agentId ?? SCHEDULED_TASK_DEFAULT_AGENT_ID,
+          message: action.message,
+          providerId: action.providerId,
+          modelId: action.modelId,
+          systemPrompt: action.systemPrompt,
+        });
+      }
 
       await this.notificationPresenter.showNotification({
         id: `scheduled:${taskId}`,

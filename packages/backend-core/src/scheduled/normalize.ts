@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { Cron } from "croner";
 import zod from "zod";
 import {
   SCHEDULED_TASKS_VERSION,
@@ -22,6 +23,12 @@ const TriggerSchema = zod.discriminatedUnion("kind", [
     hour: zod.number().int().min(0).max(23),
     minute: zod.number().int().min(0).max(59),
   }),
+  zod.object({
+    kind: zod.literal("cron"),
+    expression: zod.string().min(1).max(200),
+    timezone: zod.string().min(1).max(100).default("local"),
+    misfire: zod.enum(["skip", "run-once"]).default("run-once"),
+  }),
 ]);
 
 const ActionSchema = zod.discriminatedUnion("kind", [
@@ -39,6 +46,12 @@ const ActionSchema = zod.discriminatedUnion("kind", [
     providerId: zod.string().optional(),
     modelId: zod.string().optional(),
     systemPrompt: zod.string().max(20000).optional(),
+    target: zod
+      .discriminatedUnion("kind", [
+        zod.object({ kind: zod.literal("new-session") }),
+        zod.object({ kind: zod.literal("session"), sessionId: zod.string().min(1) }),
+      ])
+      .default({ kind: "new-session" }),
   }),
 ]);
 
@@ -186,9 +199,30 @@ export const computeNextFireAt = (task: ScheduledTask, after: number): number | 
       }
       return candidate;
     }
+    case "cron": {
+      try {
+        const cron = new Cron(trigger.expression, {
+          timezone: trigger.timezone === "local" ? undefined : trigger.timezone,
+          paused: true,
+        });
+        const next = cron.nextRun(new Date(after));
+        return next ? next.getTime() : null;
+      } catch (error) {
+        console.warn(`[ScheduledTasks] Invalid cron expression "${trigger.expression}":`, error);
+        return null;
+      }
+    }
     default:
       return null;
   }
+};
+
+export const shouldBackfillCron = (task: ScheduledTask, now: number): boolean => {
+  if (task.trigger.kind !== "cron" || task.trigger.misfire !== "run-once" || !task.lastFiredAt) {
+    return false;
+  }
+  const next = computeNextFireAt(task, task.lastFiredAt);
+  return next !== null && next <= now;
 };
 
 export const shouldBackfillOneShot = (task: ScheduledTask, now: number): boolean => {

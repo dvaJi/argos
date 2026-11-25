@@ -9,9 +9,8 @@ import {
 import { useSessionStore, getActiveSession, getHasActiveSession } from "#/stores/ui/session";
 import { usePreSessionAgentType } from "#/composables/chat/usePreSessionAgentType";
 import {
-  PERMISSION_MODE_OPTIONS,
-  isPermissionOptionActive,
-  useComposerPermissionMode,
+  AGENT_MODE_OPTIONS,
+  useComposerAgentMode,
 } from "#/composables/chat/useComposerGenerationControls";
 
 const ComposerModePicker = () => {
@@ -21,7 +20,7 @@ const ComposerModePicker = () => {
   const hasActiveSession = getHasActiveSession();
   const activeSession = getActiveSession();
   const isAcpAgent = hasActiveSession ? activeSession?.providerId === "acp" : preSessionAgentType === "acp";
-  const { mode, label, icon, setMode } = useComposerPermissionMode();
+  const { mode, label, icon, setMode } = useComposerAgentMode();
   if (isAcpAgent) {
     return null;
   }
@@ -42,23 +41,17 @@ const ComposerModePicker = () => {
         <Icon icon="lucide:chevron-down" className="h-3 w-3 opacity-60" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-[320px] p-2">
-        {PERMISSION_MODE_OPTIONS.map((opt) => {
-          const isActive = isPermissionOptionActive(mode, opt);
+        {AGENT_MODE_OPTIONS.map((opt) => {
+          const isActive = mode === opt.value;
           return (
             <DropdownMenuItem
               key={opt.label}
-              disabled={opt.disabled}
               className={`flex flex-col items-start gap-1 rounded-md px-3 py-2 ${isActive ? "bg-accent" : ""}`}
               onClick={() => void setMode(opt.value)}
             >
               <span className="flex w-full items-center gap-2 font-medium">
                 <Icon icon={opt.icon} className="h-3.5 w-3.5 shrink-0" />
                 <span>{opt.label}</span>
-                {opt.disabled && (
-                  <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                    soon
-                  </span>
-                )}
                 {isActive && <Icon icon="lucide:check" className="ml-auto h-3.5 w-3.5" />}
               </span>
               <span className="pl-5 text-xs text-muted-foreground">{opt.description}</span>

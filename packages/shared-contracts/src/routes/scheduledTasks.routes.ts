@@ -29,6 +29,12 @@ export const scheduledTaskTriggerSchema = zod.discriminatedUnion("kind", [
     hour: hourSchema,
     minute: minuteSchema,
   }),
+  zod.object({
+    kind: zod.literal("cron"),
+    expression: zod.string().min(1).max(200),
+    timezone: zod.string().min(1).max(100).default("local"),
+    misfire: zod.enum(["skip", "run-once"]).default("run-once"),
+  }),
 ]);
 
 export const scheduledTaskActionSchema = zod.discriminatedUnion("kind", [
@@ -46,6 +52,12 @@ export const scheduledTaskActionSchema = zod.discriminatedUnion("kind", [
     providerId: zod.string().optional(),
     modelId: zod.string().optional(),
     systemPrompt: zod.string().max(20000).optional(),
+    target: zod
+      .discriminatedUnion("kind", [
+        zod.object({ kind: zod.literal("new-session") }),
+        zod.object({ kind: zod.literal("session"), sessionId: zod.string().min(1) }),
+      ])
+      .default({ kind: "new-session" }),
   }),
 ]);
 

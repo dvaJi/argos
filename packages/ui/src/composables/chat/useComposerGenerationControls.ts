@@ -3,6 +3,7 @@ import { Store } from "@tanstack/store";
 import { useSelector } from "@tanstack/react-store";
 import { createModelClient } from "#api/ModelClient";
 import { createSessionClient } from "#api/SessionClient";
+import { useToast } from "#/components/use-toast";
 import { useActiveSession } from "#/stores/ui/session";
 import { draftStore, useDraftStore } from "#/stores/ui/draft";
 import { findChatSelectableModel, useModelStore } from "#/stores/modelStore";
@@ -79,7 +80,65 @@ type SessionControls = {
   reasoningEffort?: ReasoningEffort;
   serviceTier?: ServiceTier;
   permissionMode?: PermissionMode;
+  planMode?: boolean;
+  manualApproval?: boolean;
+  restricted?: boolean;
 };
+
+export type ComposerAgentMode = "plan" | "manual" | "auto" | "bypass";
+
+/** Plan > Bypass > Manual > Auto, from the stored session flags (after Pine). */
+function toAgentMode(state: { planMode?: boolean; manualApproval?: boolean; permissionMode?: PermissionMode }) {
+  if (state.planMode) return "plan" as const;
+  if (state.permissionMode === "full_access") return "bypass" as const;
+  if (state.manualApproval) return "manual" as const;
+  return "auto" as const;
+}
+
+function fromAgentMode(mode: ComposerAgentMode): {
+  planMode: boolean;
+  manualApproval: boolean;
+  permissionMode: PermissionMode;
+} {
+  return {
+    planMode: mode === "plan",
+    manualApproval: mode === "manual",
+    permissionMode: mode === "bypass" ? "full_access" : "default",
+  };
+}
+
+export const AGENT_MODE_OPTIONS: Array<{
+  value: ComposerAgentMode;
+  label: string;
+  description: string;
+  icon: string;
+}> = [
+  {
+    value: "plan",
+    label: "Plan",
+    description: "Read-only. The agent proposes a plan and waits for approval.",
+    icon: "lucide:list-checks",
+  },
+  {
+    value: "manual",
+    label: "Manual",
+    description: "Ask before every edit and command. Reading is free.",
+    icon: "lucide:hand",
+  },
+  {
+    value: "auto",
+    label: "Auto",
+    description:
+      "Work freely. Ask only for risky actions (force push, sudo, deleting a home folder, …) and writes outside the project.",
+    icon: "lucide:shield",
+  },
+  {
+    value: "bypass",
+    label: "Bypass",
+    description: "Allow commands and edits without prompts.",
+    icon: "lucide:unlock",
+  },
+];
 const sessionControlsStore = new Store<{ bySession: Record<string, SessionControls> }>({ bySession: {} });
 const patchSessionControls = (sessionId: string, patch: SessionControls) =>
   sessionControlsStore.setState((prev) => ({
@@ -251,6 +310,106 @@ export const PERMISSION_MODE_OPTIONS: PermissionModeOption[] = [
 ];
 export const isPermissionOptionActive = (mode: PermissionMode, option: PermissionModeOption) =>
   !option.disabled && option.value === mode;
+
+export function useComposerAgentMode() {
+  const { toast } = useToast();
+  const draftState = useDraftStore();
+  const controls = useSelector(sessionControlsStore, (s) => s.bySession);
+  const { hasActiveSession, activeSession } = useActiveSession();
+  const sessionId = hasActiveSession ? activeSession?.id : undefined;
+
+  useEffect(() => {
+    if (!sessionId) return;
+    let cancelled = false;
+    const load = () => {
+      void sessionClient
+        .getAgentMode(sessionId)
+        .then((state) => {
+          if (cancelled) return;
+          patchSessionControls(sessionId, {
+            planMode: state.planMode,
+            manualApproval: state.manualApproval,
+            restricted: state.restricted,
+            permissionMode: state.permissionMode,
+          });
+        })
+        .catch(() => {});
+    };
+    load();
+    const off = sessionClient.onUpdated((payload) => {
+      if (payload.sessionIds.includes(sessionId)) load();
+    });
+    return () => {
+      cancelled = true;
+      off();
+    };
+  }, [sessionId]);
+
+  const entry = sessionId ? controls[sessionId] : undefined;
+  const mode: ComposerAgentMode = toAgentMode(sessionId ? (entry ?? {}) : draftState);
+  const option =
+    AGENT_MODE_OPTIONS.find((item) => item.value === mode) ?? AGENT_MODE_OPTIONS.find((item) => item.value === "auto")!;
+
+  const setMode = async (next: ComposerAgentMode) => {
+    const flags = fromAgentMode(next);
+    if (sessionId) {
+      const previous = controls[sessionId];
+      patchSessionControls(sessionId, flags);
+      try {
+        await sessionClient.setAgentMode(sessionId, flags);
+      } catch (error) {
+        patchSessionControls(sessionId, previous ?? {});
+        toast({
+          title: "Could not change mode",
+          description: error instanceof Error ? error.message : String(error),
+          variant: "destructive",
+        });
+      }
+    } else {
+      draftStore.setState((prev) => ({ ...prev, ...flags }));
+    }
+  };
+
+  return { mode, label: option.label, icon: option.icon, setMode, restricted: entry?.restricted ?? false };
+}
+
+export function useSessionAgentMode(sessionId: string) {
+  const controls = useSelector(sessionControlsStore, (s) => s.bySession);
+  const entry = controls[sessionId];
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = () => {
+      void sessionClient
+        .getAgentMode(sessionId)
+        .then((state) => {
+          if (cancelled) return;
+          patchSessionControls(sessionId, {
+            planMode: state.planMode,
+            manualApproval: state.manualApproval,
+            restricted: state.restricted,
+            permissionMode: state.permissionMode,
+          });
+        })
+        .catch(() => {});
+    };
+    load();
+    const off = sessionClient.onUpdated((payload) => {
+      if (payload.sessionIds.includes(sessionId)) load();
+    });
+    return () => {
+      cancelled = true;
+      off();
+    };
+  }, [sessionId]);
+
+  const mode: ComposerAgentMode = toAgentMode(entry ?? {});
+  return {
+    mode,
+    planMode: entry?.planMode ?? false,
+    restricted: entry?.restricted ?? false,
+  };
+}
 
 export function useComposerPermissionMode() {
   const draftState = useDraftStore();

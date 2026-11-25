@@ -66,6 +66,12 @@ export const CreateSessionInputSchema = zod.object({
   disabledAgentTools: zod.array(zod.string()).optional(),
   subagentEnabled: zod.boolean().optional(),
   generationSettings: SessionGenerationSettingsPatchSchema.optional(),
+  /** Start the session in read-only plan mode (Pi only). */
+  planMode: zod.boolean().optional(),
+  /** Start in Manual mode: ask before every change (Pi only; default is Auto). */
+  manualApproval: zod.boolean().optional(),
+  /** Start the session restricted to read-only tools. Can only narrow access. */
+  restricted: zod.boolean().optional(),
 });
 
 export const sessionsCreateRoute = defineRouteContract({
@@ -605,6 +611,105 @@ export const sessionsSetPermissionModeRoute = defineRouteContract({
   }),
   output: zod.object({
     updated: zod.literal(true),
+  }),
+});
+
+export const sessionsGetAgentModeRoute = defineRouteContract({
+  name: "sessions.getAgentMode",
+  input: zod.object({
+    sessionId: EntityIdSchema,
+  }),
+  output: zod.object({
+    planMode: zod.boolean(),
+    restricted: zod.boolean(),
+    manualApproval: zod.boolean(),
+    permissionMode: PermissionModeSchema,
+  }),
+});
+
+export const sessionsSetAgentModeRoute = defineRouteContract({
+  name: "sessions.setAgentMode",
+  input: zod.object({
+    sessionId: EntityIdSchema,
+    planMode: zod.boolean().optional(),
+    manualApproval: zod.boolean().optional(),
+    permissionMode: PermissionModeSchema.optional(),
+  }),
+  output: zod.object({
+    updated: zod.literal(true),
+  }),
+});
+
+export const sessionPlanSchema = zod.object({
+  objective: zod.string(),
+  steps: zod.array(zod.string()),
+  files: zod.array(zod.string()),
+  risks: zod.array(zod.string()),
+  verification: zod.array(zod.string()),
+  revision: zod.number().int().positive(),
+  updatedAt: zod.string(),
+  /** Set when the user approved this revision; a new submission clears it. */
+  approvedAt: zod.string().nullable().optional(),
+});
+
+export const sessionsGetPlanRoute = defineRouteContract({
+  name: "sessions.getPlan",
+  input: zod.object({
+    sessionId: EntityIdSchema,
+  }),
+  output: zod.object({
+    plan: sessionPlanSchema.nullable(),
+  }),
+});
+
+export const sessionsApprovePlanRoute = defineRouteContract({
+  name: "sessions.approvePlan",
+  input: zod.object({
+    sessionId: EntityIdSchema,
+    mode: zod.enum(["manual", "auto", "bypass"]).default("auto"),
+  }),
+  output: zod.object({
+    accepted: zod.literal(true),
+  }),
+});
+
+const sessionUndoResultSchema = zod.object({
+  userMessageId: zod.string(),
+  inputText: zod.string(),
+  restored: zod.array(zod.string()),
+  deleted: zod.array(zod.string()),
+  skipped: zod.array(zod.string()),
+  note: zod.string().nullable(),
+});
+
+export const sessionsUndoRoute = defineRouteContract({
+  name: "sessions.undo",
+  input: zod.object({
+    sessionId: EntityIdSchema,
+    userMessageId: zod.string().min(1).optional(),
+  }),
+  output: sessionUndoResultSchema,
+});
+
+export const sessionsRedoRoute = defineRouteContract({
+  name: "sessions.redo",
+  input: zod.object({
+    sessionId: EntityIdSchema,
+    userMessageId: zod.string().min(1),
+  }),
+  output: sessionUndoResultSchema,
+});
+
+export const sessionsUndoStateRoute = defineRouteContract({
+  name: "sessions.undoState",
+  input: zod.object({
+    sessionId: EntityIdSchema,
+  }),
+  output: zod.object({
+    available: zod.boolean(),
+    canRedo: zod.boolean(),
+    userMessageId: zod.string().nullable(),
+    note: zod.string().nullable(),
   }),
 });
 

@@ -13,6 +13,8 @@ import ModelIcon from "#/components/icons/ModelIcon";
 import { useModelStore } from "#/stores/modelStore";
 import { createConfigClient } from "#api/ConfigClient";
 import { createScheduledTasksClient } from "#api/ScheduledTasksClient";
+import AgentCombobox from "#/components/AgentCombobox";
+import SessionPickerDialog from "#/components/SessionPickerDialog";
 import SettingsPageShell from "./control-center/SettingsPageShell";
 import type {
   ScheduledTask,
@@ -20,7 +22,7 @@ import type {
   ScheduledTaskTrigger,
   ScheduledTasksSettings,
 } from "@argos/shared/scheduledTasks";
-import type { Agent } from "@argos/shared/types/agent-interface";
+import type { Agent, SessionWithState } from "@argos/shared/types/agent-interface";
 import type { RENDERER_MODEL_META } from "@argos/shared/presenter";
 // Process-wide singleton; module scope keeps effect dependencies stable.
 const client = createScheduledTasksClient();
@@ -62,6 +64,8 @@ const getTriggerSummary = (trigger: ScheduledTaskTrigger): string => {
       return `Daily at ${padTwo(trigger.hour)}:${padTwo(trigger.minute)}`;
     case "weekly":
       return `Weekly on ${DAY_OF_WEEK_OPTIONS[trigger.dayOfWeek]} at ${padTwo(trigger.hour)}:${padTwo(trigger.minute)}`;
+    case "cron":
+      return `Cron ${trigger.expression} (${trigger.timezone})`;
   }
 };
 const newTaskPayload = () => ({
@@ -141,6 +145,14 @@ function TaskTriggerSection({
                     minute: 0,
                   };
                   break;
+                case "cron":
+                  trigger = {
+                    kind: "cron",
+                    expression: "0 9 * * *",
+                    timezone: "local",
+                    misfire: "run-once",
+                  };
+                  break;
               }
               const next = updateTaskField(settings, index, (t) => ({ ...t, trigger }));
               setSettings(next);
@@ -154,9 +166,73 @@ function TaskTriggerSection({
               <SelectItem value="once">Once</SelectItem>
               <SelectItem value="daily">Daily</SelectItem>
               <SelectItem value="weekly">Weekly</SelectItem>
+              <SelectItem value="cron">Cron</SelectItem>
             </SelectContent>
           </Select>
         </div>
+        {task.trigger.kind === "cron" && (
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Cron expression</Label>
+              <Input
+                className="h-8! font-mono"
+                value={task.trigger.expression}
+                placeholder="0 9 * * 1-5"
+                onChange={(e) => {
+                  const next = updateTaskField(settings, index, (t) =>
+                    t.trigger.kind === "cron"
+                      ? { ...t, trigger: { ...t.trigger, expression: e.target.value } }
+                      : t,
+                  );
+                  setSettings(next);
+                }}
+                onBlur={() => void commitTask(index)}
+              />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Timezone</Label>
+                <Input
+                  className="h-8!"
+                  value={task.trigger.timezone}
+                  placeholder="local or America/New_York"
+                  onChange={(e) => {
+                    const next = updateTaskField(settings, index, (t) =>
+                      t.trigger.kind === "cron"
+                        ? { ...t, trigger: { ...t.trigger, timezone: e.target.value } }
+                        : t,
+                    );
+                    setSettings(next);
+                  }}
+                  onBlur={() => void commitTask(index)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">If missed</Label>
+                <Select
+                  value={task.trigger.misfire}
+                  onValueChange={(value) => {
+                    const next = updateTaskField(settings, index, (t) =>
+                      t.trigger.kind === "cron"
+                        ? { ...t, trigger: { ...t.trigger, misfire: value as "skip" | "run-once" } }
+                        : t,
+                    );
+                    setSettings(next);
+                    void commitTask(index, next.tasks[index]);
+                  }}
+                >
+                  <SelectTrigger className="h-8! w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="run-once">Run once on startup</SelectItem>
+                    <SelectItem value="skip">Skip</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+        )}
         {task.trigger.kind === "once" && (
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Fires At</Label>
@@ -285,6 +361,10 @@ function PromptActionFields({
   setSettings,
   commitTask,
 }: PromptActionFieldsProps) {
+  const promptAction = task.action as PromptAction;
+  const targetSessionId = promptAction.target?.kind === "session" ? promptAction.target.sessionId : "";
+  const [sessionDialogOpen, setSessionDialogOpen] = useState(false);
+  const [selectedSession, setSelectedSession] = useState<SessionWithState | null>(null);
   return (
     <>
       <div className="space-y-1.5">
@@ -309,10 +389,68 @@ function PromptActionFields({
           onBlur={() => void commitTask(index)}
         />
       </div>
+      <div className="space-y-1.5">
+        <Label className="text-xs text-muted-foreground">Run in existing session (optional)</Label>
+        <Button
+          type="button"
+          variant="outline"
+          className="h-9 w-full justify-between px-3 text-left font-normal"
+          onClick={() => setSessionDialogOpen(true)}
+        >
+          <span className="flex min-w-0 items-center gap-2">
+            <Icon icon="lucide:message-square" className="size-4 shrink-0 text-muted-foreground" />
+            <span className="min-w-0 truncate">
+              {selectedSession?.title || targetSessionId || "Create a new session"}
+            </span>
+          </span>
+          <Icon icon="lucide:search" className="size-4 shrink-0 opacity-50" />
+        </Button>
+        {targetSessionId && (
+          <button
+            type="button"
+            className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+            onClick={() => {
+              const next = updateTaskField(settings, index, (t) => ({
+                ...t,
+                action: { ...t.action, target: { kind: "new-session" as const } },
+              }));
+              setSettings(next);
+              setSelectedSession(null);
+              void commitTask(index, next.tasks[index]);
+            }}
+          >
+            Clear session
+          </button>
+        )}
+        <SessionPickerDialog
+          open={sessionDialogOpen}
+          onOpenChange={setSessionDialogOpen}
+          value={targetSessionId}
+          onSelect={(session) => {
+            const next = updateTaskField(settings, index, (t) => ({
+              ...t,
+              action: { ...t.action, target: { kind: "session" as const, sessionId: session.id } },
+            }));
+            setSettings(next);
+            setSelectedSession(session);
+            void commitTask(index, next.tasks[index]);
+          }}
+          onClear={() => {
+            const next = updateTaskField(settings, index, (t) => ({
+              ...t,
+              action: { ...t.action, target: { kind: "new-session" as const } },
+            }));
+            setSettings(next);
+            setSelectedSession(null);
+            void commitTask(index, next.tasks[index]);
+          }}
+        />
+      </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="min-w-0 space-y-1.5">
           <Label className="text-xs text-muted-foreground">Agent</Label>
-          <Select
+          <AgentCombobox
+            agents={enabledAgents}
             value={(task.action as PromptAction).agentId ?? "argos"}
             onValueChange={(value) => {
               const agent = enabledAgents.find((a) => a.id === value);
@@ -338,20 +476,7 @@ function PromptActionFields({
               setSettings(next);
               void commitTask(index, next.tasks[index]);
             }}
-          >
-            <SelectTrigger className="h-8! w-full min-w-0">
-              <SelectValue className="min-w-0 truncate" placeholder="Select agent" />
-            </SelectTrigger>
-            <SelectContent>
-              {enabledAgents.map((agent) => (
-                <SelectItem key={agent.id} value={agent.id}>
-                  <span className="block max-w-[18rem] truncate">
-                    {agent.name} ({agent.id})
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          />
         </div>
         <div className="min-w-0 space-y-1.5">
           <Label className="text-xs text-muted-foreground">Model</Label>

@@ -3,7 +3,7 @@ import { DaemonScheduledTasks } from "../src/host/daemonScheduledTasks";
 
 describe("DaemonScheduledTasks", () => {
   const createHarness = (tasks: Array<Record<string, unknown>> = []) => {
-    let settings = { version: 1 as const, tasks };
+    let settings = { version: 2 as const, tasks };
     const eventPublisher = { publish: vi.fn() };
     const sessionRepository = {
       create: vi.fn(async () => ({ id: "session-1" })),
@@ -61,13 +61,43 @@ describe("DaemonScheduledTasks", () => {
       },
       -1,
     );
-    expect(harness.providerExecutionPort.sendMessage).toHaveBeenCalledWith("session-1", "Draft the plan");
+    expect(harness.providerExecutionPort.sendMessage).toHaveBeenCalledWith(
+      "session-1",
+      expect.objectContaining({ text: "Draft the plan" }),
+    );
     expect(harness.eventPublisher.publish).toHaveBeenCalledWith("scheduledTasks.notification", {
       id: "scheduled:task-1",
       title: "Daily",
       body: "Draft the plan",
     });
     expect(result.task.lastFiredAt).toEqual(expect.any(Number));
+  });
+
+  it("sends a prompt into an existing session when targeted", async () => {
+    const task = {
+      id: "task-existing",
+      name: "Existing",
+      enabled: true,
+      trigger: { kind: "daily", hour: 9, minute: 0 },
+      action: {
+        kind: "prompt",
+        title: "Existing",
+        message: "Continue the task",
+        autoSend: true,
+        target: { kind: "session", sessionId: "session-existing" },
+      },
+      createdAt: 1,
+      lastFiredAt: null,
+    } as const;
+    const harness = createHarness([task as never]);
+
+    await harness.runtime.fireNow("task-existing");
+
+    expect(harness.sessionRepository.create).not.toHaveBeenCalled();
+    expect(harness.providerExecutionPort.sendMessage).toHaveBeenCalledWith(
+      "session-existing",
+      expect.objectContaining({ text: "Continue the task" }),
+    );
   });
 
   it("publishes daemon notifications for notification tasks", async () => {
