@@ -134,7 +134,7 @@ const deviceClient = createDeviceClient();
 /**
  * The left sidebar. Two modes:
  *  - **Thread sidebar (experiment on)**: a t3code-style column with a
- *    clearable search + New-thread header and Pinned / Active / Snoozed /
+ *    clearable search + New-thread header and Pinned / Working / Active / Snoozed /
  *    Settled lifecycle sections (docs/features/thread-sidebar-polish).
  *  - **Original (experiment off)**: the agent / project / date history
  *    grouping with a search and grouped rows.
@@ -376,7 +376,7 @@ export default function WindowSideBar() {
       >
         <div
           data-testid="window-sidebar-session-column"
-          className={`window-sidebar-session-column window-no-drag-region flex flex-1 flex-col min-w-0 transition-[opacity,transform] duration-[var(--dc-motion-default)] ease-[var(--dc-ease-out-express)]${collapsed ? " pointer-events-none translate-x-1.5 opacity-0" : " translate-x-0 opacity-100"}`}
+          className={`window-sidebar-session-column window-no-drag-region flex min-h-0 flex-1 flex-col min-w-0 transition-[opacity,transform] duration-[var(--dc-motion-default)] ease-[var(--dc-ease-out-express)]${collapsed ? " pointer-events-none translate-x-1.5 opacity-0" : " translate-x-0 opacity-100"}`}
           aria-hidden={collapsed ? true : undefined}
           inert={collapsed ? true : undefined}
         >
@@ -410,7 +410,7 @@ export default function WindowSideBar() {
 
               <div
                 ref={sessionListRef}
-                className="session-list flex-1 overflow-y-auto px-1.5"
+                className="session-list min-h-0 flex-1 overflow-y-auto px-1.5"
                 onScroll={handleSessionListScroll}
               >
                 {pinnedSessions.length > 0 && (
