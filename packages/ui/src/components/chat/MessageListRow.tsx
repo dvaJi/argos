@@ -13,6 +13,9 @@ interface MessageListRowProps {
   showTrace?: boolean;
   isCapturing?: boolean;
   isReadOnly?: boolean;
+  /** Whether this (user) message is the latest turn that can be undone. */
+  canUndo?: boolean;
+  onUndo?: (messageId: string) => void;
   onRetry: (messageId: string) => void;
   onDelete: (messageId: string) => void;
   onFork: (messageId: string) => void;
@@ -36,6 +39,8 @@ const MessageListRowBase: FC<MessageListRowProps> = ({
   showTrace = false,
   isCapturing = false,
   isReadOnly = false,
+  canUndo = false,
+  onUndo,
   onRetry,
   onDelete,
   onFork,
@@ -128,6 +133,7 @@ const MessageListRowBase: FC<MessageListRowProps> = ({
           onRetry={onRetry}
           onDelete={onDelete}
           onEditSave={onEditSave}
+          onUndo={canUndo ? onUndo : undefined}
         />
       ) : item.role === "assistant" ? (
         <MessageItemAssistant

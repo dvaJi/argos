@@ -270,11 +270,11 @@ function createTestDispatcher(
   };
 
   const scheduledTasks = {
-    list: vi.fn(() => ({ version: 1 as const, tasks: [] as unknown[] })),
-    upsert: vi.fn(() => ({ task: {}, settings: { version: 1 as const, tasks: [] as unknown[] } })),
-    delete: vi.fn(() => ({ settings: { version: 1 as const, tasks: [] as unknown[] } })),
-    toggle: vi.fn(() => ({ task: {}, settings: { version: 1 as const, tasks: [] as unknown[] } })),
-    fireNow: vi.fn(async () => ({ task: {}, settings: { version: 1 as const, tasks: [] as unknown[] } })),
+    list: vi.fn(() => ({ version: 2 as const, tasks: [] as unknown[] })),
+    upsert: vi.fn(() => ({ task: {}, settings: { version: 2 as const, tasks: [] as unknown[] } })),
+    delete: vi.fn(() => ({ settings: { version: 2 as const, tasks: [] as unknown[] } })),
+    toggle: vi.fn(() => ({ task: {}, settings: { version: 2 as const, tasks: [] as unknown[] } })),
+    fireNow: vi.fn(async () => ({ task: {}, settings: { version: 2 as const, tasks: [] as unknown[] } })),
   };
 
   const syncRuntime = {

@@ -66,6 +66,7 @@ import {
 } from "./events/sessions.events";
 import { skillsCatalogChangedEvent, skillsSessionChangedEvent } from "./events/skills.events";
 import { terminalExitEvent, terminalOutputEvent } from "./events/terminal.events";
+import { triggersUpdatedEvent } from "./events/triggers.events";
 import {
   syncBackupCompletedEvent,
   syncBackupErrorEvent,
@@ -106,6 +107,7 @@ export * from "./events/sessions.events";
 export * from "./events/skills.events";
 export * from "./events/sync.events";
 export * from "./events/terminal.events";
+export * from "./events/triggers.events";
 export * from "./events/upgrade.events";
 export * from "./events/window.events";
 export * from "./events/workspace.events";
@@ -128,6 +130,7 @@ export const ARGOS_EVENT_CATALOG = {
   [sessionsStatusChangedEvent.name]: sessionsStatusChangedEvent,
   [sessionsPendingInputsChangedEvent.name]: sessionsPendingInputsChangedEvent,
   [sessionsAcpCommandsReadyEvent.name]: sessionsAcpCommandsReadyEvent,
+  [triggersUpdatedEvent.name]: triggersUpdatedEvent,
   [sessionsAcpConfigOptionsReadyEvent.name]: sessionsAcpConfigOptionsReadyEvent,
   [configLanguageChangedEvent.name]: configLanguageChangedEvent,
   [configEntriesChangedEvent.name]: configEntriesChangedEvent,

@@ -98,7 +98,7 @@ const AgentProgressFloat: FC<AgentProgressFloatProps> = ({
 
       {!collapsed && (
         <div
-          className="agent-progress-panel relative border-t border-border/60 px-3 pb-3 pt-2.5"
+          className="agent-progress-panel relative max-h-[min(40vh,20rem)] overflow-y-auto border-t border-border/60 px-3 pb-3 pt-2.5"
           data-testid="agent-progress-float-body"
         >
           <div className="space-y-2">

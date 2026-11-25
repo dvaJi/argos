@@ -289,9 +289,17 @@ export interface MessageFile {
   };
 }
 
+export interface SendMessageProvenance {
+  trust: "owner" | "untrusted";
+  runKind: "user" | "event" | "delegation" | "schedule";
+  eventId?: string;
+  traceId?: string;
+}
+
 export interface SendMessageInput {
   text: string;
   files?: MessageFile[];
+  provenance?: SendMessageProvenance;
 }
 
 export type PendingSessionInputMode = "queue" | "steer";
@@ -451,6 +459,7 @@ export interface ChatMessagePageResult {
 export interface MessageStartResult {
   requestId: string | null;
   messageId: string | null;
+  userMessageId?: string | null;
 }
 
 export interface UsageStatsBackfillStatus {
@@ -786,6 +795,10 @@ export interface CreateSessionInput {
   disabledAgentTools?: string[];
   subagentEnabled?: boolean;
   generationSettings?: Partial<SessionGenerationSettings>;
+  planMode?: boolean;
+  restricted?: boolean;
+  /** Manual mode: ask before every change (default Auto). */
+  manualApproval?: boolean;
 }
 
 export interface CreateDetachedSessionInput {

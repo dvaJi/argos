@@ -283,6 +283,10 @@ export class BunSessionRepository implements SessionRepository {
         metadata TEXT DEFAULT '{}'
       )
     `);
+    this.ensureColumn("daemon_sessions", "plan_mode", "INTEGER NOT NULL DEFAULT 0");
+    this.ensureColumn("daemon_sessions", "manual_approval", "INTEGER NOT NULL DEFAULT 0");
+    this.ensureColumn("daemon_sessions", "restricted", "INTEGER NOT NULL DEFAULT 0");
+    this.ensureColumn("daemon_sessions", "plan_json", "TEXT");
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS daemon_messages (
         id TEXT PRIMARY KEY,
@@ -550,7 +554,7 @@ export class BunSessionRepository implements SessionRepository {
   }
 
   async create(input: CreateSessionInput, webContentsId: number): Promise<SessionWithState> {
-    return this.insertSession({
+    const session = await this.insertSession({
       agentId: input.agentId || "argos",
       title: input.message?.slice(0, 80) || "New Chat",
       projectDir: input.projectDir || null,
@@ -569,6 +573,10 @@ export class BunSessionRepository implements SessionRepository {
       generationSettings: input.generationSettings ?? null,
       disabledAgentTools: input.disabledAgentTools ?? [],
     });
+    if (input.planMode) await this.setPlanMode(session.id, true);
+    if (input.manualApproval) await this.setManualApproval(session.id, true);
+    if (input.restricted) await this.setRestricted(session.id, true);
+    return session;
   }
 
   async createDraftAcpSession(input: {
@@ -1446,6 +1454,74 @@ export class BunSessionRepository implements SessionRepository {
     this.emitSessionUpdated([sessionId], "updated");
   }
 
+  private ensureColumn(table: string, column: string, definition: string): void {
+    const columns = this.db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+    if (!columns.some((item) => item.name === column)) {
+      this.db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+    }
+  }
+
+  async getPlanMode(sessionId: string): Promise<boolean> {
+    const row = this.db.prepare("SELECT plan_mode FROM daemon_sessions WHERE id = ?").get(sessionId) as
+      | { plan_mode?: number }
+      | undefined;
+    return row?.plan_mode === 1;
+  }
+
+  async setPlanMode(sessionId: string, enabled: boolean): Promise<void> {
+    this.ensureSessionExists(sessionId);
+    this.db
+      .prepare("UPDATE daemon_sessions SET plan_mode = ?, updated_at = ? WHERE id = ?")
+      .run(enabled ? 1 : 0, Date.now(), sessionId);
+    this.emitSessionUpdated([sessionId], "updated");
+  }
+
+  /** Manual mode: ask before every change. Off means Auto (asks only for critical actions). */
+  async getManualApproval(sessionId: string): Promise<boolean> {
+    const row = this.db.prepare("SELECT manual_approval FROM daemon_sessions WHERE id = ?").get(sessionId) as
+      | { manual_approval?: number }
+      | undefined;
+    return row?.manual_approval === 1;
+  }
+
+  async setManualApproval(sessionId: string, enabled: boolean): Promise<void> {
+    this.ensureSessionExists(sessionId);
+    this.db
+      .prepare("UPDATE daemon_sessions SET manual_approval = ?, updated_at = ? WHERE id = ?")
+      .run(enabled ? 1 : 0, Date.now(), sessionId);
+    this.emitSessionUpdated([sessionId], "updated");
+  }
+
+  async getRestricted(sessionId: string): Promise<boolean> {
+    const row = this.db.prepare("SELECT restricted FROM daemon_sessions WHERE id = ?").get(sessionId) as
+      | { restricted?: number }
+      | undefined;
+    return row?.restricted === 1;
+  }
+
+  async setRestricted(sessionId: string, enabled: boolean): Promise<void> {
+    this.ensureSessionExists(sessionId);
+    this.db
+      .prepare("UPDATE daemon_sessions SET restricted = ?, updated_at = ? WHERE id = ?")
+      .run(enabled ? 1 : 0, Date.now(), sessionId);
+    this.emitSessionUpdated([sessionId], "updated");
+  }
+
+  async getPlanJson(sessionId: string): Promise<string | null> {
+    const row = this.db.prepare("SELECT plan_json FROM daemon_sessions WHERE id = ?").get(sessionId) as
+      | { plan_json?: string | null }
+      | undefined;
+    return row?.plan_json ?? null;
+  }
+
+  async setPlanJson(sessionId: string, planJson: string | null): Promise<void> {
+    this.ensureSessionExists(sessionId);
+    this.db
+      .prepare("UPDATE daemon_sessions SET plan_json = ?, updated_at = ? WHERE id = ?")
+      .run(planJson, Date.now(), sessionId);
+    this.emitSessionUpdated([sessionId], "updated");
+  }
+
   async getPermissionMode(sessionId: string): Promise<"default" | "full_access"> {
     const row = this.db.prepare("SELECT permission_mode FROM daemon_sessions WHERE id = ?").get(sessionId) as
       | { permission_mode?: string }
@@ -1577,6 +1653,44 @@ export class BunSessionRepository implements SessionRepository {
   async deleteMessage(sessionId: string, messageId: string): Promise<void> {
     const target = await this.requireMessage(sessionId, messageId);
     this.deleteMessagesFromOrderSeq(sessionId, target.orderSeq);
+    this.emitSessionUpdated([sessionId], "updated");
+  }
+
+  async truncateMessagesFrom(sessionId: string, messageId: string): Promise<ChatMessageRecord[]> {
+    const messages = await this.listMessages(sessionId);
+    const target = messages.find((message) => message.id === messageId);
+    if (!target) throw new Error(`Message not found: ${messageId}`);
+    const removed = messages.filter((message) => message.orderSeq >= target.orderSeq);
+    for (const message of removed) {
+      this.db.prepare("DELETE FROM daemon_messages WHERE id = ?").run(message.id);
+    }
+    this.emitSessionUpdated([sessionId], "updated");
+    return removed;
+  }
+
+  async restoreMessages(sessionId: string, messages: ChatMessageRecord[]): Promise<void> {
+    this.ensureSessionExists(sessionId);
+    messages.forEach((message, index) => {
+      const createdAt = message.createdAt + index;
+      this.db
+        .prepare(
+          `INSERT OR IGNORE INTO daemon_messages
+           (id, session_id, role, content, created_at, updated_at, metadata, status, is_context_edge, trace_count)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .run(
+          message.id,
+          sessionId,
+          message.role,
+          message.content,
+          createdAt,
+          message.updatedAt + index,
+          message.metadata,
+          message.status === "error" ? "error" : "sent",
+          message.isContextEdge ?? 0,
+          message.traceCount ?? 0,
+        );
+    });
     this.emitSessionUpdated([sessionId], "updated");
   }
 

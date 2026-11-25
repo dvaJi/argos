@@ -53,8 +53,17 @@ interface MessageItemUserProps {
   onRetry?: (messageId: string) => void;
   onDelete?: (messageId: string) => void;
   onEditSave?: (payload: { messageId: string; text: string }) => void;
+  /** Set only on the latest turn that can be undone. */
+  onUndo?: (messageId: string) => void;
 }
-const MessageItemUser: FC<MessageItemUserProps> = ({ message, isReadOnly = false, onRetry, onDelete, onEditSave }) => {
+const MessageItemUser: FC<MessageItemUserProps> = ({
+  message,
+  isReadOnly = false,
+  onRetry,
+  onDelete,
+  onEditSave,
+  onUndo,
+}) => {
   const deviceClient = createDeviceClient();
   const windowClient = createWindowClient();
   const [isEditMode, setIsEditMode] = useState(false);
@@ -262,6 +271,7 @@ const MessageItemUser: FC<MessageItemUserProps> = ({ message, isReadOnly = false
           onEdit={startEdit}
           onSave={saveEdit}
           onCancel={cancelEdit}
+          onUndo={onUndo && !isReadOnly ? () => onUndo(message.id) : undefined}
         />
       </div>
 

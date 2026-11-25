@@ -9,6 +9,7 @@ import { Checkbox } from "#shadcn/components/ui/checkbox";
 import { openRuntimeExternal } from "#api/runtime";
 import type { ToolInteractionResponse } from "@argos/shared/types/agent-interface";
 import type { DisplayAssistantMessageBlock } from "#/components/chat/messageListItems";
+import { describePermissionArgs } from "#/components/chat/permissionArgsView";
 type PendingInteractionView = {
   messageId: string;
   toolCallId: string;
@@ -312,15 +313,9 @@ const ChatToolInteractionOverlay: FC<ChatToolInteractionOverlayProps> = ({
     const raw = interaction.block.extra?.skillDraftPreview;
     return typeof raw === "string" ? raw : "";
   })();
-  const formattedToolArgs = (() => {
-    const raw = interaction.toolArgs || "";
-    if (!raw.trim()) return "";
-    try {
-      return JSON.stringify(JSON.parse(raw) as unknown, null, 2);
-    } catch {
-      return raw;
-    }
-  })();
+  const permissionArgs = isPermission
+    ? describePermissionArgs(interaction.toolName || "", interaction.toolArgs || "")
+    : null;
   type QuestionOptionView = {
     label: string;
     rawLabel: string;
@@ -407,14 +402,29 @@ const ChatToolInteractionOverlay: FC<ChatToolInteractionOverlayProps> = ({
 
       {isPermission && (
         <div className="mt-3 space-y-2">
-          <div className="rounded-md border bg-muted/50 px-3 py-2">
-            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Tool</div>
-            <div className="text-xs font-medium break-all">{interaction.toolName || "-"}</div>
+          <div className="flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-2 text-xs">
+            <code className="shrink-0 font-medium">{interaction.toolName || "-"}</code>
+            {permissionArgs?.summary && (
+              <span className="min-w-0 truncate text-muted-foreground" title={permissionArgs.summary}>
+                {permissionArgs.summary}
+              </span>
+            )}
           </div>
-          {formattedToolArgs && (
-            <div className="rounded-md border bg-background/50 px-3 py-2">
-              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Arguments</div>
-              <pre className="mt-1 text-xs leading-5 whitespace-pre-wrap break-words">{formattedToolArgs}</pre>
+          {/* Capped and scrollable: a large write must never push Deny/Allow off screen. */}
+          {permissionArgs && permissionArgs.sections.length > 0 && (
+            <div className="max-h-[min(45vh,24rem)] space-y-2 overflow-y-auto" data-testid="permission-args">
+              {permissionArgs.sections.map((section, index) => (
+                <div key={`${index}-${section.label}`} className="rounded-md border bg-background/50 px-3 py-2">
+                  <div className="text-[11px] text-muted-foreground">{section.label}</div>
+                  {section.code !== undefined ? (
+                    <pre className="mt-1 overflow-x-auto font-mono text-xs leading-5 whitespace-pre">
+                      {section.code}
+                    </pre>
+                  ) : (
+                    <div className="mt-1 text-xs">{section.text}</div>
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </div>

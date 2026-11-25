@@ -198,6 +198,12 @@ import {
   scheduledTasksUpsertRoute,
 } from "./routes/scheduledTasks.routes";
 import {
+  triggersListRoute,
+  triggersRemoveRoute,
+  triggersToggleRoute,
+  triggersUpsertRoute,
+} from "./routes/triggers.routes";
+import {
   providersAddRoute,
   providersGetAcpAgentDiagnosticsRoute,
   providersStartAcpAuthRoute,
@@ -306,6 +312,13 @@ import {
   sessionsGetLightweightByIdsRoute,
   sessionsGetGenerationSettingsRoute,
   sessionsGetPermissionModeRoute,
+  sessionsGetAgentModeRoute,
+  sessionsGetPlanRoute,
+  sessionsApprovePlanRoute,
+  sessionsUndoRoute,
+  sessionsRedoRoute,
+  sessionsUndoStateRoute,
+  sessionsSetAgentModeRoute,
   sessionsGetSearchResultsRoute,
   sessionsListLightweightRoute,
   sessionsListMessagesPageRoute,
@@ -510,6 +523,7 @@ export * from "./routes/providers.routes";
 export * from "./routes/remote.routes";
 export * from "./routes/project.routes";
 export * from "./routes/scheduledTasks.routes";
+export * from "./routes/triggers.routes";
 export * from "./routes/settings.routes";
 export * from "./routes/startup.routes";
 export * from "./routes/sessions.routes";
@@ -557,6 +571,10 @@ export const ARGOS_ROUTE_CATALOG = {
   [scheduledTasksUpsertRoute.name]: scheduledTasksUpsertRoute,
   [scheduledTasksDeleteRoute.name]: scheduledTasksDeleteRoute,
   [scheduledTasksToggleRoute.name]: scheduledTasksToggleRoute,
+  [triggersListRoute.name]: triggersListRoute,
+  [triggersUpsertRoute.name]: triggersUpsertRoute,
+  [triggersRemoveRoute.name]: triggersRemoveRoute,
+  [triggersToggleRoute.name]: triggersToggleRoute,
   [scheduledTasksFireNowRoute.name]: scheduledTasksFireNowRoute,
   [pluginsListRoute.name]: pluginsListRoute,
   [pluginsGetRoute.name]: pluginsGetRoute,
@@ -739,6 +757,13 @@ export const ARGOS_ROUTE_CATALOG = {
   [sessionsSetAcpSessionConfigOptionRoute.name]: sessionsSetAcpSessionConfigOptionRoute,
   [sessionsGetPermissionModeRoute.name]: sessionsGetPermissionModeRoute,
   [sessionsSetPermissionModeRoute.name]: sessionsSetPermissionModeRoute,
+  [sessionsGetAgentModeRoute.name]: sessionsGetAgentModeRoute,
+  [sessionsSetAgentModeRoute.name]: sessionsSetAgentModeRoute,
+  [sessionsGetPlanRoute.name]: sessionsGetPlanRoute,
+  [sessionsApprovePlanRoute.name]: sessionsApprovePlanRoute,
+  [sessionsUndoRoute.name]: sessionsUndoRoute,
+  [sessionsRedoRoute.name]: sessionsRedoRoute,
+  [sessionsUndoStateRoute.name]: sessionsUndoStateRoute,
   [sessionsSetSubagentEnabledRoute.name]: sessionsSetSubagentEnabledRoute,
   [sessionsSetModelRoute.name]: sessionsSetModelRoute,
   [sessionsSetProjectDirRoute.name]: sessionsSetProjectDirRoute,

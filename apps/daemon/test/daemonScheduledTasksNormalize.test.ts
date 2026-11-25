@@ -7,7 +7,7 @@ describe("normalizeScheduledTasksConfig", () => {
 
     const result = normalizeScheduledTasksConfig(undefined);
 
-    expect(result).toEqual({ version: 1, tasks: [] });
+    expect(result).toEqual({ version: 2, tasks: [] });
     expect(warnSpy).not.toHaveBeenCalled();
 
     warnSpy.mockRestore();

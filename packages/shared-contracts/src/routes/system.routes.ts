@@ -17,6 +17,7 @@ export const SettingsRouteNameSchema = zod.enum([
   "settings-server",
   "settings-notifications-hooks",
   "settings-scheduled-tasks",
+  "settings-triggers",
   "settings-plugins",
   "settings-skills",
   "settings-prompt",

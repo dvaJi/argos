@@ -88,7 +88,11 @@ const isInvisibleInHistory = (block: DisplayAssistantMessageBlock, messageUpdate
 
 const buildBlockKey = (block: DisplayAssistantMessageBlock, messageId: string, index: number): string => {
   const stableId = block.id ?? block.tool_call?.id;
-  return stableId ? `${messageId}:${stableId}` : `${messageId}:${index}`;
+  if (!stableId) return `${messageId}:${index}`;
+  // A tool_call and its permission/question action can share the same toolCallId.
+  // They are distinct siblings, so the key must include the block kind (and the
+  // action subtype) or React sees duplicate keys.
+  return `${messageId}:${block.type}:${block.action_type ?? "block"}:${stableId}`;
 };
 
 /**

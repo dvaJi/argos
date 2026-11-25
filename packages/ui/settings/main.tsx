@@ -30,6 +30,7 @@ import RemoteSettings from "./components/RemoteSettings";
 import ServerSettings from "./components/ServerSettings";
 import NotificationsHooksSettings from "./components/NotificationsHooksSettings";
 import ScheduledTasksSettings from "./components/ScheduledTasksSettings";
+import TriggersSettings from "./components/TriggersSettings";
 import PluginsSettings from "./components/PluginsSettings";
 import SkillsSettings from "./components/skills/SkillsSettings";
 import PromptSetting from "./components/PromptSetting";
@@ -75,6 +76,7 @@ const componentMap: Record<string, RouteComponent> = {
   "settings-server": ServerSettings,
   "settings-notifications-hooks": NotificationsHooksSettings,
   "settings-scheduled-tasks": ScheduledTasksSettings,
+  "settings-triggers": TriggersSettings,
   "settings-plugins": PluginsSettings,
   "settings-skills": SkillsSettings,
   "settings-prompt": PromptSetting,

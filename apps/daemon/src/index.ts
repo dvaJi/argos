@@ -32,6 +32,12 @@ import { DaemonMemoryRuntime } from "./host/daemonMemoryRuntime";
 import { DaemonRemoteControlRuntime } from "./host/daemonRemoteControlRuntime";
 import { DaemonPluginPresenter } from "./host/daemonPluginPresenter";
 import { DaemonScheduledTasks } from "./host/daemonScheduledTasks";
+import { DaemonTriggerRuntime } from "./host/daemonTriggerRuntime";
+import { DaemonPlanRuntime } from "./host/daemonPlanRuntime";
+import { DaemonManualRuntime } from "./host/daemonManualRuntime";
+import { TurnSnapshotService } from "./host/turnSnapshotService";
+import { PLAN_TOOL_NAME } from "./host/planTool";
+import { MANUAL_TOOL_NAME, manualSearchInputSchema } from "./host/manualTool";
 import { logger } from "./logging";
 import { checkForUpdate, runSelfUpdate } from "./update";
 import { resolveDaemonVersion } from "./version";
@@ -459,6 +465,10 @@ async function initializeDaemon(options: StartDaemonOptions | undefined, early: 
     logger.warn("[daemon] toolchain warmup failed:", error);
   });
 
+  const planRuntime = new DaemonPlanRuntime({ sessionRepository });
+  const manualRuntime = new DaemonManualRuntime();
+  const turnSnapshots = new TurnSnapshotService({ db, dataDir: paths.getDataDir() });
+
   const piProviderExecutionPort = new PiProviderExecutionPort(
     configPresenter,
     sessionRepository,
@@ -482,6 +492,27 @@ async function initializeDaemon(options: StartDaemonOptions | undefined, early: 
           : orchestration;
       },
       callTool: async (request, options) => {
+        if ((request as any).function?.name === MANUAL_TOOL_NAME) {
+          const rawArgs = (request as any).function?.arguments;
+          const input = manualSearchInputSchema.parse(typeof rawArgs === "string" ? JSON.parse(rawArgs) : rawArgs);
+          const text = await manualRuntime.search(input.query, input.limit);
+          return { content: [{ type: "text", text }] } as any;
+        }
+        if ((request as any).function?.name === PLAN_TOOL_NAME) {
+          const sessionId = (request as any).conversationId as string | undefined;
+          if (!sessionId) throw new Error("submit_plan requires a session.");
+          const rawArgs = (request as any).function?.arguments;
+          const input = typeof rawArgs === "string" ? JSON.parse(rawArgs) : rawArgs;
+          const plan = await planRuntime.submit(sessionId, input);
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Plan submitted (revision ${plan.revision}). Wait for the user to approve it.`,
+              },
+            ],
+          } as any;
+        }
         if (orchestrationRuntime.handles((request as any).function?.name)) {
           return orchestrationRuntime.call(request as any);
         }
@@ -501,13 +532,20 @@ async function initializeDaemon(options: StartDaemonOptions | undefined, early: 
       },
     },
     agentWorkspaceDir,
+    turnSnapshots,
   );
-  const acpProviderExecutionPort = new AcpProviderExecutionPort(configPresenter, sessionRepository, eventPublisher, {
-    dataDir: paths.getDataDir(),
-    appVersion: resolveDaemonVersion(),
-    db,
-    toolchains: toolchainService,
-  });
+  const acpProviderExecutionPort = new AcpProviderExecutionPort(
+    configPresenter,
+    sessionRepository,
+    eventPublisher,
+    {
+      dataDir: paths.getDataDir(),
+      appVersion: resolveDaemonVersion(),
+      db,
+      toolchains: toolchainService,
+    },
+    turnSnapshots,
+  );
 
   // Route execution by session provider: ACP-backed sessions go to the ACP port,
   // everything else to the HTTP/LLM port.
@@ -940,6 +978,13 @@ async function initializeDaemon(options: StartDaemonOptions | undefined, early: 
     providerExecutionPort,
   });
   scheduledTasks.start();
+  const triggerRuntime = new DaemonTriggerRuntime({
+    db,
+    eventPublisher,
+    sessionRepository,
+    providerExecutionPort,
+  });
+  triggerRuntime.start();
   const remoteControlRuntime = new DaemonRemoteControlRuntime({
     configPresenter,
     sessionRepository,
@@ -995,6 +1040,8 @@ async function initializeDaemon(options: StartDaemonOptions | undefined, early: 
       knowledgeRuntime.runtime,
       terminalRuntime,
       toolchainService,
+      triggerRuntime,
+      turnSnapshots,
     );
   setRouteDispatcher(dispatcher);
 
@@ -1032,6 +1079,11 @@ async function initializeDaemon(options: StartDaemonOptions | undefined, early: 
 
       if (url.pathname === "/api/v1/pair" && request.method === "POST") {
         return withCors(await handlePair(request, sessionAuthRepo));
+      }
+
+      if (request.method === "POST" && url.pathname.startsWith("/api/v1/hooks/")) {
+        const triggerId = decodeURIComponent(url.pathname.slice("/api/v1/hooks/".length));
+        return withCors(await triggerRuntime.handleWebhook(triggerId, request));
       }
 
       const authResult = await authorize(request, authConfig);
@@ -1244,6 +1296,11 @@ async function initializeDaemon(options: StartDaemonOptions | undefined, early: 
       logger.warn("[daemon] Failed to stop scheduled tasks cleanly");
     }
     try {
+      triggerRuntime.stop();
+    } catch {
+      logger.warn("[daemon] Failed to stop triggers cleanly");
+    }
+    try {
       await remoteControlRuntime.destroy();
     } catch {
       logger.warn("[daemon] Failed to shut down remote-control runtime cleanly");
@@ -1283,6 +1340,7 @@ async function initializeDaemon(options: StartDaemonOptions | undefined, early: 
     port: serverPort,
     close: async () => {
       scheduledTasks.stop();
+      triggerRuntime.stop();
       memoryRuntime.presenter.stopBackgroundMaintenance();
       await memoryRuntime.presenter.dispose().catch(() => undefined);
       await remoteControlRuntime.destroy();

@@ -34,6 +34,8 @@ interface MessageToolbarProps {
   onFork?: () => void;
   onCopyImageFromTop?: () => void;
   onTrace?: () => void;
+  /** Undo this turn (user messages; only the latest undoable turn passes it). */
+  onUndo?: () => void;
 }
 const LONG_PRESS_DURATION = 800;
 const TOOLBAR_BUTTON_BASE_CLASS =
@@ -130,6 +132,7 @@ export const MessageToolbar: FC<MessageToolbarProps> = ({
   onFork,
   onCopyImageFromTop,
   onTrace,
+  onUndo,
 }) => {
   const uiSettings = useUiSettingsStore();
   const traceDebugEnabled = uiSettings.traceDebugEnabled;
@@ -234,6 +237,14 @@ export const MessageToolbar: FC<MessageToolbarProps> = ({
 
             {isAssistant && !loading && !isInGeneratingThread && !isReadOnly && (
               <ToolbarIconButton icon="lucide:git-branch" tooltip="Fork" onClick={onFork} />
+            )}
+
+            {!isAssistant && !isEditMode && !isReadOnly && onUndo && (
+              <ToolbarIconButton
+                icon="lucide:undo-2"
+                tooltip="Undo this turn (revert its file changes)"
+                onClick={onUndo}
+              />
             )}
 
             {!isAssistant && !isEditMode && !isReadOnly && (

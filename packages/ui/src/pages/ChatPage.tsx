@@ -17,6 +17,8 @@ import SettledBanner from "#/components/threads/SettledBanner";
 import AcpAuthBanner from "#/components/chat/AcpAuthBanner";
 import AcpAuthElicitationCard from "#/components/chat/AcpAuthElicitationCard";
 import AgentProgressFloat from "#/components/chat/AgentProgressFloat";
+import PlanApprovalBar from "#/components/chat/PlanApprovalBar";
+import SessionRestrictedBadge from "#/components/chat/SessionRestrictedBadge";
 import PendingInputLane from "#/components/chat/PendingInputLane";
 import ChatStatusBar from "#/components/chat/ChatStatusBar";
 import ChatToolInteractionOverlay from "#/components/chat/ChatToolInteractionOverlay";
@@ -25,6 +27,8 @@ import McpTaskProgressIndicator from "#/components/chat/McpTaskProgressIndicator
 import AcpSessionStatusChip from "#/components/chat/AcpSessionStatusChip";
 import TraceDialog from "#/components/trace/TraceDialog";
 import { useToast } from "#/components/use-toast";
+import { useSessionAgentMode } from "#/composables/chat/useComposerGenerationControls";
+import { useTurnUndo } from "#/composables/chat/useTurnUndo";
 import { createChatClient } from "../../api/ChatClient";
 import { useUiSettingsStore } from "#/stores/uiSettingsStore";
 import { sessionStore, fetchSessions, selectSession, applyRestoredSession } from "#/stores/ui/session";
@@ -323,7 +327,7 @@ function ChatPage({ sessionId }: ChatPageProps) {
     hasInlineStreamingTarget,
     ephemeralRateLimitMessageId,
     ephemeralRateLimitBlock,
-    latestPlanSnapshot,
+    latestPlanSnapshot: progressPlanSnapshot,
     isPlanFloatCollapsed,
     messageSearchRootStyle,
     traceMessageIds,
@@ -334,7 +338,16 @@ function ChatPage({ sessionId }: ChatPageProps) {
     sessionId,
     planFloatReservedHeight,
   });
-  const pendingInteractions = collectPendingInteractions(sessionId, messageStore);
+  // In plan mode the submitted plan lives in PlanApprovalBar; the todo-progress
+  // float would only repeat it (and cover the card's actions).
+  const { planMode: isPlanMode } = useSessionAgentMode(sessionId);
+  const { undoMessageId, undo: undoTurn } = useTurnUndo({ sessionId, isGenerating, onRestoreInput: setMessage });
+  const latestPlanSnapshot = isPlanMode ? null : progressPlanSnapshot;
+  // streamRevision is a real input: streaming snapshots mutate the message cache
+  // in place without a messageStore setState, so React Compiler would otherwise
+  // reuse the stale result and a live permission prompt would only appear after
+  // a session switch.
+  const pendingInteractions = collectPendingInteractions(sessionId, messageStore, streamState.streamRevision);
   const activePendingInteraction = pendingInteractions[0] ?? null;
   const hasInputText = Boolean(message.trim());
   const hasAttachments = attachedFiles.length > 0;
@@ -490,6 +503,8 @@ function ChatPage({ sessionId }: ChatPageProps) {
           isGenerating={isGenerating}
           traceMessageIds={traceMessageIds}
           isReadOnly={isReadOnlySession}
+          undoMessageId={isReadOnlySession ? null : undoMessageId}
+          onUndo={(messageId) => void undoTurn(messageId)}
           onRetry={onMessageRetry}
           onDelete={onMessageDelete}
           onFork={onMessageFork}
@@ -503,6 +518,12 @@ function ChatPage({ sessionId }: ChatPageProps) {
       <TraceDialog messageId={traceMessageId} sessionId={sessionId} onClose={() => setTraceMessageId(null)} />
 
       {!isReadOnlySession && (
+        <div className="px-6">
+          <PlanApprovalBar sessionId={sessionId} isGenerating={isGenerating} onRevisePlan={setMessage} />
+          <SessionRestrictedBadge sessionId={sessionId} />
+        </div>
+      )}
+      {!isReadOnlySession && (
         <ChatComposerDock
           sessionId={sessionId}
           isGenerating={isGenerating}
@@ -515,6 +536,10 @@ function ChatPage({ sessionId }: ChatPageProps) {
           onToolInteractionRespond={onToolInteractionRespond}
           onDeleteQueue={onPendingInputDelete}
           onSteerQueueItem={onSteerPendingInput}
+          onMoveQueueItem={(itemId, toIndex) => {
+            // The store records the error; don't leave an unhandled rejection.
+            onPendingInputMove({ itemId, toIndex }).catch(() => undefined);
+          }}
           heroHostRef={chatInputHeroHostRef}
           planFloatLayerRef={planFloatLayerRef}
           chatInputRef={chatInputRef}
@@ -573,6 +598,7 @@ function parseSubagentProgress(value: unknown): SubagentProgressPayload | null {
 function collectPendingInteractions(
   sessionId: string,
   messageStore: ReturnType<typeof useMessageStore>,
+  _streamRevision: number,
 ): PendingInteractionView[] {
   const list: PendingInteractionView[] = [];
   for (const message of messageStore.getMessages()) {
@@ -1341,6 +1367,11 @@ function useChatActions(input: {
       });
     } catch (error) {
       console.error("[ChatPage] respond tool interaction failed:", error);
+      toast({
+        title: "Permission Response Failed",
+        description: error instanceof Error ? error.message : String(error),
+        variant: "destructive",
+      });
     }
     setIsHandlingInteraction(false);
   };
@@ -1510,6 +1541,7 @@ function ChatComposerDock(input: {
   onToolInteractionRespond: (response: ToolInteractionResponse) => Promise<void>;
   onDeleteQueue: (itemId: string) => Promise<void>;
   onSteerQueueItem: (itemId: string) => Promise<void>;
+  onMoveQueueItem: (itemId: string, toIndex: number) => void;
   heroHostRef: RefObject<HTMLDivElement | null>;
   planFloatLayerRef: RefObject<HTMLDivElement | null>;
   chatInputRef: RefObject<ThreadComposerHandle | null>;
@@ -1543,6 +1575,7 @@ function ChatComposerDock(input: {
     onToolInteractionRespond,
     onDeleteQueue,
     onSteerQueueItem,
+    onMoveQueueItem,
     heroHostRef,
     planFloatLayerRef,
     chatInputRef,
@@ -1577,6 +1610,7 @@ function ChatComposerDock(input: {
             onDeleteQueue={onDeleteQueue}
             onDeleteSteer={onDeleteQueue}
             onSteerQueueItem={onSteerQueueItem}
+            onMoveQueueItem={onMoveQueueItem}
           />
           <div>
             {(latestPlanSnapshot || activePendingInteraction) && (

@@ -35,6 +35,7 @@ import { sessionsStatusChangedEvent } from "@argos/shared-contracts";
 import { methods as acpMethods, PROTOCOL_VERSION } from "@agentclientprotocol/sdk/unstable";
 import type { AcpConfigState, AcpAgentDiagnostics, AcpDebugRequest, AcpDebugRunResult } from "@argos/shared/presenter";
 import { summarizeFileChangesFromBlocks } from "./acpFileChanges";
+import type { TurnSnapshotService } from "./turnSnapshotService";
 
 const ACP_PROVIDER_ID = "acp";
 
@@ -84,6 +85,7 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
   private pendingElicitations = new Map<string, PendingAcpElicitation>();
   private sessionCursors = new Map<string, AcpCursorEntry[]>();
   private readonly contentMapper = new AcpContentMapper();
+  private readonly turnUserMessageIds = new Map<string, string>();
   /** Invoked after a turn completes successfully (used to drain pending inputs). */
   private turnSettledHandler: ((sessionId: string) => void | Promise<void>) | null = null;
   /** Sessions whose next settle must NOT drain the pending queue (user pressed STOP). */
@@ -109,6 +111,7 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
         };
       };
     },
+    private readonly turnSnapshots?: TurnSnapshotService,
   ) {}
 
   private async getRuntime(): Promise<AcpRuntime> {
@@ -238,7 +241,7 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
 
     const requestId = randomUUID();
 
-    await this.sessionRepository.addMessage(
+    const userMessageId = await this.sessionRepository.addMessage(
       sessionId,
       "user",
       JSON.stringify({
@@ -254,6 +257,7 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
     );
 
     const assistantMessageId = await this.sessionRepository.addMessage(sessionId, "assistant", JSON.stringify([]));
+    this.turnUserMessageIds.set(sessionId, userMessageId);
 
     if (session.isDraft) {
       const title = text.slice(0, 80) || "New Chat";
@@ -274,6 +278,12 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
       donePromise,
       doneResolve,
     });
+
+    if (this.turnSnapshots) {
+      await this.turnSnapshots
+        .beginTurn({ sessionId, userMessageId, workspace: record?.workdir, userText: text })
+        .catch((error) => console.warn(`[undo:${sessionId.slice(0, 8)}] snapshot start failed`, error));
+    }
 
     // Persist + publish "generating" BEFORE launching the turn so a fast turn
     // cannot finish first and have its final "idle" overwritten by this write.
@@ -298,6 +308,7 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
       const current = this.activeTurns.get(sessionId);
       if (current && current.runId === requestId) {
         this.activeTurns.delete(sessionId);
+        this.turnUserMessageIds.delete(sessionId);
       }
       doneResolve();
     });
@@ -668,6 +679,12 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
         if (lastReasoning && typeof lastReasoning.reasoning_time !== "object") {
           lastReasoning.reasoning_time = { start: reasoningStartTime, end: Date.now() };
         }
+      }
+      const turnUserMessageId = this.turnUserMessageIds.get(sessionId);
+      if (this.turnSnapshots && turnUserMessageId) {
+        await this.turnSnapshots
+          .endTurn({ sessionId, userMessageId: turnUserMessageId })
+          .catch((error) => console.warn(`[undo:${sessionId.slice(0, 8)}] snapshot end failed`, error));
       }
       await this.sessionRepository.finalizeAssistantMessage(
         assistantMessageId,

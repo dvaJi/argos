@@ -42,6 +42,16 @@ export interface PiWorkerInit {
   projectTrusted: boolean;
   permissionMode: "default" | "full_access";
   profileFingerprint: string;
+  /** Read-only plan mode: only read/grep/find/ls plus submit_plan. */
+  planMode?: boolean;
+  /** Outside-triggered run: read-only tools, no MCP/orchestration/delegation. */
+  restricted?: boolean;
+  /** Appended after pi's (or the agent's) system prompt: Argos guidance and mode notes. */
+  appendSystemPrompt?: string;
+  /** Manual mode: ask before every call that changes something (else Auto). */
+  manualApproval?: boolean;
+  /** Built-in allowlist; undefined means all built-ins. */
+  allowedTools?: string[];
 }
 
 export type PiWorkerCommand =
@@ -96,6 +106,8 @@ export type PiWorkerEvent =
       toolCallId: string;
       toolName: string;
       input: unknown;
+      /** Why Auto mode asks (a critical action, a write outside the project). */
+      reason?: string;
     }
   | {
       type: "mcpRequest";
