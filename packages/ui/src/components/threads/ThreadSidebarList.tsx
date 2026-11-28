@@ -45,11 +45,12 @@ import SidebarFirstPageSkeleton from "../SidebarFirstPageSkeleton";
  *   │ [🔎 Search           ×] [✎]   │
  *   │   Pinned title           3d   │  ← Pinned (no header, divider below)
  *   │ ───────────────────────────── │
- *   │   Title        ✓ Done    now  │  ← Active = inbox, newest return first
- *   │   Title        ⚠ Approval 2m  │
+ *   │ ▸ Working  2                  │  ← running threads; shelves collapsed by
+ *   │                               │    default, the open thread still shows
+ *   │   Title        ✓ Done    now  │  ← Active (no header) = inbox, newest
+ *   │   Title        ⚠ Approval 2m  │    return first
  *   │   Title                  1d   │  ← seen + idle rows recede
- *   │ ▸ Working  2                  │  ← shelves collapsed by default;
- *   │ ▸ Snoozed  1                  │    the open thread still shows
+ *   │ ▸ Snoozed  1                  │
  *   │ ▾ Settled  14                 │
  *   │   Title                  8d   │
  *   │   Show more (4)               │
@@ -68,11 +69,12 @@ interface ThreadSidebarListProps {
   onVisibleRowsChange?: (rows: UISession[]) => void;
 }
 
-const SHELVES: Array<{ id: ThreadShelf; label: string }> = [
-  { id: "working", label: "Working" },
-  { id: "snoozed", label: "Snoozed" },
-  { id: "settled", label: "Settled" },
-];
+const SECTION_ORDER = ["pinned", "working", "active", "snoozed", "settled"] as const;
+const SHELF_LABELS: Record<ThreadShelf, string> = {
+  working: "Working",
+  snoozed: "Snoozed",
+  settled: "Settled",
+};
 
 export default function ThreadSidebarList({ getShortcutBadge, onVisibleRowsChange }: ThreadSidebarListProps) {
   const navigate = useNavigate();
@@ -162,14 +164,11 @@ export default function ThreadSidebarList({ getShortcutBadge, onVisibleRowsChang
 
   // Flat render order drives keyboard nav, shortcut badges and
   // settle-and-advance — hidden rows can never be targeted invisibly.
-  const flatRows = useMemo(
-    () => [...rendered.pinned, ...rendered.active, ...rendered.working, ...rendered.snoozed, ...rendered.settled],
-    [rendered],
-  );
+  const flatRows = useMemo(() => SECTION_ORDER.flatMap((id) => rendered[id]), [rendered]);
   const navIndexById = useMemo(() => new Map(flatRows.map((session, index) => [session.id, index])), [flatRows]);
   const sectionById = useMemo(() => {
     const map = new Map<string, ThreadSectionId>();
-    for (const id of ["pinned", "active", "working", "snoozed", "settled"] as const) {
+    for (const id of SECTION_ORDER) {
       for (const session of sections[id]) map.set(session.id, id);
     }
     return map;
@@ -420,8 +419,8 @@ export default function ThreadSidebarList({ getShortcutBadge, onVisibleRowsChang
   const firstPageLoading = !sessionStore.hasLoadedInitialPage && sessionStore.loading;
 
   return (
-    <div className="thread-sidebar-list flex flex-1 flex-col overflow-hidden">
-      <div className="px-3 pb-1.5">
+    <div className="thread-sidebar-list flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="shrink-0 px-3 pb-1.5">
         <div className="flex items-center gap-1.5">
           <div className="relative flex-1">
             <Icon
@@ -508,30 +507,35 @@ export default function ThreadSidebarList({ getShortcutBadge, onVisibleRowsChang
           </div>
         ) : (
           <>
-            {rendered.pinned.length > 0 && (
-              <section aria-label="Pinned threads" data-testid="thread-sidebar-pinned">
-                {renderRows(rendered.pinned, "pinned")}
-                <div aria-hidden className="mx-2 mt-2 h-px bg-sidebar-foreground/10" />
-              </section>
-            )}
-
-            <section aria-label="Active threads" data-testid="thread-sidebar-active">
-              {rendered.active.length > 0
-                ? renderRows(rendered.active, "active")
-                : !searching && (
-                    <p className="px-2 py-1.5 text-[11px] text-muted-foreground/60">
-                      All caught up — nothing needs you.
-                    </p>
-                  )}
-            </section>
-
-            {SHELVES.map(({ id, label }) => {
+            {SECTION_ORDER.map((id) => {
+              if (id === "pinned") {
+                if (rendered.pinned.length === 0) return null;
+                return (
+                  <section key={id} aria-label="Pinned threads" data-testid="thread-sidebar-pinned">
+                    {renderRows(rendered.pinned, id)}
+                    <div aria-hidden className="mx-2 mt-2 h-px bg-sidebar-foreground/10" />
+                  </section>
+                );
+              }
+              if (id === "active") {
+                return (
+                  <section key={id} aria-label="Active threads" data-testid="thread-sidebar-active">
+                    {rendered.active.length > 0
+                      ? renderRows(rendered.active, id)
+                      : !searching && (
+                          <p className="px-2 py-1.5 text-[11px] text-muted-foreground/60">
+                            All caught up — nothing needs you.
+                          </p>
+                        )}
+                  </section>
+                );
+              }
               const count = filtered[id].length;
               if (count === 0) return null;
               return (
                 <ThreadSection
                   key={id}
-                  label={label}
+                  label={SHELF_LABELS[id]}
                   count={count}
                   collapsible
                   expanded={searching || lifecycle.shelfExpanded[id]}

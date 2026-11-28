@@ -28,7 +28,7 @@ import {
  * docs/features/thread-sidebar-v3).
  *
  * When enabled, the main left sidebar renders a t3code-style lifecycle view
- * (Pinned / Active / Working / Snoozed / Settled) instead of the agent/project
+ * (Pinned / Working / Active / Snoozed / Settled) instead of the agent/project
  * history grouping. The flag is daemon-persisted (`thread_sidebar_enabled`),
  * off by default, toggled from Settings → Appearance.
  *
