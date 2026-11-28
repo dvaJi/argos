@@ -135,7 +135,7 @@ const deviceClient = createDeviceClient();
  * The left sidebar. Two modes:
  *  - **Thread sidebar (experiment on)**: a t3code-style column with a
  *    clearable search + New-thread header and Pinned / Working / Active / Snoozed /
- *    Settled lifecycle sections (docs/features/thread-sidebar-polish).
+ *    Settled lifecycle sections (docs/features/thread-sidebar-v3).
  *  - **Original (experiment off)**: the agent / project / date history
  *    grouping with a search and grouped rows.
  *

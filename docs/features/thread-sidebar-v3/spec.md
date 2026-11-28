@@ -29,16 +29,22 @@ state stays renderer-local (localStorage), as before.
 | D10 | Settling unpins and unsnoozes | Pinned + settled stayed pinned |
 | D11 | Settled shelf pages 10, then +25 | 10, then +10 |
 
+One deliberate deviation from t3code: Argos renders Working above Active (AC1,
+docs/issues/thread-sidebar-order-and-scroll).
+
 ## Acceptance criteria
 
-- **AC1** Sections render in order Pinned, Active, Working (shelf), Snoozed (shelf), Settled (shelf). Working,
-  Snoozed and Settled headers show a count and only render when non-empty.
+- **AC1** Sections render in order Pinned, Working (shelf), Active, Snoozed (shelf), Settled (shelf). Working,
+  Snoozed and Settled headers show a count and only render when non-empty. Unlike t3code, Working sits above Active
+  (docs/issues/thread-sidebar-order-and-scroll); keyboard navigation, Alt/⌘ badges and settle-and-advance follow this
+  render order.
 - **AC2** Section resolution: effectively snoozed → Snoozed; else effectively settled → Settled; else pinned →
   Pinned; else `status === "working"` → Working; else Active. Blocked / error / unseen-done threads are Active.
 - **AC3** Active sorts by return time desc = max(createdAt, unsettledAt, lastSentAt, returnedAt, wokeAt).
   `returnedAt` is stamped when a session is observed leaving `working` (or, for runs that ended while the app was
   closed, on first observation). Sessions with no observed return are seeded once from `updatedAt`; afterwards
-  `updatedAt` is never read as an activity clock (the daemon bumps it on view/rename/pin).
+  `updatedAt` never feeds the inbox order (the daemon bumps it on view/rename/pin). The auto-settle clock does read
+  it, see AC7.
 - **AC4** Working sorts by last send (`workingSince`, persisted, restart-safe) desc. Pinned sorts by createdAt desc.
   Snoozed sorts by wake time asc. Settled sorts by settledAt desc.
 - **AC5** Shelf expansion states persist (localStorage) and default to collapsed. A collapsed shelf still renders the
@@ -46,11 +52,13 @@ state stays renderer-local (localStorage), as before.
 - **AC6** Settle / snooze of the open thread navigates to the next row in render order (wrapping) that is not
   settled/snoozed; if none, starts a new conversation.
 - **AC7** Auto-settle: a non-pinned, non-snoozed thread whose status is not `working`/`blocked`, with no explicit
-  override, is effectively settled when its last activity (max(createdAt, lastSentAt, returnedAt, wokeAt)) is older
-  than 7 days; its settled time is that activity time. Manual un-settle (row action, banner, pinning a settled
-  thread) stores override `active`, which exempts the thread. Any observed turn start clears the override (t3code
-  clears `settledOverride` on turn start), and sending a message also clears the snooze, so the inactivity clock
-  restarts.
+  override, is effectively settled when its inactivity clock — max(last activity, `updatedAt`) — is older than 7
+  days; its settled time is that clock. `updatedAt` is the fallback for threads that predate lifecycle tracking, so
+  a daemon bump (view/rename/pin) restarts the clock once the renderer sees it, and an auto-settled thread can
+  return to Active (verified in docs/issues/thread-sidebar-order-and-scroll; preserved as-is). Manual un-settle
+  (row action, banner, pinning a settled thread) stores override `active`, which exempts the thread. Any observed
+  turn start clears the override (t3code clears `settledOverride` on turn start), and sending a message also
+  clears the snooze, so the inactivity clock restarts.
 - **AC8** Manual settle stores override `settled` + settledAt, unpins (daemon pin) and clears any snooze.
 - **AC9** Snooze presets as D8 (past "today" presets hidden; minute-level dedupe). Snooze is not offered while the
   thread is `blocked`. A snoozed thread wakes early when it becomes `blocked`, or `error` after it was snoozed

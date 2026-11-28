@@ -45,11 +45,12 @@ import SidebarFirstPageSkeleton from "../SidebarFirstPageSkeleton";
  *   │ [🔎 Search           ×] [✎]   │
  *   │   Pinned title           3d   │  ← Pinned (no header, divider below)
  *   │ ───────────────────────────── │
- *   │ ▸ Working  2                  │  ← running threads
- *   │   Title        ✓ Done    now  │  ← Active = inbox, newest return first
- *   │   Title        ⚠ Approval 2m  │
+ *   │ ▸ Working  2                  │  ← running threads; shelves collapsed by
+ *   │                               │    default, the open thread still shows
+ *   │   Title        ✓ Done    now  │  ← Active (no header) = inbox, newest
+ *   │   Title        ⚠ Approval 2m  │    return first
  *   │   Title                  1d   │  ← seen + idle rows recede
- *   │ ▸ Snoozed  1                  │    the open thread still shows
+ *   │ ▸ Snoozed  1                  │
  *   │ ▾ Settled  14                 │
  *   │   Title                  8d   │
  *   │   Show more (4)               │
